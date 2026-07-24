@@ -1,0 +1,738 @@
+  let allPickupData = [];
+  let pickupNikkeImgData = [];
+  let iconImgData = {};
+  let eventDateMap = {};
+  
+  let activeFilters = {
+    year: new Set(),
+    season: new Set(),
+    company: new Set(),
+    type: new Set(),
+    code: new Set(),
+    burst: new Set(),
+    weapon: new Set()
+  };
+  
+  const FILTER_ORDER = {
+    season: ['일반', '메이드', '바니걸', '여름', '크리스마스', '신년', '__anniv__', '콜라보'],
+    type:   ['화력형', '지원형', '방어형'],
+    code:   ['작열', '철갑', '풍압', '전격', '수냉'],
+    burst:  ['1', '2', '3', 'Λ'],
+    weapon: ['AR', 'SMG', 'RL', 'SR', 'MG', 'SG'],
+  };
+
+  // 8. 아이콘을 표시할 필터 항목 (기업은 데이터에 따라 동적)
+  const ICON_FILTER_KEYS = {
+    'filter-company': '기업',
+    'filter-type':    '유형',
+    'filter-code':    '우월코드',
+    'filter-burst':   '버스트',
+    'filter-weapon':  '총기',
+  };
+
+  function loadPickupData() {
+    onAppDataReady(() => {
+      iconImgData = APP_DATA.iconImg || {};
+      pickupNikkeImgData = APP_DATA.nikkeImg || [];
+
+      // 이벤트명 → 기간 맵 (메인 페이지 시트 기준)
+      eventDateMap = {};
+      (APP_DATA.main.events || []).forEach(e => {
+        if (e['이벤트명']) {
+          eventDateMap[e['이벤트명']] = {
+            start: e['시작일'],
+            end: e['종료일']
+          };
+        }
+      });
+
+      initPickup(APP_DATA.pickup);
+      initPickupToolbar();
+      initYearNav();
+      updateYearNav();
+    });
+  }
+
+  function initPickup(data) {
+    if (!data || data.length === 0) return;
+
+    // 복각 니케에 원본 정보 채우기
+    const firstAppearance = {};
+    data.forEach(p => {
+      if (!p['복각'] && !firstAppearance[p['니케']]) {
+        firstAppearance[p['니케']] = p;
+      }
+    });
+    data.forEach(p => {
+      if (p['복각'] && firstAppearance[p['니케']]) {
+        ['기업','유형','버스트','우월코드','총기'].forEach(attr => {
+          if (!p[attr]) p[attr] = firstAppearance[p['니케']][attr];
+        });
+      }
+    });
+
+    allPickupData = data;
+    buildPickupFilters(data);
+    renderPickupTimeline();
+  }
+
+  function buildPickupFilters(data) {
+    // 연도 버튼
+    const years = [...new Set(data.map(p => new Date(p['시작일']).getFullYear()))].sort((a, b) => b - a);
+    const yearContainer = document.getElementById('filter-year');
+    yearContainer.innerHTML = '';
+    years.forEach(y => {
+      const btn = makeChip(String(y), 'year', String(y), false);
+      yearContainer.appendChild(btn);
+    });
+    const allBtn = makeChip('전체', 'year', '__all__', false);
+    yearContainer.insertBefore(allBtn, yearContainer.firstChild);
+    syncChipActive(yearContainer, activeFilters['year']);
+
+    // 버튼 필터 목록
+    const filterMap = {
+      'filter-season':  { key: '시즌',   id: 'season' },
+      'filter-company': { key: '기업',   id: 'company' },
+      'filter-type':    { key: '유형',   id: 'type' },
+      'filter-code':    { key: '우월코드', id: 'code' },
+      'filter-burst':   { key: '버스트', id: 'burst' },
+      'filter-weapon':  { key: '총기',   id: 'weapon' },
+    };
+
+    Object.entries(filterMap).forEach(([elId, { key, id }]) => {
+      const rawValues = [...new Set(data.map(p => p[key]).filter(Boolean))];
+
+      // 주년 값들을 __anniv__로 치환
+      const normalizedValues = rawValues.map(v => isAnniversary(v) ? '__anniv__' : v);
+      const uniqueValues = [...new Set(normalizedValues)];
+
+      let values;
+      if (FILTER_ORDER[id]) {
+        values = FILTER_ORDER[id].filter(v => uniqueValues.includes(v));
+        uniqueValues.filter(v => !FILTER_ORDER[id].includes(v)).forEach(v => values.push(v));
+      } else {
+        values = uniqueValues;
+      }
+
+      const container = document.getElementById(elId);
+      container.innerHTML = '';
+      const iconKey = ICON_FILTER_KEYS[elId];
+
+      // 전체 버튼 먼저
+      container.appendChild(makeChip('전체', id, '__all__', false));
+
+      values.forEach(v => {
+        const label = v === '__anniv__' ? '주년' : v;
+        const iconUrl = iconKey && iconImgData[iconKey] && iconImgData[iconKey][v]
+          ? iconImgData[iconKey][v] : null;
+        // 버스트는 아이콘 있을 때 문구 생략
+        const displayLabel = (id === 'burst' && iconUrl) ? '' : label;
+        const btn = makeChip(displayLabel, id, v, false, iconUrl);
+        container.appendChild(btn);
+      });
+
+      syncChipActive(container, activeFilters[id]);
+    });
+
+    // 초기화 버튼
+    const resetBtn = document.getElementById('pickup-filter-reset');
+    resetBtn.addEventListener('click', () => {
+      Object.keys(activeFilters).forEach(k => activeFilters[k].clear());
+      document.querySelectorAll('#pickup-filter-wrap .filter-chips').forEach(container => {
+        const firstBtn = container.querySelector('.filter-chip');
+        if (!firstBtn) return;
+        syncChipActive(container, activeFilters[firstBtn.dataset.filter]);
+      });
+      renderPickupTimeline();
+      renderPickupGroupView();
+    });
+  }
+
+  function renderGroupNikkeItem(p) {
+    const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
+    const isLimited = LIMITED_SEASONS.includes(p['시즌']);
+    const isRerun = p['복각'];
+
+    const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
+    const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
+
+    const itemClass = ['group-nikke-item', isLimited ? 'is-limited' : '', isRerun ? 'is-rerun' : ''].filter(Boolean).join(' ');
+
+    const badges = [
+      isLimited ? `<span class="group-badge-limited">한정</span>` : '',
+      isRerun   ? `<span class="group-badge-rerun">복각</span>`   : '',
+    ].filter(Boolean).join('');
+
+    return `
+      <div class="${itemClass}">
+        <div class="group-nikke-portrait">
+          ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
+        </div>
+        <div class="group-nikke-info">
+          <div class="group-nikke-name-wrap">
+            <div class="group-nikke-name">${p['니케']}</div>
+          </div>
+          ${badges ? `<div class="group-nikke-badges">${badges}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function makeChip(label, filterId, value, active = false, iconUrl = null) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-chip' + (active ? ' active' : '');
+    btn.dataset.filter = filterId;
+    btn.dataset.value = value;
+
+    let inner = '';
+    if (iconUrl) inner += `<img src="${iconUrl}" alt="${label}">`;
+    inner += label;
+    btn.innerHTML = inner;
+
+    btn.addEventListener('click', onFilterClick);
+    return btn;
+  }
+
+  function onFilterClick(e) {
+    const btn = e.target.closest('.filter-chip');
+    if (!btn) return;
+    const { filter, value } = btn.dataset;
+    const set = activeFilters[filter];
+
+    if (value === '__all__') {
+      set.clear();
+    } else if (set.has(value)) {
+      set.delete(value);
+    } else {
+      set.add(value);
+    }
+
+    syncChipActive(btn.closest('.filter-chips'), set);
+    if (currentView === 'timeline') {
+      renderPickupTimeline();
+    } else {
+      renderPickupGroupView();
+    }
+  }
+
+  function syncChipActive(container, set) {
+    container.querySelectorAll('.filter-chip').forEach(btn => {
+      const v = btn.dataset.value;
+      if (v === '__all__') {
+        btn.classList.toggle('active', set.size === 0);
+      } else {
+        btn.classList.toggle('active', set.has(v));
+      }
+    });
+  }
+
+  function isAnniversary(v) {
+    return /^\d+(\.\d+)?주년$/.test(String(v).trim());
+  }
+
+  function getFilteredData() {
+    return allPickupData.filter(p => {
+      if (!showRerun && p['복각']) return false;
+      const year = String(new Date(p['시작일']).getFullYear());
+      if (activeFilters.year.size > 0 && !activeFilters.year.has(year)) return false;
+
+      // 시즌: 주년 버튼 처리
+      if (activeFilters.season.size > 0) {
+        const pSeason = p['시즌'];
+        const seasonMatch = [...activeFilters.season].some(v => {
+          if (v === '__anniv__') return isAnniversary(pSeason);
+          return pSeason === v;
+        });
+        if (!seasonMatch) return false;
+      }
+
+      if (activeFilters.company.size > 0 && !activeFilters.company.has(p['기업'])) return false;
+      if (activeFilters.type.size > 0    && !activeFilters.type.has(p['유형']))    return false;
+      if (activeFilters.code.size > 0    && !activeFilters.code.has(p['우월코드'])) return false;
+      if (activeFilters.burst.size > 0   && !activeFilters.burst.has(p['버스트'])) return false;
+      if (activeFilters.weapon.size > 0  && !activeFilters.weapon.has(p['총기']))  return false;
+      return true;
+    });
+  }
+
+  function renderPickupTimeline() {
+    const data = getFilteredData();
+    const timeline = document.getElementById('pickup-timeline');
+
+    if (data.length === 0) {
+      timeline.innerHTML = '<p style="color:#555;font-size:13px;">해당하는 픽업 기록이 없습니다.</p>';
+      return;
+    }
+
+    const byYear = {};
+    data.forEach(p => {
+      const year = new Date(p['시작일']).getFullYear();
+      if (!byYear[year]) byYear[year] = {};
+      const eventKey = p['이벤트'];
+      if (!byYear[year][eventKey]) {
+        byYear[year][eventKey] = {
+          season: p['시즌'],
+          month: new Date(p['시작일']).getMonth() + 1,
+          rangeStart: p['시작일'],
+          rangeEnd: p['종료일'],
+          nikkes: []
+        };
+      } else {
+        if (new Date(p['시작일']) < new Date(byYear[year][eventKey].rangeStart))
+          byYear[year][eventKey].rangeStart = p['시작일'];
+        if (new Date(p['종료일']) > new Date(byYear[year][eventKey].rangeEnd))
+          byYear[year][eventKey].rangeEnd = p['종료일'];
+      }
+      byYear[year][eventKey].nikkes.push(p);
+    });
+
+    const years = Object.keys(byYear).sort((a, b) => b - a);
+
+    timeline.innerHTML = years.map(year => {
+      const byMonth = {};
+      Object.entries(byYear[year]).forEach(([eventName, eventData]) => {
+        const m = eventData.month;
+        if (!byMonth[m]) byMonth[m] = [];
+        byMonth[m].push([eventName, eventData]);
+      });
+
+      return `
+      <div class="timeline-year">
+        <div class="year-divider">
+          <span class="year-label">${year}</span>
+          <div class="year-line"></div>
+        </div>
+        ${Object.keys(byMonth).sort((a, b) => b - a).map(month => `
+          <div class="month-row">
+            <div class="month-col">
+              <div class="month-label">${month}월</div>
+            </div>
+            <div class="events-col">
+              ${byMonth[month]
+                .sort((a, b) => new Date(b[1].rangeStart) - new Date(a[1].rangeStart))
+                .map(([eventName, eventData]) => renderEventLine(eventName, eventData))
+                .join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      `;
+    }).join('');
+    requestAnimationFrame(() => setupYearObserver());
+  }
+
+  function renderEventLine(eventName, eventData) {
+    const nikkes = [...eventData.nikkes]
+      .sort((a, b) => (a['복각'] ? 1 : 0) - (b['복각'] ? 1 : 0));
+
+    return `
+      <div class="event-line">
+        <div class="event-label-col">
+          <div class="event-label-name">${eventName}</div>
+          ${eventData.season ? `<div class="event-label-season">${eventData.season}</div>` : ''}
+        </div>
+        <div class="nikke-grid">
+          ${nikkes.map(p => renderNikkeCard(p)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderNikkeCard(p) {
+    const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
+    const isLimited = LIMITED_SEASONS.includes(p['시즌']);
+    const isRerun = p['복각'];
+
+    const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
+    const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
+
+    const cardClass = ['nikke-card', isLimited ? 'is-limited' : '', isRerun ? 'is-rerun' : ''].filter(Boolean).join(' ');
+
+    const attrOrder = ['기업', '유형', '버스트', '총기', '우월코드'];
+    const attrs = attrOrder.map(attr => {
+      const val = p[attr];
+      if (!val) return '';
+      const iconUrl = iconImgData[attr] && iconImgData[attr][val] ? iconImgData[attr][val] : null;
+      if (!iconUrl) return '';
+      const isCode = attr === '우월코드';
+      const codeClass = isCode ? `code-chip code-${val}` : '';
+      return `
+        <span class="nikke-attr-chip ${codeClass}" title="${val}">
+          <img src="${iconUrl}" alt="${val}">
+        </span>
+      `;
+    }).join('');
+
+    return `
+      <div class="${cardClass}">
+        <div class="nikke-top-badges">
+          ${isLimited ? `<span class="nikke-badge-limited">한정</span>` : ''}
+          ${isRerun   ? `<span class="nikke-badge-rerun">복각</span>`   : ''}
+        </div>
+        <div class="nikke-card-top">
+          <div class="nikke-img">
+            ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : p['니케']}
+          </div>
+          <div class="nikke-attrs">${attrs}</div>
+        </div>
+        <div class="nikke-card-bottom">
+          <div class="nikke-name-wrap"> 
+            <div class="nikke-name">${p['니케']}</div>
+          </div>
+          <div class="nikke-date">${formatPickupDate(p['시작일'])} ~ ${formatPickupDate(p['종료일'])}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function formatPickupDate(date) {
+    if (!date) return '-';
+    const d = new Date(date);
+    return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // ===== 툴바 이벤트 =====
+  let currentView = 'timeline';
+  let currentGroup = 'company';
+  let showRerun = false;
+
+  function initPickupToolbar() {
+    // 보기 전환
+    document.querySelectorAll('.pickup-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentView = btn.dataset.view;
+        document.querySelectorAll('.pickup-view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const isGroup = currentView === 'group';
+        document.getElementById('pickup-timeline').classList.toggle('hidden', isGroup);
+        document.getElementById('pickup-group-view').classList.toggle('hidden', !isGroup);
+        document.getElementById('pickup-group-selector').classList.toggle('hidden', !isGroup);
+
+        if (isGroup) {
+          syncGroupFilterVisibility();
+          renderPickupGroupView();
+        } else {
+          syncGroupFilterVisibility(null);
+        }
+        updateYearNav();
+      });
+    });
+
+    // 몰아보기 기준 전환
+    document.querySelectorAll('.pickup-group-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentGroup = btn.dataset.group;
+        document.querySelectorAll('.pickup-group-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        syncGroupFilterVisibility();
+        renderPickupGroupView();
+      });
+    });
+
+    // 복각 토글
+    const rerunToggle = document.getElementById('pickup-rerun-toggle');
+    rerunToggle.addEventListener('click', () => {
+      showRerun = !showRerun;
+      rerunToggle.classList.toggle('active', showRerun);
+      if (currentView === 'timeline') {
+        renderPickupTimeline();
+      } else {
+        renderPickupGroupView();
+      }
+    });
+
+    // 필터 토글
+    const filterToggle = document.getElementById('pickup-filter-toggle');
+    const filterWrap = document.getElementById('pickup-filter-wrap');
+    filterToggle.addEventListener('click', () => {
+      const isHidden = filterWrap.classList.toggle('hidden');
+      filterToggle.textContent = (isHidden ? '▼' : '▲') + ' 필터';
+    });
+  }
+
+  function syncGroupFilterVisibility(groupOverride) {
+    const group = groupOverride !== undefined ? groupOverride : (currentView === 'group' ? currentGroup : null);
+    const hideMap = {
+      company: 'filter-company',
+      type:    'filter-type',
+      code:    'filter-code',
+      burst:   'filter-burst',
+      weapon:  'filter-weapon',
+    };
+    // 모든 필터 행 표시
+    document.querySelectorAll('#pickup-filter-wrap .filter-row').forEach(row => {
+      row.style.display = '';
+    });
+    if (!group) return;
+    // 현재 몰아보기 기준에 해당하는 필터 행 숨기기
+    const hideId = hideMap[group];
+    if (!hideId) return;
+    const targetChips = document.getElementById(hideId);
+    if (!targetChips) return;
+    targetChips.closest('.filter-row').style.display = 'none';
+  }
+
+  // ===== 몰아보기 =====
+  const GROUP_CONFIGS = {
+    company: { key: '기업',    order: null, dotColors: {} },
+    type:    { key: '유형',    order: ['화력형','지원형','방어형'], dotColors: {} },
+    code:    { key: '우월코드', order: ['작열','철갑','풍압','전격','수냉'], dotColors: {'작열':'#cc4433','철갑':'#3355cc','풍압':'#33aa55','전격':'#ccaa33','수냉':'#4488cc'} },
+    burst:   { key: '버스트',  order: ['1','2','3','Λ'], dotColors: {} },
+    weapon:  { key: '총기',    order: ['AR','SMG','RL','SR','MG','SG'], dotColors: {} },
+  };
+
+  function renderPickupGroupView() {
+    const config = GROUP_CONFIGS[currentGroup];
+    const groupKey = config.key;
+
+    // 현재 몰아보기 기준 키 제외 필터 적용
+    const data = allPickupData.filter(p => {
+      if (!showRerun && p['복각']) return false;
+      const year = String(new Date(p['시작일']).getFullYear());
+      if (activeFilters.year.size > 0 && !activeFilters.year.has(year)) return false;
+      if (activeFilters.season.size > 0) {
+        const pSeason = p['시즌'];
+        const seasonMatch = [...activeFilters.season].some(v => {
+          if (v === '__anniv__') return isAnniversary(pSeason);
+          return pSeason === v;
+        });
+        if (!seasonMatch) return false;
+      }
+      if (groupKey !== '기업'     && activeFilters.company.size > 0 && !activeFilters.company.has(p['기업']))    return false;
+      if (groupKey !== '유형'     && activeFilters.type.size > 0    && !activeFilters.type.has(p['유형']))       return false;
+      if (groupKey !== '우월코드'  && activeFilters.code.size > 0   && !activeFilters.code.has(p['우월코드']))   return false;
+      if (groupKey !== '버스트'   && activeFilters.burst.size > 0   && !activeFilters.burst.has(p['버스트']))   return false;
+      if (groupKey !== '총기'     && activeFilters.weapon.size > 0  && !activeFilters.weapon.has(p['총기']))    return false;
+      return true;
+    });
+
+    // 열 목록: 필터 전 전체 데이터 기준으로 고정 (필터링해도 열 유지)
+    let columns = config.order
+      ? config.order.filter(v => allPickupData.some(p => p[groupKey] === v))
+      : [...new Set(allPickupData.map(p => p[groupKey]).filter(Boolean))];
+
+    // 기간 키 (연도 분리)
+    const periodKey = p => {
+      const s = new Date(p['시작일']);
+      const e = new Date(p['종료일']);
+      const fmt = d => `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+      return `${s.getFullYear()}||${fmt(s)}~${fmt(e)}`;
+    };
+
+    // 기간별 그룹핑 (최신순)
+    const periodMap = {};
+    data.forEach(p => {
+      const pk = periodKey(p);
+      if (!periodMap[pk]) periodMap[pk] = { start: new Date(p['시작일']), nikkes: [] };
+      periodMap[pk].nikkes.push(p);
+    });
+    const periods = Object.entries(periodMap).sort((a, b) => b[1].start - a[1].start);
+
+    // 열 너비 계산: 기간열 150px, 나머지 균등
+    const colWidthStyle = `width: calc((100% - 150px) / ${columns.length});`;
+
+    // 헤더 렌더링
+    const isBurst = currentGroup === 'burst';
+    const thead = document.querySelector('#pickup-group-thead tr');
+    thead.innerHTML = `<th style="width:150px; min-width:150px; text-align:left;">기간</th>`
+      + columns.map(col => {
+        const dotColor = config.dotColors[col] || '#5555aa';
+        const iconUrl = iconImgData[groupKey] && iconImgData[groupKey][col] ? iconImgData[groupKey][col] : null;
+        return `<th style="${colWidthStyle}">
+          ${iconUrl
+            ? `<img src="${iconUrl}" alt="${col}" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:4px;">`
+            : `<span class="group-col-dot" style="background:${dotColor};"></span>`}
+          ${isBurst ? '' : col}
+        </th>`;
+      }).join('');
+
+    document.getElementById('pickup-group-header-table').style.tableLayout = 'fixed';
+    // 바디 렌더링
+    const tbody = document.getElementById('pickup-group-tbody');
+    tbody.innerHTML = periods.map(([pk, periodData]) => {
+      const [year, dateRange] = pk.split('||');
+      const cells = columns.map(col => {
+        const match = periodData.nikkes.filter(p => p[groupKey] === col);
+        if (match.length === 0) return `<td class="group-cell-empty" style="${colWidthStyle}">—</td>`;
+        return `<td style="${colWidthStyle}">${match.map(p => renderGroupNikkeItem(p)).join('')}</td>`;
+      });
+      return `<tr>
+        <td class="period-label-cell">
+          <div class="period-year-label">${year}</div>
+          <div class="period-date-label">${dateRange}</div>
+        </td>
+        ${cells.join('')}
+      </tr>`;
+    }).join('');
+    if (currentView === 'group') {
+      requestAnimationFrame(() => setupGroupYearObserver());
+    }
+  }
+
+  // ===== 연도 네비게이터 =====
+  let yearNavObserver = null;
+  let yearSections = [];
+  let currentNavYear = null;
+
+  function initYearNav() {
+    document.getElementById('year-nav-up').addEventListener('click', () => moveToYear(-1));
+    document.getElementById('year-nav-down').addEventListener('click', () => moveToYear(1));
+
+    // 탭이 display:none일 때 getBoundingClientRect가 0을 반환하므로
+    // pickup 탭이 활성화될 때 위치를 다시 계산
+    const tabBtn = document.querySelector('[data-tab="pickup"]');
+    if (tabBtn) {
+      tabBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0 });
+        requestAnimationFrame(positionYearNav);
+      });
+    }
+    window.addEventListener('resize', positionYearNav);
+  }
+
+  function positionYearNav() {
+    const nav = document.getElementById('pickup-year-nav');
+    const container = document.getElementById('pickup-container');
+    const containerRect = container.getBoundingClientRect();
+    nav.style.left = (containerRect.left - 101) + 'px';
+  }
+
+  function updateYearNav() {
+    const nav = document.getElementById('pickup-year-nav');
+    nav.classList.remove('hidden');
+    positionYearNav();
+    if (currentView === 'timeline') {
+      setupYearObserver();
+    } else {
+      // 몰아보기는 렌더링 후 호출되도록 약간 지연
+      requestAnimationFrame(() => setupGroupYearObserver());
+    }
+  }
+
+  function setupYearObserver() {
+    if (yearNavObserver) {
+      window.removeEventListener('scroll', yearNavObserver);
+      yearNavObserver = null;
+    }
+
+    yearSections = [...document.querySelectorAll('#pickup-timeline .timeline-year')];
+    if (yearSections.length === 0) return;
+
+    const onScroll = () => {
+      const mid = window.innerHeight / 2;
+      // 스크롤 위치 기준으로 현재 연도 결정
+      // rect.top <= mid 조건이 하나도 없으면(맨 위) 첫 번째(최신) 연도로
+      let current = yearSections[0];
+      for (const el of yearSections) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= mid) current = el;
+        else break;
+      }
+      // rect.top이 모두 양수(맨 위)면 첫 번째 섹션이 최신 연도이므로 그대로 사용
+      const year = current.querySelector('.year-label')?.textContent;
+      if (year !== currentNavYear) {
+        currentNavYear = year;
+        document.getElementById('pickup-year-display').textContent = currentNavYear || '-';
+        updateYearNavBtns();
+      }
+    };
+
+    yearNavObserver = onScroll;
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // 초기값: 스크롤이 맨 위면 첫 번째(최신) 연도로 강제 설정
+    if (window.scrollY === 0) {
+      const firstYear = yearSections[0].querySelector('.year-label')?.textContent;
+      currentNavYear = firstYear || '-';
+      document.getElementById('pickup-year-display').textContent = currentNavYear;
+      updateYearNavBtns();
+    } else {
+      onScroll();
+    }
+  }
+
+  function setupGroupYearObserver() {
+    if (yearNavObserver) {
+      window.removeEventListener('scroll', yearNavObserver);
+      yearNavObserver = null;
+    }
+
+    // period-label-cell의 year 라벨들을 수집
+    yearSections = [...document.querySelectorAll('#pickup-group-tbody .period-label-cell')];
+    if (yearSections.length === 0) return;
+
+    const onScroll = () => {
+      const mid = window.innerHeight / 2;
+      let current = yearSections[0];
+      for (const el of yearSections) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= mid) current = el;
+        else break;
+      }
+      const year = current.querySelector('.period-year-label')?.textContent;
+      if (year !== currentNavYear) {
+        currentNavYear = year;
+        document.getElementById('pickup-year-display').textContent = currentNavYear || '-';
+        updateYearNavBtns();
+      }
+    };
+
+    yearNavObserver = onScroll;
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // 초기값: 첫 번째(최신) 연도로 강제 설정
+    if (window.scrollY === 0) {
+      const firstYear = yearSections[0].querySelector('.period-year-label')?.textContent;
+      currentNavYear = firstYear || '-';
+      document.getElementById('pickup-year-display').textContent = currentNavYear;
+      updateYearNavBtns();
+    } else {
+      onScroll();
+    }
+  }
+
+  function updateYearNavBtns() {
+    const labelKey = currentView === 'timeline' ? '.year-label' : '.period-year-label';
+    const years = yearSections.map(el => el.querySelector(labelKey)?.textContent);
+    const uniqueYears = [...new Set(years)];
+    const idx = uniqueYears.indexOf(currentNavYear);
+    document.getElementById('year-nav-up').disabled   = idx <= 0;
+    document.getElementById('year-nav-down').disabled = idx >= uniqueYears.length - 1;
+  }
+
+  function moveToYear(direction) {
+    if (currentView === 'timeline') {
+      const years = yearSections.map(el => el.querySelector('.year-label')?.textContent);
+      const idx = years.indexOf(currentNavYear);
+      const target = yearSections[idx + direction];
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // 몰아보기: 같은 연도 중 direction에 따라 첫/다음 연도 행으로 이동
+      const years = yearSections.map(el => el.querySelector('.period-year-label')?.textContent);
+      // 현재 연도와 다른 연도 경계 찾기
+      const currentIdx = years.indexOf(currentNavYear);
+      if (direction === -1) {
+        // 이전(위) = 현재 연도보다 앞에 있는 다른 연도의 첫 번째 행
+        for (let i = currentIdx - 1; i >= 0; i--) {
+          if (years[i] !== currentNavYear) {
+            // 해당 연도의 첫 번째 행 찾기
+            const targetYear = years[i];
+            const firstIdx = years.indexOf(targetYear);
+            yearSections[firstIdx].closest('tr').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      } else {
+        // 다음(아래) = 현재 연도보다 뒤에 있는 다른 연도의 첫 번째 행
+        for (let i = currentIdx + 1; i < years.length; i++) {
+          if (years[i] !== currentNavYear) {
+            yearSections[i].closest('tr').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadPickupData);

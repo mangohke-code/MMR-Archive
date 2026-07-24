@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>[승리의 여신: 니케] 정보 모음</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <h1>[승리의 여신: 니케] 정보 모음</h1>
+  </header>
+
+  <nav id="tab-nav">
+    <button class="tab-btn active" data-tab="main">메인 페이지</button>
+    <button class="tab-btn" data-tab="pickup">픽업 기록</button>
+    <button class="tab-btn" data-tab="costume">유니크 코스튬</button>
+    <button class="tab-btn" data-tab="unreleased">미실장 캐릭터</button>
+    <button class="tab-btn" data-tab="souvenir">기념품 목록</button>
+    <button class="tab-btn" data-tab="frames">역대 테두리</button>
+    <button class="tab-btn" data-tab="stage">스테이지 정보</button>
+  </nav>
+
+  <div id="loading-overlay">
+    <div id="loading-box">
+      <div id="loading-spinner"></div>
+      <div id="loading-text">데이터 불러오는 중...</div>
+      <div id="loading-timer">0.0초</div>
+    </div>
+  </div>
+
+  <main>
+    <div id="tab-main" class="tab-content active">
+      <div id="main-container">
+
+        <!-- 소개글 -->
+        <div id="main-intro"></div>
+
+        <!-- 업데이트 날짜 -->
+        <div id="main-update">
+          <span id="update-date"></span>
+        </div>
+
+        <!-- 진행중인 픽업 -->
+        <div id="main-pickup">
+          <div class="section-title">진행중인 픽업</div>
+          <div id="pickup-list"></div>
+        </div>
+
+        <!-- 진행중인 이벤트 -->
+        <div id="main-event">
+          <div class="section-title">진행중인 이벤트</div>
+          <div id="event-list"></div>
+        </div>
+
+        <!-- 외부 링크 -->
+        <div id="main-links">
+          <div class="section-title">더 많은 기능</div>
+          <div id="link-list">
+            <a href="https://youtu.be/cvh0nX08nRw?si=Y6Msxbco91DGhtiB" target="_blank">ㄹㅇ이가;</a>
+            <a href="https://arca.live/b/nikketgv/147833924" target="_blank">전투력 계산기</a>
+            <a href="https://arca.live/b/nikketgv/161405505" target="_blank">유니온 레이드 결산 제작</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="tab-pickup" class="tab-content">
+      <div id="pickup-container">
+
+        <!-- 툴바: 보기 전환 + 필터 토글 -->
+        <div id="pickup-toolbar">
+          <div id="pickup-view-btns">
+            <button class="pickup-view-btn active" data-view="timeline">타임라인</button>
+            <button class="pickup-view-btn" data-view="group">몰아보기</button>
+          </div>
+          <div id="pickup-group-selector" class="hidden">
+            <button class="pickup-group-btn active" data-group="company">기업</button>
+            <button class="pickup-group-btn" data-group="type">유형</button>
+            <button class="pickup-group-btn" data-group="code">우월코드</button>
+            <button class="pickup-group-btn" data-group="burst">버스트</button>
+            <button class="pickup-group-btn" data-group="weapon">총기</button>
+          </div>
+          <div id="pickup-rerun-toggle" class="toggle-switch-wrap">
+            <div class="toggle-switch"></div>
+            <span class="toggle-label">복각 표시</span>
+          </div>
+          <button id="pickup-filter-toggle">▼ 필터</button>
+        </div>
+
+        <!-- 필터 패널 (기본 숨김) -->
+        <div id="pickup-filter-wrap" class="hidden">
+          <div id="pickup-filter-header">
+            <span id="pickup-filter-title">FILTER</span>
+            <button id="pickup-filter-reset">초기화</button>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">연도</div>
+            <div class="filter-chips" id="filter-year"></div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">시즌</div>
+            <div class="filter-chips" id="filter-season"></div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">기업</div>
+            <div class="filter-chips" id="filter-company"></div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">유형</div>
+            <div class="filter-chips" id="filter-type"></div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">우월코드</div>
+            <div class="filter-chips" id="filter-code"></div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">버스트</div>
+            <div class="filter-chips" id="filter-burst"></div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-label">총기</div>
+            <div class="filter-chips" id="filter-weapon"></div>
+          </div>
+        </div>
+
+        <!-- 타임라인 뷰 -->
+        <div id="pickup-timeline"></div>
+
+        <!-- 몰아보기 뷰 -->
+        <div id="pickup-group-view" class="hidden">
+          <div id="pickup-group-header-wrap">
+            <table id="pickup-group-header-table">
+              <thead id="pickup-group-thead"><tr></tr></thead>
+            </table>
+          </div>
+          <div id="pickup-group-table-wrap">
+            <table id="pickup-group-table">
+              <tbody id="pickup-group-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="pickup-year-nav">
+          <button class="year-nav-btn" id="year-nav-up">▲</button>
+          <div id="pickup-year-display">-</div>
+          <button class="year-nav-btn" id="year-nav-down">▼</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="tab-costume" class="tab-content">
+      <div id="costume-container">
+
+        <!-- 메인 뷰 -->
+        <div id="costume-main-view">
+
+          <!-- 스파인 플레이어 + 정보 -->
+          <div id="costume-top" class="hidden">
+            <div id="costume-spine-wrap">
+              <div id="costume-spine-player"></div>
+            </div>
+            <div id="costume-info">
+
+              <div id="costume-info-header">
+                <div id="costume-name"></div>
+                <div id="costume-nikke-name"></div>
+              </div>
+
+              <div id="costume-info-row">
+                <div class="costume-info-label">픽업 기간</div>
+                <div id="costume-date"></div>
+              </div>
+
+              <div id="costume-ticket-wrap">
+                <div class="costume-info-label">전용 티켓</div>
+                <div id="costume-ticket-name"></div>
+                <div id="costume-ticket-imgs">
+                  <div id="costume-free-ticket-wrap" class="ticket-img-wrap">
+                    <img id="costume-free-ticket-img" src="" alt="">
+                    <span class="ticket-free-badge">Free</span>
+                  </div>
+                  <img id="costume-paid-ticket-img" src="" alt="">
+                </div>
+              </div>
+
+              <div id="costume-rerun-wrap" class="hidden">
+                <div class="costume-info-label">복각 기간</div>
+                <div id="costume-rerun-date"></div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 복각 표시 토글 + 코스튬 선택 -->
+          <div id="costume-selector">
+            <div id="costume-selector-toolbar">
+              <div id="costume-rerun-toggle" class="toggle-switch-wrap">
+                <div class="toggle-switch"></div>
+                <span class="toggle-label">복각 표시</span>
+              </div>
+            </div>
+            <div id="costume-selector-inner"></div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <div id="tab-unreleased" class="tab-content">
+      <div id="unreleased-container">
+
+        <!-- 설문 화면 -->
+        <div id="unreleased-survey">
+          <div id="survey-header">
+            <div id="survey-title">스토리를 어디까지 보셨나요?</div>
+            <div id="survey-desc">선택한 범위를 기준으로 스포일러를 필터링합니다.<br>아무것도 선택하지 않아도 확인 버튼을 누를 수 있습니다.</div>
+          </div>
+
+          <div id="survey-global-btns">
+            <button class="survey-global-btn" id="survey-global-all">전체 선택</button>
+            <button class="survey-global-btn" id="survey-global-none">전체 취소</button>
+          </div>
+
+          <div id="survey-body">
+            <div id="survey-left">
+              <div class="survey-section" id="survey-section-main">
+                <div class="survey-section-header">
+                  <span class="survey-section-title">메인 스토리</span>
+                  <div class="survey-section-btns">
+                    <button class="survey-all-btn" data-section="main" data-action="all">전체선택</button>
+                    <button class="survey-all-btn" data-section="main" data-action="none">전체취소</button>
+                  </div>
+                </div>
+                <div id="survey-chapter-bar"></div>
+              </div>
+            </div>
+
+            <div id="survey-right">
+              <div class="survey-section" id="survey-section-newyear">
+                <div class="survey-section-header">
+                  <span class="survey-section-title">신년 이벤트</span>
+                  <div class="survey-section-btns">
+                    <button class="survey-all-btn" data-section="newyear" data-action="all">전체선택</button>
+                    <button class="survey-all-btn" data-section="newyear" data-action="none">전체취소</button>
+                  </div>
+                </div>
+                <div class="survey-chips" id="survey-chips-newyear"></div>
+              </div>
+
+              <div class="survey-section" id="survey-section-anniv">
+                <div class="survey-section-header">
+                  <span class="survey-section-title">주년 이벤트</span>
+                  <div class="survey-section-btns">
+                    <button class="survey-all-btn" data-section="anniv" data-action="all">전체선택</button>
+                    <button class="survey-all-btn" data-section="anniv" data-action="none">전체취소</button>
+                  </div>
+                </div>
+                <div class="survey-chips" id="survey-chips-anniv"></div>
+              </div>
+
+              <div class="survey-section" id="survey-section-side">
+                <div class="survey-section-header">
+                  <span class="survey-section-title">사이드 스토리</span>
+                  <div class="survey-section-btns">
+                    <button class="survey-all-btn" data-section="side" data-action="all">전체선택</button>
+                    <button class="survey-all-btn" data-section="side" data-action="none">전체취소</button>
+                  </div>
+                </div>
+                <div class="survey-chips" id="survey-chips-side"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="survey-footer">
+            <button id="survey-confirm-btn">확인</button>
+          </div>
+        </div>
+
+        <!-- 캐릭터 목록 화면 -->
+        <div id="unreleased-main" class="hidden">
+
+          <div id="unreleased-toolbar">
+            <button id="unreleased-survey-btn">◀ 스토리 진행도 변경</button>
+          </div>
+
+          <!-- 상세 패널 -->
+          <div id="unreleased-detail" class="hidden">
+            <div id="unreleased-spine-wrap">
+              <div id="unreleased-spine-player"></div>
+              <div id="unreleased-spine-nav" class="hidden">
+                <button id="unreleased-spine-prev">◀</button>
+                <span id="unreleased-spine-label"></span>
+                <button id="unreleased-spine-next">▶</button>
+              </div>
+            </div>
+            <div id="unreleased-detail-info">
+              <div id="unreleased-detail-name"></div>
+              <div id="unreleased-detail-affil"></div>
+              <div id="unreleased-detail-squad"></div>
+              <div id="unreleased-detail-appears"></div>
+            </div>
+          </div>
+
+          <div id="unreleased-content"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="tab-souvenir" class="tab-content">
+      <div id="souvenir-container">
+
+        <!-- 메인 뷰 -->
+        <div id="souvenir-main-view">
+
+          <!-- 선택된 아이템 상세 -->
+          <div id="souvenir-detail">
+            <div id="souvenir-detail-img-wrap">
+              <img id="souvenir-detail-img" src="" alt="">
+            </div>
+            <div id="souvenir-detail-info">
+              <div id="souvenir-detail-fixed">
+                <div id="souvenir-detail-name"></div>
+                <div id="souvenir-detail-event">
+                  <span id="souvenir-detail-event-name"></span>
+                  <span id="souvenir-detail-season"></span>
+                </div>
+                <div id="souvenir-detail-method-wrap">
+                  <span class="souvenir-detail-label">획득 방법</span>
+                  <span id="souvenir-detail-method"></span>
+                </div>
+              </div>
+              <div id="souvenir-detail-desc-wrap">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="souvenir-detail-label">설명</span>
+                  <button id="souvenir-spoiler-btn" style="display:none;">스포일러 해제</button>
+                </div>
+                <div id="souvenir-detail-desc"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 하단 아이템 목록 -->
+          <div id="souvenir-bottom">
+            <div id="souvenir-season-tabs"></div>
+            <div id="souvenir-item-strip-wrap">
+              <div id="souvenir-item-strip"></div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <div id="tab-frames" class="tab-content">
+      <a>역대 솔레 테두리</a>
+      <div>일반 테두리는 고민 중</div>
+    </div>
+
+    <div id="tab-stage" class="tab-content">
+      <div id="stage-container">
+
+        <!-- 챕터 그리드 -->
+        <div id="chapter-grid-zero"></div>
+        <div id="chapter-grid"></div>
+
+        <!-- 스테이지 목록 -->
+        <div id="stage-detail" class="hidden">
+
+          <!-- 챕터 네비게이터 (이미지 캐러셀) -->
+          <div id="chapter-nav">
+            <div id="chapter-nav-prev" class="chapter-nav-item side" onclick="navigateChapter(-1)"></div>
+            <div id="chapter-nav-current" class="chapter-nav-item center"></div>
+            <div id="chapter-nav-next" class="chapter-nav-item side" onclick="navigateChapter(1)"></div>
+          </div>
+
+          <div id="stage-detail-header">
+            <button id="stage-back-btn">← 챕터 목록</button>
+            <span id="stage-chapter-title"></span>
+            <div id="stage-mode-btns">
+              <button class="mode-btn active" data-mode="normal">노말</button>
+              <button class="mode-btn" data-mode="hard">하드</button>
+            </div>
+          </div>
+          <div id="stage-table-wrap">
+            <table id="stage-table">
+              <thead>
+                <tr>
+                  <th>스테이지</th>
+                  <th>기준 전투력</th>
+                  <th>보스</th>
+                  <th>약점코드</th>
+                  <th>스토리</th>
+                  <th>유형</th>
+                  <th>특이사항</th>
+                </tr>
+              </thead>
+              <tbody id="stage-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <div id="scroll-btns">
+    <button class="scroll-btn" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">▲</button>
+    <button class="scroll-btn" onclick="window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })">▼</button>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/pickup.js"></script>
+  <script src="js/costume.js"></script>
+  <script src="js/unreleased.js"></script>
+  <script src="js/souvenir.js"></script>
+  <script src="js/frames.js"></script>
+  <script src="js/stage.js"></script>
+
+</body>
+</html>
