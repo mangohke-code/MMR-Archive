@@ -100,6 +100,101 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
   });
 }
 
+// L2D 캔버스 드래그 이동(팬) + 휠 확대/축소 — spine-player 라이브러리 자체엔 이 기능이 없어서 직접 구현.
+// player.currentViewport(x/y/width/height)를 직접 조작한다. spine-player는 setAnimation()을 호출할
+// 때마다 currentViewport를 최초 config 값으로 다시 만들어버리므로, 리턴되는 reapply 함수를
+// setAnimation 호출 직후에 다시 불러줘야 팬/줌 상태가 유지된다. reapply.destroy()로 리스너 해제.
+function setupSpinePanZoom(player, canvasEl) {
+  const base = {
+    x: player.currentViewport.x,
+    y: player.currentViewport.y,
+    width: player.currentViewport.width,
+    height: player.currentViewport.height,
+  };
+  const state = { dx: 0, dy: 0, scale: 1 };
+  const MIN_SCALE = 0.2, MAX_SCALE = 6;
+
+  function reapply() {
+    const vp = player.currentViewport;
+    const w = base.width * state.scale;
+    const h = base.height * state.scale;
+    const baseCenterX = base.x + base.width / 2;
+    const baseCenterY = base.y + base.height / 2;
+    vp.width = w;
+    vp.height = h;
+    vp.x = baseCenterX - w / 2 + state.dx;
+    vp.y = baseCenterY - h / 2 + state.dy;
+  }
+
+  let dragging = false, dragMoved = false;
+  let dragStartX = 0, dragStartY = 0, dragStartDx = 0, dragStartDy = 0;
+
+  const onMouseDown = e => {
+    dragging = true;
+    dragMoved = false;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragStartDx = state.dx;
+    dragStartDy = state.dy;
+  };
+
+  const onMouseMove = e => {
+    if (!dragging) return;
+    const dxScreen = e.clientX - dragStartX;
+    const dyScreen = e.clientY - dragStartY;
+    if (!dragMoved && (Math.abs(dxScreen) > 3 || Math.abs(dyScreen) > 3)) dragMoved = true;
+    if (!dragMoved) return;
+    const rect = canvasEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const worldPerPixelX = (base.width * state.scale) / rect.width;
+    const worldPerPixelY = (base.height * state.scale) / rect.height;
+    state.dx = dragStartDx - dxScreen * worldPerPixelX;
+    state.dy = dragStartDy + dyScreen * worldPerPixelY;
+    reapply();
+  };
+
+  const onMouseUp = () => { dragging = false; };
+
+  const onWheel = e => {
+    e.preventDefault();
+    const rect = canvasEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const mouseXRatio = (e.clientX - rect.left) / rect.width;
+    const mouseYRatio = (e.clientY - rect.top) / rect.height;
+    const vp = player.currentViewport;
+    const worldX = vp.x + mouseXRatio * vp.width;
+    const worldY = vp.y + (1 - mouseYRatio) * vp.height;
+
+    const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
+    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, state.scale * factor));
+    const actualFactor = newScale / state.scale;
+    state.scale = newScale;
+
+    const baseCenterX = base.x + base.width / 2;
+    const baseCenterY = base.y + base.height / 2;
+    const oldCenterX = baseCenterX + state.dx;
+    const oldCenterY = baseCenterY + state.dy;
+    state.dx = worldX + (oldCenterX - worldX) * actualFactor - baseCenterX;
+    state.dy = worldY + (oldCenterY - worldY) * actualFactor - baseCenterY;
+
+    reapply();
+  };
+
+  canvasEl.addEventListener('mousedown', onMouseDown);
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+  canvasEl.addEventListener('wheel', onWheel, { passive: false });
+
+  reapply.destroy = () => {
+    canvasEl.removeEventListener('mousedown', onMouseDown);
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    canvasEl.removeEventListener('wheel', onWheel);
+  };
+
+  return reapply;
+}
+
 // ===== Supabase 데이터 조회 → 예전 APP_DATA 모양으로 조립 =====
 // (테이블/컬럼 이름이 전부 한글이라 r['컬럼명'] 형태로 접근)
 
@@ -169,6 +264,7 @@ function buildCostumeData(rows) {
     '복각 시작일': r['복각_시작일'],
     '복각 종료일': r['복각_종료일'],
     '티켓': r['티켓'],
+    '티켓 설명': r['티켓_설명'],
     '무료티켓': r['무료티켓'],
     '유료티켓': r['유료티켓'],
     'skel': r['skel'],

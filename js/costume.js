@@ -2,6 +2,7 @@
   let allNikkeImgData = [];
   let currentCostume = null;
   let spinePlayer = null;
+  let costumePanZoom = null;
   let showRerunCostume = true;
 
   function loadCostumeData() {
@@ -168,10 +169,10 @@
     const freeTicketImg  = document.getElementById('costume-free-ticket-img');
     const paidTicketImg  = document.getElementById('costume-paid-ticket-img');
     freeTicketImg.src = costume['무료티켓'] || '';
-    freeTicketImg.dataset.tooltip = costume['티켓'] || '';
+    freeTicketImg.dataset.tooltip = costume['티켓 설명'] || '';
     freeTicketWrap.style.display = costume['무료티켓'] ? 'block' : 'none';
     paidTicketImg.src = costume['유료티켓'] || '';
-    paidTicketImg.dataset.tooltip = costume['티켓'] || '';
+    paidTicketImg.dataset.tooltip = costume['티켓 설명'] || '';
     paidTicketImg.style.display = costume['유료티켓'] ? 'block' : 'none';
 
     // 복각 기간 표시 (원본/복각 어느 초상화를 클릭했든 복각 기간이 있으면 항상 표시)
@@ -197,6 +198,8 @@
 
     const partsToggle = document.getElementById('costume-parts-toggle');
     if (partsToggle) { partsToggle.innerHTML = ''; partsToggle.classList.add('hidden'); }
+
+    if (costumePanZoom) { costumePanZoom.destroy(); costumePanZoom = null; }
 
     if (!skelUrl || !atlasUrl) {
       return;
@@ -234,7 +237,7 @@
         const finalWidth = Math.min(playerWidth, wrapWidth);
         const finalHeight = Math.round(finalWidth / ratio);
 
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = Math.max(window.devicePixelRatio || 1, 2); // 고화질 렌더링을 위해 최소 2배 슈퍼샘플링
         const playerDiv2 = document.createElement('div');
         playerDiv2.id = 'spine-player-inner';
         playerDiv2.style.width = wrapWidth + 'px';
@@ -264,7 +267,7 @@
           success: function(player2) {
             // dpr 적용: SpinePlayer가 만든 canvas에 직접 접근
             const c = player2.canvas;
-            if (c && dpr > 1) {
+            if (c) {
               c.width  = Math.round(wrapWidth  * dpr);
               c.height = Math.round(wrapHeight * dpr);
               c.style.width  = wrapWidth  + 'px';
@@ -289,13 +292,17 @@
             rebuildSkin();
             renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
+            costumePanZoom = setupSpinePanZoom(player2, player2.canvas);
+
             player2.animationState.data.defaultMix = 0;
 
             player2.canvas.addEventListener('click', () => {
               player2.setAnimation('action', false);
+              if (costumePanZoom) costumePanZoom();
               player2.animationState.addListener({
                 complete: () => {
                   player2.setAnimation('idle', true);
+                  if (costumePanZoom) costumePanZoom();
                   player2.animationState.clearListeners();
                 }
               });

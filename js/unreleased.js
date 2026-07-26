@@ -354,6 +354,7 @@
   let currentSpineList = [];
   let currentSpineIdx  = 0;
   let unreleasedSpinePlayer = null;
+  let unreleasedPanZoom = null;
 
   function selectUnreleasedCard(rowIdx) {
     const row = (APP_DATA.unreleased || [])[rowIdx];
@@ -496,6 +497,7 @@
       unreleasedSpinePlayer.dispose();
       unreleasedSpinePlayer = null;
     }
+    if (unreleasedPanZoom) { unreleasedPanZoom.destroy(); unreleasedPanZoom = null; }
     document.getElementById('unreleased-spine-player').innerHTML = '';
     const toggle = document.getElementById('unreleased-parts-toggle');
     if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
@@ -508,6 +510,7 @@
       unreleasedSpinePlayer.dispose();
       unreleasedSpinePlayer = null;
     }
+    if (unreleasedPanZoom) { unreleasedPanZoom.destroy(); unreleasedPanZoom = null; }
     if (!skelUrl || !atlasUrl) return;
 
     const playerDiv = document.createElement('div');
@@ -531,7 +534,7 @@
         const wrapEl = document.getElementById('unreleased-spine-wrap');
         const wrapW  = wrapEl.clientWidth;
         const wrapH  = wrapEl.clientHeight;
-        const dpr    = window.devicePixelRatio || 1;
+        const dpr    = Math.max(window.devicePixelRatio || 1, 2); // 고화질 렌더링을 위해 최소 2배 슈퍼샘플링
 
         const playerDiv2 = document.createElement('div');
         playerDiv2.id = 'unreleased-spine-inner';
@@ -561,7 +564,7 @@
           },
           success: function(player2) {
             const c = player2.canvas;
-            if (c && dpr > 1) {
+            if (c) {
               c.width  = Math.round(wrapW * dpr);
               c.height = Math.round(wrapH * dpr);
               c.style.width  = wrapW + 'px';
@@ -585,12 +588,16 @@
             rebuildSkin();
             renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
+            unreleasedPanZoom = setupSpinePanZoom(player2, player2.canvas);
+
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               player2.setAnimation('action', false);
+              if (unreleasedPanZoom) unreleasedPanZoom();
               player2.animationState.addListener({
                 complete: () => {
                   player2.setAnimation('idle', true);
+                  if (unreleasedPanZoom) unreleasedPanZoom();
                   player2.animationState.clearListeners();
                 }
               });
