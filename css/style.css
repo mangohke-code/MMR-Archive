@@ -1,31 +1,38 @@
+  /* ===== 폰트 ===== */
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
   /* ===== 디자인 토큰 ===== */
   :root {
-    /* 배경 */
-    --bg-page: #0d0d16;
-    --bg-panel: #15151f;
-    --bg-panel-alt: #1a1a2c;
-    --bg-panel-active: #20204d;
-    --bg-inset: #0a0a12;
+    /* 배경 (무채색) */
+    --bg-page: #0a0a0b;
+    --bg-panel: #141416;
+    --bg-panel-alt: #1c1c1f;
+    --bg-panel-active: #242428;
+    --bg-inset: #08080a;
 
     /* 테두리 (기본=subtle, hover=strong, active/선택=accent) */
-    --border-subtle: #26263f;
+    --border-subtle: #2a2a2e;
     --border-strong: #4b4b91;
     --border-accent: #6a6ae0;
     --border-region-divider: #3a3a22;
 
-    /* 텍스트 */
-    --text-heading: #f5f5fb;
-    --text-body: #d6d6e4;
-    --text-secondary: #a8a8c8;
-    --text-muted: #82829e;
-    --text-faint: #5c5c80;
-    --text-dim: #46466e;
+    /* 텍스트 (무채색) */
+    --text-heading: #fafafa;
+    --text-body: #d4d4d8;
+    --text-secondary: #9c9ca3;
+    --text-muted: #78787f;
+    --text-faint: #525258;
+    --text-dim: #3d3d42;
 
-    /* 액센트 */
+    /* 액센트 (브랜드 색 — 유일한 유채색 포인트) */
     --accent: #7272e6;
     --accent-strong: #9a9af5;
     --accent-dim: #55559c;
     --accent-glow: rgba(114, 114, 230, 0.32);
+
+    /* 그림자 (카드 입체감 — 테두리 대신 사용) */
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.3);
 
     /* 상태 배지 */
     --status-new-bg: #12271a;
@@ -115,7 +122,7 @@
   }
 
   body {
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', sans-serif;
     background: var(--bg-page);
     color: var(--text-body);
   }
@@ -196,9 +203,17 @@
   }
 
   header h1 {
-    font-size: 40px;
-    font-weight: 500;
+    font-size: 52px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--text-heading);
+  }
+
+  .site-tagline {
+    margin-top: 4px;
+    font-size: 15px;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
   }
 
   /* ===== 탭 네비게이션 ===== */
@@ -212,9 +227,10 @@
 
   .tab-btn {
     font-size: 16px;
-    padding: 6px 16px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
+    font-weight: 500;
+    padding: 8px 18px;
+    border-radius: var(--radius-pill);
+    border: none;
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
@@ -222,14 +238,13 @@
   }
 
   .tab-btn:hover {
-    color: var(--text-body);
-    border-color: var(--border-strong);
+    color: var(--text-heading);
+    background: var(--bg-panel-alt);
   }
 
   .tab-btn.active {
-    background: var(--bg-panel-alt);
+    background: var(--accent);
     color: var(--text-heading);
-    border-color: var(--border-strong);
   }
 
   /* ===== 탭 콘텐츠 ===== */
@@ -244,18 +259,31 @@
 
   /* ===== 공통 섹션 타이틀 ===== */
   .section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 28px;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--text-heading);
     margin-bottom: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
+  .section-title::before {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 1.1em;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+  }
+
   /* ===== 공통 카드 ===== */
   .card {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     margin-bottom: 1rem;
@@ -318,7 +346,7 @@
     flex: 0 0 845px;
     min-width: 0;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     display: flex;
@@ -356,7 +384,7 @@
   .pickup-card {
     width: 560px;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     margin-bottom: 0.5rem;
@@ -742,7 +770,7 @@
     padding: 5px 8px;
     background: var(--bg-panel);
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid transparent;
     height: 88px;
     box-sizing: border-box;
     width: 100%;
@@ -841,7 +869,7 @@
   /* 필터 */
   #pickup-filter-wrap {
     background: linear-gradient(135deg, var(--bg-panel-alt) 0%, var(--bg-panel-alt) 100%);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     margin-bottom: 1.5rem;
@@ -1013,10 +1041,10 @@
   /* 이벤트 블록 */
   .period-block {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: box-shadow 0.2s;
     position: relative;
   }
 
@@ -1030,8 +1058,7 @@
   }
 
   .period-block:hover {
-    border-color: var(--border-strong);
-    box-shadow: 0 2px 16px rgba(80, 80, 200, 0.15);
+    box-shadow: var(--shadow-card-hover), 0 0 16px var(--accent-glow);
   }
 
   .period-header {
@@ -1149,11 +1176,12 @@
   .nikke-card {
     width: 260px;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
+    border: 1px solid transparent;
     border-radius: var(--radius-lg);
     overflow: visible;
     position: relative;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
     cursor: default;
     margin-top: 14px;
   }
@@ -1369,7 +1397,7 @@
     flex: 1;
     height: 700px;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     display: flex;
@@ -1778,7 +1806,7 @@
 
   .survey-section {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     display: flex;
@@ -2027,7 +2055,7 @@
 
   .unreleased-squad-group {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     min-width: 180px;
@@ -2051,7 +2079,8 @@
 
   .unreleased-card {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
+    border: 1px solid transparent;
     border-radius: var(--radius-lg);
     padding: 8px 12px;
     display: flex;
@@ -2106,7 +2135,7 @@
     display: flex;
     gap: 2rem;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     margin-bottom: 2rem;
@@ -2117,7 +2146,7 @@
     width: 700px;
     flex-shrink: 0;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     display: flex;
@@ -2214,7 +2243,7 @@
     gap: 10px;
     padding: 8px 12px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid transparent;
     background: var(--bg-inset);
     transition: all 0.2s;
   }
@@ -2281,7 +2310,7 @@
 
   #souvenir-filter-wrap {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1rem 1.25rem;
     display: flex;
@@ -2330,7 +2359,7 @@
     display: flex;
     gap: 2rem;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     min-height: 420px;
@@ -2345,7 +2374,6 @@
     align-items: center;
     justify-content: center;
     background: var(--bg-inset);
-    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     overflow: hidden;
   }
@@ -2421,7 +2449,7 @@
   /* 하단 스트립 */
   #souvenir-bottom {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
   }
@@ -2581,7 +2609,7 @@
 
   .chapter-card {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     cursor: pointer;
@@ -2589,13 +2617,13 @@
   }
 
   .chapter-card:hover {
-    border-color: var(--border-strong);
+    box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
   }
 
   .chapter-card {
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
     cursor: pointer;
@@ -2603,7 +2631,7 @@
   }
 
   .chapter-card:hover {
-    border-color: var(--border-strong);
+    box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
   }
 
@@ -2663,7 +2691,8 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     background: var(--bg-panel);
-    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
+    border: 1px solid transparent;
     position: relative;
     transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
                 opacity 0.4s ease,
