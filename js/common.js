@@ -46,7 +46,7 @@ document.addEventListener('contextmenu', e => {
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function buildMainData(configRows, eventRows, thumbRows, pickupData) {
+function buildMainData(configRows, eventRows, pickupData) {
   const update = {};
   configRows.forEach(r => { update[r['키']] = r['값']; });
 
@@ -65,13 +65,12 @@ function buildMainData(configRows, eventRows, thumbRows, pickupData) {
       '신규복각': e['신규복각'],
       '시즌': eventSeasonMap[e['이벤트명']] || '',
     })),
-    pickupImgs: thumbRows.map(t => ({ '이름': t['니케'], '이미지': t['이미지'] })),
   };
 }
 
 function buildPickupData(rows) {
   const seenNames = new Set();
-  return rows.map(r => {
+  const list = rows.map(r => {
     const obj = {
       '시즌': r['시즌'], '이벤트': r['이벤트'], '시작일': r['시작일'], '종료일': r['종료일'],
       '니케': r['니케'], '기업': r['기업'], '유형': r['유형'], '버스트': r['버스트'],
@@ -84,6 +83,21 @@ function buildPickupData(rows) {
     seenNames.add(r['니케']);
     return obj;
   });
+
+  // 복각 니케에 최초 등장 행의 정보(픽업 배너 포함) 채우기 — 여러 탭이 공유하는 데이터라 여기서 한 번만 처리
+  const firstAppearance = {};
+  list.forEach(p => {
+    if (!p['복각'] && !firstAppearance[p['니케']]) firstAppearance[p['니케']] = p;
+  });
+  list.forEach(p => {
+    if (p['복각'] && firstAppearance[p['니케']]) {
+      ['기업', '유형', '버스트', '우월코드', '총기', '픽업 배너'].forEach(attr => {
+        if (!p[attr]) p[attr] = firstAppearance[p['니케']][attr];
+      });
+    }
+  });
+
+  return list;
 }
 
 function buildCostumeData(rows) {
@@ -166,7 +180,7 @@ async function loadAllData() {
   const [
     pickupRes, costumeRes, souvenirRes, stageRes,
     unreleasedRes, nikkeImgRes, iconRes, chapRes,
-    configRes, eventRes, thumbRes,
+    configRes, eventRes,
   ] = await Promise.all([
     supabaseClient.from('픽업_기록').select('*').order('시작일', { ascending: true }),
     supabaseClient.from('유니크_코스튬').select('*'),
@@ -178,14 +192,13 @@ async function loadAllData() {
     supabaseClient.from('IMG_챕터').select('*'),
     supabaseClient.from('메인_설정').select('*'),
     supabaseClient.from('메인_이벤트').select('*').order('시작일', { ascending: true }),
-    supabaseClient.from('메인_픽업썸네일').select('*'),
   ]);
 
-  [pickupRes, costumeRes, souvenirRes, stageRes, unreleasedRes, nikkeImgRes, iconRes, chapRes, configRes, eventRes, thumbRes]
+  [pickupRes, costumeRes, souvenirRes, stageRes, unreleasedRes, nikkeImgRes, iconRes, chapRes, configRes, eventRes]
     .forEach(res => { if (res.error) throw res.error; });
 
   const pickup = buildPickupData(pickupRes.data);
-  APP_DATA.main = buildMainData(configRes.data, eventRes.data, thumbRes.data, pickup);
+  APP_DATA.main = buildMainData(configRes.data, eventRes.data, pickup);
   APP_DATA.pickup = pickup;
   APP_DATA.costume = buildCostumeData(costumeRes.data);
   APP_DATA.souvenir = buildSouvenirData(souvenirRes.data);

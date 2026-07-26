@@ -47,11 +47,6 @@
       return start <= now && now <= end;
     });
 
-    const imgMap = {};
-    (APP_DATA.main.pickupImgs || []).forEach(row => {
-      if (row['이름']) imgMap[row['이름']] = row['이미지'];
-    });
-
     const nikkeImgMap = {};
     (APP_DATA.nikkeImg || []).forEach(n => {
       if (n['이름']) nikkeImgMap[n['이름']] = n['이미지'];
@@ -67,7 +62,7 @@
     const rerunPickups = activePickups.filter(p => p['복각']);
 
     const renderNewCard = p => {
-      const imgUrl = imgMap[p['니케']] || '';
+      const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       return `
         <div class="pickup-card">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
@@ -83,7 +78,7 @@
     };
 
     const renderRerunCard = p => {
-      const imgUrl = nikkeImgMap[p['니케']] || '';
+      const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       return `
         <div class="pickup-card rerun">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}

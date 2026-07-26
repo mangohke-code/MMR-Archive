@@ -56,20 +56,8 @@
   function initPickup(data) {
     if (!data || data.length === 0) return;
 
-    // 복각 니케에 원본 정보 채우기
-    const firstAppearance = {};
-    data.forEach(p => {
-      if (!p['복각'] && !firstAppearance[p['니케']]) {
-        firstAppearance[p['니케']] = p;
-      }
-    });
-    data.forEach(p => {
-      if (p['복각'] && firstAppearance[p['니케']]) {
-        ['기업','유형','버스트','우월코드','총기'].forEach(attr => {
-          if (!p[attr]) p[attr] = firstAppearance[p['니케']][attr];
-        });
-      }
-    });
+    // 복각 니케의 원본 정보(기업/유형/버스트/우월코드/총기/픽업 배너)는
+    // common.js의 buildPickupData()에서 이미 채워서 넘어옴 (여러 탭이 공유하는 데이터라 그쪽에서 한 번만 처리)
 
     allPickupData = data;
     buildPickupFilters(data);
