@@ -228,6 +228,21 @@
     transition: opacity 0.4s ease;
   }
 
+  /* 마우스를 따라다니는 공용 툴팁 (data-tooltip 속성이 있는 요소에 호버 시) */
+  #hover-tooltip {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-panel-active);
+    color: var(--text-heading);
+    box-shadow: var(--shadow-card-hover);
+    white-space: nowrap;
+    transform: translate(-50%, calc(-100% - 12px));
+  }
+
   #loading-overlay.hidden {
     opacity: 0;
     pointer-events: none;
@@ -746,6 +761,21 @@
     cursor: pointer;
     user-select: none;
     margin-left: auto;
+  }
+
+  /* L2D 파츠 on/off 토글 패널 (costume.js/unreleased.js 공용) */
+  .parts-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 0.75rem 1rem;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-lg);
+  }
+
+  .parts-toggle .part-toggle-item {
+    margin-left: 0;
   }
 
   .toggle-switch-wrap .toggle-label {
@@ -1331,6 +1361,7 @@
   .nikke-card-top {
     display: flex;
     padding-top: 18px;
+    background: var(--bg-panel-alt);
     border-bottom: 1px solid var(--border-subtle);
     overflow: hidden;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -1362,6 +1393,7 @@
     width: 110px;
     height: 150px;
     flex-shrink: 0;
+    background: var(--bg-panel);
     border-top: 1px solid var(--border-subtle);
     display: grid;
     grid-template-columns: 35px 35px;
@@ -1406,7 +1438,9 @@
 
   .nikke-card-bottom {
     padding: 8px 0px 10px;
+    background: var(--bg-panel-alt);
     border-top: 1px solid var(--border-subtle);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1498,8 +1532,15 @@
     margin-bottom: 2rem;
   }
 
-  #costume-spine-wrap {
+  .costume-spine-col {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  #costume-spine-wrap {
     height: 700px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
@@ -2254,9 +2295,17 @@
     height: 600px;
   }
 
+  .unreleased-spine-col {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
   #unreleased-spine-wrap {
     width: 700px;
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);

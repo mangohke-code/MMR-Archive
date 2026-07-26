@@ -41,6 +41,65 @@ document.addEventListener('contextmenu', e => {
   if (e.target.tagName === 'IMG') e.preventDefault();
 });
 
+// 전체 페이지 공통: 마우스를 따라다니는 툴팁 (data-tooltip 속성이 있는 요소에 호버 시 표시)
+(function () {
+  const tooltip = document.getElementById('hover-tooltip');
+  if (!tooltip) return;
+  let currentTarget = null;
+
+  document.addEventListener('mouseover', e => {
+    const target = e.target.closest('[data-tooltip]');
+    if (!target || !target.dataset.tooltip) return;
+    currentTarget = target;
+    tooltip.textContent = target.dataset.tooltip;
+    tooltip.classList.remove('hidden');
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!currentTarget) return;
+    tooltip.style.left = e.clientX + 'px';
+    tooltip.style.top = e.clientY + 'px';
+  });
+
+  document.addEventListener('mouseout', e => {
+    const target = e.target.closest('[data-tooltip]');
+    if (!target) return;
+    if (e.relatedTarget && target.contains(e.relatedTarget)) return;
+    currentTarget = null;
+    tooltip.classList.add('hidden');
+  });
+})();
+
+// L2D 파츠(스킨) on/off 토글 UI — costume.js/unreleased.js 공용
+// skins: default를 제외한 spine.Skin 배열, enabledSet: 현재 켜져있는 스킨 이름 Set
+function renderPartsToggle(containerId, skins, enabledSet, onChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!skins.length) {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+    return;
+  }
+
+  container.classList.remove('hidden');
+  container.innerHTML = skins.map(skin => `
+    <div class="toggle-switch-wrap part-toggle-item${enabledSet.has(skin.name) ? ' active' : ''}" data-skin="${skin.name}">
+      <div class="toggle-switch"></div>
+      <span class="toggle-label">${skin.name}</span>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.part-toggle-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.skin;
+      const isActive = el.classList.toggle('active');
+      if (isActive) enabledSet.add(name); else enabledSet.delete(name);
+      onChange();
+    });
+  });
+}
+
 // ===== Supabase 데이터 조회 → 예전 APP_DATA 모양으로 조립 =====
 // (테이블/컬럼 이름이 전부 한글이라 r['컬럼명'] 형태로 접근)
 

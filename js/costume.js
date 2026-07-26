@@ -168,8 +168,10 @@
     const freeTicketImg  = document.getElementById('costume-free-ticket-img');
     const paidTicketImg  = document.getElementById('costume-paid-ticket-img');
     freeTicketImg.src = costume['무료티켓'] || '';
+    freeTicketImg.dataset.tooltip = costume['티켓'] || '';
     freeTicketWrap.style.display = costume['무료티켓'] ? 'block' : 'none';
     paidTicketImg.src = costume['유료티켓'] || '';
+    paidTicketImg.dataset.tooltip = costume['티켓'] || '';
     paidTicketImg.style.display = costume['유료티켓'] ? 'block' : 'none';
 
     // 복각 기간 표시 (원본/복각 어느 초상화를 클릭했든 복각 기간이 있으면 항상 표시)
@@ -192,6 +194,9 @@
   function loadSpinePlayer(skelUrl, atlasUrl) {
     const wrap = document.getElementById('costume-spine-player');
     wrap.innerHTML = '';
+
+    const partsToggle = document.getElementById('costume-parts-toggle');
+    if (partsToggle) { partsToggle.innerHTML = ''; partsToggle.classList.add('hidden'); }
 
     if (!skelUrl || !atlasUrl) {
       return;
@@ -267,14 +272,22 @@
             }
 
             const skeleton = player2.skeleton;
-            skeleton.setSkinByName('default');
-            skeleton.data.skins.forEach(skin => {
-              if (skin.name !== 'default') {
-                skeleton.skin.addSkin(skin);
-              }
-            });
-            skeleton.setToSetupPose();
-            skeleton.updateWorldTransform();
+            const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
+            const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
+
+            const rebuildSkin = () => {
+              const combined = new spine.Skin('combined');
+              const defaultSkin = skeleton.data.findSkin('default');
+              if (defaultSkin) combined.addSkin(defaultSkin);
+              partSkins.forEach(skin => {
+                if (enabledParts.has(skin.name)) combined.addSkin(skin);
+              });
+              skeleton.setSkin(combined);
+              skeleton.setSlotsToSetupPose();
+              skeleton.updateWorldTransform();
+            };
+            rebuildSkin();
+            renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
             player2.animationState.data.defaultMix = 0;
 

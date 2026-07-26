@@ -497,6 +497,8 @@
       unreleasedSpinePlayer = null;
     }
     document.getElementById('unreleased-spine-player').innerHTML = '';
+    const toggle = document.getElementById('unreleased-parts-toggle');
+    if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
   }
 
   function loadUnreleasedSpine(skelUrl, atlasUrl) {
@@ -566,12 +568,23 @@
               c.style.height = wrapH + 'px';
             }
             const skeleton = player2.skeleton;
-            skeleton.setSkinByName('default');
-            skeleton.data.skins.forEach(skin => {
-              if (skin.name !== 'default') skeleton.skin.addSkin(skin);
-            });
-            skeleton.setToSetupPose();
-            skeleton.updateWorldTransform();
+            const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
+            const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
+
+            const rebuildSkin = () => {
+              const combined = new spine.Skin('combined');
+              const defaultSkin = skeleton.data.findSkin('default');
+              if (defaultSkin) combined.addSkin(defaultSkin);
+              partSkins.forEach(skin => {
+                if (enabledParts.has(skin.name)) combined.addSkin(skin);
+              });
+              skeleton.setSkin(combined);
+              skeleton.setSlotsToSetupPose();
+              skeleton.updateWorldTransform();
+            };
+            rebuildSkin();
+            renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin);
+
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               player2.setAnimation('action', false);
