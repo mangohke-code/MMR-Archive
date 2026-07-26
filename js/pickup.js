@@ -167,7 +167,7 @@
 
   function makeChip(label, filterId, value, active = false, iconUrl = null) {
     const btn = document.createElement('button');
-    btn.className = 'filter-chip' + (active ? ' active' : '');
+    btn.className = 'filter-chip' + (filterId === 'code' ? ' filter-chip-code' : '') + (active ? ' active' : '');
     btn.dataset.filter = filterId;
     btn.dataset.value = value;
 
@@ -526,9 +526,10 @@
       + columns.map(col => {
         const dotColor = config.dotColors[col] || '#5555aa';
         const iconUrl = iconImgData[groupKey] && iconImgData[groupKey][col] ? iconImgData[groupKey][col] : null;
+        const isCodeGroup = groupKey === '우월코드';
         return `<th style="${colWidthStyle}">
           ${iconUrl
-            ? `<img src="${iconUrl}" alt="${col}" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:4px;">`
+            ? `<img src="${iconUrl}" alt="${col}" class="${isCodeGroup ? 'code-group-icon' : ''}" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:4px;">`
             : `<span class="group-col-dot" style="background:${dotColor};"></span>`}
           ${isBurst ? '' : col}
         </th>`;

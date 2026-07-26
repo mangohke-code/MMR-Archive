@@ -132,18 +132,17 @@
     --code-water-border: #10304a;
   }
 
-  /* 원래 다크 배경 전제로 만들어진 흰색 고정 아이콘 — 라이트 모드에서는 반전, 다크 모드에서는 원래대로 */
-  .nikke-attr-chip img,
-  .filter-chip img,
-  .stage-code-icon,
-  #pickup-group-header-table th img {
+  /* 원래 다크 배경 전제로 만들어진 흰색 고정 아이콘 — 라이트 모드에서는 반전, 다크 모드에서는 원래대로
+     (단, 우월코드 아이콘은 자체 색이 있어서 반전 대상에서 제외) */
+  .nikke-attr-chip:not(.code-chip) img,
+  .filter-chip:not(.filter-chip-code) img,
+  #pickup-group-header-table th img:not(.code-group-icon) {
     filter: invert(1);
   }
 
-  [data-theme="dark"] .nikke-attr-chip img,
-  [data-theme="dark"] .filter-chip img,
-  [data-theme="dark"] .stage-code-icon,
-  [data-theme="dark"] #pickup-group-header-table th img {
+  [data-theme="dark"] .nikke-attr-chip:not(.code-chip) img,
+  [data-theme="dark"] .filter-chip:not(.filter-chip-code) img,
+  [data-theme="dark"] #pickup-group-header-table th img:not(.code-group-icon) {
     filter: none;
   }
 
@@ -410,6 +409,12 @@
     display: flex;
     flex-direction: column;
     gap: 4rem;
+  }
+
+  /* 메인 페이지 각 구역 사이 경계선 (소개글 다음부터, 마지막 구역 제외 없이 전부) */
+  #main-container > div + div {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 2rem;
   }
 
   #update-log-list {
@@ -1338,6 +1343,7 @@
     overflow: hidden;
     background: var(--bg-panel);
     border-right: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1356,6 +1362,7 @@
     width: 110px;
     height: 150px;
     flex-shrink: 0;
+    border-top: 1px solid var(--border-subtle);
     display: grid;
     grid-template-columns: 35px 35px;
     grid-template-rows: 35px 35px 35px;
@@ -1509,6 +1516,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Spine 플레이어 라이브러리가 내부 .spine-player div에 인라인으로 검은 배경을 강제로 넣어서
+     !important로 덮어써야 함 — 테마에 맞는 배경(라이트=흰색)으로 통일 */
+  #costume-spine-wrap .spine-player,
+  #unreleased-spine-wrap .spine-player {
+    background-color: var(--bg-panel) !important;
   }
 
   #costume-info {
