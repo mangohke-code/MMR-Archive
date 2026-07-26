@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (themeToggle) {
     const updateThemeIcon = () => {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      themeToggle.textContent = isDark ? '☀️' : '🌙';
+      themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
     };
     updateThemeIcon();
     themeToggle.addEventListener('click', () => {

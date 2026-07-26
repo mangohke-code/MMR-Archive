@@ -28,7 +28,7 @@
       const imgUrl = chapImg ? chapImg['이미지'] : '';
       const chapName = chapImg ? chapImg['명칭'] : '';
       return `
-        <div class="chapter-card" onclick="selectChapter(${JSON.stringify(ch)})">
+        <div class="chapter-card" data-chapter="${ch}">
           <div class="chapter-img">
             <img src="${imgUrl}" alt="챕터 ${ch}" onerror="this.style.display='none'">
             <div class="chapter-label">CHAPTER.${ch}<br>${chapName}</div>
@@ -208,6 +208,14 @@
 
   // 뒤로가기
   document.addEventListener('DOMContentLoaded', () => {
+    // 챕터 카드 클릭 (이벤트 위임 — 렌더될 때마다 innerHTML로 새로 그려지므로 컨테이너에 한 번만 등록)
+    const handleChapterCardClick = (e) => {
+      const card = e.target.closest('.chapter-card');
+      if (card) selectChapter(card.dataset.chapter);
+    };
+    document.getElementById('chapter-grid-zero').addEventListener('click', handleChapterCardClick);
+    document.getElementById('chapter-grid').addEventListener('click', handleChapterCardClick);
+
     document.getElementById('stage-back-btn').addEventListener('click', () => {
       const grid = document.getElementById('chapter-grid');
       const gridZero = document.getElementById('chapter-grid-zero');

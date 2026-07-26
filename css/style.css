@@ -132,6 +132,21 @@
     --code-water-border: #10304a;
   }
 
+  /* 원래 다크 배경 전제로 만들어진 흰색 고정 아이콘 — 라이트 모드에서는 반전, 다크 모드에서는 원래대로 */
+  .nikke-attr-chip img,
+  .filter-chip img,
+  .stage-code-icon,
+  #pickup-group-header-table th img {
+    filter: invert(1);
+  }
+
+  [data-theme="dark"] .nikke-attr-chip img,
+  [data-theme="dark"] .filter-chip img,
+  [data-theme="dark"] .stage-code-icon,
+  [data-theme="dark"] #pickup-group-header-table th img {
+    filter: none;
+  }
+
   /* ===== 공통 ===== */
   * {
     box-sizing: border-box;
@@ -278,11 +293,14 @@
 
   #theme-toggle {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 44px;
     height: 44px;
     margin-top: 4px;
-    font-size: 20px;
-    line-height: 1;
+    font-size: 18px;
+    color: var(--text-secondary);
     border-radius: var(--radius-pill);
     border: 1px solid var(--border-subtle);
     background: var(--bg-panel);
