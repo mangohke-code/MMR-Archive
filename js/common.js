@@ -177,37 +177,52 @@ function buildChapImgData(rows) {
   return rows.map(r => ({ '챕터': r['챕터'], '이미지': r['이미지'], '명칭': r['명칭'] }));
 }
 
+// Supabase(PostgREST)는 한 번에 최대 1000행까지만 반환하므로, 그 이상인 테이블(스테이지 정보 등)을
+// 위해 다 받을 때까지 range()로 이어붙인다.
+async function fetchAll(tableName, orderColumn) {
+  const pageSize = 1000;
+  let allRows = [];
+  let from = 0;
+  while (true) {
+    let query = supabaseClient.from(tableName).select('*').range(from, from + pageSize - 1);
+    if (orderColumn) query = query.order(orderColumn, { ascending: true });
+    const res = await query;
+    if (res.error) throw res.error;
+    allRows = allRows.concat(res.data);
+    if (res.data.length < pageSize) break;
+    from += pageSize;
+  }
+  return allRows;
+}
+
 async function loadAllData() {
   const [
-    pickupRes, costumeRes, souvenirRes, stageRes,
-    unreleasedRes, nikkeImgRes, iconRes, chapRes,
-    configRes, eventRes,
+    pickupRows, costumeRows, souvenirRows, stageRows,
+    unreleasedRows, nikkeImgRows, iconRows, chapRows,
+    configRows, eventRows,
   ] = await Promise.all([
-    supabaseClient.from('픽업_기록').select('*').order('시작일', { ascending: true }),
-    supabaseClient.from('유니크_코스튬').select('*'),
-    supabaseClient.from('기념품').select('*'),
-    supabaseClient.from('스테이지_정보').select('*'),
-    supabaseClient.from('미실장_캐릭터').select('*'),
-    supabaseClient.from('IMG_니케').select('*'),
-    supabaseClient.from('IMG_아이콘').select('*'),
-    supabaseClient.from('IMG_챕터').select('*'),
-    supabaseClient.from('메인_업데이트').select('*'),
-    supabaseClient.from('메인_이벤트').select('*').order('시작일', { ascending: true }),
+    fetchAll('픽업_기록', '시작일'),
+    fetchAll('유니크_코스튬'),
+    fetchAll('기념품'),
+    fetchAll('스테이지_정보'),
+    fetchAll('미실장_캐릭터'),
+    fetchAll('IMG_니케'),
+    fetchAll('IMG_아이콘'),
+    fetchAll('IMG_챕터'),
+    fetchAll('메인_업데이트'),
+    fetchAll('메인_이벤트', '시작일'),
   ]);
 
-  [pickupRes, costumeRes, souvenirRes, stageRes, unreleasedRes, nikkeImgRes, iconRes, chapRes, configRes, eventRes]
-    .forEach(res => { if (res.error) throw res.error; });
-
-  const pickup = buildPickupData(pickupRes.data);
-  APP_DATA.main = buildMainData(configRes.data, eventRes.data, pickup);
+  const pickup = buildPickupData(pickupRows);
+  APP_DATA.main = buildMainData(configRows, eventRows, pickup);
   APP_DATA.pickup = pickup;
-  APP_DATA.costume = buildCostumeData(costumeRes.data);
-  APP_DATA.souvenir = buildSouvenirData(souvenirRes.data);
-  APP_DATA.stage = buildStageData(stageRes.data);
-  APP_DATA.unreleased = buildUnreleasedData(unreleasedRes.data);
-  APP_DATA.nikkeImg = buildNikkeImgData(nikkeImgRes.data);
-  APP_DATA.iconImg = buildIconImgData(iconRes.data);
-  APP_DATA.chapImg = buildChapImgData(chapRes.data);
+  APP_DATA.costume = buildCostumeData(costumeRows);
+  APP_DATA.souvenir = buildSouvenirData(souvenirRows);
+  APP_DATA.stage = buildStageData(stageRows);
+  APP_DATA.unreleased = buildUnreleasedData(unreleasedRows);
+  APP_DATA.nikkeImg = buildNikkeImgData(nikkeImgRows);
+  APP_DATA.iconImg = buildIconImgData(iconRows);
+  APP_DATA.chapImg = buildChapImgData(chapRows);
   APP_DATA.ready = true;
 
   _onReadyCallbacks.forEach(fn => fn());
