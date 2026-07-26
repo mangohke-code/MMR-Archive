@@ -159,5 +159,8 @@ begin
       'create policy "public read" on %I for select to anon, authenticated using (true);',
       t
     );
+    -- RLS 정책만으론 부족하고, 테이블 자체에 대한 기본 조회 권한도 따로 필요함
+    -- ("Automatically expose new tables"를 꺼둔 경우 이게 자동으로 안 걸림)
+    execute format('grant select on %I to anon, authenticated;', t);
   end loop;
 end $$;
