@@ -1,65 +1,67 @@
   /* ===== 폰트 ===== */
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
 
-  /* ===== 디자인 토큰 ===== */
+  /* ===== 디자인 토큰 =====
+     기본(:root) = 라이트 모드, [data-theme="dark"] = 다크 모드 오버라이드 */
   :root {
-    /* 배경 (무채색) */
-    --bg-page: #0a0a0b;
-    --bg-panel: #141416;
-    --bg-panel-alt: #1c1c1f;
-    --bg-panel-active: #242428;
-    --bg-inset: #08080a;
+    /* 배경 */
+    --bg-page: #f7f7f8;
+    --bg-panel: #ffffff;
+    --bg-panel-alt: #f0f0f2;
+    --bg-panel-active: #e7e7ec;
+    --bg-inset: #eeeeee;
 
     /* 테두리 (기본=subtle, hover=strong, active/선택=accent) */
-    --border-subtle: #2a2a2e;
-    --border-strong: #4b4b91;
+    --border-subtle: #e4e4e8;
+    --border-strong: #8f8fd6;
     --border-accent: #6a6ae0;
-    --border-region-divider: #3a3a22;
+    --border-region-divider: #cfcf9a;
 
-    /* 텍스트 (무채색) */
-    --text-heading: #fafafa;
-    --text-body: #d4d4d8;
-    --text-secondary: #9c9ca3;
-    --text-muted: #78787f;
-    --text-faint: #525258;
-    --text-dim: #3d3d42;
+    /* 텍스트 */
+    --text-heading: #18181b;
+    --text-body: #3f3f46;
+    --text-secondary: #6b6b76;
+    --text-muted: #8a8a94;
+    --text-faint: #a8a8b3;
+    --text-dim: #c2c2ca;
 
     /* 액센트 (브랜드 색 — 유일한 유채색 포인트) */
     --accent: #7272e6;
-    --accent-strong: #9a9af5;
-    --accent-dim: #55559c;
-    --accent-glow: rgba(114, 114, 230, 0.32);
+    --accent-strong: #6a6ae0;
+    --accent-dim: #a3a3ee;
+    --accent-glow: rgba(114, 114, 230, 0.24);
+    --text-on-accent: #ffffff;
 
     /* 그림자 (카드 입체감 — 테두리 대신 사용) */
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
-    --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.04), 0 2px 8px rgba(24, 24, 27, 0.06);
+    --shadow-card-hover: 0 2px 4px rgba(24, 24, 27, 0.06), 0 6px 16px rgba(24, 24, 27, 0.08);
 
-    /* 상태 배지 */
-    --status-new-bg: #12271a;
-    --status-new-text: #5ecf6e;
-    --status-new-border: #2f6b3c;
-    --status-limited-bg: #2a1015;
-    --status-limited-text: #ff6b6b;
-    --status-limited-border: #7a2a34;
-    --status-rerun-bg: #12142e;
-    --status-rerun-text: #7d88ff;
-    --status-rerun-border: #3d478f;
-    --status-special-bg: #221530;
-    --status-special-text: #b98cff;
-    --status-special-border: #6b4aa8;
-    --status-warn-text: #ffcc66;
+    /* 상태 배지 (라이트: 옅은 배경 + 진한 텍스트) */
+    --status-new-bg: #e6f7ea;
+    --status-new-text: #1a7a34;
+    --status-new-border: #a8dfb6;
+    --status-limited-bg: #fce8ea;
+    --status-limited-text: #c23046;
+    --status-limited-border: #f0aab3;
+    --status-rerun-bg: #ebedfb;
+    --status-rerun-text: #4550c7;
+    --status-rerun-border: #b8bef0;
+    --status-special-bg: #f3ebfa;
+    --status-special-text: #8347c9;
+    --status-special-border: #d9bdf0;
+    --status-warn-text: #b8790f;
 
-    /* 속성 코드 칩 */
-    --code-scorch-bg: #1e0a06;
-    --code-scorch-border: #5a2010;
-    --code-iron-bg: #1a1606;
-    --code-iron-border: #4a4010;
-    --code-wind-bg: #061a0a;
-    --code-wind-border: #104a18;
-    --code-electric-bg: #18061a;
-    --code-electric-border: #40104a;
-    --code-water-bg: #07101f;
-    --code-water-border: #10304a;
+    /* 속성 코드 칩 (라이트: 옅은 파스텔) */
+    --code-scorch-bg: #fdeeea;
+    --code-scorch-border: #f0b39a;
+    --code-iron-bg: #fbf3e0;
+    --code-iron-border: #e8d090;
+    --code-wind-bg: #e9f7ec;
+    --code-wind-border: #a8dfb6;
+    --code-electric-bg: #f3eafb;
+    --code-electric-border: #d3aeed;
+    --code-water-bg: #e8f2fb;
+    --code-water-border: #a8cdf0;
 
     /* 반경 스케일 */
     --radius-sm: 4px;
@@ -75,6 +77,59 @@
     --space-6: 1.5rem;
     --space-8: 2rem;
     --space-12: 3rem;
+  }
+
+  /* ===== 다크 모드 오버라이드 ===== */
+  :root[data-theme="dark"] {
+    --bg-page: #0a0a0b;
+    --bg-panel: #141416;
+    --bg-panel-alt: #1c1c1f;
+    --bg-panel-active: #242428;
+    --bg-inset: #08080a;
+
+    --border-subtle: #2a2a2e;
+    --border-strong: #4b4b91;
+    --border-accent: #6a6ae0;
+    --border-region-divider: #3a3a22;
+
+    --text-heading: #fafafa;
+    --text-body: #d4d4d8;
+    --text-secondary: #9c9ca3;
+    --text-muted: #78787f;
+    --text-faint: #525258;
+    --text-dim: #3d3d42;
+
+    --accent-strong: #9a9af5;
+    --accent-dim: #55559c;
+    --accent-glow: rgba(114, 114, 230, 0.32);
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.3);
+
+    --status-new-bg: #12271a;
+    --status-new-text: #5ecf6e;
+    --status-new-border: #2f6b3c;
+    --status-limited-bg: #2a1015;
+    --status-limited-text: #ff6b6b;
+    --status-limited-border: #7a2a34;
+    --status-rerun-bg: #12142e;
+    --status-rerun-text: #7d88ff;
+    --status-rerun-border: #3d478f;
+    --status-special-bg: #221530;
+    --status-special-text: #b98cff;
+    --status-special-border: #6b4aa8;
+    --status-warn-text: #ffcc66;
+
+    --code-scorch-bg: #1e0a06;
+    --code-scorch-border: #5a2010;
+    --code-iron-bg: #1a1606;
+    --code-iron-border: #4a4010;
+    --code-wind-bg: #061a0a;
+    --code-wind-border: #104a18;
+    --code-electric-bg: #18061a;
+    --code-electric-border: #40104a;
+    --code-water-bg: #07101f;
+    --code-water-border: #10304a;
   }
 
   /* ===== 공통 ===== */
@@ -125,6 +180,7 @@
     font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', sans-serif;
     background: var(--bg-page);
     color: var(--text-body);
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   /* 전체 페이지 이미지 드래그/선택 방지 (JS_Common.html의 dragstart/contextmenu 차단과 함께 동작) */
@@ -150,7 +206,7 @@
   #loading-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(13, 13, 20, 0.92);
+    background: var(--bg-page);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -198,6 +254,10 @@
 
   /* ===== 헤더 ===== */
   header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
     padding: 1.5rem 2rem;
     border-bottom: 1px solid var(--border-subtle);
   }
@@ -214,6 +274,26 @@
     font-size: 15px;
     color: var(--text-secondary);
     letter-spacing: 0.02em;
+  }
+
+  #theme-toggle {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    margin-top: 4px;
+    font-size: 20px;
+    line-height: 1;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  #theme-toggle:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-panel-alt);
   }
 
   /* ===== 탭 네비게이션 ===== */
@@ -244,7 +324,7 @@
 
   .tab-btn.active {
     background: var(--accent);
-    color: var(--text-heading);
+    color: var(--text-on-accent);
   }
 
   /* ===== 탭 콘텐츠 ===== */

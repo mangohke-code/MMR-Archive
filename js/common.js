@@ -237,6 +237,27 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // 테마 토글 (기본 라이트, 다크는 선택 시 localStorage에 저장)
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    const updateThemeIcon = () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      themeToggle.textContent = isDark ? '☀️' : '🌙';
+    };
+    updateThemeIcon();
+    themeToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('nikke-theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('nikke-theme', 'dark');
+      }
+      updateThemeIcon();
+    });
+  }
+
   // 로딩 소요 시간 표시
   const loadStart = performance.now();
   const timerEl = document.getElementById('loading-timer');
