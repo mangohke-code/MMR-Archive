@@ -176,9 +176,9 @@ async function loadAllData() {
     supabaseClient.from('IMG_니케').select('*'),
     supabaseClient.from('IMG_아이콘').select('*'),
     supabaseClient.from('IMG_챕터').select('*'),
-    supabaseClient.from('사이트_설정').select('*'),
-    supabaseClient.from('이벤트').select('*').order('시작일', { ascending: true }),
-    supabaseClient.from('픽업_썸네일').select('*'),
+    supabaseClient.from('메인_설정').select('*'),
+    supabaseClient.from('메인_이벤트').select('*').order('시작일', { ascending: true }),
+    supabaseClient.from('메인_픽업썸네일').select('*'),
   ]);
 
   [pickupRes, costumeRes, souvenirRes, stageRes, unreleasedRes, nikkeImgRes, iconRes, chapRes, configRes, eventRes, thumbRes]
