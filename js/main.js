@@ -9,6 +9,8 @@
     const updateDate = data.update['업데이트 날짜'];
     document.getElementById('update-date').textContent = updateDate ? formatUpdateDate(updateDate) : '-';
 
+    renderUpdateLog(data.updateLog || []);
+
     const now = new Date();
     const activeEvents = data.events.filter(e => {
       const start = new Date(e['시작일']);
@@ -16,6 +18,27 @@
       return start <= now && now <= end;
     });
     renderEventList(activeEvents);
+  }
+
+  function renderUpdateLog(log) {
+    const container = document.getElementById('update-log-list');
+    if (!container) return;
+    if (log.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = log.map(item => `
+      <div class="update-log-item">
+        <span class="update-log-date">${formatLogDate(item.date)}</span>
+        <span class="update-log-note">${item.note || ''}</span>
+      </div>
+    `).join('');
+  }
+
+  function formatLogDate(date) {
+    if (!date) return '-';
+    const d = new Date(date);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function renderEventList(events) {

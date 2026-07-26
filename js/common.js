@@ -47,8 +47,9 @@ document.addEventListener('contextmenu', e => {
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function buildMainData(configRows, eventRows, pickupData) {
-  const update = {};
-  configRows.forEach(r => { update[r['키']] = r['값']; });
+  const updateLog = configRows
+    .map(r => ({ date: r['날짜'], note: r['업데이트_내역'] }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const eventSeasonMap = {};
   pickupData.forEach(p => {
@@ -56,7 +57,10 @@ function buildMainData(configRows, eventRows, pickupData) {
   });
 
   return {
-    update: update,
+    update: {
+      '업데이트 날짜': updateLog.length > 0 ? updateLog[0].date : null,
+    },
+    updateLog: updateLog.slice(0, 5),
     events: eventRows.map(e => ({
       '이벤트명': e['이벤트명'],
       '시작일': e['시작일'],
@@ -190,7 +194,7 @@ async function loadAllData() {
     supabaseClient.from('IMG_니케').select('*'),
     supabaseClient.from('IMG_아이콘').select('*'),
     supabaseClient.from('IMG_챕터').select('*'),
-    supabaseClient.from('메인_설정').select('*'),
+    supabaseClient.from('메인_업데이트').select('*'),
     supabaseClient.from('메인_이벤트').select('*').order('시작일', { ascending: true }),
   ]);
 

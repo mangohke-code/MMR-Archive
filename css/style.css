@@ -221,6 +221,29 @@
     gap: 1.5rem;
   }
 
+  #update-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .update-log-item {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 16px;
+  }
+
+  .update-log-date {
+    color: #6060aa;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .update-log-note {
+    color: #aaa;
+  }
+
   #event-list {
     display: flex;
     gap: 10px;
