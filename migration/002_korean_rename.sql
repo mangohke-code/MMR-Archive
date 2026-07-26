@@ -76,15 +76,11 @@ alter table "unreleased_characters" rename column "affiliation1" to "소속1";
 alter table "unreleased_characters" rename column "squad1" to "스쿼드1";
 alter table "unreleased_characters" rename column "status1" to "상태1";
 alter table "unreleased_characters" rename column "appearance1" to "등장1";
-alter table "unreleased_characters" rename column "skel1" to "skel1";
-alter table "unreleased_characters" rename column "atlas1" to "atlas1";
 alter table "unreleased_characters" rename column "name2" to "이름2";
 alter table "unreleased_characters" rename column "affiliation2" to "소속2";
 alter table "unreleased_characters" rename column "squad2" to "스쿼드2";
 alter table "unreleased_characters" rename column "status2" to "상태2";
 alter table "unreleased_characters" rename column "appearance2" to "등장2";
-alter table "unreleased_characters" rename column "skel2" to "skel2";
-alter table "unreleased_characters" rename column "atlas2" to "atlas2";
 alter table "unreleased_characters" rename column "id" to "번호";
 alter table "unreleased_characters" rename to "미실장_캐릭터";
 
