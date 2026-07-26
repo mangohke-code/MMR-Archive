@@ -42,12 +42,13 @@ document.addEventListener('contextmenu', e => {
 });
 
 // ===== Supabase 데이터 조회 → 예전 APP_DATA 모양으로 조립 =====
+// (테이블/컬럼 이름이 전부 한글이라 r['컬럼명'] 형태로 접근)
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function buildMainData(configRows, eventRows, thumbRows, pickupData) {
   const update = {};
-  configRows.forEach(r => { update[r.key] = r.value; });
+  configRows.forEach(r => { update[r['키']] = r['값']; });
 
   const eventSeasonMap = {};
   pickupData.forEach(p => {
@@ -57,14 +58,14 @@ function buildMainData(configRows, eventRows, thumbRows, pickupData) {
   return {
     update: update,
     events: eventRows.map(e => ({
-      '이벤트명': e.name,
-      '시작일': e.start_at,
-      '종료일': e.end_at,
-      '이미지': e.image_url,
-      '신규복각': e.kind,
-      '시즌': eventSeasonMap[e.name] || '',
+      '이벤트명': e['이벤트명'],
+      '시작일': e['시작일'],
+      '종료일': e['종료일'],
+      '이미지': e['이미지'],
+      '신규복각': e['신규복각'],
+      '시즌': eventSeasonMap[e['이벤트명']] || '',
     })),
-    pickupImgs: thumbRows.map(t => ({ '이름': t.nikke_name, '이미지': t.image_url })),
+    pickupImgs: thumbRows.map(t => ({ '이름': t['니케'], '이미지': t['이미지'] })),
   };
 }
 
@@ -72,92 +73,93 @@ function buildPickupData(rows) {
   const seenNames = new Set();
   return rows.map(r => {
     const obj = {
-      '시즌': r.season, '이벤트': r.event, '시작일': r.start_at, '종료일': r.end_at,
-      '니케': r.nikke_name, '기업': r.company, '유형': r.type, '버스트': r.burst,
-      '우월코드': r.code, '총기': r.weapon, '픽업 배너': r.banner,
+      '시즌': r['시즌'], '이벤트': r['이벤트'], '시작일': r['시작일'], '종료일': r['종료일'],
+      '니케': r['니케'], '기업': r['기업'], '유형': r['유형'], '버스트': r['버스트'],
+      '우월코드': r['우월코드'], '총기': r['총기'], '픽업 배너': r['픽업_배너'],
     };
     // 복각 판별: 이름이 이미 나온 적 있고, 기업/유형/버스트/우월코드/총기가 전부 비어있으면 복각으로 취급 (원본 시트 F~J열 규칙과 동일)
-    const infoEmpty = !r.company && !r.type && !r.burst && !r.code && !r.weapon;
-    const isDuplicate = seenNames.has(r.nikke_name);
+    const infoEmpty = !r['기업'] && !r['유형'] && !r['버스트'] && !r['우월코드'] && !r['총기'];
+    const isDuplicate = seenNames.has(r['니케']);
     obj['복각'] = isDuplicate && infoEmpty;
-    seenNames.add(r.nikke_name);
+    seenNames.add(r['니케']);
     return obj;
   });
 }
 
 function buildCostumeData(rows) {
   return rows.map(r => ({
-    '니케': r.nikke_name,
-    '코스튬명': r.costume_name,
-    '시작일': r.start_at,
-    '종료일': r.end_at,
-    '복각 시작일': r.rerun_start_at,
-    '복각 종료일': r.rerun_end_at,
-    '티켓': r.ticket_name,
-    '무료티켓': r.free_ticket_url,
-    '유료티켓': r.paid_ticket_url,
-    'skel': r.skel_url,
-    'atlas': r.atlas_url,
+    '니케': r['니케'],
+    '코스튬명': r['코스튬명'],
+    '시작일': r['시작일'],
+    '종료일': r['종료일'],
+    '복각 시작일': r['복각_시작일'],
+    '복각 종료일': r['복각_종료일'],
+    '티켓': r['티켓'],
+    '무료티켓': r['무료티켓'],
+    '유료티켓': r['유료티켓'],
+    'skel': r['skel'],
+    'atlas': r['atlas'],
   }));
 }
 
 function buildSouvenirData(rows) {
-  return rows.filter(r => r.name).map(r => ({
-    '이름': r.name,
-    '이벤트': r.event,
-    '시즌': r.season,
-    '이미지': r.image_url,
-    '획득 방법': r.method,
-    '설명': r.description,
+  return rows.filter(r => r['이름']).map(r => ({
+    '이름': r['이름'],
+    '이벤트': r['이벤트'],
+    '시즌': r['시즌'],
+    '이미지': r['이미지'],
+    '획득 방법': r['획득_방법'],
+    '설명': r['설명'],
   }));
 }
 
 function buildStageData(rows) {
   return rows.map(r => ({
-    '챕터': r.chapter,
-    '스테이지': r.stage,
-    '노말전투력': r.normal_power,
-    '노말보스': r.normal_boss,
-    '노말약점': r.normal_code,
-    '노말유형': r.normal_type,
-    '하드전투력': r.hard_power,
-    '하드보스': r.hard_boss,
-    '하드약점': r.hard_code,
-    '하드유형': r.hard_type,
-    '스토리': r.story,
-    '특이사항': r.notes,
+    '챕터': r['챕터'],
+    '스테이지': r['스테이지'],
+    '노말전투력': r['노말전투력'],
+    '노말보스': r['노말보스'],
+    '노말약점': r['노말약점'],
+    '노말유형': r['노말유형'],
+    '하드전투력': r['하드전투력'],
+    '하드보스': r['하드보스'],
+    '하드약점': r['하드약점'],
+    '하드유형': r['하드유형'],
+    '스토리': r['스토리'],
+    '특이사항': r['특이사항'],
   }));
 }
 
 function buildUnreleasedData(rows) {
-  return rows.filter(r => r.name1 || r.name2).map(r => ({
-    '이름1': r.name1, '소속1': r.affiliation1, '스쿼드1': r.squad1, '상태1': r.status1, '등장1': r.appearance1, 'skel1': r.skel1, 'atlas1': r.atlas1,
-    '이름2': r.name2, '소속2': r.affiliation2, '스쿼드2': r.squad2, '상태2': r.status2, '등장2': r.appearance2, 'skel2': r.skel2, 'atlas2': r.atlas2,
+  return rows.filter(r => r['이름1'] || r['이름2']).map(r => ({
+    '이름1': r['이름1'], '소속1': r['소속1'], '스쿼드1': r['스쿼드1'], '상태1': r['상태1'], '등장1': r['등장1'], 'skel1': r['skel1'], 'atlas1': r['atlas1'],
+    '이름2': r['이름2'], '소속2': r['소속2'], '스쿼드2': r['스쿼드2'], '상태2': r['상태2'], '등장2': r['등장2'], 'skel2': r['skel2'], 'atlas2': r['atlas2'],
   }));
 }
 
 function buildNikkeImgData(rows) {
   return rows.map(r => ({
-    '이름': r.nikke_name,
-    '이미지': r.portrait_url,
-    '코스튬1': r.costume1_name,
-    '코스튬1 이미지': r.costume1_image_url,
-    '코스튬2': r.costume2_name,
-    '코스튬2 이미지': r.costume2_image_url,
+    '이름': r['이름'],
+    '이미지': r['이미지'],
+    '코스튬1': r['코스튬1'],
+    '코스튬1 이미지': r['코스튬1_이미지'],
+    '코스튬2': r['코스튬2'],
+    '코스튬2 이미지': r['코스튬2_이미지'],
   }));
 }
 
 function buildIconImgData(rows) {
   const result = {};
   rows.forEach(r => {
-    if (!result[r.category]) result[r.category] = {};
-    result[r.category][r.key] = r.image_url;
+    const category = r['카테고리'];
+    if (!result[category]) result[category] = {};
+    result[category][r['키']] = r['이미지'];
   });
   return result;
 }
 
 function buildChapImgData(rows) {
-  return rows.map(r => ({ '챕터': r.chapter, '이미지': r.image_url, '명칭': r.name }));
+  return rows.map(r => ({ '챕터': r['챕터'], '이미지': r['이미지'], '명칭': r['명칭'] }));
 }
 
 async function loadAllData() {
@@ -166,17 +168,17 @@ async function loadAllData() {
     unreleasedRes, nikkeImgRes, iconRes, chapRes,
     configRes, eventRes, thumbRes,
   ] = await Promise.all([
-    supabaseClient.from('pickups').select('*').order('start_at', { ascending: true }),
-    supabaseClient.from('costumes').select('*'),
-    supabaseClient.from('souvenirs').select('*'),
-    supabaseClient.from('stages').select('*'),
-    supabaseClient.from('unreleased_characters').select('*'),
-    supabaseClient.from('nikke_images').select('*'),
-    supabaseClient.from('icons').select('*'),
-    supabaseClient.from('chapter_images').select('*'),
-    supabaseClient.from('site_config').select('*'),
-    supabaseClient.from('events').select('*').order('start_at', { ascending: true }),
-    supabaseClient.from('pickup_thumbnails').select('*'),
+    supabaseClient.from('픽업_기록').select('*').order('시작일', { ascending: true }),
+    supabaseClient.from('유니크_코스튬').select('*'),
+    supabaseClient.from('기념품').select('*'),
+    supabaseClient.from('스테이지_정보').select('*'),
+    supabaseClient.from('미실장_캐릭터').select('*'),
+    supabaseClient.from('IMG_니케').select('*'),
+    supabaseClient.from('IMG_아이콘').select('*'),
+    supabaseClient.from('IMG_챕터').select('*'),
+    supabaseClient.from('사이트_설정').select('*'),
+    supabaseClient.from('이벤트').select('*').order('시작일', { ascending: true }),
+    supabaseClient.from('픽업_썸네일').select('*'),
   ]);
 
   [pickupRes, costumeRes, souvenirRes, stageRes, unreleasedRes, nikkeImgRes, iconRes, chapRes, configRes, eventRes, thumbRes]
