@@ -214,13 +214,6 @@
     gap: 4rem;
   }
 
-  #main-update {
-    font-size: 18px;
-    color: #888;
-    display: flex;
-    gap: 1.5rem;
-  }
-
   #update-log-list {
     display: flex;
     flex-direction: column;

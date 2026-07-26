@@ -57,9 +57,6 @@ function buildMainData(configRows, eventRows, pickupData) {
   });
 
   return {
-    update: {
-      '업데이트 날짜': updateLog.length > 0 ? updateLog[0].date : null,
-    },
     updateLog: updateLog.slice(0, 5),
     events: eventRows.map(e => ({
       '이벤트명': e['이벤트명'],

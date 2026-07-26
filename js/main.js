@@ -6,9 +6,6 @@
   }
 
   function renderMainData(data) {
-    const updateDate = data.update['업데이트 날짜'];
-    document.getElementById('update-date').textContent = updateDate ? formatUpdateDate(updateDate) : '-';
-
     renderUpdateLog(data.updateLog || []);
 
     const now = new Date();
@@ -132,12 +129,6 @@
     if (!date) return '-';
     const d = new Date(date);
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  }
-
-  function formatUpdateDate(date) {
-    if (!date) return '-';
-    const d = new Date(date);
-    return `최종 수정일: ${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
   }
 
   document.addEventListener('DOMContentLoaded', loadMainData);
