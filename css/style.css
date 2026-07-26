@@ -234,12 +234,14 @@
     z-index: 10000;
     pointer-events: none;
     font-size: 13px;
-    padding: 6px 12px;
+    line-height: 1.5;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--bg-panel-active);
     color: var(--text-heading);
     box-shadow: var(--shadow-card-hover);
-    white-space: nowrap;
+    white-space: pre-line;
+    max-width: 280px;
     transform: translate(-50%, calc(-100% - 12px));
   }
 

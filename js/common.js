@@ -116,8 +116,11 @@ function setupSpinePanZoom(player, canvasEl) {
 
   function reapply() {
     const vp = player.currentViewport;
-    const w = base.width * state.scale;
-    const h = base.height * state.scale;
+    // width/height가 0 이하이거나 NaN이 되면 카메라 투영이 깨져서 화면이 사라지므로 방어적으로 clamp
+    let w = base.width * state.scale;
+    let h = base.height * state.scale;
+    if (!(w > 0)) w = base.width;
+    if (!(h > 0)) h = base.height;
     const baseCenterX = base.x + base.width / 2;
     const baseCenterY = base.y + base.height / 2;
     vp.width = w;
@@ -126,10 +129,11 @@ function setupSpinePanZoom(player, canvasEl) {
     vp.y = baseCenterY - h / 2 + state.dy;
   }
 
-  let dragging = false, dragMoved = false;
+  let dragging = false, dragMoved = false, justDragged = false;
   let dragStartX = 0, dragStartY = 0, dragStartDx = 0, dragStartDy = 0;
 
   const onMouseDown = e => {
+    e.preventDefault(); // 네이티브 드래그/텍스트 선택 방지
     dragging = true;
     dragMoved = false;
     dragStartX = e.clientX;
@@ -153,7 +157,20 @@ function setupSpinePanZoom(player, canvasEl) {
     reapply();
   };
 
-  const onMouseUp = () => { dragging = false; };
+  const onMouseUp = () => {
+    dragging = false;
+    if (dragMoved) justDragged = true;
+  };
+
+  // 드래그 직후 발생하는 click은 (기존의) 캐릭터 액션 애니메이션 트리거로 넘어가지 않도록 차단
+  // — capture 단계라 costume.js/unreleased.js의 click 리스너(bubble 단계)보다 먼저 실행됨
+  const onClickCapture = e => {
+    if (justDragged) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      justDragged = false;
+    }
+  };
 
   const onWheel = e => {
     e.preventDefault();
@@ -183,12 +200,14 @@ function setupSpinePanZoom(player, canvasEl) {
   canvasEl.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
+  canvasEl.addEventListener('click', onClickCapture, true);
   canvasEl.addEventListener('wheel', onWheel, { passive: false });
 
   reapply.destroy = () => {
     canvasEl.removeEventListener('mousedown', onMouseDown);
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
+    canvasEl.removeEventListener('click', onClickCapture, true);
     canvasEl.removeEventListener('wheel', onWheel);
   };
 
