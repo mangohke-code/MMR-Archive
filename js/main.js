@@ -89,7 +89,7 @@
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       const isLimited = LIMITED_SEASONS.includes(p['시즌']);
       return `
-        <div class="pickup-card">
+        <div class="pickup-card" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${p['니케']}</div>
@@ -107,7 +107,7 @@
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       const isLimited = LIMITED_SEASONS.includes(p['시즌']);
       return `
-        <div class="pickup-card rerun">
+        <div class="pickup-card rerun" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${p['니케']}</div>
@@ -125,6 +125,11 @@
       ${newPickups.length > 0 ? `<div class="pickup-row">${newPickups.map(renderNewCard).join('')}</div>` : ''}
       ${rerunPickups.length > 0 ? `<div class="pickup-row">${rerunPickups.map(renderRerunCard).join('')}</div>` : ''}
     `;
+
+    container.onclick = e => {
+      const card = e.target.closest('.pickup-card[data-nikke]');
+      if (card) jumpToPickupNikke(card.dataset.nikke);
+    };
   }
 
   function renderCostumePickupList(data) {
@@ -168,7 +173,7 @@
       const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
       const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
       return `
-        <div class="pickup-card ${c._isRerun ? 'rerun' : ''}">
+        <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div>
@@ -185,6 +190,12 @@
       ${newCostumes.length > 0 ? `<div class="pickup-row">${newCostumes.map(renderCard).join('')}</div>` : ''}
       ${rerunCostumes.length > 0 ? `<div class="pickup-row">${rerunCostumes.map(renderCard).join('')}</div>` : ''}
     `;
+
+    container.onclick = e => {
+      const card = e.target.closest('.pickup-card[data-nikke]');
+      if (!card) return;
+      jumpToCostume(card.dataset.nikke, card.dataset.costume, card.dataset.isRerun === 'true');
+    };
   }
 
   function formatPickupDateMain(date) {

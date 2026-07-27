@@ -510,6 +510,13 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+
+  .pickup-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
   }
 
   .pickup-row {
@@ -1331,6 +1338,15 @@
   }
 
   .nikke-card:hover { border-color: var(--border-strong); }
+
+  @keyframes jump-highlight-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent); }
+    50% { box-shadow: 0 0 0 3px transparent; }
+  }
+
+  .nikke-card.jump-highlight {
+    animation: jump-highlight-pulse 0.6s ease-in-out 2;
+  }
   .nikke-card.is-limited { border-color: var(--status-limited-border); }
   .nikke-card.is-rerun   { border-color: var(--status-rerun-border); }
   .nikke-card.is-limited.is-rerun { border-color: var(--status-limited-border); }

@@ -351,7 +351,7 @@
     }).join('');
 
     return `
-      <div class="${cardClass}">
+      <div class="${cardClass}" data-nikke-name="${p['니케']}" data-start="${p['시작일']}">
         <div class="nikke-top-badges">
           ${isLimited ? `<span class="nikke-badge-limited">한정</span>` : ''}
           ${isRerun   ? `<span class="nikke-badge-rerun">복각</span>`   : ''}
@@ -376,6 +376,47 @@
     if (!date) return '-';
     const d = new Date(date);
     return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // 메인 페이지의 "진행중인 픽업" 카드 클릭 시 픽업 기록 탭의 해당 니케 위치로 이동.
+  // 같은 니케가 복각으로 여러 번 나왔을 수 있으므로, 그 중 가장 최근(시작일 기준) 카드로 이동한다.
+  function jumpToPickupNikke(nikkeName) {
+    switchTab('pickup');
+
+    // 필터에 가려서 못 찾는 일이 없도록 필터 초기화
+    Object.keys(activeFilters).forEach(k => activeFilters[k].clear());
+    document.querySelectorAll('#pickup-filter-wrap .filter-chips').forEach(container => {
+      const firstBtn = container.querySelector('.filter-chip');
+      if (!firstBtn) return;
+      syncChipActive(container, activeFilters[firstBtn.dataset.filter]);
+    });
+
+    // 타임라인 뷰로 전환
+    if (currentView !== 'timeline') {
+      currentView = 'timeline';
+      document.querySelectorAll('.pickup-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'timeline'));
+      document.getElementById('pickup-timeline').classList.remove('hidden');
+      document.getElementById('pickup-group-view').classList.add('hidden');
+      document.getElementById('pickup-group-selector').classList.add('hidden');
+      syncGroupFilterVisibility(null);
+    }
+
+    // 복각 카드도 보이도록 토글 켜기
+    if (!showRerun) {
+      showRerun = true;
+      document.getElementById('pickup-rerun-toggle').classList.add('active');
+    }
+
+    renderPickupTimeline();
+    updateYearNav();
+
+    const matches = [...document.querySelectorAll(`.nikke-card[data-nikke-name="${CSS.escape(nikkeName)}"]`)];
+    if (matches.length === 0) return;
+    matches.sort((a, b) => new Date(b.dataset.start) - new Date(a.dataset.start));
+    const target = matches[0];
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('jump-highlight');
+    setTimeout(() => target.classList.remove('jump-highlight'), 1200);
   }
 
   // ===== 툴바 이벤트 =====

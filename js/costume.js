@@ -135,6 +135,27 @@
     wrap.scrollTo({ left: direction < 0 ? 0 : wrap.scrollWidth, behavior: 'smooth' });
   }
 
+  // 메인 페이지의 "진행중인 코스튬 픽업" 카드 클릭 시 유니크 코스튬 탭의 해당 코스튬 위치로 이동.
+  function jumpToCostume(nikkeName, costumeName, isRerun) {
+    switchTab('costume');
+
+    const costume = allCostumeData.find(c => c['니케'] === nikkeName && c['코스튬명'] === costumeName);
+    if (!costume) return;
+
+    // 복각 항목은 "복각 표시" 토글이 꺼져 있으면 선택기에 렌더링되지 않으므로 켜준다
+    if (isRerun && !showRerunCostume) {
+      showRerunCostume = true;
+      const toggle = document.getElementById('costume-rerun-toggle');
+      if (toggle) toggle.classList.add('active');
+      renderCostumeSelector(allCostumeData);
+    }
+
+    selectCostume(costume, isRerun);
+
+    const active = document.querySelector('.costume-portrait-item.active');
+    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  }
+
   function selectCostume(costume, isRerun = false) {
     currentCostume = costume;
 
