@@ -94,7 +94,7 @@
     document.getElementById('souvenir-detail-method').textContent = item['획득 방법'] || '-';
 
     const rawDesc = item['설명'] || '-';
-    const isCake = item['이름'] && item['이름'].includes('케이크');
+    const isSpoiler = item['스포일러'] === 'O';
     const desc = rawDesc.replace(/\n/g, '<br>');
     const descEl = document.getElementById('souvenir-detail-desc');
     const descWrap = document.getElementById('souvenir-detail-desc-wrap');
@@ -104,7 +104,7 @@
     const existing = document.getElementById('souvenir-spoiler-overlay');
     if (existing) existing.remove();
 
-    if (isCake && !revealedSouvenirs.has(item)) {
+    if (isSpoiler && !revealedSouvenirs.has(item)) {
       descEl.classList.add('spoiler-blur');
       descWrap.style.position = 'relative';
 

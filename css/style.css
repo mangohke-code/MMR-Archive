@@ -241,7 +241,7 @@
     color: var(--text-heading);
     box-shadow: var(--shadow-card-hover);
     white-space: pre-line;
-    max-width: 280px;
+    max-width: 480px;
     transform: translate(-50%, calc(-100% - 12px));
   }
 
