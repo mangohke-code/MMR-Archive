@@ -302,15 +302,26 @@ function getCostumeThumbUrl(nikkeImg, costumeName) {
 }
 
 // "추가_파츠" 컬럼: 파츠가 하나의 skel/atlas가 아니라 여러 파일로 나뉜 코스튬을 위한 것.
-// 한 줄에 "skel주소,atlas주소" 형태로 파츠 하나씩, 여러 줄이면 여러 파츠(레이어)가 겹쳐 그려진다.
+// 한 줄에 파츠 하나씩, 형식은 "skel주소,atlas주소" (기본 텍스처보다 앞에 그려짐) 또는
+// "뒤,skel주소,atlas주소" (기본 텍스처보다 뒤에 그려짐). 앞/뒤 표시를 생략하면 앞으로 취급한다.
 function parseCostumeExtraParts(raw) {
   if (!raw) return [];
   return raw.split('\n')
     .map(line => line.trim())
     .filter(Boolean)
     .map(line => {
-      const [skel, atlas] = line.split(',').map(s => (s || '').trim());
-      return { skel, atlas };
+      const cols = line.split(',').map(s => (s || '').trim());
+      let order = '앞';
+      let skel, atlas;
+      if (cols.length >= 3 && (cols[0] === '뒤' || cols[0] === '앞')) {
+        order = cols[0];
+        skel = cols[1];
+        atlas = cols[2];
+      } else {
+        skel = cols[0];
+        atlas = cols[1];
+      }
+      return { skel, atlas, order };
     })
     .filter(p => p.skel && p.atlas);
 }
