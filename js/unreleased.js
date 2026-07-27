@@ -574,18 +574,16 @@
             const partsToggleEl = document.getElementById('unreleased-parts-toggle');
             if (partsToggleEl) { partsToggleEl.innerHTML = ''; partsToggleEl.classList.add('hidden'); }
 
-            unreleasedPanZoom = setupSpinePanZoom(player2, player2.canvas);
+            unreleasedPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               try {
                 player2.setAnimation('action', false);
-                if (unreleasedPanZoom) unreleasedPanZoom();
                 player2.animationState.addListener({
                   complete: () => {
                     try {
                       player2.setAnimation('idle', true);
-                      if (unreleasedPanZoom) unreleasedPanZoom();
                     } catch (err) {
                       console.error('[미실장 L2D] idle 애니메이션 복귀 실패:', err);
                     }

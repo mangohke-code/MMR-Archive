@@ -101,85 +101,67 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
 }
 
 // L2D 캔버스 드래그 이동(팬) + 휠 확대/축소 — spine-player 라이브러리 자체엔 이 기능이 없어서 직접 구현.
-// player.currentViewport(x/y/width/height)를 직접 조작해 실시간으로 반영한다. spine-player는
-// setAnimation()을 호출할 때마다 currentViewport를 player.config.viewport 값으로 다시 만들어버리는데,
-// player.config는 생성자에 넘긴 설정 객체를 그대로 참조(clone 아님)하고 있어서, config.viewport의
-// x/y/width/height도 같이 갱신해두면 setAnimation이 몇 번을 호출되든(액션 애니메이션 재생 등) 팬/줌
-// 상태가 자동으로 유지된다 — 따로 reapply()를 호출해줄 필요가 없어짐(호출해도 무해하니 유지).
-function setupSpinePanZoom(player, canvasEl) {
-  const base = {
-    x: player.currentViewport.x,
-    y: player.currentViewport.y,
-    width: player.currentViewport.width,
-    height: player.currentViewport.height,
-  };
-  const state = { dx: 0, dy: 0, scale: 1 };
-  const MIN_SCALE = 0.2, MAX_SCALE = 6;
+// 이전 버전은 spine 내부 camera/currentViewport를 직접 조작했는데, 상호작용 시 캐릭터가 사라지는
+// 문제가 있었고 원인을 확정 짓지 못했다. 같은 니케 L2D 에셋을 쓰는 다른 사이트(Nikke-db.github.io)의
+// 공개 소스를 참고해보니, 그쪽은 spine 내부를 전혀 건드리지 않고 **spine이 렌더링되는 바깥 div를
+// 순수 CSS로 옮기고 크기만 조절**하는 방식이었다 — spine-player는 매 프레임 자기 canvas의
+// clientWidth/clientHeight를 읽어서 알아서 다시 그리기 때문에, 바깥 컨테이너만 크게/작게 하거나
+// 위치를 옮기면 알아서 그 크기·위치에 맞게 다시 렌더링된다. spine 내부 상태를 전혀 건드리지 않으므로
+// 훨씬 안전하다. container는 wrapEl(overflow:hidden, position:relative) 안에서 position:absolute로
+// 움직이고 커진다.
+function setupSpinePanZoom(container, wrapEl) {
+  container.style.position = 'absolute';
+  container.style.left = '0px';
+  container.style.top = '0px';
 
-  function reapply() {
-    // width/height가 0 이하이거나 NaN이 되면 카메라 투영이 깨져서 화면이 사라지므로 방어적으로 clamp
-    let w = base.width * state.scale;
-    let h = base.height * state.scale;
-    if (!(w > 0)) w = base.width;
-    if (!(h > 0)) h = base.height;
-    const baseCenterX = base.x + base.width / 2;
-    const baseCenterY = base.y + base.height / 2;
-    const x = baseCenterX - w / 2 + state.dx;
-    const y = baseCenterY - h / 2 + state.dy;
+  const baseWidth = container.offsetWidth;
+  const baseHeight = container.offsetHeight;
+  const MIN_SCALE = 0.3, MAX_SCALE = 5;
 
-    const vp = player.currentViewport;
-    vp.width = w;
-    vp.height = h;
-    vp.x = x;
-    vp.y = y;
+  let scale = 1, offsetX = 0, offsetY = 0;
 
-    const cfgVp = player.config && player.config.viewport;
-    if (cfgVp) {
-      cfgVp.x = x;
-      cfgVp.y = y;
-      cfgVp.width = w;
-      cfgVp.height = h;
-    }
+  function apply() {
+    container.style.width = (baseWidth * scale) + 'px';
+    container.style.height = (baseHeight * scale) + 'px';
+    container.style.left = offsetX + 'px';
+    container.style.top = offsetY + 'px';
   }
 
-  let dragging = false, dragMoved = false, justDragged = false;
-  let dragStartX = 0, dragStartY = 0, dragStartDx = 0, dragStartDy = 0;
+  let dragging = false, dragMoved = false;
+  let dragStartX = 0, dragStartY = 0, startOffsetX = 0, startOffsetY = 0;
 
   const onMouseDown = e => {
-    e.preventDefault(); // 네이티브 드래그/텍스트 선택 방지
+    e.preventDefault();
     dragging = true;
     dragMoved = false;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    dragStartDx = state.dx;
-    dragStartDy = state.dy;
+    startOffsetX = offsetX;
+    startOffsetY = offsetY;
   };
 
   const onMouseMove = e => {
     if (!dragging) return;
-    const dxScreen = e.clientX - dragStartX;
-    const dyScreen = e.clientY - dragStartY;
-    if (!dragMoved && (Math.abs(dxScreen) > 3 || Math.abs(dyScreen) > 3)) dragMoved = true;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    if (!dragMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) dragMoved = true;
     if (!dragMoved) return;
-    const rect = canvasEl.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const worldPerPixelX = (base.width * state.scale) / rect.width;
-    const worldPerPixelY = (base.height * state.scale) / rect.height;
-    state.dx = dragStartDx - dxScreen * worldPerPixelX;
-    state.dy = dragStartDy + dyScreen * worldPerPixelY;
-    reapply();
+    offsetX = startOffsetX + dx;
+    offsetY = startOffsetY + dy;
+    apply();
   };
 
+  let justDragged = false;
   const onMouseUp = () => {
     dragging = false;
     if (dragMoved) justDragged = true;
   };
 
-  // 드래그 직후 발생하는 click은 (기존의) 캐릭터 액션 애니메이션 트리거로 넘어가지 않도록 차단
-  // — capture 단계라 costume.js/unreleased.js의 click 리스너(bubble 단계)보다 먼저 실행됨
+  // 드래그 직후 발생하는 click은 캐릭터의 액션 애니메이션 재생으로 넘어가지 않도록 차단
+  // — capture 단계라 canvas까지 이벤트가 내려가기 전에 먼저 실행됨
   const onClickCapture = e => {
     if (justDragged) {
-      e.stopImmediatePropagation();
+      e.stopPropagation();
       e.preventDefault();
       justDragged = false;
     }
@@ -187,44 +169,42 @@ function setupSpinePanZoom(player, canvasEl) {
 
   const onWheel = e => {
     e.preventDefault();
-    const rect = canvasEl.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const mouseXRatio = (e.clientX - rect.left) / rect.width;
-    const mouseYRatio = (e.clientY - rect.top) / rect.height;
-    const vp = player.currentViewport;
-    const worldX = vp.x + mouseXRatio * vp.width;
-    const worldY = vp.y + (1 - mouseYRatio) * vp.height;
+    const rect = wrapEl.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-    const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
-    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, state.scale * factor));
-    const actualFactor = newScale / state.scale;
-    state.scale = newScale;
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+    const actualFactor = newScale / scale;
 
-    const baseCenterX = base.x + base.width / 2;
-    const baseCenterY = base.y + base.height / 2;
-    const oldCenterX = baseCenterX + state.dx;
-    const oldCenterY = baseCenterY + state.dy;
-    state.dx = worldX + (oldCenterX - worldX) * actualFactor - baseCenterX;
-    state.dy = worldY + (oldCenterY - worldY) * actualFactor - baseCenterY;
+    // 커서 아래 지점이 확대/축소 후에도 같은 화면 위치에 남도록 offset 보정
+    offsetX = mouseX - (mouseX - offsetX) * actualFactor;
+    offsetY = mouseY - (mouseY - offsetY) * actualFactor;
+    scale = newScale;
 
-    reapply();
+    apply();
   };
 
-  canvasEl.addEventListener('mousedown', onMouseDown);
+  wrapEl.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
-  canvasEl.addEventListener('click', onClickCapture, true);
-  canvasEl.addEventListener('wheel', onWheel, { passive: false });
+  wrapEl.addEventListener('click', onClickCapture, true);
+  wrapEl.addEventListener('wheel', onWheel, { passive: false });
 
-  reapply.destroy = () => {
-    canvasEl.removeEventListener('mousedown', onMouseDown);
+  const api = () => {};
+  api.destroy = () => {
+    wrapEl.removeEventListener('mousedown', onMouseDown);
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
-    canvasEl.removeEventListener('click', onClickCapture, true);
-    canvasEl.removeEventListener('wheel', onWheel);
+    wrapEl.removeEventListener('click', onClickCapture, true);
+    wrapEl.removeEventListener('wheel', onWheel);
+    container.style.position = '';
+    container.style.left = '';
+    container.style.top = '';
+    container.style.width = '';
+    container.style.height = '';
   };
-
-  return reapply;
+  return api;
 }
 
 // ===== Supabase 데이터 조회 → 예전 APP_DATA 모양으로 조립 =====

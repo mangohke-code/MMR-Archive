@@ -1550,6 +1550,7 @@
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2314,6 +2315,7 @@
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    position: relative;
     display: flex;
     flex-direction: column;
   }

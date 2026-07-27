@@ -276,19 +276,17 @@
             const partsToggleEl = document.getElementById('costume-parts-toggle');
             if (partsToggleEl) { partsToggleEl.innerHTML = ''; partsToggleEl.classList.add('hidden'); }
 
-            costumePanZoom = setupSpinePanZoom(player2, player2.canvas);
+            costumePanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
             player2.animationState.data.defaultMix = 0;
 
             player2.canvas.addEventListener('click', () => {
               try {
                 player2.setAnimation('action', false);
-                if (costumePanZoom) costumePanZoom();
                 player2.animationState.addListener({
                   complete: () => {
                     try {
                       player2.setAnimation('idle', true);
-                      if (costumePanZoom) costumePanZoom();
                     } catch (err) {
                       console.error('[코스튬 L2D] idle 애니메이션 복귀 실패:', err);
                     }
