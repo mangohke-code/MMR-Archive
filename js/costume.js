@@ -260,6 +260,10 @@
               } catch (err) {
                 console.error('[코스튬 L2D] 파츠 애니메이션 재생 실패:', err);
               }
+              // 애니메이션이 하나도 없거나 재생에 실패해도 렌더 루프 자체는 계속 돌아야
+              // 캔버스 크기 계산/그리기가 멈추지 않는다 — 애니메이션 없이 정지 포즈만
+              // 보여줘야 하는 파츠(장식/소품)도 있을 수 있으므로 항상 play()를 호출해둔다.
+              try { realPlayer.play(); } catch (err) {}
             }
             activeSpinePlayers.push(realPlayer);
             onReady(realPlayer, layerDiv);
