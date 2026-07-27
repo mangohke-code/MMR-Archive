@@ -591,6 +591,21 @@
 
             unreleasedPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
+            const resetBtn = document.getElementById('unreleased-spine-reset');
+            if (resetBtn) {
+              resetBtn.onmousedown = e => e.stopPropagation();
+              resetBtn.onclick = e => {
+                e.stopPropagation();
+                unreleasedPanZoom.reset();
+                try {
+                  player2.animationState.clearListeners();
+                  player2.setAnimation('idle', true);
+                } catch (err) {
+                  console.error('[미실장 L2D] 초기화 실패:', err);
+                }
+              };
+            }
+
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               try {

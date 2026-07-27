@@ -120,9 +120,9 @@
               return `
               <div class="${itemClass}" data-idx="${origIdx}" data-is-rerun="${c._isRerun}"
                    onclick="selectCostume(allCostumeData[${origIdx}], ${c._isRerun})">
+                <div class="costume-portrait-date">${dateLabel}</div>
                 <div class="costume-portrait-img">
                   ${costumeImgUrl ? `<img src="${costumeImgUrl}" alt="${c['니케']}">` : c['니케']}
-                  <div class="costume-portrait-date">${dateLabel}</div>
                 </div>
                 <div class="costume-portrait-name">${c['니케']}</div>
                 ${c._isRerun ? `<div class="costume-rerun-badge">복각</div>` : ''}
@@ -292,6 +292,21 @@
             renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
             costumePanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
+
+            const resetBtn = document.getElementById('costume-spine-reset');
+            if (resetBtn) {
+              resetBtn.onmousedown = e => e.stopPropagation();
+              resetBtn.onclick = e => {
+                e.stopPropagation();
+                costumePanZoom.reset();
+                try {
+                  player2.animationState.clearListeners();
+                  player2.setAnimation('idle', true);
+                } catch (err) {
+                  console.error('[코스튬 L2D] 초기화 실패:', err);
+                }
+              };
+            }
 
             player2.animationState.data.defaultMix = 0;
 

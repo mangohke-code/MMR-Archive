@@ -175,6 +175,7 @@ function setupSpinePanZoom(container, wrapEl) {
   // 드래그 직후 발생하는 click은 캐릭터의 액션 애니메이션 재생으로 넘어가지 않도록 차단
   // — capture 단계라 canvas까지 이벤트가 내려가기 전에 먼저 실행됨
   const onClickCapture = e => {
+    if (e.target.closest && e.target.closest('.spine-reset-btn')) return;
     if (justDragged) {
       e.stopPropagation();
       e.preventDefault();
@@ -218,6 +219,12 @@ function setupSpinePanZoom(container, wrapEl) {
     container.style.top = '';
     container.style.width = '';
     container.style.height = '';
+  };
+  api.reset = () => {
+    scale = 1;
+    offsetX = 0;
+    offsetY = 0;
+    apply();
   };
   return api;
 }
