@@ -516,25 +516,47 @@
   }
 
   /* 복각/한정 배지: 픽업 날짜 문구 옆에 나란히 두면(특히 좁은 복각 카드에서) 날짜가 눌려
-     보이므로, 픽업 기록 페이지의 니케 카드처럼 이미지 모서리 쪽으로 올려서 보여준다. */
+     보이므로, 픽업 기록 페이지의 니케 카드처럼 카드 우측 상단에 올려서 보여준다. */
   .pickup-top-badges {
     position: absolute;
+    top: 8px;
+    right: 8px;
     display: flex;
     gap: 3px;
     z-index: 3;
     pointer-events: none;
   }
 
-  /* 신규(가로 폭 꽉 찬 배너) 카드: 이미지가 카드 상단 전체를 덮으므로 우측 상단에 배치 */
-  .pickup-card:not(.rerun) .pickup-top-badges {
-    top: 8px;
-    right: 8px;
-  }
-
-  /* 복각(가로형, 이미지가 좌측에 좁게) 카드: 이미지가 왼쪽에만 있으므로 그 위쪽에 배치 */
+  /* 복각(가로형) 카드: 이미지가 왼쪽에만 있으므로 우측 상단(정보란 쪽)에 둬야
+     캐릭터 이미지를 가리지 않는다 */
   .pickup-card.rerun .pickup-top-badges {
     top: 6px;
-    left: 6px;
+    right: 6px;
+  }
+
+  /* 남은 기간 D-n 배지 */
+  .pickup-remaining-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    border-radius: var(--radius-sm);
+    background: var(--status-new-bg);
+    color: var(--status-new-text);
+    border: 1px solid var(--status-new-border);
+    vertical-align: middle;
+  }
+
+  /* 날짜 문구 옆에 나란히 붙는 경우(신규 니케 픽업)에만 간격을 준다 —
+     날짜 아래 줄에 따로 배치되는 경우는 그 줄의 margin-top으로 간격을 준다 */
+  .pickup-date .pickup-remaining-badge {
+    margin-left: 8px;
+  }
+
+  .pickup-remaining-line {
+    margin-top: 4px;
   }
 
   .pickup-card:hover {
@@ -567,6 +589,8 @@
     flex-direction: column;
     justify-content: flex-start;
     padding: 0.75rem 1rem;
+    /* 우측 상단 복각/한정 배지 영역과 겹치지 않도록 위쪽 여백을 더 준다 */
+    padding-top: 34px;
   }
 
   .pickup-card.rerun .pickup-name {

@@ -97,6 +97,7 @@
               <span class="badge-pickup-type new">신규</span>
               ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
               ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
+              ${formatRemainingDaysMain(p['시작일'], p['종료일'])}
             </div>
           </div>
         </div>
@@ -106,6 +107,7 @@
     const renderRerunCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       const isLimited = LIMITED_SEASONS.includes(p['시즌']);
+      const remaining = formatRemainingDaysMain(p['시작일'], p['종료일']);
       return `
         <div class="pickup-card rerun" data-nikke="${p['니케']}">
           <div class="pickup-top-badges">
@@ -115,9 +117,8 @@
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${p['니케']}</div>
-            <div class="pickup-date">
-              ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
-            </div>
+            <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
+            ${remaining ? `<div class="pickup-remaining-line">${remaining}</div>` : ''}
           </div>
         </div>
       `;
@@ -174,6 +175,7 @@
       const imgUrl = getCostumeThumbUrl(nikkeImgMap[c['니케']], c['코스튬명']);
       const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
       const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
+      const remaining = formatRemainingDaysMain(startDate, endDate);
       return `
         <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
           <div class="pickup-top-badges">
@@ -182,9 +184,8 @@
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div>
-            <div class="pickup-date">
-              ${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}
-            </div>
+            <div class="pickup-date">${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}</div>
+            ${remaining ? `<div class="pickup-remaining-line">${remaining}</div>` : ''}
           </div>
         </div>
       `;
@@ -206,6 +207,18 @@
     if (!date) return '-';
     const d = new Date(date);
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // 진행중인 픽업/코스튬 픽업 카드에 종료까지 남은 일수를 D-n 배지로 표시
+  function formatRemainingDaysMain(start, end) {
+    if (!start || !end) return '';
+    const now = new Date();
+    const s = new Date(start);
+    const e = new Date(end);
+    e.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도 그날 전체를 포함하도록
+    if (now < s || now > e) return '';
+    const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
+    return `<span class="pickup-remaining-badge">D-${Math.max(remain, 0)}</span>`;
   }
 
   function formatDate(date) {
