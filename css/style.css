@@ -529,6 +529,7 @@
     height: 150px;
     flex-shrink: 0;
     object-fit: cover;
+    object-position: center 18%;
   }
 
   .pickup-card.rerun .pickup-card-info {
@@ -1266,6 +1267,12 @@
     background: var(--bg-panel-alt);
     color: var(--status-rerun-text);
     border-color: var(--status-rerun-border);
+  }
+
+  .badge-pickup-type.limited {
+    background: var(--status-limited-bg);
+    color: var(--status-limited-text);
+    border-color: var(--status-limited-border);
   }
 
   /* 이벤트 라인 (박스 없이) */

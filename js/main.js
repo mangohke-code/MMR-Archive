@@ -60,6 +60,8 @@
     `).join('');
   }
 
+  const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
+
   function renderPickupList(data) {
     const now = new Date();
     const activePickups = data.filter(p => {
@@ -85,6 +87,7 @@
 
     const renderNewCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
+      const isLimited = LIMITED_SEASONS.includes(p['시즌']);
       return `
         <div class="pickup-card">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
@@ -92,6 +95,7 @@
             <div class="pickup-name">${p['니케']}</div>
             <div class="pickup-date">
               <span class="badge-pickup-type new">신규</span>
+              ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
               ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
             </div>
           </div>
@@ -101,6 +105,7 @@
 
     const renderRerunCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
+      const isLimited = LIMITED_SEASONS.includes(p['시즌']);
       return `
         <div class="pickup-card rerun">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
@@ -108,6 +113,7 @@
             <div class="pickup-name">${p['니케']}</div>
             <div class="pickup-date">
               <span class="badge-pickup-type rerun">복각</span>
+              ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
               ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
             </div>
           </div>
