@@ -202,73 +202,63 @@
     loadSpinePlayer(costume);
   }
 
-  // 스켈레톤 하나를 로드해서(1차: 크기 파악용 프로브, 2차: 실제 뷰포트 적용) stageDiv 안에
-  // 100%x100% 절대 위치 레이어로 쌓는다. 같은 stageDiv에 여러 레이어를 겹치면(추가 파츠)
-  // stageDiv 하나만 팬/줌 대상으로 삼아도 레이어 전체가 함께 움직인다.
+  // 기본 스켈레톤의 바운딩 박스로부터, 모든 레이어가 함께 쓸 뷰포트(좌표계)를 계산한다.
+  // 추가 파츠들은 기본 스켈레톤과 같은 "무대" 위에 배치된 것들이라, 각자 자기 바운딩 박스에
+  // 맞춰 따로 프레이밍하면 서로 다른 배율/중심으로 잘려서 크기·위치가 어긋나 보인다.
+  // 그래서 이 뷰포트 하나를 모든 레이어에 그대로 재사용한다.
+  function computeViewportConfig(vp) {
+    return {
+      animationViewport: false,
+      transitionTime: 0,
+      x: -(vp.width / 2),
+      y: vp.y,
+      width: vp.width,
+      height: vp.height,
+      padLeft: '15%',
+      padRight: '15%',
+      padTop: '5%',
+      padBottom: '5%',
+    };
+  }
+
+  // 스켈레톤 하나를 넘겨받은 뷰포트로 실제 로드해서 stageDiv 안에 100%x100% 절대 위치
+  // 레이어로 쌓는다. 같은 stageDiv에 여러 레이어를 겹치면(추가 파츠) stageDiv 하나만
+  // 팬/줌 대상으로 삼아도 레이어 전체가 함께 움직인다.
   // knownAnimation: 해당 스켈레톤에 반드시 존재한다고 알고 있는 애니메이션 이름(기본 스켈레톤의
   // 'idle' 등). 없으면(추가 파츠처럼 어떤 애니메이션이 있는지 모르는 경우) null을 넘기면
   // 로드 후 실제 존재하는 애니메이션 중에서 안전하게 골라 재생한다 — 없는 이름을 config에
   // 직접 넘기면 라이브러리 내부에서 예외가 나서 블랙박스 에러 화면이 뜨기 때문.
-  function loadSkeletonLayer(stageDiv, layerKey, skelUrl, atlasUrl, knownAnimation, onReady) {
-    const probeDiv = document.createElement('div');
-    probeDiv.id = 'spine-layer-probe-' + layerKey;
-    probeDiv.style.cssText = 'position:absolute; inset:0; width:100%; height:100%;';
-    stageDiv.appendChild(probeDiv);
+  function createSpineLayer(stageDiv, layerKey, skelUrl, atlasUrl, knownAnimation, viewportConfig, onReady) {
+    const layerDiv = document.createElement('div');
+    layerDiv.id = 'spine-layer-' + layerKey;
+    layerDiv.style.cssText = 'position:absolute; inset:0; width:100%; height:100%;';
+    stageDiv.appendChild(layerDiv);
 
-    new spine.SpinePlayer(probeDiv.id, {
+    new spine.SpinePlayer(layerDiv.id, {
       skelUrl: skelUrl,
       atlasUrl: atlasUrl,
+      animation: knownAnimation || undefined,
       backgroundColor: '#00000000',
       showControls: false,
-      success: function(probePlayer) {
-        const data = probePlayer.skeleton.data;
-        const vp = { x: data.x, y: data.y, width: data.width, height: data.height };
-        probePlayer.dispose();
-        probeDiv.remove();
-
-        const layerDiv = document.createElement('div');
-        layerDiv.id = 'spine-layer-' + layerKey;
-        layerDiv.style.cssText = 'position:absolute; inset:0; width:100%; height:100%;';
-        stageDiv.appendChild(layerDiv);
-
-        const player = new spine.SpinePlayer(layerDiv.id, {
-          skelUrl: skelUrl,
-          atlasUrl: atlasUrl,
-          animation: knownAnimation || undefined,
-          backgroundColor: '#00000000',
-          showControls: false,
-          preserveDrawingBuffer: false,
-          antialias: true,
-          viewport: {
-            animationViewport: false,
-            transitionTime: 0,
-            x: -(vp.width / 2),
-            y: vp.y,
-            width: vp.width,
-            height: vp.height,
-            padLeft: '15%',
-            padRight: '15%',
-            padTop: '5%',
-            padBottom: '5%',
-          },
-          success: function(realPlayer) {
-            if (!knownAnimation) {
-              try {
-                const animNames = realPlayer.skeleton.data.animations.map(a => a.name);
-                const animName = animNames.includes('idle') ? 'idle' : animNames[0];
-                if (animName) realPlayer.setAnimation(animName, true);
-              } catch (err) {
-                console.error('[코스튬 L2D] 파츠 애니메이션 재생 실패:', err);
-              }
-              // 애니메이션이 하나도 없거나 재생에 실패해도 렌더 루프 자체는 계속 돌아야
-              // 캔버스 크기 계산/그리기가 멈추지 않는다 — 애니메이션 없이 정지 포즈만
-              // 보여줘야 하는 파츠(장식/소품)도 있을 수 있으므로 항상 play()를 호출해둔다.
-              try { realPlayer.play(); } catch (err) {}
-            }
-            activeSpinePlayers.push(realPlayer);
-            onReady(realPlayer, layerDiv);
+      preserveDrawingBuffer: false,
+      antialias: true,
+      viewport: viewportConfig,
+      success: function(realPlayer) {
+        if (!knownAnimation) {
+          try {
+            const animNames = realPlayer.skeleton.data.animations.map(a => a.name);
+            const animName = animNames.includes('idle') ? 'idle' : animNames[0];
+            if (animName) realPlayer.setAnimation(animName, true);
+          } catch (err) {
+            console.error('[코스튬 L2D] 파츠 애니메이션 재생 실패:', err);
           }
-        });
+          // 애니메이션이 하나도 없거나 재생에 실패해도 렌더 루프 자체는 계속 돌아야
+          // 캔버스 크기 계산/그리기가 멈추지 않는다 — 애니메이션 없이 정지 포즈만
+          // 보여줘야 하는 파츠(장식/소품)도 있을 수 있으므로 항상 play()를 호출해둔다.
+          try { realPlayer.play(); } catch (err) {}
+        }
+        activeSpinePlayers.push(realPlayer);
+        onReady(realPlayer, layerDiv);
       }
     });
   }
@@ -306,82 +296,105 @@
     stageDiv.style.position = 'relative';
     wrap.appendChild(stageDiv);
 
-    loadSkeletonLayer(stageDiv, 'main', skelUrl, atlasUrl, 'idle', (player2, layerDiv) => {
-      spinePlayer = player2;
+    // 기본 스켈레톤을 먼저 프로브해서(크기 파악용, 화면에는 안 보임) 뷰포트를 계산하고,
+    // 그 뷰포트를 기본 스켈레톤과 추가 파츠 전부에 동일하게 적용한다.
+    const probeDiv = document.createElement('div');
+    probeDiv.id = 'spine-layer-probe-main';
+    probeDiv.style.cssText = 'position:absolute; inset:0; width:100%; height:100%;';
+    stageDiv.appendChild(probeDiv);
 
-      const skeleton = player2.skeleton;
-      const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
-      const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
+    new spine.SpinePlayer(probeDiv.id, {
+      skelUrl: skelUrl,
+      atlasUrl: atlasUrl,
+      backgroundColor: '#00000000',
+      showControls: false,
+      success: function(probePlayer) {
+        const data = probePlayer.skeleton.data;
+        const vp = { x: data.x, y: data.y, width: data.width, height: data.height };
+        probePlayer.dispose();
+        probeDiv.remove();
 
-      const rebuildSkin = () => {
-        // 주의: skeleton.setSkinByName('default') 이후 skeleton.skin.addSkin(...)을 쓰면
-        // skeletonData의 실제 'default' 스킨 객체를 그대로 참조해서 "영구적으로" 오염시킨다
-        // (addSkin은 대상 스킨 자체를 mutate함). 그러면 나중에 파츠를 꺼도 이미 오염된
-        // defaultSkin에서 복사해오기 때문에 꺼지지 않는 버그가 생김 — 그래서 매번 새
-        // Skin 객체를 만들어 복사만 해오고, 원본 defaultSkin은 절대 mutate하지 않는다.
-        const combined = new spine.Skin('combined');
-        const defaultSkin = skeleton.data.findSkin('default');
-        if (defaultSkin) combined.addSkin(defaultSkin);
-        partSkins.forEach(skin => {
-          if (enabledParts.has(skin.name)) combined.addSkin(skin);
-        });
-        skeleton.setSkin(combined);
-        skeleton.setToSetupPose();
-        // 스킨을 새로 짠 뒤 setToSetupPose만으로는 일부 슬롯이 "설정 자세"가 아니라
-        // 현재 재생 중인 애니메이션 프레임이 지정한 attachment를 그대로 들고 있어서 안 바뀔 수
-        // 있음 — 현재 애니메이션 프레임을 새 스킨 기준으로 즉시 다시 적용해서 확실히 반영
-        if (player2.animationState) player2.animationState.apply(skeleton);
-        skeleton.updateWorldTransform();
-      };
-      rebuildSkin();
-      renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
+        const viewportConfig = computeViewportConfig(vp);
 
-      costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl);
+        createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, 'idle', viewportConfig, (player2, layerDiv) => {
+          spinePlayer = player2;
 
-      const resetBtn = document.getElementById('costume-spine-reset');
-      if (resetBtn) {
-        resetBtn.onmousedown = e => e.stopPropagation();
-        resetBtn.onclick = e => {
-          e.stopPropagation();
-          costumePanZoom.reset();
-          try {
-            player2.animationState.clearListeners();
-            player2.setAnimation('idle', true);
-          } catch (err) {
-            console.error('[코스튬 L2D] 초기화 실패:', err);
-          }
-        };
-      }
+          const skeleton = player2.skeleton;
+          const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
+          const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
 
-      player2.animationState.data.defaultMix = 0;
+          const rebuildSkin = () => {
+            // 주의: skeleton.setSkinByName('default') 이후 skeleton.skin.addSkin(...)을 쓰면
+            // skeletonData의 실제 'default' 스킨 객체를 그대로 참조해서 "영구적으로" 오염시킨다
+            // (addSkin은 대상 스킨 자체를 mutate함). 그러면 나중에 파츠를 꺼도 이미 오염된
+            // defaultSkin에서 복사해오기 때문에 꺼지지 않는 버그가 생김 — 그래서 매번 새
+            // Skin 객체를 만들어 복사만 해오고, 원본 defaultSkin은 절대 mutate하지 않는다.
+            const combined = new spine.Skin('combined');
+            const defaultSkin = skeleton.data.findSkin('default');
+            if (defaultSkin) combined.addSkin(defaultSkin);
+            partSkins.forEach(skin => {
+              if (enabledParts.has(skin.name)) combined.addSkin(skin);
+            });
+            skeleton.setSkin(combined);
+            skeleton.setToSetupPose();
+            // 스킨을 새로 짠 뒤 setToSetupPose만으로는 일부 슬롯이 "설정 자세"가 아니라
+            // 현재 재생 중인 애니메이션 프레임이 지정한 attachment를 그대로 들고 있어서 안 바뀔 수
+            // 있음 — 현재 애니메이션 프레임을 새 스킨 기준으로 즉시 다시 적용해서 확실히 반영
+            if (player2.animationState) player2.animationState.apply(skeleton);
+            skeleton.updateWorldTransform();
+          };
+          rebuildSkin();
+          renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
-      player2.canvas.addEventListener('click', () => {
-        try {
-          player2.setAnimation('action', false);
-          player2.animationState.addListener({
-            complete: () => {
+          costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl);
+
+          const resetBtn = document.getElementById('costume-spine-reset');
+          if (resetBtn) {
+            resetBtn.onmousedown = e => e.stopPropagation();
+            resetBtn.onclick = e => {
+              e.stopPropagation();
+              costumePanZoom.reset();
               try {
+                player2.animationState.clearListeners();
                 player2.setAnimation('idle', true);
               } catch (err) {
-                console.error('[코스튬 L2D] idle 애니메이션 복귀 실패:', err);
+                console.error('[코스튬 L2D] 초기화 실패:', err);
               }
-              player2.animationState.clearListeners();
+            };
+          }
+
+          player2.animationState.data.defaultMix = 0;
+
+          player2.canvas.addEventListener('click', () => {
+            try {
+              player2.setAnimation('action', false);
+              player2.animationState.addListener({
+                complete: () => {
+                  try {
+                    player2.setAnimation('idle', true);
+                  } catch (err) {
+                    console.error('[코스튬 L2D] idle 애니메이션 복귀 실패:', err);
+                  }
+                  player2.animationState.clearListeners();
+                }
+              });
+            } catch (err) {
+              console.error('[코스튬 L2D] action 애니메이션 재생 실패:', err);
             }
           });
-        } catch (err) {
-          console.error('[코스튬 L2D] action 애니메이션 재생 실패:', err);
-        }
-      });
-    });
+        });
 
-    // 추가 파츠: 기본 스켈레톤과 별개의 skel/atlas 파일이라 독립된 스켈레톤으로 로드해서
-    // 같은 무대 위에 겹쳐 그린다. 클릭 상호작용은 기본 스켈레톤에만 있으므로 이 레이어들은
-    // 마우스 이벤트를 그냥 통과시킨다(pointer-events:none) — 기본 캐릭터 클릭/드래그를 가리지 않도록.
-    extraParts.forEach((part, i) => {
-      if (!part.skel || !part.atlas) return;
-      loadSkeletonLayer(stageDiv, 'extra-' + i, part.skel, part.atlas, null, (player, layerDiv) => {
-        layerDiv.style.pointerEvents = 'none';
-      });
+        // 추가 파츠: 기본 스켈레톤과 별개의 skel/atlas 파일이지만, 같은 뷰포트를 그대로
+        // 재사용해서 기본 스켈레톤과 같은 좌표계 위에 겹쳐 그린다(크기·위치가 어긋나지 않도록).
+        // 클릭 상호작용은 기본 스켈레톤에만 있으므로 이 레이어들은 마우스 이벤트를 그냥
+        // 통과시킨다(pointer-events:none) — 기본 캐릭터 클릭/드래그를 가리지 않도록.
+        extraParts.forEach((part, i) => {
+          if (!part.skel || !part.atlas) return;
+          createSpineLayer(stageDiv, 'extra-' + i, part.skel, part.atlas, null, viewportConfig, (player, layerDiv) => {
+            layerDiv.style.pointerEvents = 'none';
+          });
+        });
+      }
     });
   }
 
