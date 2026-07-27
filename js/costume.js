@@ -304,6 +304,8 @@
         onReady(realPlayer, layerDiv);
       }
     });
+
+    return layerDiv;
   }
 
   function loadSpinePlayer(costume) {
@@ -316,6 +318,9 @@
 
     const partsToggle = document.getElementById('costume-parts-toggle');
     if (partsToggle) { partsToggle.innerHTML = ''; partsToggle.classList.add('hidden'); }
+
+    const extraPartsToggle = document.getElementById('costume-extra-parts-toggle');
+    if (extraPartsToggle) { extraPartsToggle.innerHTML = ''; extraPartsToggle.classList.add('hidden'); }
 
     if (costumePanZoom) { costumePanZoom.destroy(); costumePanZoom = null; }
 
@@ -339,8 +344,12 @@
     stageDiv.style.position = 'relative';
     wrap.appendChild(stageDiv);
 
-    const behindParts = extraParts.filter(p => p.order === '뒤');
-    const frontParts = extraParts.filter(p => p.order !== '뒤');
+    // 원래 입력 순서(_idx)를 기억해둬야 앞/뒤로 나뉘어도 "추가 파츠 1", "추가 파츠 2" 같은
+    // 토글 라벨이 입력한 순서와 일치한다.
+    const extraPartsIndexed = extraParts.map((p, i) => ({ ...p, _idx: i }));
+    const behindParts = extraPartsIndexed.filter(p => p.order === '뒤');
+    const frontParts = extraPartsIndexed.filter(p => p.order !== '뒤');
+    const extraLayerDivs = new Array(extraParts.length).fill(null);
 
     // 기본 스켈레톤 + 추가 파츠 전부를 먼저 프로브해서(크기 파악용, 화면에는 안 보임)
     // 바운딩 박스를 모으고, 그걸로 계산한 뷰포트 하나를 모든 레이어에 동일하게 적용한다.
@@ -368,10 +377,11 @@
       // 기본 스켈레톤 뒤에 깔리게 하고, 앞으로 가야 하는 파츠는 그 다음에 만들어서 위에 쌓이게 한다.
       // 클릭 상호작용은 기본 스켈레톤에만 있으므로 파츠 레이어는 마우스 이벤트를 그냥
       // 통과시킨다(pointer-events:none) — 기본 캐릭터 클릭/드래그를 가리지 않도록.
-      behindParts.forEach((part, i) => {
-        createSpineLayer(stageDiv, 'behind-' + i, part.skel, part.atlas, null, viewportConfig, (player, layerDiv) => {
-          layerDiv.style.pointerEvents = 'none';
+      behindParts.forEach(part => {
+        const layerDiv = createSpineLayer(stageDiv, 'behind-' + part._idx, part.skel, part.atlas, null, viewportConfig, (player, ld) => {
+          ld.style.pointerEvents = 'none';
         });
+        extraLayerDivs[part._idx] = layerDiv;
       });
 
       createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, 'idle', viewportConfig, (player2, layerDiv) => {
@@ -442,9 +452,21 @@
         });
       });
 
-      frontParts.forEach((part, i) => {
-        createSpineLayer(stageDiv, 'front-' + i, part.skel, part.atlas, null, viewportConfig, (player, layerDiv) => {
-          layerDiv.style.pointerEvents = 'none';
+      frontParts.forEach(part => {
+        const layerDiv = createSpineLayer(stageDiv, 'front-' + part._idx, part.skel, part.atlas, null, viewportConfig, (player, ld) => {
+          ld.style.pointerEvents = 'none';
+        });
+        extraLayerDivs[part._idx] = layerDiv;
+      });
+
+      // 추가 파츠 on/off 토글: 각 파츠가 완전히 독립된 스켈레톤이라, 기본 스켈레톤처럼
+      // 스킨을 다시 합칠 필요 없이 레이어 div를 통째로 보이기/숨기기만 하면 된다.
+      const extraPartLabels = extraParts.map((p, i) => ({ name: `추가 파츠 ${i + 1}` }));
+      const enabledExtraParts = new Set(extraPartLabels.map(p => p.name)); // 기본값: 전부 켜짐
+      renderPartsToggle('costume-extra-parts-toggle', extraPartLabels, enabledExtraParts, () => {
+        extraLayerDivs.forEach((layerDiv, i) => {
+          if (!layerDiv) return;
+          layerDiv.style.display = enabledExtraParts.has(extraPartLabels[i].name) ? '' : 'none';
         });
       });
     }
