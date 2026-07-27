@@ -265,16 +265,28 @@
           },
           success: function(player2) {
             const skeleton = player2.skeleton;
-            // 파츠 온오프 기능은 임시로 뺌 (원인 파악 전까지) — 원본과 완전히 동일한 방식으로 복귀
-            skeleton.setSkinByName('default');
-            skeleton.data.skins.forEach(skin => {
-              if (skin.name !== 'default') skeleton.skin.addSkin(skin);
-            });
-            skeleton.setToSetupPose();
-            skeleton.updateWorldTransform();
+            const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
+            const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
 
-            const partsToggleEl = document.getElementById('costume-parts-toggle');
-            if (partsToggleEl) { partsToggleEl.innerHTML = ''; partsToggleEl.classList.add('hidden'); }
+            const rebuildSkin = () => {
+              if (enabledParts.size === partSkins.length) {
+                // 전부 켜진 기본 상태 — 원본 코드와 동일한 방식(가장 오래 검증된 경로) 그대로 사용
+                skeleton.setSkinByName('default');
+                partSkins.forEach(skin => skeleton.skin.addSkin(skin));
+              } else {
+                const combined = new spine.Skin('combined');
+                const defaultSkin = skeleton.data.findSkin('default');
+                if (defaultSkin) combined.addSkin(defaultSkin);
+                partSkins.forEach(skin => {
+                  if (enabledParts.has(skin.name)) combined.addSkin(skin);
+                });
+                skeleton.setSkin(combined);
+              }
+              skeleton.setToSetupPose();
+              skeleton.updateWorldTransform();
+            };
+            rebuildSkin();
+            renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
             costumePanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
