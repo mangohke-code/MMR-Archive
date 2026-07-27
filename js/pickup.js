@@ -330,6 +330,7 @@
     const isLimited = LIMITED_SEASONS.includes(p['시즌']);
     const isRerun = p['복각'];
     const isActive = isPickupPeriodActive(p['시작일'], p['종료일']);
+    const isUpcoming = !isActive && isPickupUpcoming(p['시작일']);
 
     const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
     const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
@@ -371,6 +372,8 @@
             ${formatPickupDate(p['시작일'])} ~ ${formatPickupDate(p['종료일'])}
             ${isActive ? `<span class="nikke-active-badge">픽업 중</span>` : ''}
             ${isActive ? formatRemainingDaysPickup(p['시작일'], p['종료일']) : ''}
+            ${isUpcoming ? `<span class="nikke-upcoming-badge">픽업 예정</span>` : ''}
+            ${isUpcoming ? formatDaysUntilStart(p['시작일']) : ''}
           </div>
         </div>
       </div>
@@ -390,6 +393,21 @@
     const e = new Date(end);
     e.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도 그날 전체를 포함하도록
     return now >= s && now <= e;
+  }
+
+  function isPickupUpcoming(start) {
+    if (!start) return false;
+    return new Date() < new Date(start);
+  }
+
+  // 픽업 예정인 니케 카드에 시작까지 남은 일수를 D-n 배지로 표시 — 종료까지 남은 기간
+  // 배지(.pickup-remaining-badge)와 헷갈리지 않도록 다른 클래스(다른 색)를 쓴다
+  function formatDaysUntilStart(start) {
+    if (!isPickupUpcoming(start)) return '';
+    const now = new Date();
+    const s = new Date(start);
+    const remain = Math.ceil((s - now) / (1000 * 60 * 60 * 24));
+    return `<span class="pickup-upcoming-badge">D-${Math.max(remain, 0)}</span>`;
   }
 
   // 픽업중인 니케 카드에 종료까지 남은 일수를 D-n 배지로 표시
