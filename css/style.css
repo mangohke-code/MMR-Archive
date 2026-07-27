@@ -1596,6 +1596,14 @@
     width: 420px;
   }
 
+  /* 접힌 상태에서 내용이 56px 폭으로 줄어들면서 줄바꿈이 꾸겨지는 것 방지 —
+     펼쳐졌을 때 폭(420px - 좌우 padding)으로 고정해두고 접힌 상태에서는 overflow:hidden으로
+     잘라서 보여주기만 함(레이아웃 자체는 안 줄어들게) */
+  #costume-info > * {
+    flex-shrink: 0;
+    width: 372px;
+  }
+
   #costume-info-header {
     display: flex;
     flex-direction: column;
@@ -2406,6 +2414,14 @@
 
   #unreleased-detail-info:hover {
     width: 420px;
+  }
+
+  /* 접힌 상태에서 내용이 56px 폭으로 줄어들면서 줄바꿈이 꾸겨지는 것 방지 —
+     펼쳐졌을 때 폭(420px - 좌우 padding)으로 고정해두고 접힌 상태에서는 overflow:hidden으로
+     잘라서 보여주기만 함(레이아웃 자체는 안 줄어들게) */
+  #unreleased-detail-info > * {
+    flex-shrink: 0;
+    width: 388px;
   }
 
   #unreleased-detail-name {

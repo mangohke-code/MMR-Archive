@@ -120,9 +120,24 @@ function setupSpinePanZoom(container, wrapEl) {
 
   let scale = 1, offsetX = 0, offsetY = 0;
 
+  // 캐릭터가 화면 밖으로 완전히 나가버리지 않도록, 너무 멀리 옮기면 벽에 막힌 느낌으로 멈추게 함
+  function clampOffsets(w, h) {
+    const wrapW = wrapEl.clientWidth;
+    const wrapH = wrapEl.clientHeight;
+    const minX = Math.min(0, wrapW - w);
+    const maxX = Math.max(0, wrapW - w);
+    offsetX = Math.max(minX, Math.min(maxX, offsetX));
+    const minY = Math.min(0, wrapH - h);
+    const maxY = Math.max(0, wrapH - h);
+    offsetY = Math.max(minY, Math.min(maxY, offsetY));
+  }
+
   function apply() {
-    container.style.width = (baseWidth * scale) + 'px';
-    container.style.height = (baseHeight * scale) + 'px';
+    const w = baseWidth * scale;
+    const h = baseHeight * scale;
+    clampOffsets(w, h);
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
     container.style.left = offsetX + 'px';
     container.style.top = offsetY + 'px';
   }
