@@ -581,6 +581,10 @@
                 skeleton.setSkin(combined);
               }
               skeleton.setToSetupPose();
+              // 스킨을 새로 짠 뒤 setToSetupPose만으로는 일부 슬롯이 "설정 자세"가 아니라
+              // 현재 재생 중인 애니메이션 프레임이 지정한 attachment를 그대로 들고 있어서 안 바뀔 수
+              // 있음 — 현재 애니메이션 프레임을 새 스킨 기준으로 즉시 다시 적용해서 확실히 반영
+              if (player2.animationState) player2.animationState.apply(skeleton);
               skeleton.updateWorldTransform();
             };
             rebuildSkin();
