@@ -301,6 +301,20 @@ function getCostumeThumbUrl(nikkeImg, costumeName) {
   return nikkeImg['코스튬1 이미지'] ?? nikkeImg['코스튬1이미지'] ?? '';
 }
 
+// "추가_파츠" 컬럼: 파츠가 하나의 skel/atlas가 아니라 여러 파일로 나뉜 코스튬을 위한 것.
+// 한 줄에 "skel주소,atlas주소" 형태로 파츠 하나씩, 여러 줄이면 여러 파츠(레이어)가 겹쳐 그려진다.
+function parseCostumeExtraParts(raw) {
+  if (!raw) return [];
+  return raw.split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const [skel, atlas] = line.split(',').map(s => (s || '').trim());
+      return { skel, atlas };
+    })
+    .filter(p => p.skel && p.atlas);
+}
+
 function buildCostumeData(rows) {
   return rows.map(r => ({
     '니케': r['니케'],
@@ -315,6 +329,7 @@ function buildCostumeData(rows) {
     '유료티켓': r['유료티켓'],
     'skel': r['skel'],
     'atlas': r['atlas'],
+    '추가 파츠': parseCostumeExtraParts(r['추가_파츠']),
   }));
 }
 
