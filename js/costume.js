@@ -269,19 +269,18 @@
             const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
 
             const rebuildSkin = () => {
-              if (enabledParts.size === partSkins.length) {
-                // 전부 켜진 기본 상태 — 원본 코드와 동일한 방식(가장 오래 검증된 경로) 그대로 사용
-                skeleton.setSkinByName('default');
-                partSkins.forEach(skin => skeleton.skin.addSkin(skin));
-              } else {
-                const combined = new spine.Skin('combined');
-                const defaultSkin = skeleton.data.findSkin('default');
-                if (defaultSkin) combined.addSkin(defaultSkin);
-                partSkins.forEach(skin => {
-                  if (enabledParts.has(skin.name)) combined.addSkin(skin);
-                });
-                skeleton.setSkin(combined);
-              }
+              // 주의: skeleton.setSkinByName('default') 이후 skeleton.skin.addSkin(...)을 쓰면
+              // skeletonData의 실제 'default' 스킨 객체를 그대로 참조해서 "영구적으로" 오염시킨다
+              // (addSkin은 대상 스킨 자체를 mutate함). 그러면 나중에 파츠를 꺼도 이미 오염된
+              // defaultSkin에서 복사해오기 때문에 꺼지지 않는 버그가 생김 — 그래서 매번 새
+              // Skin 객체를 만들어 복사만 해오고, 원본 defaultSkin은 절대 mutate하지 않는다.
+              const combined = new spine.Skin('combined');
+              const defaultSkin = skeleton.data.findSkin('default');
+              if (defaultSkin) combined.addSkin(defaultSkin);
+              partSkins.forEach(skin => {
+                if (enabledParts.has(skin.name)) combined.addSkin(skin);
+              });
+              skeleton.setSkin(combined);
               skeleton.setToSetupPose();
               // 스킨을 새로 짠 뒤 setToSetupPose만으로는 일부 슬롯이 "설정 자세"가 아니라
               // 현재 재생 중인 애니메이션 프레임이 지정한 attachment를 그대로 들고 있어서 안 바뀔 수
