@@ -360,6 +360,15 @@
     const row = (APP_DATA.unreleased || [])[rowIdx];
     if (!row) return;
 
+    // 이미 펼쳐진 항목을 다시 클릭하면 L2D 표시를 접는다(토글)
+    const alreadyActive = document.querySelector(`.unreleased-card[data-row-idx="${rowIdx}"]`)?.classList.contains('active');
+    if (alreadyActive) {
+      document.querySelectorAll('.unreleased-card').forEach(el => el.classList.remove('active'));
+      document.getElementById('unreleased-detail').classList.add('hidden');
+      clearSpinePlayer();
+      return;
+    }
+
     // active 표시: data-row-idx 기준
     document.querySelectorAll('.unreleased-card').forEach(el => {
       el.classList.toggle('active', Number(el.dataset.rowIdx) === rowIdx);

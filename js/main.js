@@ -108,12 +108,14 @@
       const isLimited = LIMITED_SEASONS.includes(p['시즌']);
       return `
         <div class="pickup-card rerun" data-nikke="${p['니케']}">
+          <div class="pickup-top-badges">
+            <span class="badge-pickup-type rerun">복각</span>
+            ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
+          </div>
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${p['니케']}</div>
             <div class="pickup-date">
-              <span class="badge-pickup-type rerun">복각</span>
-              ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
               ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
             </div>
           </div>
@@ -174,11 +176,13 @@
       const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
       return `
         <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
+          <div class="pickup-top-badges">
+            <span class="badge-pickup-type ${c._isRerun ? 'rerun' : 'new'}">${c._isRerun ? '복각' : '신규'}</span>
+          </div>
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div>
             <div class="pickup-date">
-              <span class="badge-pickup-type ${c._isRerun ? 'rerun' : 'new'}">${c._isRerun ? '복각' : '신규'}</span>
               ${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}
             </div>
           </div>

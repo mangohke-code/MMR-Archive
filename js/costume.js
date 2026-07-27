@@ -151,18 +151,35 @@
       renderCostumeSelector(allCostumeData);
     }
 
-    selectCostume(costume, isRerun);
+    selectCostume(costume, isRerun, false);
 
     const active = document.querySelector('.costume-portrait-item.active');
     if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   }
 
-  function selectCostume(costume, isRerun = false) {
+  // allowToggleClose: 초상화를 직접 클릭했을 때만 "이미 펼쳐진 걸 다시 클릭하면 접기"가
+  // 동작해야 한다. 메인 페이지에서 점프해 들어올 때(jumpToCostume)는 이미 펼쳐져 있어도
+  // 그대로 보여줘야 하므로 false로 호출한다.
+  function selectCostume(costume, isRerun = false, allowToggleClose = true) {
+    const idx = allCostumeData.indexOf(costume);
+    const alreadyActive = [...document.querySelectorAll('.costume-portrait-item.active')].some(el =>
+      Number(el.dataset.idx) === idx && el.dataset.isRerun === String(isRerun)
+    );
+
+    // 이미 펼쳐진 항목을 다시 클릭하면 L2D 표시를 접는다(토글)
+    if (allowToggleClose && alreadyActive) {
+      document.querySelectorAll('.costume-portrait-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('costume-top').classList.add('hidden');
+      currentCostume = null;
+      clearCostumeSpinePlayer();
+      return;
+    }
+
     currentCostume = costume;
 
     document.getElementById('costume-top').classList.remove('hidden');
     document.querySelectorAll('.costume-portrait-item').forEach(el => {
-      const sameIdx = Number(el.dataset.idx) === allCostumeData.indexOf(costume);
+      const sameIdx = Number(el.dataset.idx) === idx;
       const sameRerun = el.dataset.isRerun === String(isRerun);
       el.classList.toggle('active', sameIdx && sameRerun);
     });
@@ -308,13 +325,9 @@
     return layerDiv;
   }
 
-  function loadSpinePlayer(costume) {
-    const skelUrl = costume['skel'];
-    const atlasUrl = costume['atlas'];
-    const extraParts = costume['추가 파츠'] || [];
-
+  function clearCostumeSpinePlayer() {
     const wrap = document.getElementById('costume-spine-player');
-    wrap.innerHTML = '';
+    if (wrap) wrap.innerHTML = '';
 
     const partsToggle = document.getElementById('costume-parts-toggle');
     if (partsToggle) { partsToggle.innerHTML = ''; partsToggle.classList.add('hidden'); }
@@ -327,11 +340,20 @@
     activeSpinePlayers.forEach(p => { try { p.dispose(); } catch (err) {} });
     activeSpinePlayers = [];
     spinePlayer = null;
+  }
+
+  function loadSpinePlayer(costume) {
+    const skelUrl = costume['skel'];
+    const atlasUrl = costume['atlas'];
+    const extraParts = costume['추가 파츠'] || [];
+
+    clearCostumeSpinePlayer();
 
     if (!skelUrl || !atlasUrl) {
       return;
     }
 
+    const wrap = document.getElementById('costume-spine-player');
     const wrapEl = document.getElementById('costume-spine-wrap');
     const wrapHeight = wrapEl.clientHeight;
     const wrapWidth = wrapEl.clientWidth;

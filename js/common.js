@@ -22,12 +22,24 @@ function onAppDataReady(fn) {
   }
 }
 
-function switchTab(tabName) {
+// pushHistory=false는 popstate(뒤로/앞으로가기)에 반응해서 탭만 바꿀 때 쓴다 —
+// 안 그러면 뒤로가기로 전환한 탭이 다시 history에 쌓여서 무한히 앞으로 못 가는 상태가 된다.
+function switchTab(tabName, pushHistory = true) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
   document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
   document.getElementById(`tab-${tabName}`).classList.add('active');
+
+  if (pushHistory) {
+    history.pushState({ tab: tabName }, '');
+  }
 }
+
+// 브라우저 뒤로가기/앞으로가기 키로 탭 이동이 되도록 지원
+window.addEventListener('popstate', e => {
+  const tabName = (e.state && e.state.tab) || 'main';
+  switchTab(tabName, false);
+});
 
 function onError(err) {
   console.error('데이터 로드 실패:', err);

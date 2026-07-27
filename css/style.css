@@ -504,6 +504,7 @@
   }
 
   .pickup-card {
+    position: relative;
     width: 560px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
@@ -512,6 +513,28 @@
     margin-bottom: 0.5rem;
     cursor: pointer;
     transition: box-shadow 0.15s, transform 0.15s;
+  }
+
+  /* 복각/한정 배지: 픽업 날짜 문구 옆에 나란히 두면(특히 좁은 복각 카드에서) 날짜가 눌려
+     보이므로, 픽업 기록 페이지의 니케 카드처럼 이미지 모서리 쪽으로 올려서 보여준다. */
+  .pickup-top-badges {
+    position: absolute;
+    display: flex;
+    gap: 3px;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* 신규(가로 폭 꽉 찬 배너) 카드: 이미지가 카드 상단 전체를 덮으므로 우측 상단에 배치 */
+  .pickup-card:not(.rerun) .pickup-top-badges {
+    top: 8px;
+    right: 8px;
+  }
+
+  /* 복각(가로형, 이미지가 좌측에 좁게) 카드: 이미지가 왼쪽에만 있으므로 그 위쪽에 배치 */
+  .pickup-card.rerun .pickup-top-badges {
+    top: 6px;
+    left: 6px;
   }
 
   .pickup-card:hover {
