@@ -1589,10 +1589,14 @@
   }
 
   /* Spine 플레이어 라이브러리가 내부 .spine-player div에 인라인으로 검은 배경을 강제로 넣어서
-     !important로 덮어써야 함 — 테마에 맞는 배경(라이트=흰색)으로 통일 */
+     !important로 덮어써야 함 — 테마에 맞는 배경(라이트=흰색)으로 통일.
+     투명으로 두는 이유: 코스튬에 추가 파츠(별도 skel/atlas 레이어)가 있으면 .spine-player
+     div가 여러 개 겹쳐 쌓이는데, 여기에 불투명한 배경을 주면 제일 위에 쌓인 레이어의 배경이
+     아래 레이어들을 전부 가려버린다. 대신 배경색은 이미 #costume-spine-wrap/#unreleased-spine-wrap
+     자체에 있으므로, 각 레이어는 투명하게 둬야 겹쳐 그려진 결과가 제대로 보인다. */
   #costume-spine-wrap .spine-player,
   #unreleased-spine-wrap .spine-player {
-    background-color: var(--bg-panel) !important;
+    background-color: transparent !important;
   }
 
   .spine-reset-btn {
