@@ -237,7 +237,6 @@
         const finalWidth = Math.min(playerWidth, wrapWidth);
         const finalHeight = Math.round(finalWidth / ratio);
 
-        const dpr = Math.max(window.devicePixelRatio || 1, 2); // 고화질 렌더링을 위해 최소 2배 슈퍼샘플링
         const playerDiv2 = document.createElement('div');
         playerDiv2.id = 'spine-player-inner';
         playerDiv2.style.width = wrapWidth + 'px';
@@ -265,15 +264,6 @@
             padBottom: '5%',
           },
           success: function(player2) {
-            // dpr 적용: SpinePlayer가 만든 canvas에 직접 접근
-            const c = player2.canvas;
-            if (c) {
-              c.width  = Math.round(wrapWidth  * dpr);
-              c.height = Math.round(wrapHeight * dpr);
-              c.style.width  = wrapWidth  + 'px';
-              c.style.height = wrapHeight + 'px';
-            }
-
             const skeleton = player2.skeleton;
             const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
             const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
@@ -286,7 +276,7 @@
                 if (enabledParts.has(skin.name)) combined.addSkin(skin);
               });
               skeleton.setSkin(combined);
-              skeleton.setSlotsToSetupPose();
+              skeleton.setToSetupPose();
               skeleton.updateWorldTransform();
             };
             rebuildSkin();
@@ -297,15 +287,23 @@
             player2.animationState.data.defaultMix = 0;
 
             player2.canvas.addEventListener('click', () => {
-              player2.setAnimation('action', false);
-              if (costumePanZoom) costumePanZoom();
-              player2.animationState.addListener({
-                complete: () => {
-                  player2.setAnimation('idle', true);
-                  if (costumePanZoom) costumePanZoom();
-                  player2.animationState.clearListeners();
-                }
-              });
+              try {
+                player2.setAnimation('action', false);
+                if (costumePanZoom) costumePanZoom();
+                player2.animationState.addListener({
+                  complete: () => {
+                    try {
+                      player2.setAnimation('idle', true);
+                      if (costumePanZoom) costumePanZoom();
+                    } catch (err) {
+                      console.error('[코스튬 L2D] idle 애니메이션 복귀 실패:', err);
+                    }
+                    player2.animationState.clearListeners();
+                  }
+                });
+              } catch (err) {
+                console.error('[코스튬 L2D] action 애니메이션 재생 실패:', err);
+              }
             });
           }
         });
