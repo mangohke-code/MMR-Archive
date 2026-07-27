@@ -289,6 +289,18 @@ function buildPickupData(rows) {
   return list;
 }
 
+// IMG_Nikke의 코스튬1/코스튬2 중 코스튬명이 일치하는 쪽의 썸네일 이미지를 찾는다.
+// 일치하는 게 없으면(신규 코스튬이 아직 IMG_Nikke에 반영 안 된 경우 등) 코스튬1 이미지로 대체한다.
+function getCostumeThumbUrl(nikkeImg, costumeName) {
+  if (!nikkeImg) return '';
+  for (const n of [1, 2]) {
+    if (nikkeImg[`코스튬${n}`] === costumeName) {
+      return nikkeImg[`코스튬${n} 이미지`] ?? nikkeImg[`코스튬${n}이미지`] ?? '';
+    }
+  }
+  return nikkeImg['코스튬1 이미지'] ?? nikkeImg['코스튬1이미지'] ?? '';
+}
+
 function buildCostumeData(rows) {
   return rows.map(r => ({
     '니케': r['니케'],

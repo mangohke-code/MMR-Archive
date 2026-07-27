@@ -2,6 +2,7 @@
     onAppDataReady(() => {
       renderMainData(APP_DATA.main);
       renderPickupList(APP_DATA.pickup);
+      renderCostumePickupList(APP_DATA.costume);
     });
   }
 
@@ -117,6 +118,66 @@
     container.innerHTML = `
       ${newPickups.length > 0 ? `<div class="pickup-row">${newPickups.map(renderNewCard).join('')}</div>` : ''}
       ${rerunPickups.length > 0 ? `<div class="pickup-row">${rerunPickups.map(renderRerunCard).join('')}</div>` : ''}
+    `;
+  }
+
+  function renderCostumePickupList(data) {
+    const now = new Date();
+
+    // 코스튬은 픽업(니케)과 달리 원본/복각이 한 행(row)에 시작일·복각 시작일로 함께 들어있으므로
+    // 각각 별도 항목으로 펼친 뒤 지금 활성 상태인 것만 남긴다 (코스튬 탭 선택기와 동일한 방식)
+    const originals = data.map(c => ({ ...c, _isRerun: false }));
+    const reruns = data
+      .filter(c => c['복각 시작일'])
+      .map(c => ({ ...c, _isRerun: true }));
+    const all = [...originals, ...reruns];
+
+    const activeCostumes = all.filter(c => {
+      const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
+      const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
+      if (!startDate || !endDate) return false;
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return start <= now && now <= end;
+    });
+
+    const nikkeImgMap = {};
+    (APP_DATA.nikkeImg || []).forEach(n => {
+      if (n['이름']) nikkeImgMap[n['이름']] = n;
+    });
+
+    const container = document.getElementById('costume-pickup-list');
+    if (!container) return;
+    if (activeCostumes.length === 0) {
+      container.innerHTML = '<p>진행중인 코스튬 픽업이 없습니다.</p>';
+      return;
+    }
+
+    const newCostumes = activeCostumes.filter(c => !c._isRerun);
+    const rerunCostumes = activeCostumes.filter(c => c._isRerun);
+
+    const renderCard = c => {
+      const imgUrl = getCostumeThumbUrl(nikkeImgMap[c['니케']], c['코스튬명']);
+      const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
+      const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
+      return `
+        <div class="pickup-card ${c._isRerun ? 'rerun' : ''}">
+          ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
+          <div class="pickup-card-info">
+            <div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div>
+            <div class="pickup-date">
+              <span class="badge-pickup-type ${c._isRerun ? 'rerun' : 'new'}">${c._isRerun ? '복각' : '신규'}</span>
+              ${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    container.innerHTML = `
+      ${newCostumes.length > 0 ? `<div class="pickup-row">${newCostumes.map(renderCard).join('')}</div>` : ''}
+      ${rerunCostumes.length > 0 ? `<div class="pickup-row">${rerunCostumes.map(renderCard).join('')}</div>` : ''}
     `;
   }
 
