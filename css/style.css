@@ -3088,17 +3088,18 @@
     padding: 6px 16px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-strong);
-    background: rgba(13, 13, 20, 0.85);
-    color: var(--text-body);
+    background: var(--bg-panel-active);
+    color: var(--text-heading);
+    box-shadow: var(--shadow-card-hover);
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.2s;
   }
 
   .spoiler-reveal-btn:hover {
-    color: var(--text-heading);
+    color: var(--text-on-accent);
     border-color: var(--border-accent);
-    background: rgba(30, 30, 50, 0.95);
+    background: var(--accent);
   }
 
   /* ===== 스크롤 버튼 ===== */

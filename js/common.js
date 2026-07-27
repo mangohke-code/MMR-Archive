@@ -101,9 +101,11 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
 }
 
 // L2D 캔버스 드래그 이동(팬) + 휠 확대/축소 — spine-player 라이브러리 자체엔 이 기능이 없어서 직접 구현.
-// player.currentViewport(x/y/width/height)를 직접 조작한다. spine-player는 setAnimation()을 호출할
-// 때마다 currentViewport를 최초 config 값으로 다시 만들어버리므로, 리턴되는 reapply 함수를
-// setAnimation 호출 직후에 다시 불러줘야 팬/줌 상태가 유지된다. reapply.destroy()로 리스너 해제.
+// player.currentViewport(x/y/width/height)를 직접 조작해 실시간으로 반영한다. spine-player는
+// setAnimation()을 호출할 때마다 currentViewport를 player.config.viewport 값으로 다시 만들어버리는데,
+// player.config는 생성자에 넘긴 설정 객체를 그대로 참조(clone 아님)하고 있어서, config.viewport의
+// x/y/width/height도 같이 갱신해두면 setAnimation이 몇 번을 호출되든(액션 애니메이션 재생 등) 팬/줌
+// 상태가 자동으로 유지된다 — 따로 reapply()를 호출해줄 필요가 없어짐(호출해도 무해하니 유지).
 function setupSpinePanZoom(player, canvasEl) {
   const base = {
     x: player.currentViewport.x,
@@ -115,7 +117,6 @@ function setupSpinePanZoom(player, canvasEl) {
   const MIN_SCALE = 0.2, MAX_SCALE = 6;
 
   function reapply() {
-    const vp = player.currentViewport;
     // width/height가 0 이하이거나 NaN이 되면 카메라 투영이 깨져서 화면이 사라지므로 방어적으로 clamp
     let w = base.width * state.scale;
     let h = base.height * state.scale;
@@ -123,10 +124,22 @@ function setupSpinePanZoom(player, canvasEl) {
     if (!(h > 0)) h = base.height;
     const baseCenterX = base.x + base.width / 2;
     const baseCenterY = base.y + base.height / 2;
+    const x = baseCenterX - w / 2 + state.dx;
+    const y = baseCenterY - h / 2 + state.dy;
+
+    const vp = player.currentViewport;
     vp.width = w;
     vp.height = h;
-    vp.x = baseCenterX - w / 2 + state.dx;
-    vp.y = baseCenterY - h / 2 + state.dy;
+    vp.x = x;
+    vp.y = y;
+
+    const cfgVp = player.config && player.config.viewport;
+    if (cfgVp) {
+      cfgVp.x = x;
+      cfgVp.y = y;
+      cfgVp.width = w;
+      cfgVp.height = h;
+    }
   }
 
   let dragging = false, dragMoved = false, justDragged = false;

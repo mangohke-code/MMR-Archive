@@ -567,13 +567,19 @@
             const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
 
             const rebuildSkin = () => {
-              const combined = new spine.Skin('combined');
-              const defaultSkin = skeleton.data.findSkin('default');
-              if (defaultSkin) combined.addSkin(defaultSkin);
-              partSkins.forEach(skin => {
-                if (enabledParts.has(skin.name)) combined.addSkin(skin);
-              });
-              skeleton.setSkin(combined);
+              if (enabledParts.size === partSkins.length) {
+                // 전부 켜진 기본 상태 — 원본 코드와 동일한 방식(가장 오래 검증된 경로) 그대로 사용
+                skeleton.setSkinByName('default');
+                partSkins.forEach(skin => skeleton.skin.addSkin(skin));
+              } else {
+                const combined = new spine.Skin('combined');
+                const defaultSkin = skeleton.data.findSkin('default');
+                if (defaultSkin) combined.addSkin(defaultSkin);
+                partSkins.forEach(skin => {
+                  if (enabledParts.has(skin.name)) combined.addSkin(skin);
+                });
+                skeleton.setSkin(combined);
+              }
               skeleton.setToSetupPose();
               skeleton.updateWorldTransform();
             };
