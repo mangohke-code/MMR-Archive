@@ -329,6 +329,7 @@
     const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
     const isLimited = LIMITED_SEASONS.includes(p['시즌']);
     const isRerun = p['복각'];
+    const isActive = isPickupPeriodActive(p['시작일'], p['종료일']);
 
     const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
     const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
@@ -366,7 +367,11 @@
           <div class="nikke-name-wrap"> 
             <div class="nikke-name">${p['니케']}</div>
           </div>
-          <div class="nikke-date">${formatPickupDate(p['시작일'])} ~ ${formatPickupDate(p['종료일'])}</div>
+          <div class="nikke-date">
+            ${formatPickupDate(p['시작일'])} ~ ${formatPickupDate(p['종료일'])}
+            ${isActive ? `<span class="nikke-active-badge">픽업 중</span>` : ''}
+            ${isActive ? formatRemainingDaysPickup(p['시작일'], p['종료일']) : ''}
+          </div>
         </div>
       </div>
     `;
@@ -376,6 +381,25 @@
     if (!date) return '-';
     const d = new Date(date);
     return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function isPickupPeriodActive(start, end) {
+    if (!start || !end) return false;
+    const now = new Date();
+    const s = new Date(start);
+    const e = new Date(end);
+    e.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도 그날 전체를 포함하도록
+    return now >= s && now <= e;
+  }
+
+  // 픽업중인 니케 카드에 종료까지 남은 일수를 D-n 배지로 표시
+  function formatRemainingDaysPickup(start, end) {
+    if (!isPickupPeriodActive(start, end)) return '';
+    const now = new Date();
+    const e = new Date(end);
+    e.setHours(23, 59, 59, 999);
+    const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
+    return `<span class="pickup-remaining-badge">D-${Math.max(remain, 0)}</span>`;
   }
 
   // 메인 페이지의 "진행중인 픽업" 카드 클릭 시 픽업 기록 탭의 해당 니케 위치로 이동.

@@ -1566,6 +1566,24 @@
     z-index: 1;
   }
 
+  .nikke-active-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    background: var(--status-special-bg);
+    color: var(--status-special-text);
+    border: 1px solid var(--status-special-border);
+    vertical-align: middle;
+  }
+
+  .nikke-date .pickup-remaining-badge {
+    margin-left: 6px;
+  }
+
   .nikke-tags {
     display: flex;
     gap: 2px;
