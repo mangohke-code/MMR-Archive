@@ -18,6 +18,9 @@
   };
 
   let pickupEventSeasonMap = {};
+  // 이벤트명 → 픽업 기록 페이지에서의 등장 순서(0부터, 시작일 오름차순). 챕터 다음에 오는
+  // "이벤트 스토리"들끼리의 순서를 정할 때(설문 분류, 캐릭터 목록 정렬 둘 다) 재사용한다.
+  let pickupOrderMap = {};
 
   // ===== 설문 =====
 
@@ -37,7 +40,29 @@
       if (p['이벤트'] && !pickupEventSeasonMap[p['이벤트']]) {
         pickupEventSeasonMap[p['이벤트']] = p['시즌'];
       }
+      if (p['이벤트'] && !(p['이벤트'] in pickupOrderMap)) {
+        pickupOrderMap[p['이벤트']] = Object.keys(pickupOrderMap).length;
+      }
     });
+  }
+
+  // 캐릭터 목록/설문에서 "등장" 값 하나를 정렬 가능한 순위로 바꾼다.
+  // 챕터가 항상 먼저(챕터 번호순), 그 다음 이벤트 스토리(픽업 기록 페이지의 시작일 순),
+  // 미등장(빈 값)은 항상 마지막(Infinity).
+  const APPEAR_EVENT_OFFSET = 100000; // 챕터 번호가 절대 이 값을 넘지 않는다고 가정
+  function appearanceRank(val) {
+    if (!val) return Infinity;
+    if (val.includes('챕터')) return parseInt(val) || 0;
+    const idx = pickupOrderMap[val];
+    return APPEAR_EVENT_OFFSET + (idx !== undefined ? idx : Number.MAX_SAFE_INTEGER - APPEAR_EVENT_OFFSET);
+  }
+
+  // Infinity - Infinity(둘 다 미등장)이 NaN이 되어 정렬이 불안정해지는 걸 피하기 위한 비교 함수
+  function compareRank(a, b) {
+    if (a === b) return 0;
+    if (a === Infinity) return 1;
+    if (b === Infinity) return -1;
+    return a - b;
   }
 
   // 시즌값을 설문 카테고리 키로 정규화 — "1주년"/"2주년"/"2.5주년" 등은 전부 "주년" 하나로 묶는다.
@@ -53,14 +78,8 @@
 
   function classifySurveyItems() {
     const unreleasedData = APP_DATA.unreleased || [];
-    const pickupData     = APP_DATA.pickup     || [];
 
-    const pickupOrderMap = {};
-    pickupData.forEach(p => {
-      if (p['이벤트'] && !(p['이벤트'] in pickupOrderMap)) {
-        pickupOrderMap[p['이벤트']] = Object.keys(pickupOrderMap).length;
-      }
-    });
+    // pickupOrderMap은 buildPickupEventSeasonMap()에서 이미 채워져 있다(공유 변수)
 
     const appearKeys = Object.keys(unreleasedData[0] || {})
       .filter(k => /^등장\d+$/.test(k))
@@ -355,18 +374,26 @@
         const squadMap = affiliationMap[affil];
         const isChinaServer = affil === '중국 서버';
 
-        const squadsHtml = Object.entries(squadMap).map(([squadKey, members]) => {
+        // 스쿼드 정렬: 스쿼드 내 등장한(미등장이 아닌) 캐릭터 중 가장 빠른 등장 시점 기준.
+        // 전원 미등장인 스쿼드는 이 소속 안에서 맨 뒤로 밀린다.
+        const squadEntries = Object.entries(squadMap).map(([squadKey, members]) => {
+          const ranks = members
+            .map(m => appearanceRank(String(m.row['등장1'] || '').trim()))
+            .filter(r => r !== Infinity);
+          const squadRank = ranks.length > 0 ? Math.min(...ranks) : Infinity;
+          return { squadKey, members, squadRank };
+        });
+        squadEntries.sort((a, b) => compareRank(a.squadRank, b.squadRank));
+
+        const squadsHtml = squadEntries.map(({ squadKey, members }) => {
           const isSolo    = squadKey.startsWith('__solo__');
           const squadName = isSolo ? '' : squadKey;
 
-          members.sort((a, b) => {
-            const aVal = String(a.row['등장1'] || '').trim();
-            const bVal = String(b.row['등장1'] || '').trim();
-            if (!aVal && !bVal) return 0;
-            if (!aVal) return 1;
-            if (!bVal) return -1;
-            return 0;
-          });
+          // 스쿼드 내부 정렬: 챕터(번호순) → 이벤트 스토리(픽업 기록 페이지 순서) → 미등장(맨 뒤)
+          members.sort((a, b) => compareRank(
+            appearanceRank(String(a.row['등장1'] || '').trim()),
+            appearanceRank(String(b.row['등장1'] || '').trim())
+          ));
 
           const membersHtml = members.map(({ row, ver, isUnappeared, rowIdx }) => {
             const dispSuffix = (ver >= 2) ? String(ver) : '1';
