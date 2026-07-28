@@ -2417,14 +2417,37 @@
     border-radius: var(--radius-lg);
     padding: 8px 12px;
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
     cursor: pointer;
     transition: border-color 0.15s;
   }
 
   .unreleased-card:hover {
     border-color: var(--border-strong);
+  }
+
+  .unreleased-card-portrait {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--bg-inset);
+  }
+
+  .unreleased-card-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .unreleased-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
   }
 
   .unreleased-card-name {

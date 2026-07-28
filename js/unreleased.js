@@ -373,14 +373,18 @@
             const name   = String(row[`이름${dispSuffix}`] || row['이름1'] || '').trim();
             const status = String(row[`상태${dispSuffix}`] || '').trim();
             const appear = String(row[`등장${dispSuffix}`] || '').trim();
+            const imgUrl = String(row[`이미지${dispSuffix}`] || row['이미지1'] || '').trim();
 
             const nameStrike = status === '이름빗금' || status === '전체빗금';
 
             return `
               <div class="unreleased-card" data-row-idx="${rowIdx}" onclick="selectUnreleasedCard(${rowIdx})">
-                <div class="unreleased-card-name ${nameStrike ? 'strikethrough' : ''}">${name || '???'}</div>
-                ${isUnappeared ? `<span class="unreleased-card-badge unappeared">미등장</span>` : ''}
-                ${appear ? `<div class="unreleased-card-appear">${appear}</div>` : ''}
+                ${imgUrl ? `<div class="unreleased-card-portrait"><img src="${imgUrl}" alt="${name}"></div>` : ''}
+                <div class="unreleased-card-info">
+                  <div class="unreleased-card-name ${nameStrike ? 'strikethrough' : ''}">${name || '???'}</div>
+                  ${isUnappeared ? `<span class="unreleased-card-badge unappeared">미등장</span>` : ''}
+                  ${appear ? `<div class="unreleased-card-appear">${appear}</div>` : ''}
+                </div>
               </div>
             `;
           }).join('');
