@@ -2855,6 +2855,22 @@
 
   #souvenir-item-strip {
     display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .souvenir-season-group-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .souvenir-season-group-body {
+    display: flex;
     flex-wrap: wrap;
     gap: 16px;
     align-items: flex-start;

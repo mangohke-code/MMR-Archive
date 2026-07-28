@@ -16,7 +16,8 @@
   }
 
   function buildSouvenirSeasonTabs(data) {
-    const seasons = [...new Set(data.map(d => d['시즌']).filter(Boolean))];
+    const seasons = [...new Set(data.map(d => d['시즌']).filter(Boolean))]
+      .sort((a, b) => souvenirSeasonRank(a) - souvenirSeasonRank(b));
     const container = document.getElementById('souvenir-season-tabs');
     container.innerHTML = `<button class="souvenir-season-tab" data-season="__all__">전체</button>`
       + seasons.map(s => `<button class="souvenir-season-tab" data-season="${s}">${s}</button>`).join('');
@@ -56,21 +57,34 @@
       byEvent[event].push(item);
     });
 
-    // 그룹(이벤트)의 대표 시즌값(첫 아이템 기준)으로 정렬
-    const sortedEntries = Object.entries(byEvent).sort((a, b) =>
-      souvenirSeasonRank(a[1][0]['시즌']) - souvenirSeasonRank(b[1][0]['시즌'])
-    );
+    // 이벤트 그룹을 다시 시즌별로 묶어서 행(row)으로 구분 — 미실장 캐릭터 탭의 소속별
+    // 구분과 같은 느낌
+    const bySeason = {};
+    Object.entries(byEvent).forEach(([event, items]) => {
+      const season = items[0]['시즌'] || '기타';
+      if (!bySeason[season]) bySeason[season] = [];
+      bySeason[season].push([event, items]);
+    });
 
-    strip.innerHTML = sortedEntries.map(([event, items]) => `
-      <div class="souvenir-event-group">
-        <div class="souvenir-event-label">${event}</div>
-        <div class="souvenir-event-items">
-          ${items.map(item => `
-            <div class="souvenir-strip-item"
-                 data-idx="${allSouvenirData.indexOf(item)}"
-                 onclick="selectSouvenirItem(allSouvenirData[${allSouvenirData.indexOf(item)}])">
-              <div class="souvenir-strip-img">
-                ${item['이미지'] ? `<img src="${item['이미지']}" alt="${item['이름']}">` : ''}
+    const sortedSeasons = Object.keys(bySeason).sort((a, b) => souvenirSeasonRank(a) - souvenirSeasonRank(b));
+
+    strip.innerHTML = sortedSeasons.map(season => `
+      <div class="souvenir-season-group">
+        <div class="souvenir-season-group-title">${season}</div>
+        <div class="souvenir-season-group-body">
+          ${bySeason[season].map(([event, items]) => `
+            <div class="souvenir-event-group">
+              <div class="souvenir-event-label">${event}</div>
+              <div class="souvenir-event-items">
+                ${items.map(item => `
+                  <div class="souvenir-strip-item"
+                       data-idx="${allSouvenirData.indexOf(item)}"
+                       onclick="selectSouvenirItem(allSouvenirData[${allSouvenirData.indexOf(item)}])">
+                    <div class="souvenir-strip-img">
+                      ${item['이미지'] ? `<img src="${item['이미지']}" alt="${item['이름']}">` : ''}
+                    </div>
+                  </div>
+                `).join('')}
               </div>
             </div>
           `).join('')}
