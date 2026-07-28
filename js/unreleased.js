@@ -1,18 +1,20 @@
   const SURVEY_STORAGE_KEY = 'nikke_unreleased_survey';
   const AFFILIATION_ORDER = ['엘리시온', '미실리스', '테트라', '필그림', '소속 불명', '중앙 정부', '중국 서버'];
 
+  // 픽업 기록의 "시즌" 값 중 화면에 먼저 보여주고 싶은 순서(픽업 탭 필터와 동일한 감각).
+  // 여기 없는 시즌값(향후 새로 추가되는 것)은 이 목록 뒤에 알파벳/가나다 순으로 붙는다.
+  const SEASON_ORDER_HINT = ['일반', '메이드', '바니걸', '여름', '크리스마스', '신년', '콜라보'];
+
   let surveyState = {
-    main:    new Set(),
-    anniv:   new Set(),
-    newyear: new Set(),
-    side:    new Set(),
+    main: new Set(),
+    side: new Set(),
+    dynamic: {}, // 시즌값(또는 '주년'/'만우절') 별로 동적으로 생기는 Set
   };
 
   let surveyItems = {
-    main:    [],
-    anniv:   [],
-    newyear: [],
-    side:    [],
+    main: [],
+    side: [],
+    dynamic: {}, // 시즌값(또는 '주년'/'만우절') 별로 동적으로 생기는 [{label}, ...]
   };
 
   let pickupEventSeasonMap = {};
@@ -38,16 +40,25 @@
     });
   }
 
+  // 시즌값을 설문 카테고리 키로 정규화 — "1주년"/"2주년"/"2.5주년" 등은 전부 "주년" 하나로 묶는다.
+  function surveyCategoryKey(season) {
+    if (String(season).includes('주년')) return '주년';
+    return String(season);
+  }
+
+  function surveyCategoryLabel(key) {
+    if (key === '만우절') return '만우절';
+    return `${key} 이벤트`;
+  }
+
   function classifySurveyItems() {
     const unreleasedData = APP_DATA.unreleased || [];
     const pickupData     = APP_DATA.pickup     || [];
 
-    const pickupEventOrder = [];
-    const pickupOrderMap   = {};
+    const pickupOrderMap = {};
     pickupData.forEach(p => {
-      if (p['이벤트'] && !pickupOrderMap[p['이벤트']]) {
-        pickupOrderMap[p['이벤트']] = pickupEventOrder.length;
-        pickupEventOrder.push(p['이벤트']);
+      if (p['이벤트'] && !(p['이벤트'] in pickupOrderMap)) {
+        pickupOrderMap[p['이벤트']] = Object.keys(pickupOrderMap).length;
       }
     });
 
@@ -67,21 +78,29 @@
       });
     });
 
-    const mainSet     = new Set();
-    const annivList   = [];
-    const newyearList = [];
-    const sideList    = [];
+    const mainSet = new Set();
+    const dynamicLists = {};
+    const sideList = [];
 
     appearValues.forEach(val => {
-      if (!val || val.includes('만우절')) return;
+      if (!val) return;
       if (val.includes('챕터')) { mainSet.add(val); return; }
 
+      // 픽업 기록에 있는 이벤트면 그 시즌값(일반/콜라보/여름/크리스마스/신년/주년 등)을
+      // 전부 그대로 카테고리로 만든다 — 특정 시즌만 하드코딩해서 걸러내지 않는다.
       const season = pickupEventSeasonMap[val];
       if (season !== undefined) {
-        if (String(season).includes('주년')) { annivList.push(val); return; }
-        if (String(season).includes('신년')) { newyearList.push(val); return; }
+        const key = surveyCategoryKey(season);
+        (dynamicLists[key] ??= []).push(val);
         return;
       }
+
+      // 픽업 기록엔 없지만 만우절 이벤트인 경우 별도 카테고리로 표기
+      if (val.includes('만우절')) {
+        (dynamicLists['만우절'] ??= []).push(val);
+        return;
+      }
+
       sideList.push(val);
     });
 
@@ -89,35 +108,88 @@
       .map(label => ({ label, num: parseInt(label) }))
       .sort((a, b) => a.num - b.num);
 
-    const pickupOrderMapFinal = {};
-    pickupEventOrder.forEach((name, idx) => { pickupOrderMapFinal[name] = idx; });
+    surveyItems.dynamic = {};
+    Object.entries(dynamicLists).forEach(([key, list]) => {
+      surveyItems.dynamic[key] = list
+        .sort((a, b) => (pickupOrderMap[a] ?? 9999) - (pickupOrderMap[b] ?? 9999))
+        .map(label => ({ label }));
+      if (!surveyState.dynamic[key]) surveyState.dynamic[key] = new Set();
+    });
 
-    surveyItems.anniv   = annivList
-      .sort((a, b) => (pickupOrderMapFinal[a] ?? 9999) - (pickupOrderMapFinal[b] ?? 9999))
-      .map(label => ({ label }));
-    surveyItems.newyear = newyearList
-      .sort((a, b) => (pickupOrderMapFinal[a] ?? 9999) - (pickupOrderMapFinal[b] ?? 9999))
-      .map(label => ({ label }));
     surveyItems.side = sideList.map(label => ({ label }));
+  }
+
+  // 동적 카테고리들을 화면에 보여줄 순서: SEASON_ORDER_HINT에 있는 건 그 순서대로,
+  // 없는 건(향후 새로 생기는 시즌값) 가나다순으로 그 뒤에, 주년/만우절은 맨 뒤에.
+  function orderedDynamicKeys() {
+    const keys = Object.keys(surveyItems.dynamic).filter(k => surveyItems.dynamic[k].length > 0);
+    const known = SEASON_ORDER_HINT.filter(k => keys.includes(k));
+    const rest = keys
+      .filter(k => !SEASON_ORDER_HINT.includes(k) && k !== '주년' && k !== '만우절')
+      .sort((a, b) => a.localeCompare(b, 'ko'));
+    const tail = ['주년', '만우절'].filter(k => keys.includes(k));
+    return [...known, ...rest, ...tail];
   }
 
   function renderSurvey() {
     renderChapterBar();
-    ['anniv', 'newyear', 'side'].forEach(sec => {
-      const container = document.getElementById(`survey-chips-${sec}`);
-      container.innerHTML = '';
-      surveyItems[sec].forEach(item => {
-        const btn = document.createElement('button');
-        btn.className = 'survey-chip' + (surveyState[sec].has(item.label) ? ' active' : '');
-        btn.dataset.section = sec;
-        btn.dataset.value   = item.label;
-        btn.textContent     = item.label;
-        btn.addEventListener('click', onSurveyChipClick);
-        container.appendChild(btn);
-      });
-      const section = document.getElementById(`survey-section-${sec}`);
-      if (surveyItems[sec].length === 0) section.classList.add('hidden');
+    renderDynamicSurveySections();
+  }
+
+  function renderDynamicSurveySections() {
+    const container = document.getElementById('survey-right');
+    container.innerHTML = '';
+
+    orderedDynamicKeys().forEach(key => {
+      container.appendChild(buildSurveySectionEl(surveyCategoryLabel(key), surveyItems.dynamic[key], surveyState.dynamic[key]));
     });
+
+    if (surveyItems.side.length > 0) {
+      container.appendChild(buildSurveySectionEl('사이드 스토리', surveyItems.side, surveyState.side));
+    }
+  }
+
+  function buildSurveySectionEl(label, items, stateSet) {
+    const section = document.createElement('div');
+    section.className = 'survey-section';
+    section.innerHTML = `
+      <div class="survey-section-header">
+        <span class="survey-section-title">${label}</span>
+        <div class="survey-section-btns">
+          <button class="survey-all-btn" data-action="all">전체선택</button>
+          <button class="survey-all-btn" data-action="none">전체취소</button>
+        </div>
+      </div>
+      <div class="survey-chips"></div>
+    `;
+
+    const chipsWrap = section.querySelector('.survey-chips');
+    items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'survey-chip' + (stateSet.has(item.label) ? ' active' : '');
+      btn.dataset.value = item.label;
+      btn.textContent = item.label;
+      btn.addEventListener('click', () => {
+        if (stateSet.has(item.label)) stateSet.delete(item.label);
+        else stateSet.add(item.label);
+        btn.classList.toggle('active', stateSet.has(item.label));
+        saveSurveyStorage();
+      });
+      chipsWrap.appendChild(btn);
+    });
+
+    section.querySelectorAll('.survey-all-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.action === 'all') items.forEach(i => stateSet.add(i.label));
+        else stateSet.clear();
+        chipsWrap.querySelectorAll('.survey-chip').forEach(chip => {
+          chip.classList.toggle('active', stateSet.has(chip.dataset.value));
+        });
+        saveSurveyStorage();
+      });
+    });
+
+    return section;
   }
 
   function renderChapterBar() {
@@ -161,57 +233,35 @@
     saveSurveyStorage();
   }
 
-  function onSurveyChipClick(e) {
-    const btn = e.currentTarget;
-    const sec = btn.dataset.section;
-    const val = btn.dataset.value;
-    if (surveyState[sec].has(val)) surveyState[sec].delete(val);
-    else surveyState[sec].add(val);
-    syncSurveyChips(sec);
-    saveSurveyStorage();
-  }
-
-  function syncSurveyChips(sec) {
-    document.querySelectorAll(`#survey-chips-${sec} .survey-chip`).forEach(btn => {
-      btn.classList.toggle('active', surveyState[sec].has(btn.dataset.value));
-    });
-  }
-
   function initSurveyEvents() {
-    document.querySelectorAll('.survey-all-btn').forEach(btn => {
+    // 메인 스토리(챕터) 섹션만 정적 HTML이라 여기서 따로 바인딩한다 — 나머지 동적 섹션들은
+    // buildSurveySectionEl에서 생성 시점에 각자 바인딩됨
+    document.querySelectorAll('#survey-section-main .survey-all-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const sec    = btn.dataset.section;
-        const action = btn.dataset.action;
-        if (sec === 'main') {
-          if (action === 'all') surveyItems.main.forEach(i => surveyState.main.add(i.label));
-          else surveyState.main.clear();
-          syncChapterBar();
-        } else {
-          if (action === 'all') surveyItems[sec].forEach(i => surveyState[sec].add(i.label));
-          else surveyState[sec].clear();
-          syncSurveyChips(sec);
-        }
+        if (btn.dataset.action === 'all') surveyItems.main.forEach(i => surveyState.main.add(i.label));
+        else surveyState.main.clear();
+        syncChapterBar();
         saveSurveyStorage();
       });
     });
 
     document.getElementById('survey-global-all').addEventListener('click', () => {
       surveyItems.main.forEach(i => surveyState.main.add(i.label));
-      ['anniv', 'newyear', 'side'].forEach(sec => {
-        surveyItems[sec].forEach(i => surveyState[sec].add(i.label));
-        syncSurveyChips(sec);
+      Object.entries(surveyItems.dynamic).forEach(([key, items]) => {
+        items.forEach(i => surveyState.dynamic[key].add(i.label));
       });
+      surveyItems.side.forEach(i => surveyState.side.add(i.label));
       syncChapterBar();
+      renderDynamicSurveySections();
       saveSurveyStorage();
     });
 
     document.getElementById('survey-global-none').addEventListener('click', () => {
       surveyState.main.clear();
-      ['anniv', 'newyear', 'side'].forEach(sec => {
-        surveyState[sec].clear();
-        syncSurveyChips(sec);
-      });
+      Object.values(surveyState.dynamic).forEach(set => set.clear());
+      surveyState.side.clear();
       syncChapterBar();
+      renderDynamicSurveySections();
       saveSurveyStorage();
     });
 
@@ -233,16 +283,19 @@
     if (!val) return false;
     val = String(val).trim();
     if (!val) return false;
-    // 만우절은 항상 표시
-    if (val.includes('만우절')) return true;
     if (val.includes('챕터')) return surveyState.main.has(val);
+
     const season = pickupEventSeasonMap[val];
     if (season !== undefined) {
-      if (String(season).includes('주년')) return surveyState.anniv.has(val);
-      if (String(season).includes('신년')) return surveyState.newyear.has(val);
-      // 픽업기록에 있지만 주년/신년 아님 → 설문 대상 아님, 항상 표시
-      return true;
+      const key = surveyCategoryKey(season);
+      return surveyState.dynamic[key] ? surveyState.dynamic[key].has(val) : false;
     }
+
+    // 만우절(픽업 기록에 없는 경우) — 별도 카테고리로 설문 대상에 포함
+    if (val.includes('만우절')) {
+      return surveyState.dynamic['만우절'] ? surveyState.dynamic['만우절'].has(val) : false;
+    }
+
     // 사이드 스토리
     return surveyState.side.has(val);
   }
@@ -642,11 +695,14 @@
   // ===== localStorage =====
 
   function saveSurveyStorage() {
+    const dynamicData = {};
+    Object.entries(surveyState.dynamic).forEach(([key, set]) => {
+      dynamicData[key] = [...set];
+    });
     const data = {
-      main:    [...surveyState.main],
-      anniv:   [...surveyState.anniv],
-      newyear: [...surveyState.newyear],
-      side:    [...surveyState.side],
+      main: [...surveyState.main],
+      side: [...surveyState.side],
+      dynamic: dynamicData,
     };
     try { localStorage.setItem(SURVEY_STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
   }
@@ -656,11 +712,21 @@
       const raw = localStorage.getItem(SURVEY_STORAGE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
-      ['main', 'anniv', 'newyear', 'side'].forEach(sec => {
-        const validLabels = new Set(surveyItems[sec].map(i => i.label));
-        (data[sec] || []).forEach(v => {
-          if (validLabels.has(v)) surveyState[sec].add(v);
-        });
+
+      const validMain = new Set(surveyItems.main.map(i => i.label));
+      (data.main || []).forEach(v => { if (validMain.has(v)) surveyState.main.add(v); });
+
+      const validSide = new Set(surveyItems.side.map(i => i.label));
+      (data.side || []).forEach(v => { if (validSide.has(v)) surveyState.side.add(v); });
+
+      // 예전 버전(anniv/newyear 고정 키) 저장값과의 호환은 신경쓰지 않는다 — 유효하지 않은
+      // 라벨은 아래에서 자연히 걸러진다.
+      Object.entries(data.dynamic || {}).forEach(([key, values]) => {
+        const items = surveyItems.dynamic[key];
+        if (!items) return; // 지금 데이터엔 더 이상 없는 카테고리
+        const validSet = new Set(items.map(i => i.label));
+        if (!surveyState.dynamic[key]) surveyState.dynamic[key] = new Set();
+        values.forEach(v => { if (validSet.has(v)) surveyState.dynamic[key].add(v); });
       });
     } catch(e) {}
   }

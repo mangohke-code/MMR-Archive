@@ -33,6 +33,15 @@
     renderSouvenirStrip();
   }
 
+  // 덜 중요한 시즌부터: 밸런타인·만우절·여름·크리스마스 → 신년·주년·기념일 케이크.
+  // 여기 없는 시즌(예: 콜라보레이션)은 목록 맨 뒤로 밀린다.
+  const SOUVENIR_SEASON_ORDER = ['밸런타인', '만우절', '여름', '크리스마스', '신년', '주년', '기념일 케이크'];
+
+  function souvenirSeasonRank(season) {
+    const idx = SOUVENIR_SEASON_ORDER.indexOf(season);
+    return idx === -1 ? SOUVENIR_SEASON_ORDER.length : idx;
+  }
+
   function renderSouvenirStrip() {
     const data = souvenirActiveSeason === '__all__'
       ? allSouvenirData
@@ -47,7 +56,12 @@
       byEvent[event].push(item);
     });
 
-    strip.innerHTML = Object.entries(byEvent).map(([event, items]) => `
+    // 그룹(이벤트)의 대표 시즌값(첫 아이템 기준)으로 정렬
+    const sortedEntries = Object.entries(byEvent).sort((a, b) =>
+      souvenirSeasonRank(a[1][0]['시즌']) - souvenirSeasonRank(b[1][0]['시즌'])
+    );
+
+    strip.innerHTML = sortedEntries.map(([event, items]) => `
       <div class="souvenir-event-group">
         <div class="souvenir-event-label">${event}</div>
         <div class="souvenir-event-items">
