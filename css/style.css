@@ -1547,17 +1547,20 @@
     word-break: keep-all;
     white-space: nowrap;
     will-change: transform;
-    animation: scrolling 4s linear infinite;
+    animation: scrolling 5s ease-in-out infinite;
   }
 
+  /* 끝까지 스크롤됐다가 처음으로 순간이동(스냅)하지 않고, 왔던 길을 그대로 부드럽게
+     되돌아가도록 왕복 구조로 구성 — 0%(시작 대기) → 스크롤 → 45~55%(끝 대기) →
+     되돌아오는 스크롤 → 100%(=0%, 매끄럽게 이어짐) */
   @keyframes scrolling {
-    0%, 20% {
+    0%, 15% {
       transform: translateX(0);
     }
-    70%, 90% {
-      transform: translateX(min(0px, calc(-100% + 258px)));  /* 234px → 258px */
+    45%, 55% {
+      transform: translateX(min(0px, calc(-100% + 258px)));
     }
-    90.01%, 100% {
+    85%, 100% {
       transform: translateX(0);
     }
   }
