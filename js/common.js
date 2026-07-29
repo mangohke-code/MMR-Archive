@@ -10,6 +10,7 @@ const APP_DATA = {
   nikkeImg: null,
   iconImg: null,
   chapImg: null,
+  frames: null,
 };
 // 로드 완료 후 실행할 콜백 목록
 const _onReadyCallbacks = [];
@@ -417,6 +418,28 @@ function buildChapImgData(rows) {
   return rows.map(r => ({ '챕터': r['챕터'], '이미지': r['이미지'], '명칭': r['명칭'] }));
 }
 
+function buildFramesData(rows) {
+  return rows.map(r => ({
+    '시즌': r['시즌'],
+    '시작일': r['시작일'],
+    '종료일': r['종료일'],
+    '보스': r['보스'],
+    '속성': r['속성'],
+    '보스 이미지': r['보스_이미지'],
+    'atlas': r['atlas'],
+    'skel': r['skel'],
+    '테두리1': r['테두리1'],
+    '테두리1 이미지': r['테두리1_이미지'],
+    '테두리1 설명': r['테두리1_설명'],
+    '테두리2': r['테두리2'],
+    '테두리2 이미지': r['테두리2_이미지'],
+    '테두리2 설명': r['테두리2_설명'],
+    '테두리3': r['테두리3'],
+    '테두리3 이미지': r['테두리3_이미지'],
+    '테두리3 설명': r['테두리3_설명'],
+  }));
+}
+
 // Supabase(PostgREST)는 한 번에 최대 1000행까지만 반환하므로, 그 이상인 테이블(스테이지 정보 등)을
 // 위해 다 받을 때까지 range()로 이어붙인다.
 async function fetchAll(tableName, orderColumn) {
@@ -463,6 +486,18 @@ async function loadAllData() {
   APP_DATA.nikkeImg = buildNikkeImgData(nikkeImgRows);
   APP_DATA.iconImg = buildIconImgData(iconRows);
   APP_DATA.chapImg = buildChapImgData(chapRows);
+
+  // 역대 테두리는 별도 테이블이라 다른 테이블들과 묶어서 Promise.all로 처리하지 않는다 —
+  // 이 테이블에 문제(권한/데이터 없음 등)가 생겨도 나머지 탭이 전부 먹통이 되면 안 되므로,
+  // 실패해도 여기서만 조용히 빈 배열로 처리하고 넘어간다.
+  try {
+    const framesRows = await fetchAll('역대_테두리', '시즌');
+    APP_DATA.frames = buildFramesData(framesRows);
+  } catch (err) {
+    console.error('[역대 테두리] 데이터 로드 실패:', err);
+    APP_DATA.frames = [];
+  }
+
   APP_DATA.ready = true;
 
   _onReadyCallbacks.forEach(fn => fn());

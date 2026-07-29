@@ -1,0 +1,247 @@
+  let allFramesData = [];
+  let currentFrame = null;
+  let framesSpinePlayer = null;
+  let framesPanZoom = null;
+
+  function loadFramesData() {
+    onAppDataReady(() => {
+      initFrames(APP_DATA.frames || []);
+    });
+  }
+
+  function initFrames(data) {
+    allFramesData = data;
+
+    if (!data || data.length === 0) {
+      document.getElementById('frames-empty').classList.remove('hidden');
+      return;
+    }
+
+    renderFramesSelector(data);
+  }
+
+  function renderFramesSelector(data) {
+    const container = document.getElementById('frames-selector');
+
+    // 최신 시즌부터 먼저 보여준다
+    const sorted = [...data].sort((a, b) => Number(b['시즌']) - Number(a['시즌']));
+
+    container.innerHTML = sorted.map(item => {
+      const idx = allFramesData.indexOf(item);
+      const imgUrl = item['보스 이미지'];
+      return `
+        <div class="frames-item" data-idx="${idx}" onclick="selectFrame(allFramesData[${idx}])">
+          <div class="frames-item-img">
+            ${imgUrl ? `<img src="${imgUrl}" alt="${item['보스']}">` : item['보스']}
+          </div>
+          <div class="frames-item-season">시즌 ${item['시즌']}</div>
+          <div class="frames-item-boss">${item['보스']}</div>
+        </div>
+      `;
+    }).join('');
+
+    if (sorted.length > 0) selectFrame(sorted[0]);
+  }
+
+  function selectFrame(item) {
+    currentFrame = item;
+
+    document.getElementById('frames-top').classList.remove('hidden');
+    document.querySelectorAll('.frames-item').forEach(el => {
+      el.classList.toggle('active', allFramesData[el.dataset.idx] === item);
+    });
+
+    document.getElementById('frames-boss-name').textContent = item['보스'] || '';
+    document.getElementById('frames-season-label').textContent = `시즌 ${item['시즌']}`;
+    document.getElementById('frames-date').textContent = formatFramesDate(item['시작일'], item['종료일']);
+    document.getElementById('frames-attr').textContent = item['속성'] || '-';
+
+    // 테두리1~3 설명 중 실제로 채워진 것 하나를 공통 레이드 설명으로 사용
+    // (테두리마다 다른 설명이 아니라, 레이드 하나에 대한 공통 설명이라 한 번만 보여준다)
+    const rawDesc = item['테두리1 설명'] || item['테두리2 설명'] || item['테두리3 설명'] || '';
+    document.getElementById('frames-desc').textContent = rawDesc;
+
+    renderFrameTiers(item);
+    loadFramesSpine(item);
+  }
+
+  function formatFramesDate(start, end) {
+    if (!start || !end) return '-';
+    const s = new Date(start);
+    const e = new Date(end);
+    const fmt = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    return `${fmt(s)} ~ ${fmt(e)}`;
+  }
+
+  function renderFrameTiers(item) {
+    const container = document.getElementById('frames-tiers');
+    const tiers = [1, 2, 3]
+      .map(n => ({ name: item[`테두리${n}`], img: item[`테두리${n} 이미지`] }))
+      .filter(t => t.name);
+
+    container.innerHTML = tiers.map(t => `
+      <div class="frames-tier-card">
+        <div class="frames-tier-img">
+          ${t.img ? `<img src="${t.img}" alt="${t.name}">` : ''}
+        </div>
+        <div class="frames-tier-name">${t.name}</div>
+      </div>
+    `).join('');
+  }
+
+  function clearFramesSpine() {
+    if (framesSpinePlayer) { framesSpinePlayer.dispose(); framesSpinePlayer = null; }
+    if (framesPanZoom) { framesPanZoom.destroy(); framesPanZoom = null; }
+    const wrap = document.getElementById('frames-spine-player');
+    if (wrap) wrap.innerHTML = '';
+    const toggle = document.getElementById('frames-parts-toggle');
+    if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
+  }
+
+  function loadFramesSpine(item) {
+    clearFramesSpine();
+
+    const wrap = document.getElementById('frames-spine-player');
+    const skelUrl = item['skel'];
+    const atlasUrl = item['atlas'];
+
+    if (skelUrl && atlasUrl) {
+      loadFramesL2D(skelUrl, atlasUrl);
+      return;
+    }
+
+    // L2D가 없으면 보스 이미지로 대체, 그것도 없으면 이름만 표시
+    if (item['보스 이미지']) {
+      wrap.innerHTML = `<img src="${item['보스 이미지']}" alt="${item['보스']}">`;
+    } else {
+      wrap.textContent = item['보스'] || '';
+    }
+  }
+
+  function loadFramesL2D(skelUrl, atlasUrl) {
+    const wrap = document.getElementById('frames-spine-player');
+    wrap.innerHTML = '';
+
+    const playerDiv = document.createElement('div');
+    playerDiv.id = 'frames-spine-inner';
+    playerDiv.style.width = '100%';
+    playerDiv.style.height = '100%';
+    wrap.appendChild(playerDiv);
+
+    framesSpinePlayer = new spine.SpinePlayer('frames-spine-inner', {
+      skelUrl: skelUrl,
+      atlasUrl: atlasUrl,
+      animation: 'idle',
+      backgroundColor: '#00000000',
+      showControls: false,
+      success: function(player) {
+        const data = player.skeleton.data;
+        const vp = { x: data.x, y: data.y, width: data.width, height: data.height };
+        player.dispose();
+        wrap.innerHTML = '';
+
+        const wrapEl = document.getElementById('frames-spine-wrap');
+        const wrapW = wrapEl.clientWidth;
+        const wrapH = wrapEl.clientHeight;
+
+        const playerDiv2 = document.createElement('div');
+        playerDiv2.id = 'frames-spine-inner';
+        playerDiv2.style.width = wrapW + 'px';
+        playerDiv2.style.height = wrapH + 'px';
+        wrap.appendChild(playerDiv2);
+
+        framesSpinePlayer = new spine.SpinePlayer('frames-spine-inner', {
+          skelUrl: skelUrl,
+          atlasUrl: atlasUrl,
+          animation: 'idle',
+          backgroundColor: '#00000000',
+          showControls: false,
+          preserveDrawingBuffer: false,
+          antialias: true,
+          viewport: {
+            animationViewport: false,
+            transitionTime: 0,
+            x: -(vp.width / 2),
+            y: vp.y,
+            width: vp.width,
+            height: vp.height,
+            padLeft: '15%',
+            padRight: '15%',
+            padTop: '5%',
+            padBottom: '5%',
+          },
+          success: function(player2) {
+            const skeleton = player2.skeleton;
+            const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
+            const enabledParts = new Set(partSkins.map(s => s.name));
+
+            const rebuildSkin = () => {
+              // 주의: 원본 defaultSkin을 mutate하면 파츠 껐다 켰다가 안 먹는 버그가 생기므로
+              // 매번 새 Skin 객체에 복사만 해온다 (코스튬/미실장 탭과 동일한 이유)
+              const combined = new spine.Skin('combined');
+              const defaultSkin = skeleton.data.findSkin('default');
+              if (defaultSkin) combined.addSkin(defaultSkin);
+              partSkins.forEach(skin => {
+                if (enabledParts.has(skin.name)) combined.addSkin(skin);
+              });
+              skeleton.setSkin(combined);
+              skeleton.setToSetupPose();
+              if (player2.animationState) player2.animationState.apply(skeleton);
+              skeleton.updateWorldTransform();
+            };
+            rebuildSkin();
+            renderPartsToggle('frames-parts-toggle', partSkins, enabledParts, rebuildSkin);
+
+            framesPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
+
+            const resetBtn = document.getElementById('frames-spine-reset');
+            if (resetBtn) {
+              resetBtn.onmousedown = e => e.stopPropagation();
+              resetBtn.onclick = e => {
+                e.stopPropagation();
+                framesPanZoom.reset();
+                try {
+                  player2.animationState.clearListeners();
+                  player2.setAnimation('idle', true);
+                } catch (err) {
+                  console.error('[역대 테두리 L2D] 초기화 실패:', err);
+                }
+              };
+            }
+
+            player2.animationState.data.defaultMix = 0;
+
+            player2.canvas.addEventListener('click', () => {
+              try {
+                player2.setAnimation('action', false);
+                player2.animationState.addListener({
+                  complete: () => {
+                    try {
+                      player2.setAnimation('idle', true);
+                    } catch (err) {
+                      console.error('[역대 테두리 L2D] idle 애니메이션 복귀 실패:', err);
+                    }
+                    player2.animationState.clearListeners();
+                  }
+                });
+              } catch (err) {
+                console.error('[역대 테두리 L2D] action 애니메이션 재생 실패:', err);
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
+  function waitForSpine(callback) {
+    if (typeof spine !== 'undefined') {
+      callback();
+    } else {
+      setTimeout(() => waitForSpine(callback), 100);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    waitForSpine(loadFramesData);
+  });

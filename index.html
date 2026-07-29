@@ -11,7 +11,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=27">
+  <link rel="stylesheet" href="css/style.css?v=28">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -359,8 +359,50 @@
     </div>
 
     <div id="tab-frames" class="tab-content">
-      <a>역대 솔레 테두리</a>
-      <div>일반 테두리는 고민 중</div>
+      <div id="frames-container">
+
+        <div class="section-title">역대 솔로 레이드 테두리</div>
+
+        <!-- 시즌 선택 목록 -->
+        <div id="frames-selector"></div>
+
+        <!-- 상세 -->
+        <div id="frames-top" class="hidden">
+          <div class="frames-spine-col">
+            <div id="frames-spine-wrap">
+              <div id="frames-spine-player"></div>
+              <button id="frames-spine-reset" class="spine-reset-btn" type="button" aria-label="화면 초기화" title="화면 초기화"><i class="fas fa-rotate-right"></i></button>
+            </div>
+            <div id="frames-parts-toggle" class="parts-toggle hidden"></div>
+          </div>
+
+          <div id="frames-info">
+            <div id="frames-info-header">
+              <div id="frames-boss-name"></div>
+              <div id="frames-season-label"></div>
+            </div>
+
+            <div id="frames-info-row">
+              <div class="frames-info-label">진행 기간</div>
+              <div id="frames-date"></div>
+            </div>
+
+            <div id="frames-info-row">
+              <div class="frames-info-label">약점 속성</div>
+              <div id="frames-attr"></div>
+            </div>
+
+            <div id="frames-desc-wrap">
+              <div id="frames-desc"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="frames-tiers"></div>
+
+        <p id="frames-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
+
+      </div>
     </div>
 
     <div id="tab-stage" class="tab-content">
@@ -416,13 +458,13 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=17"></script>
+  <script src="js/common.js?v=18"></script>
   <script src="js/main.js?v=8"></script>
   <script src="js/pickup.js?v=6"></script>
   <script src="js/costume.js?v=20"></script>
   <script src="js/unreleased.js?v=16"></script>
   <script src="js/souvenir.js?v=5"></script>
-  <script src="js/frames.js?v=2"></script>
+  <script src="js/frames.js?v=3"></script>
   <script src="js/stage.js?v=3"></script>
 
 </body>
