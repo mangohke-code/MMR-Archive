@@ -103,7 +103,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
-    // 이름이 fx_로 시작하는 이펙트 전용 재질만 반투명을 유지하고 나머지는 강제로 불투명 처리.
+    // 그렇다고 무조건 알파를 무시하고 완전 불투명 처리하면, 미사일/소켓처럼 텍스처의
+    // 알파 채널을 실제 컷아웃(구멍 모양)으로 쓰는 파츠는 사각형 텍스처가 그대로 튀어나와 보인다.
+    // 그래서 완전 불투명 대신 alphaTest 컷아웃으로 처리 — 깊이 정렬은 정상화하면서
+    // 알파로 도려낸 모양은 그대로 유지된다. 이름이 fx_로 시작하는 이펙트 전용 재질만 예외.
     const meshes = [];
     gltf.scene.traverse(obj => {
       if (!obj.isMesh) return;
@@ -113,15 +116,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (!/^fx_/i.test(m.name || '')) {
           m.transparent = false;
           m.depthWrite = true;
-          m.alphaTest = 0;
+          m.alphaTest = 0.5;
         }
       });
     });
 
-    // 이펙트용(fx_) 메시는 기본적으로 꺼둔다 — idle 애니메이션만 재생하는 정적 뷰어에서는
-    // 특정 스킬/등장 연출에 맞춰 디자인된 이펙트가 항상 화면에 떠 있어 오히려 어색해 보인다.
-    // 사용자가 원하면 토글로 직접 켤 수 있게 UI는 제공한다.
-    const enabledMeshes = new Set(meshes.filter(m => !/^fx_/i.test(m.name || '')).map(m => m.name));
+    // 스킬/등장 연출 전용 이펙트(fx_ 접두사) 메시는 기본적으로 꺼둔다 — idle 애니메이션만
+    // 재생하는 정적 뷰어에서는 항상 화면에 떠 있으면 오히려 어색해 보인다.
+    // 단, fx_fbx_monster_core(_outline)는 스킬 이펙트가 아니라 보스 몸체에 항상 붙어있는
+    // 코어(약점) 표시라 거의 모든 보스에 공통으로 존재 — 이건 꺼두면 몸통 안쪽이 통째로
+    // 비어 보이므로 예외로 기본 표시한다. 나머지는 토글로 직접 켤 수 있다.
+    const isSkillOnlyEffect = name => /^fx_/i.test(name || '') && !/monster_core/i.test(name || '');
+    const enabledMeshes = new Set(meshes.filter(m => !isSkillOnlyEffect(m.name)).map(m => m.name));
     meshes.forEach(m => { m.visible = enabledMeshes.has(m.name); });
 
     if (window.renderPartsToggle && meshes.length > 0) {
