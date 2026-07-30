@@ -88,6 +88,35 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     scene.add(gltf.scene);
 
+    // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
+    // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
+    // 이름이 fx_로 시작하는 이펙트 전용 재질만 반투명을 유지하고 나머지는 강제로 불투명 처리.
+    const meshes = [];
+    gltf.scene.traverse(obj => {
+      if (!obj.isMesh) return;
+      meshes.push(obj);
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach(m => {
+        if (!/^fx_/i.test(m.name || '')) {
+          m.transparent = false;
+          m.depthWrite = true;
+          m.alphaTest = 0;
+        }
+      });
+    });
+
+    // 이펙트용(fx_) 메시는 기본적으로 꺼둔다 — idle 애니메이션만 재생하는 정적 뷰어에서는
+    // 특정 스킬/등장 연출에 맞춰 디자인된 이펙트가 항상 화면에 떠 있어 오히려 어색해 보인다.
+    // 사용자가 원하면 토글로 직접 켤 수 있게 UI는 제공한다.
+    const enabledMeshes = new Set(meshes.filter(m => !/^fx_/i.test(m.name || '')).map(m => m.name));
+    meshes.forEach(m => { m.visible = enabledMeshes.has(m.name); });
+
+    if (window.renderPartsToggle && meshes.length > 0) {
+      window.renderPartsToggle('frames-parts-toggle', meshes, enabledMeshes, () => {
+        meshes.forEach(m => { m.visible = enabledMeshes.has(m.name); });
+      });
+    }
+
     const box = new THREE.Box3().setFromObject(gltf.scene);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -102,7 +131,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       mixer.clipAction(gltf.animations[0]).play();
     }
 
-    if (onLoaded) onLoaded({ meshCount: (() => { let n = 0; gltf.scene.traverse(o => { if (o.isMesh) n++; }); return n; })() });
+    if (onLoaded) onLoaded({ meshCount: meshes.length });
 
     function animate() {
       if (container.__framesModel3D !== state) return; // dispose됨
