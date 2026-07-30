@@ -428,6 +428,7 @@ function buildFramesData(rows) {
     '보스 이미지': r['보스_이미지'],
     'atlas': r['atlas'],
     'skel': r['skel'],
+    'model': r['model'],
     '테두리1': r['테두리1'],
     '테두리1 이미지': r['테두리1_이미지'],
     '테두리1 설명': r['테두리1_설명'],

@@ -11,7 +11,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=28">
+  <link rel="stylesheet" href="css/style.css?v=29">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -458,13 +458,22 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=18"></script>
+  <script src="js/common.js?v=19"></script>
   <script src="js/main.js?v=8"></script>
   <script src="js/pickup.js?v=6"></script>
   <script src="js/costume.js?v=20"></script>
   <script src="js/unreleased.js?v=16"></script>
   <script src="js/souvenir.js?v=5"></script>
-  <script src="js/frames.js?v=3"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="js/frames3d.js?v=2"></script>
+  <script src="js/frames.js?v=4"></script>
   <script src="js/stage.js?v=3"></script>
 
 </body>

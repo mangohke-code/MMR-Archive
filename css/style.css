@@ -3492,6 +3492,12 @@
     justify-content: center;
   }
 
+  #frames-spine-player canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널
      (유니크 코스튬/미실장 캐릭터 탭과 동일한 패턴) */
   #frames-info {

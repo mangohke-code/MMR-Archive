@@ -93,6 +93,7 @@
     if (framesSpinePlayer) { framesSpinePlayer.dispose(); framesSpinePlayer = null; }
     if (framesPanZoom) { framesPanZoom.destroy(); framesPanZoom = null; }
     const wrap = document.getElementById('frames-spine-player');
+    if (wrap && window.disposeFramesModel3D) window.disposeFramesModel3D(wrap);
     if (wrap) wrap.innerHTML = '';
     const toggle = document.getElementById('frames-parts-toggle');
     if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
@@ -102,8 +103,27 @@
     clearFramesSpine();
 
     const wrap = document.getElementById('frames-spine-player');
+    const modelUrl = item['model'];
     const skelUrl = item['skel'];
     const atlasUrl = item['atlas'];
+
+    // 3D 모델(glb)이 있으면 우선 사용 — Spine L2D보다 커버리지가 넓다
+    if (modelUrl && window.loadFramesModel3D) {
+      window.loadFramesModel3D(wrap, modelUrl, {
+        onError: () => {
+          // 3D 로드 실패 시 L2D/이미지/이름 순으로 안전하게 대체
+          wrap.innerHTML = '';
+          if (skelUrl && atlasUrl) {
+            loadFramesL2D(skelUrl, atlasUrl);
+          } else if (item['보스 이미지']) {
+            wrap.innerHTML = `<img src="${item['보스 이미지']}" alt="${item['보스']}">`;
+          } else {
+            wrap.textContent = item['보스'] || '';
+          }
+        },
+      });
+      return;
+    }
 
     if (skelUrl && atlasUrl) {
       loadFramesL2D(skelUrl, atlasUrl);
