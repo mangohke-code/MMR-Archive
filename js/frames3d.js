@@ -14,6 +14,17 @@ function disposeState(container) {
   if (!state) return;
   if (state.rafId) cancelAnimationFrame(state.rafId);
   if (state.controls) state.controls.dispose();
+
+  // 다음 로드가 새로 연결하기 전까지, 이전(디스포즈된) 인스턴스를 가리키는
+  // 핸들러가 남아있으면 클릭 시 에러가 나므로 항상 비워둔다.
+  const resetBtn = document.getElementById('frames-spine-reset');
+  if (resetBtn) resetBtn.onclick = null;
+  const pauseBtn = document.getElementById('frames-spine-pause');
+  if (pauseBtn) {
+    pauseBtn.onclick = null;
+    pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+  }
+
   if (state.renderer) {
     state.renderer.dispose();
     if (state.renderer.domElement && state.renderer.domElement.parentNode === container) {
@@ -74,7 +85,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
 
-  const state = { renderer, scene, camera, controls, rafId: null };
+  const state = { renderer, scene, camera, controls, rafId: null, paused: false };
   container.__framesModel3D = state;
 
   const loader = new GLTFLoader();
@@ -82,6 +93,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
   let mixer = null;
   const clock = new THREE.Clock();
+  let initialCamPos = null;
+  let initialTarget = null;
 
   loader.load(modelUrl, (gltf) => {
     if (container.__framesModel3D !== state) return; // 그 사이 다른 보스로 전환됨
@@ -126,9 +139,34 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     controls.target.copy(center);
     controls.update();
 
+    initialCamPos = camera.position.clone();
+    initialTarget = controls.target.clone();
+
     if (gltf.animations && gltf.animations.length > 0) {
       mixer = new THREE.AnimationMixer(gltf.scene);
       mixer.clipAction(gltf.animations[0]).play();
+    }
+
+    const resetBtn = document.getElementById('frames-spine-reset');
+    if (resetBtn) {
+      resetBtn.onclick = () => {
+        if (container.__framesModel3D !== state) return;
+        camera.position.copy(initialCamPos);
+        controls.target.copy(initialTarget);
+        controls.update();
+      };
+    }
+
+    const pauseBtn = document.getElementById('frames-spine-pause');
+    if (pauseBtn) {
+      pauseBtn.onclick = () => {
+        if (container.__framesModel3D !== state) return;
+        state.paused = !state.paused;
+        pauseBtn.innerHTML = state.paused
+          ? '<i class="fas fa-play"></i>'
+          : '<i class="fas fa-pause"></i>';
+        pauseBtn.title = state.paused ? '재생' : '일시정지';
+      };
     }
 
     if (onLoaded) onLoaded({ meshCount: meshes.length });
@@ -137,7 +175,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (container.__framesModel3D !== state) return; // dispose됨
       state.rafId = requestAnimationFrame(animate);
       const dt = clock.getDelta();
-      if (mixer) mixer.update(dt);
+      if (mixer && !state.paused) mixer.update(dt);
       controls.update();
       renderer.render(scene, camera);
     }

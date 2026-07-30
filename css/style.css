@@ -1728,6 +1728,10 @@
     background: var(--bg-panel-alt);
   }
 
+  .spine-pause-btn {
+    left: 58px;
+  }
+
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널 */
   #costume-info {
     position: absolute;
