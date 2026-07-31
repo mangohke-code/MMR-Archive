@@ -9,6 +9,21 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 
+// 보스별 페이즈 표시 방식 - 이름 패턴만으로는 "1페이즈 파츠를 2페이즈에서도 계속 쓰는지
+// (cumulative)" 아니면 "페이즈마다 파츠가 완전히 교체되는지(exclusive)"를 구분할 수 없어서
+// 보스마다 직접 확인해서 여기 등록한다. 등록 안 된 보스는 기본값(cumulative)을 쓴다.
+const PHASE_MODE_OVERRIDES = {
+  xbg003: 'cumulative', // 온리 원 - 확인됨
+};
+
+function detectBossCode(meshNames) {
+  for (const name of meshNames) {
+    const m = (name || '').match(/^([a-z]{2,4}\d{3})/i);
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
 function disposeState(container) {
   const state = container.__framesModel3D;
   if (!state) return;
@@ -106,10 +121,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     scene.add(gltf.scene);
 
-    // FBX 원본이 항상 정면 기준 오른쪽으로 돌아간 상태로 나온다 —
-    // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준(+Z 방향)이
-    // 어긋나는 것으로 보인다. 모든 보스에 공통이라 고정 보정값을 적용한다.
-    gltf.scene.rotation.y = THREE.MathUtils.degToRad(-25);
+    // FBX 원본이 항상 정면 기준으로 돌아간 상태로 나온다 —
+    // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준이 어긋나는 것으로
+    // 보인다. 모든 보스에 공통이라 고정 보정값을 적용한다(좌우 225도 확인 완료, 상하는 0 기본).
+    gltf.scene.rotation.y = THREE.MathUtils.degToRad(225);
+    gltf.scene.rotation.x = THREE.MathUtils.degToRad(0);
 
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
@@ -146,14 +162,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 페이즈별로 파츠가 통째로 나뉜 보스들 (예: 1phase_body / 2phase_body, phase001_*/phase002_*)
     // 이 있다. 그런데 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적(교체)이지만,
-    // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이걸 이름만
-    // 보고 정확히 구분할 수 없어서, 기본값은 "누적"(선택한 페이즈 이하 전부 표시)으로 둔다 —
-    // 파츠가 통째로 사라져 모델이 깨져 보이는 쪽보다, 배타적인 보스에서 파츠가 좀 겹쳐 보이는
-    // 쪽이 덜 심각한 문제라서다. 프리셋이 안 맞는 보스는 파츠 토글에서 개별로 껐다 켰다 하면 된다.
+    // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이름 패턴만
+    // 으로는 구분이 안 되므로 PHASE_MODE_OVERRIDES에 보스별로 등록해서 정확히 지정한다.
     const meshPhase = name => {
       const m = (name || '').match(/(\d+)phase|phase0*(\d+)/i);
       if (!m) return null;
       return String(parseInt(m[1] || m[2], 10));
+    };
+    const bossCode = detectBossCode(meshes.map(m => m.name));
+    const phaseMode = PHASE_MODE_OVERRIDES[bossCode] || 'cumulative';
+    const isPhaseVisible = (p, current) => {
+      if (p === null) return true;
+      return phaseMode === 'exclusive' ? p === current : Number(p) <= Number(current);
     };
     const phaseGroups = {};
     meshes.forEach(m => {
@@ -165,12 +185,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const enabledMeshes = new Set(
       meshes
-        .filter(m => {
-          if (isSkillOnlyEffect(m.name)) return false;
-          const p = meshPhase(m.name);
-          if (p !== null && Number(p) > Number(currentPhase)) return false;
-          return true;
-        })
+        .filter(m => !isSkillOnlyEffect(m.name) && isPhaseVisible(meshPhase(m.name), currentPhase))
         .map(m => m.name)
     );
 
@@ -200,12 +215,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
-            // 프리셋 적용(누적): 선택한 페이즈 이하 태그의 파츠는 켜고, 그보다 뒤 페이즈
-            // 파츠만 끈다 — 페이즈 태그가 없는 공용 파츠는 건드리지 않는다.
+            // 프리셋 적용: 페이즈 태그가 있는 파츠만 보스별 모드(누적/배타)에 맞게 다시
+            // 켜고/끄고, 페이즈 태그가 없는 공용 파츠는 건드리지 않는다.
             meshes.forEach(m => {
               const p = meshPhase(m.name);
               if (p === null) return;
-              if (Number(p) <= Number(currentPhase)) enabledMeshes.add(m.name);
+              if (isPhaseVisible(p, currentPhase)) enabledMeshes.add(m.name);
               else enabledMeshes.delete(m.name);
             });
             applyVisibility();
