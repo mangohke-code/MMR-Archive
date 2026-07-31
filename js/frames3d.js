@@ -157,6 +157,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       mats.forEach(m => {
         m.side = THREE.DoubleSide;
+        // FBX2glTF가 재질마다 emissive를 회색(약 0x757575)으로 기본 설정해서 내보내는데,
+        // 이게 실제 조명/텍스처 명암과 무관하게 표면 전체에 균일한 회색을 더해버려서
+        // 어두운 톤의 보스가 반투명한 것처럼 뿌옇게 보이는 원인이었다 - 원본 FBX 뷰어에는
+        // 없는 값이라 강제로 꺼둔다.
+        if (m.emissive) m.emissive.setRGB(0, 0, 0);
         if (!/^fx_/i.test(m.name || '')) {
           m.transparent = false;
           m.depthWrite = true;
