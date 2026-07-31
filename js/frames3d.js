@@ -109,7 +109,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // FBX 원본이 항상 정면 기준 오른쪽으로 돌아간 상태로 나온다 —
     // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준(+Z 방향)이
     // 어긋나는 것으로 보인다. 모든 보스에 공통이라 고정 보정값을 적용한다.
-    gltf.scene.rotation.y = THREE.MathUtils.degToRad(-55);
+    gltf.scene.rotation.y = THREE.MathUtils.degToRad(-25);
 
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
@@ -145,11 +145,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const isSkillOnlyEffect = name => /^fx_/i.test(name || '') && !/monster_core/i.test(name || '');
 
     // 페이즈별로 파츠가 통째로 나뉜 보스들 (예: 1phase_body / 2phase_body, phase001_*/phase002_*)
-    // 이 있다. 다만 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적이지만,
-    // 어떤 보스는 1페이즈 파츠를 2페이즈에서도 그대로 재사용한다. 이걸 이름만 보고 정확히
-    // 구분할 수 없으므로, 페이즈 버튼은 "각 페이즈에 맞는 파츠 조합을 한 번에 켜주는 프리셋"
-    // 역할만 하고, 최종 표시 여부는 항상 기존 파츠 토글(enabledMeshes)이 그대로 따른다.
-    // 그래서 프리셋이 안 맞는 보스는 파츠 토글에서 개별로 다시 켜면 된다.
+    // 이 있다. 그런데 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적(교체)이지만,
+    // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이걸 이름만
+    // 보고 정확히 구분할 수 없어서, 기본값은 "누적"(선택한 페이즈 이하 전부 표시)으로 둔다 —
+    // 파츠가 통째로 사라져 모델이 깨져 보이는 쪽보다, 배타적인 보스에서 파츠가 좀 겹쳐 보이는
+    // 쪽이 덜 심각한 문제라서다. 프리셋이 안 맞는 보스는 파츠 토글에서 개별로 껐다 켰다 하면 된다.
     const meshPhase = name => {
       const m = (name || '').match(/(\d+)phase|phase0*(\d+)/i);
       if (!m) return null;
@@ -168,7 +168,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         .filter(m => {
           if (isSkillOnlyEffect(m.name)) return false;
           const p = meshPhase(m.name);
-          if (p !== null && p !== currentPhase) return false;
+          if (p !== null && Number(p) > Number(currentPhase)) return false;
           return true;
         })
         .map(m => m.name)
@@ -200,12 +200,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
-            // 프리셋 적용: 페이즈 태그가 있는 파츠만 새 페이즈 기준으로 다시 켜고/끄고,
-            // 페이즈 태그가 없는 공용 파츠나 사용자가 이미 손댄 상태는 건드리지 않는다.
+            // 프리셋 적용(누적): 선택한 페이즈 이하 태그의 파츠는 켜고, 그보다 뒤 페이즈
+            // 파츠만 끈다 — 페이즈 태그가 없는 공용 파츠는 건드리지 않는다.
             meshes.forEach(m => {
               const p = meshPhase(m.name);
               if (p === null) return;
-              if (p === currentPhase) enabledMeshes.add(m.name);
+              if (Number(p) <= Number(currentPhase)) enabledMeshes.add(m.name);
               else enabledMeshes.delete(m.name);
             });
             applyVisibility();
