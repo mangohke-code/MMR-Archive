@@ -94,11 +94,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  // 어두운 톤(검정/진회색 위주) 보스가 뿌옇게/반투명하게 보이는 문제가 있었다 —
+  // ambient光이 너무 강해서 원래 검은색이어야 할 부분까지 회색으로 떠버린 것.
+  // ambient를 크게 낮추고 방향광 위주로 명암 대비를 살린다.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
   dirLight.position.set(1, 2, 1);
   scene.add(dirLight);
-  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
   dirLight2.position.set(-1, 0.5, -1);
   scene.add(dirLight2);
 
