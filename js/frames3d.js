@@ -119,13 +119,22 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   loader.load(modelUrl, (gltf) => {
     if (container.__framesModel3D !== state) return; // 그 사이 다른 보스로 전환됨
 
-    scene.add(gltf.scene);
-
     // FBX 원본이 항상 정면 기준으로 돌아간 상태로 나온다 —
     // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준이 어긋나는 것으로
     // 보인다. 모든 보스에 공통이라 고정 보정값을 적용한다(좌우 225도 확인 완료, 상하는 0 기본).
-    gltf.scene.rotation.y = THREE.MathUtils.degToRad(225);
-    gltf.scene.rotation.x = THREE.MathUtils.degToRad(0);
+    //
+    // 좌우(yaw)/상하(pitch)를 같은 Object3D의 rotation.x/y에 그대로 넣으면 오일러 회전
+    // 순서(XYZ) 때문에 서로 얽혀서, 좌우를 크게 돌려놓은 상태에서 상하를 조정하면 화면에서는
+    // 대각선/옆으로 도는 것처럼 보인다. 그래서 바깥쪽 그룹에서 좌우만, 안쪽 그룹에서 상하만
+    // 담당하게 분리해서 서로 영향을 주지 않게 한다.
+    const yawGroup = new THREE.Group();
+    const pitchGroup = new THREE.Group();
+    pitchGroup.add(gltf.scene);
+    yawGroup.add(pitchGroup);
+    scene.add(yawGroup);
+
+    yawGroup.rotation.y = THREE.MathUtils.degToRad(225);
+    pitchGroup.rotation.x = THREE.MathUtils.degToRad(0);
 
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
