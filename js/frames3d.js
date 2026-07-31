@@ -109,7 +109,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // FBX 원본이 항상 정면 기준 오른쪽으로 돌아간 상태로 나온다 —
     // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준(+Z 방향)이
     // 어긋나는 것으로 보인다. 모든 보스에 공통이라 고정 보정값을 적용한다.
-    gltf.scene.rotation.y = THREE.MathUtils.degToRad(90);
+    gltf.scene.rotation.y = THREE.MathUtils.degToRad(60);
 
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
