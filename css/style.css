@@ -3461,6 +3461,15 @@
     flex-direction: column;
     gap: 0.75rem;
     min-width: 0;
+    /* 오른쪽 정보란(#frames-info)이 접혀있어도 56px 폭을 항상 차지하므로,
+       페이즈/파츠 토글 줄이 그 밑으로 들어가 가려지지 않게 미리 여백을 둔다. */
+    padding-right: 56px;
+  }
+
+  .frames-phase-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   #frames-spine-wrap {
