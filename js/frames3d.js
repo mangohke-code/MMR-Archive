@@ -25,6 +25,19 @@ function getPhaseConfig(bossCode) {
   return { mode: raw.mode || 'cumulative', defaultPhase: raw.defaultPhase || 'min' };
 }
 
+// 메시별 위치/크기 보정 - 극히 드물게, 원본 FBX에 애니메이션이 아예 없고 뼈대 바인드
+// 포즈 오프셋/스케일도 0에 가까워서(게임 엔진 쪽 런타임 부착 시스템으로 위치·크기를
+// 잡는 걸로 추정) 변환 결과물만으로는 원래 위치를 알 수 없는 파츠가 있다.
+// offset: 스켈레톤 루트 본에 더할 로컬 위치, scale: 루트 본에 적용할 절대 배율(기존
+// 바인드 포즈 스케일은 무시하고 이 값으로 고정 - 보스마다 파이프라인이 우연히 넣는
+// 베이스 스케일이 달라질 수 있어서 상대 배율보다 절대값이 예측 가능하다).
+const MESH_TRANSFORM_OVERRIDES = {
+  // 온리 원 - 왕좌에 앉은 작은 인형 파츠. 원본 바인드 포즈가 몸통 발밑 근처에 거의
+  // 안 보일 크기로 들어있어서(엔진에서 별도로 배치/확대하는 것으로 추정), 최상단
+  // 부근으로 옮기고 20배로 키워서 알아볼 수 있게 수동 보정.
+  xbg003_rp_skin: { offset: [0, 0.36, 0], scale: 20 },
+};
+
 function detectBossCode(meshNames) {
   for (const name of meshNames) {
     const m = (name || '').match(/^([a-z]{2,4}\d{3})/i);
@@ -177,6 +190,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           m.alphaTest = 0.5;
         }
       });
+
+      const xform = MESH_TRANSFORM_OVERRIDES[obj.name];
+      if (xform) {
+        const root = obj.isSkinnedMesh && obj.skeleton && obj.skeleton.bones[0] ? obj.skeleton.bones[0] : obj;
+        if (xform.offset) {
+          root.position.x += xform.offset[0];
+          root.position.y += xform.offset[1];
+          root.position.z += xform.offset[2];
+        }
+        if (xform.scale) root.scale.setScalar(xform.scale);
+      }
     });
 
     // 스킬/등장 연출 전용 이펙트(fx_ 접두사) 메시는 기본적으로 꺼둔다 — idle 애니메이션만
