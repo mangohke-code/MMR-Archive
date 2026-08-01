@@ -296,7 +296,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 보스마다 크기가 제각각이라 줌 한계도 모델 크기(radius) 기준 상대값으로 준다 —
     // 너무 가까이 가면 파츠를 뚫고 들어가 안 보이고, 너무 멀어지면 화면에서 안 보일 만큼
     // 작아지는 걸 막는다.
-    controls.minDistance = radius * 0.3;
+    controls.minDistance = radius * 0.05;
     controls.maxDistance = radius * 3;
 
     controls.update();
