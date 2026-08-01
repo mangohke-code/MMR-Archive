@@ -12,9 +12,18 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 // 보스별 페이즈 표시 방식 - 이름 패턴만으로는 "1페이즈 파츠를 2페이즈에서도 계속 쓰는지
 // (cumulative)" 아니면 "페이즈마다 파츠가 완전히 교체되는지(exclusive)"를 구분할 수 없어서
 // 보스마다 직접 확인해서 여기 등록한다. 등록 안 된 보스는 기본값(cumulative)을 쓴다.
+// defaultPhase: 'min'(기본, 가장 낮은 페이즈부터 시작) 또는 'max'(가장 높은 페이즈까지 누적해서
+// 시작 — 예: 날개처럼 2페이즈 태그가 붙었지만 실제로는 항상 보여야 하는 파츠가 있는 보스용).
 const PHASE_MODE_OVERRIDES = {
-  xbg003: 'cumulative', // 온리 원 - 확인됨
+  xbg003: { mode: 'cumulative', defaultPhase: 'max' }, // 온리 원 - 날개(2phase 태그)가 상시 노출 파츠라 처음부터 누적 최대로 시작
 };
+
+function getPhaseConfig(bossCode) {
+  const raw = PHASE_MODE_OVERRIDES[bossCode];
+  if (!raw) return { mode: 'cumulative', defaultPhase: 'min' };
+  if (typeof raw === 'string') return { mode: raw, defaultPhase: 'min' };
+  return { mode: raw.mode || 'cumulative', defaultPhase: raw.defaultPhase || 'min' };
+}
 
 function detectBossCode(meshNames) {
   for (const name of meshNames) {
@@ -187,10 +196,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return String(parseInt(m[1] || m[2], 10));
     };
     const bossCode = detectBossCode(meshes.map(m => m.name));
-    const phaseMode = PHASE_MODE_OVERRIDES[bossCode] || 'cumulative';
+    const phaseConfig = getPhaseConfig(bossCode);
     const isPhaseVisible = (p, current) => {
       if (p === null) return true;
-      return phaseMode === 'exclusive' ? p === current : Number(p) <= Number(current);
+      return phaseConfig.mode === 'exclusive' ? p === current : Number(p) <= Number(current);
     };
     const phaseGroups = {};
     meshes.forEach(m => {
@@ -198,7 +207,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
     });
     const phaseKeys = Object.keys(phaseGroups).sort((a, b) => Number(a) - Number(b));
-    let currentPhase = phaseKeys.length > 0 ? phaseKeys[0] : null;
+    let currentPhase = phaseKeys.length > 0
+      ? (phaseConfig.defaultPhase === 'max' ? phaseKeys[phaseKeys.length - 1] : phaseKeys[0])
+      : null;
 
     const enabledMeshes = new Set(
       meshes
