@@ -99,7 +99,7 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
   container.innerHTML = skins.map(skin => `
     <div class="toggle-switch-wrap part-toggle-item${enabledSet.has(skin.name) ? ' active' : ''}" data-skin="${skin.name}">
       <div class="toggle-switch"></div>
-      <span class="toggle-label">${skin.name}</span>
+      <span class="toggle-label">${skin.label || skin.name}</span>
     </div>
   `).join('');
 

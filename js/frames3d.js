@@ -45,6 +45,16 @@ function detectBossCode(meshNames) {
   return null;
 }
 
+// 보스별 회전 보정 - [pitch, yaw, roll] (도 단위). 기본값은 FBX2glTF 변환 시 공통으로
+// 어긋나는 좌우 225도만 보정한 값 — 보스마다 원본 좌표축이 조금씩 달라서 안 맞으면
+// 여기 개별 등록한다.
+const ROTATION_OVERRIDES = {};
+const DEFAULT_ROTATION = [0, 225, 0];
+
+function getRotation(bossCode) {
+  return ROTATION_OVERRIDES[bossCode] || DEFAULT_ROTATION;
+}
+
 function disposeState(container) {
   const state = container.__framesModel3D;
   if (!state) return;
@@ -143,13 +153,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   loader.load(modelUrl, (gltf) => {
     if (container.__framesModel3D !== state) return; // 그 사이 다른 보스로 전환됨
 
+    const meshNamesForBossCode = [];
+    gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
+    const bossCode = detectBossCode(meshNamesForBossCode);
+
     // FBX 원본이 항상 정면 기준으로 돌아간 상태로 나온다 —
     // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준이 어긋나는 것으로
-    // 보인다. 모든 보스에 공통이라 고정 보정값을 적용한다(좌우 225도 확인 완료, 상하는 0 기본).
+    // 보인다. 기본은 대부분 보스에 맞는 공통값(좌우 225도)이고, 안 맞는 보스는
+    // ROTATION_OVERRIDES에 개별 등록한다.
     //
     // 좌우(yaw)/상하(pitch)를 같은 Object3D의 rotation.x/y에 그대로 넣으면 오일러 회전
     // 순서(XYZ) 때문에 서로 얽혀서, 좌우를 크게 돌려놓은 상태에서 상하를 조정하면 화면에서는
-    // 대각선/옆으로 도는 것처럼 보인다. 그래서 바깥쪽 그룹에서 좌우만, 안쪽 그룹에서 상하만
+    // 대각선/옆으로 도는 것처럼 보인다. 그래서 바깥쪽 그룹에서 좌우만, 안쪽 그룹에서 상하/롤만
     // 담당하게 분리해서 서로 영향을 주지 않게 한다.
     const yawGroup = new THREE.Group();
     const pitchGroup = new THREE.Group();
@@ -157,8 +172,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     yawGroup.add(pitchGroup);
     scene.add(yawGroup);
 
-    yawGroup.rotation.y = THREE.MathUtils.degToRad(225);
-    pitchGroup.rotation.x = THREE.MathUtils.degToRad(0);
+    const [pitchDeg, yawDeg, rollDeg] = getRotation(bossCode);
+    yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg);
+    pitchGroup.rotation.x = THREE.MathUtils.degToRad(pitchDeg);
+    pitchGroup.rotation.z = THREE.MathUtils.degToRad(rollDeg);
 
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
@@ -209,6 +226,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 비어 보이므로 예외로 기본 표시한다. 나머지는 토글로 직접 켤 수 있다.
     const isSkillOnlyEffect = name => /^fx_/i.test(name || '') && !/monster_core/i.test(name || '');
 
+    // 파츠 토글 목록에서는 보스 코드 접두사(예: bba001_)를 빼고 보여준다 — 어차피 같은
+    // 보스 안에서는 다 똑같은 접두사라 반복 표시할 필요가 없다. 실제 조회/저장에 쓰는
+    // mesh.name은 그대로 두고, 화면 표시용 label만 별도로 붙인다.
+    if (bossCode) {
+      const stripPrefix = new RegExp('^' + bossCode + '_', 'i');
+      meshes.forEach(m => { m.label = (m.name || '').replace(stripPrefix, ''); });
+    }
+
     // 페이즈별로 파츠가 통째로 나뉜 보스들 (예: 1phase_body / 2phase_body, phase001_*/phase002_*)
     // 이 있다. 그런데 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적(교체)이지만,
     // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이름 패턴만
@@ -218,7 +243,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!m) return null;
       return String(parseInt(m[1] || m[2], 10));
     };
-    const bossCode = detectBossCode(meshes.map(m => m.name));
     const phaseConfig = getPhaseConfig(bossCode);
     const isPhaseVisible = (p, current) => {
       if (p === null) return true;
