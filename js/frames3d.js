@@ -33,9 +33,9 @@ function getPhaseConfig(bossCode) {
 // 베이스 스케일이 달라질 수 있어서 상대 배율보다 절대값이 예측 가능하다).
 const MESH_TRANSFORM_OVERRIDES = {
   // 온리 원 - 왕좌에 앉은 작은 인형 파츠. 크기는 원본 그대로가 맞다고 확인됨(확대 안 함).
-  // 위치만 최상단 부근으로 옮김 - 0.36(너무 위) -> 0.30(너무 아래) -> 그 중간보다 살짝
-  // 아래인 0.32로 조정.
-  xbg003_rp_skin: { offset: [0, 0.32, 0] },
+  // 위치만 최상단 부근으로 옮김 - 0.36 -> 0.30 -> 0.32 -> 무릎 길이만큼 아직 떠 보인다는
+  // 피드백으로 0.31로 미세 조정.
+  xbg003_rp_skin: { offset: [0, 0.31, 0] },
 };
 
 function detectBossCode(meshNames) {
