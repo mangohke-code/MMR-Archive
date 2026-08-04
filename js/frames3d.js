@@ -12,17 +12,22 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 // 보스별 페이즈 표시 방식 - 이름 패턴만으로는 "1페이즈 파츠를 2페이즈에서도 계속 쓰는지
 // (cumulative)" 아니면 "페이즈마다 파츠가 완전히 교체되는지(exclusive)"를 구분할 수 없어서
 // 보스마다 직접 확인해서 여기 등록한다. 등록 안 된 보스는 기본값(cumulative)을 쓴다.
-// defaultPhase: 'min'(기본, 가장 낮은 페이즈부터 시작) 또는 'max'(가장 높은 페이즈까지 누적해서
-// 시작 — 예: 날개처럼 2페이즈 태그가 붙었지만 실제로는 항상 보여야 하는 파츠가 있는 보스용).
+// 모든 보스는 항상 1페이즈(가장 낮은 페이즈)로 시작하고, 다른 페이즈는 토글로 직접
+// 선택해야 보인다 — defaultPhase 같은 시작 페이즈 예외는 두지 않는다.
+// phase1-all: 1페이즈 상태에서는 페이즈 태그가 있는 파츠를 전부(다른 페이즈 태그 포함) 켜고,
+// 그 외 페이즈에서는 그 페이즈 태그가 붙은 파츠만 켠다 — 예를 들어 날개처럼 2페이즈 태그가
+// 붙었지만 실제로는 항상 보여야 하는 파츠가 있는 보스, 또는 페이즈별로 파츠가 완전히
+// 갈리면서도 1페이즈에서는 전체를 다 보여줘야 하는 보스용.
 const PHASE_MODE_OVERRIDES = {
-  xbg003: { mode: 'cumulative', defaultPhase: 'max' }, // 온리 원 - 날개(2phase 태그)가 상시 노출 파츠라 처음부터 누적 최대로 시작
+  xbg003: { mode: 'phase1-all' }, // 온리 원 - 날개(2phase 태그)가 상시 노출 파츠라 1페이즈에서 같이 켠다
+  mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
 };
 
 function getPhaseConfig(bossCode) {
   const raw = PHASE_MODE_OVERRIDES[bossCode];
-  if (!raw) return { mode: 'cumulative', defaultPhase: 'min' };
-  if (typeof raw === 'string') return { mode: raw, defaultPhase: 'min' };
-  return { mode: raw.mode || 'cumulative', defaultPhase: raw.defaultPhase || 'min' };
+  if (!raw) return { mode: 'cumulative' };
+  if (typeof raw === 'string') return { mode: raw };
+  return { mode: raw.mode || 'cumulative' };
 }
 
 // 메시별 위치/크기 보정 - 극히 드물게, 원본 FBX에 애니메이션이 아예 없고 뼈대 바인드
@@ -54,7 +59,8 @@ function detectBossCode(meshNames) {
 const DEFAULT_ROTATION = [0, 225, 0];
 const BOSS_TRANSFORM_OVERRIDES = {
   bba001: { rotation: [25, 228, 0] }, // 마더 웨일 - 확정
-  bbg001: { rotation: [30, 223, 0] }, // 하베스터 - 회전 시작값, 위치/크기 조정 중
+  bbg001: { rotation: [40, 227, 0], position: [0, 0, 0.08], scale: 0.5 }, // 하베스터 - 확정
+  mbg001: { position: [-0.1, -0.1, 0], scale: 1 }, // 알트아이젠 - 확정 (회전은 기본값)
 };
 
 function getBossTransform(bossCode) {
@@ -258,19 +264,21 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return String(parseInt(m[1] || m[2], 10));
     };
     const phaseConfig = getPhaseConfig(bossCode);
-    const isPhaseVisible = (p, current) => {
-      if (p === null) return true;
-      return phaseConfig.mode === 'exclusive' ? p === current : Number(p) <= Number(current);
-    };
     const phaseGroups = {};
     meshes.forEach(m => {
       const p = meshPhase(m.name);
       if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
     });
     const phaseKeys = Object.keys(phaseGroups).sort((a, b) => Number(a) - Number(b));
-    let currentPhase = phaseKeys.length > 0
-      ? (phaseConfig.defaultPhase === 'max' ? phaseKeys[phaseKeys.length - 1] : phaseKeys[0])
-      : null;
+    const minPhase = phaseKeys.length > 0 ? phaseKeys[0] : null;
+    // 모든 보스는 항상 1페이즈(가장 낮은 페이즈)로 시작 - 다른 페이즈는 직접 선택해야 보인다.
+    let currentPhase = minPhase;
+    const isPhaseVisible = (p, current) => {
+      if (p === null) return true;
+      if (phaseConfig.mode === 'exclusive') return p === current;
+      if (phaseConfig.mode === 'phase1-all') return current === minPhase ? true : p === current;
+      return Number(p) <= Number(current); // cumulative
+    };
 
     const enabledMeshes = new Set(
       meshes
