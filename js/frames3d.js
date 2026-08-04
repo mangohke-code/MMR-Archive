@@ -322,6 +322,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             });
             applyVisibility();
             renderToggleUI();
+            updateAnimationForPhase();
           });
         });
       } else {
@@ -349,9 +350,34 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     initialCamPos = camera.position.clone();
     initialTarget = controls.target.clone();
 
+    // 페이즈마다 idle 포즈가 다른 보스(예: 알트아이젠 - 런처 파츠가 1페이즈 idle에서는
+    // 접힌 자세, 2페이즈 idle에서는 펼쳐진 자세)가 있다 - 파츠 표시만 바꾸고 애니메이션은
+    // 그대로 두면, 2페이즈 전용 파츠가 1페이즈 포즈로 남아서 동떨어져 보인다.
+    // 클립 이름에서 현재 페이즈에 해당하는 idle을 찾아 재생하고, 없으면(대부분의 보스는
+    // idle 클립이 하나만 남아있음) 아무 idle이나 첫 클립으로 폴백한다.
+    function findIdleClipForPhase(phase) {
+      if (!gltf.animations || gltf.animations.length === 0) return null;
+      if (phase !== null) {
+        const match = gltf.animations.find(a => meshPhase(a.name) === phase && /idle|wait|stand/i.test(a.name || ''));
+        if (match) return match;
+      }
+      return gltf.animations.find(a => /idle|wait|stand/i.test(a.name || '')) || gltf.animations[0];
+    }
+
+    function updateAnimationForPhase() {
+      const clip = findIdleClipForPhase(currentPhase);
+      if (!clip) return;
+      // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
+      // 눈에 보이는 변화는 없이 내부 바인딩 상태만 꼬이는 경우가 있어(같은 본을 다른
+      // 클립 두 개가 번갈아 참조할 때 재생 자체는 "isRunning: true"로 보이는데도 실제
+      // 포즈는 갱신이 안 되는 현상 확인됨) — 믹서를 아예 새로 만들어서 확실하게 교체한다.
+      mixer = new THREE.AnimationMixer(gltf.scene);
+      mixer.clipAction(clip).play();
+    }
+
     if (gltf.animations && gltf.animations.length > 0) {
       mixer = new THREE.AnimationMixer(gltf.scene);
-      mixer.clipAction(gltf.animations[0]).play();
+      mixer.clipAction(findIdleClipForPhase(currentPhase)).play();
     }
 
     const resetBtn = document.getElementById('frames-spine-reset');
