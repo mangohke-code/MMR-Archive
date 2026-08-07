@@ -811,7 +811,10 @@
       renderPickupCalendar();
     });
     document.getElementById('pickup-calendar-next').addEventListener('click', () => {
-      calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+      const maxMonth = getMaxPickupMonth();
+      const nextMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+      if (maxMonth && nextMonth > maxMonth) return; // 아직 픽업이 입력 안 된 달로는 못 넘어감
+      calendarMonth = nextMonth;
       renderPickupCalendar();
     });
     document.getElementById('pickup-calendar-today').addEventListener('click', () => {
@@ -829,10 +832,16 @@
     return copy;
   }
 
-  function isDayWithinPickup(day, start, end) {
-    if (!start || !end) return false;
-    const d = stripTime(day);
-    return d >= stripTime(start) && d <= stripTime(end);
+  // 데이터에 실제로 입력된 픽업 중 가장 늦게 끝나는 달(종료일 기준) - 그 이후 달은
+  // 아직 아무것도 입력 안 된 빈 달이라 달력 넘겨보기에서 굳이 보여줄 필요가 없다.
+  // 종료일 기준으로 잡아야 마지막으로 입력된 픽업의 꼬리 부분이 잘리지 않는다.
+  function getMaxPickupMonth() {
+    let max = null;
+    allPickupData.forEach(p => {
+      const end = p['종료일'] ? new Date(p['종료일']) : null;
+      if (end && (!max || end > max)) max = end;
+    });
+    return max ? new Date(max.getFullYear(), max.getMonth(), 1) : null;
   }
 
   function renderPickupCalendar() {
@@ -842,48 +851,109 @@
     const month = calendarMonth.getMonth();
     document.getElementById('pickup-calendar-month-label').textContent = `${year}년 ${month + 1}월`;
 
+    const maxMonth = getMaxPickupMonth();
+    document.getElementById('pickup-calendar-next').disabled =
+      !!maxMonth && year === maxMonth.getFullYear() && month === maxMonth.getMonth();
+
     const firstOfMonth = new Date(year, month, 1);
     const gridStart = new Date(year, month, 1 - firstOfMonth.getDay());
     const today = stripTime(new Date());
 
-    const grid = document.getElementById('pickup-calendar-grid');
-    const cellsHtml = [];
-    for (let i = 0; i < 42; i++) {
-      const day = new Date(gridStart);
-      day.setDate(gridStart.getDate() + i);
-      const inMonth = day.getMonth() === month;
-      const dayPickups = data.filter(p => isDayWithinPickup(day, p['시작일'], p['종료일']));
-      cellsHtml.push(renderCalendarCell(day, inMonth, dayPickups, stripTime(day).getTime() === today.getTime()));
+    const weeksHtml = [];
+    for (let w = 0; w < 6; w++) {
+      const weekDays = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(gridStart);
+        d.setDate(gridStart.getDate() + w * 7 + i);
+        weekDays.push(d);
+      }
+      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data));
     }
-    grid.innerHTML = cellsHtml.join('');
 
-    // 니케 칩 클릭 시 타임라인의 해당 카드로 이동
-    grid.querySelectorAll('.calendar-nikke-chip[data-nikke]').forEach(chip => {
-      chip.addEventListener('click', () => jumpToPickupNikke(chip.dataset.nikke));
+    const grid = document.getElementById('pickup-calendar-grid');
+    grid.innerHTML = weeksHtml.join('');
+
+    // 픽업 막대 클릭 시 타임라인의 해당 카드로 이동
+    grid.querySelectorAll('.calendar-bar[data-nikke]').forEach(bar => {
+      bar.addEventListener('click', () => jumpToPickupNikke(bar.dataset.nikke));
     });
   }
 
-  function renderCalendarCell(day, inMonth, pickups, isToday) {
-    const dow = day.getDay();
-    const dowClass = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
-    const cellClass = ['calendar-cell', inMonth ? '' : 'is-outside', isToday ? 'is-today' : ''].filter(Boolean).join(' ');
+  // 한 주(일~토 7칸)를 하나의 CSS 그리드로 그린다. 픽업 기간이 여러 날에 걸치면
+  // 매 칸마다 아이콘을 따로 반복하는 대신, 그 주 안에서 실제로 걸치는 만큼 가로로
+  // 이어진 막대 하나로 그려서 "끈처럼 연결된" 느낌을 준다. 같은 주에 여러 픽업이
+  // 겹치면 겹치지 않는 자리(레인)를 찾아 세로로 쌓는다 - 흔한 캘린더 다중일 이벤트 배치 방식.
+  function renderCalendarWeek(weekDays, month, today, data) {
+    const weekStart = stripTime(weekDays[0]);
+    const weekEnd = stripTime(weekDays[6]);
 
-    const chips = pickups.map(p => {
+    const segments = data
+      .map(p => {
+        if (!p['시작일'] || !p['종료일']) return null;
+        const pStart = stripTime(p['시작일']);
+        const pEnd = stripTime(p['종료일']);
+        if (pEnd < weekStart || pStart > weekEnd) return null;
+        const segStart = pStart < weekStart ? weekStart : pStart;
+        const segEnd = pEnd > weekEnd ? weekEnd : pEnd;
+        return {
+          p,
+          startCol: Math.round((segStart - weekStart) / 86400000),
+          endCol: Math.round((segEnd - weekStart) / 86400000),
+          isActualStart: pStart.getTime() === segStart.getTime(),
+          isActualEnd: pEnd.getTime() === segEnd.getTime(),
+        };
+      })
+      .filter(Boolean)
+      // 이 주에서 먼저 시작하는 것부터, 같은 시작이면 더 길게 이어지는 것부터 배치
+      .sort((a, b) => a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol));
+
+    // 레인 배정: lanes[i]는 그 레인에 마지막으로 배치한 막대의 endCol
+    const lanes = [];
+    segments.forEach(seg => {
+      let laneIdx = lanes.findIndex(lastEnd => lastEnd < seg.startCol);
+      if (laneIdx === -1) { laneIdx = lanes.length; lanes.push(-1); }
+      lanes[laneIdx] = seg.endCol;
+      seg.lane = laneIdx;
+    });
+    const laneCount = Math.max(lanes.length, 1);
+
+    const dateCellsHtml = weekDays.map(d => {
+      const inMonth = d.getMonth() === month;
+      const dow = d.getDay();
+      const dowClass = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
+      const isToday = stripTime(d).getTime() === today.getTime();
+      const cellClass = ['calendar-date-cell', inMonth ? '' : 'is-outside', isToday ? 'is-today' : ''].filter(Boolean).join(' ');
+      return `
+        <div class="${cellClass}" style="grid-column:${dow + 1}; grid-row:1;">
+          <span class="calendar-date-label ${dowClass}">${d.getDate()}</span>
+        </div>
+      `;
+    }).join('');
+
+    const barsHtml = segments.map(seg => {
+      const p = seg.p;
       const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
       const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
-      const chipClass = ['calendar-nikke-chip', p['복각'] ? 'is-rerun' : ''].filter(Boolean).join(' ');
+      const barClass = [
+        'calendar-bar',
+        p['복각'] ? 'is-rerun' : '',
+        seg.isActualStart ? 'is-start' : '',
+        seg.isActualEnd ? 'is-end' : '',
+      ].filter(Boolean).join(' ');
       const tooltip = `${p['니케']}${p['복각'] ? ' (복각)' : ''}`;
       return `
-        <div class="${chipClass}" data-nikke="${p['니케']}" data-tooltip="${tooltip}">
+        <div class="${barClass}" data-nikke="${p['니케']}" data-tooltip="${tooltip}"
+             style="grid-column:${seg.startCol + 1} / ${seg.endCol + 2}; grid-row:${seg.lane + 2};">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
+          <span class="calendar-bar-name">${p['니케']}</span>
         </div>
       `;
     }).join('');
 
     return `
-      <div class="${cellClass}">
-        <div class="calendar-date-label ${dowClass}">${day.getDate()}</div>
-        <div class="calendar-nikke-list">${chips}</div>
+      <div class="calendar-week" style="grid-template-rows: auto repeat(${laneCount}, auto);">
+        ${dateCellsHtml}
+        ${barsHtml}
       </div>
     `;
   }
