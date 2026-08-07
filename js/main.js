@@ -54,6 +54,7 @@
             ${e['신규복각'] ? `<span class="badge-pickup-type ${e['신규복각'] === '복각' ? 'rerun' : 'new'}">${e['신규복각']}</span>` : ''}
             ${e['시즌'] ? `<span class="badge badge-season">${e['시즌']}</span>` : ''}
             <span class="event-date">${formatDate(e['시작일'])} ~ ${formatDate(e['종료일'])}</span>
+            ${formatEventRemainingMain(e['시작일'], e['종료일'])}
           </div>
         </div>
       </div>
@@ -270,6 +271,19 @@
     if (now >= s) return '';
     const remain = Math.ceil((s - now) / (1000 * 60 * 60 * 24));
     return `<span class="pickup-remaining-badge">시작까지 D-${Math.max(remain, 0)}</span>`;
+  }
+
+  // 진행중인 이벤트 카드에 종료까지 남은 일수를 D-n 배지로 표시.
+  // 이벤트는 시작일/종료일에 시:분까지 정확히 들어있으므로(픽업과 달리) 자정으로
+  // 밀어붙이지 않고 실제 종료 시각 그대로 계산한다.
+  function formatEventRemainingMain(start, end) {
+    if (!start || !end) return '';
+    const now = new Date();
+    const s = new Date(start);
+    const e = new Date(end);
+    if (now < s || now > e) return '';
+    const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
+    return `<span class="pickup-remaining-badge">종료까지 D-${Math.max(remain, 0)}</span>`;
   }
 
   function formatDate(date) {
