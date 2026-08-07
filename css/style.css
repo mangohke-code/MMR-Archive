@@ -543,7 +543,7 @@
     display: inline-flex;
     align-items: center;
     padding: 2px 7px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0.04em;
     border-radius: var(--radius-sm);
@@ -634,6 +634,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 18px;
   }
 
   #link-list {
@@ -1281,13 +1282,17 @@
   }
 
   .badge-season {
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 500;
     padding: 2px 8px;
     border-radius: var(--radius-sm);
     background: var(--bg-panel-alt);
     color: var(--accent);
     border: 1px solid var(--border-strong);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
   }
 
   .event-meta {
@@ -1306,7 +1311,7 @@
   .badge-pickup-type {
     display: inline-flex;
     align-items: center;
-    font-size: 14px;
+    font-size: 16px;
     padding: 2px 7px;
     border-radius: var(--radius-sm);
     font-weight: 500;
