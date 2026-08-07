@@ -948,16 +948,25 @@
   }
 
   .period-year-label {
-    font-size: 11px;
-    color: var(--text-dim);
-    letter-spacing: 0.06em;
-    margin-bottom: 2px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 3px;
   }
 
   .period-date-label {
     font-size: 14px;
-    color: var(--accent-dim);
+    font-weight: 500;
+    color: var(--text-secondary);
     white-space: nowrap;
+  }
+
+  /* 몰아보기: 바로 위 행과 연도가 바뀌는 지점에 타임라인 뷰의 연도 구분선과 비슷하게
+     굵고 눈에 띄는 경계를 넣어서 스크롤하다 봐도 연도 구간을 바로 알아볼 수 있게 한다 */
+  #pickup-group-table tbody tr.year-boundary td {
+    border-top: 3px solid var(--border-accent);
+    padding-top: 16px;
   }
 
   .group-nikke-item {

@@ -774,14 +774,18 @@
     document.getElementById('pickup-group-header-table').style.tableLayout = 'fixed';
     // 바디 렌더링
     const tbody = document.getElementById('pickup-group-tbody');
-    tbody.innerHTML = periods.map(([pk, periodData]) => {
+    tbody.innerHTML = periods.map(([pk, periodData], idx) => {
       const [year, dateRange] = pk.split('||');
+      // 타임라인 뷰의 연도 구분선처럼, 바로 위 행과 연도가 바뀌는 지점에만 굵은 경계를
+      // 넣어서 연도 구분이 눈에 띄게 한다 (맨 첫 행은 표 자체 헤더로 이미 구분되니 제외)
+      const prevYear = idx > 0 ? periods[idx - 1][0].split('||')[0] : null;
+      const isYearBoundary = idx > 0 && year !== prevYear;
       const cells = columns.map(col => {
         const match = periodData.nikkes.filter(p => groupKey === '기업' ? getBaseCompany(p[groupKey]) === col : p[groupKey] === col);
         if (match.length === 0) return `<td class="group-cell-empty" style="${colWidthStyle}">—</td>`;
         return `<td style="${colWidthStyle}">${match.map(p => renderGroupNikkeItem(p)).join('')}</td>`;
       });
-      return `<tr>
+      return `<tr class="${isYearBoundary ? 'year-boundary' : ''}">
         <td class="period-label-cell">
           <div class="period-year-label">${year}</div>
           <div class="period-date-label">${dateRange}</div>
