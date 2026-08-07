@@ -805,26 +805,61 @@
   let calendarMonth = new Date();
   calendarMonth.setDate(1);
 
+  // 달을 넘길 때마다 매번 새로 확인 - 애니메이션 도중에 또 넘기려고 하면 무시(중복 방지)
+  let calendarTransitioning = false;
+
   function initPickupCalendarNav() {
-    document.getElementById('pickup-calendar-prev').addEventListener('click', () => {
-      const minMonth = getMinPickupMonth();
-      const prevMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
-      if (minMonth && prevMonth < minMonth) return; // 맨 처음 픽업보다 이전 달로는 못 넘어감
-      calendarMonth = prevMonth;
-      renderPickupCalendar();
-    });
-    document.getElementById('pickup-calendar-next').addEventListener('click', () => {
-      const maxMonth = getMaxPickupMonth();
-      const nextMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
-      if (maxMonth && nextMonth > maxMonth) return; // 아직 픽업이 입력 안 된 달로는 못 넘어감
-      calendarMonth = nextMonth;
-      renderPickupCalendar();
-    });
+    document.getElementById('pickup-calendar-prev').addEventListener('click', () => changeCalendarMonth(-1));
+    document.getElementById('pickup-calendar-next').addEventListener('click', () => changeCalendarMonth(1));
     document.getElementById('pickup-calendar-today').addEventListener('click', () => {
-      calendarMonth = new Date();
-      calendarMonth.setDate(1);
-      renderPickupCalendar();
+      const target = new Date();
+      target.setDate(1);
+      goToCalendarMonth(target);
     });
+
+    // 달력 위에서 스크롤(휠)하면 다음/이전 달로 스르륵 넘어간다 - 아래로 스크롤하면 다음 달
+    document.getElementById('pickup-calendar-view').addEventListener('wheel', e => {
+      if (currentView !== 'calendar') return;
+      e.preventDefault();
+      changeCalendarMonth(e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+  }
+
+  // 지금 보고 있는 달 기준으로 방향(-1/1)만큼 옮긴다. 맨 처음/마지막 픽업이 있는 달을 벗어나면 무시.
+  function changeCalendarMonth(direction) {
+    if (calendarTransitioning) return;
+    const proposed = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + direction, 1);
+    const minMonth = getMinPickupMonth();
+    const maxMonth = getMaxPickupMonth();
+    if (direction > 0 && maxMonth && proposed > maxMonth) return;
+    if (direction < 0 && minMonth && proposed < minMonth) return;
+    animateCalendarMonthChange(direction, () => { calendarMonth = proposed; });
+  }
+
+  // 특정 달로 바로 이동(오늘 버튼용) - 지금 보고 있는 달보다 미래면 다음 달 방향으로,
+  // 과거면 이전 달 방향으로 슬라이드해서 방향감이 자연스럽게 맞게 한다.
+  function goToCalendarMonth(targetMonth) {
+    if (calendarTransitioning) return;
+    if (targetMonth.getFullYear() === calendarMonth.getFullYear() && targetMonth.getMonth() === calendarMonth.getMonth()) return;
+    const direction = targetMonth > calendarMonth ? 1 : -1;
+    animateCalendarMonthChange(direction, () => { calendarMonth = targetMonth; });
+  }
+
+  // 달이 바뀌는 걸 스르륵 슬라이드로 보여준다 - 다음 달(아래로 스크롤)이면 위로 밀려
+  // 나가면서 새 달이 아래에서 올라오고, 이전 달이면 반대 방향.
+  function animateCalendarMonthChange(direction, applyMonthChange) {
+    calendarTransitioning = true;
+    const grid = document.getElementById('pickup-calendar-grid');
+    grid.classList.add(direction > 0 ? 'is-sliding-out-next' : 'is-sliding-out-prev');
+    setTimeout(() => {
+      applyMonthChange();
+      renderPickupCalendar();
+      grid.classList.remove('is-sliding-out-next', 'is-sliding-out-prev');
+      grid.classList.add(direction > 0 ? 'is-sliding-in-next' : 'is-sliding-in-prev');
+      void grid.offsetWidth; // 강제 리플로우로 시작 위치를 확정시킨 뒤에 트랜지션이 걸리게 함
+      grid.classList.remove('is-sliding-in-next', 'is-sliding-in-prev');
+      setTimeout(() => { calendarTransitioning = false; }, 200);
+    }, 160);
   }
 
   // 날짜만 비교(시:분 무시) - 픽업 시작/종료일이 날짜만 있는 경우가 많아서
@@ -924,21 +959,24 @@
 
     const firstOfMonth = new Date(year, month, 1);
     const gridStart = new Date(year, month, 1 - firstOfMonth.getDay());
-    const gridEnd = new Date(gridStart);
-    gridEnd.setDate(gridStart.getDate() + 41);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const lastDayOfMonth = stripTime(new Date(year, month, daysInMonth));
     const today = stripTime(new Date());
 
-    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), stripTime(gridEnd));
+    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), lastDayOfMonth);
 
+    // 그 달을 표시하는 데 필요한 주(週) 수만큼만 그린다(보통 5~6주) - 월말 이후
+    // 다음 달 날짜로 남은 마지막 줄 전체는 아예 안 그린다.
+    const weekCount = Math.ceil((firstOfMonth.getDay() + daysInMonth) / 7);
     const weeksHtml = [];
-    for (let w = 0; w < 6; w++) {
+    for (let w = 0; w < weekCount; w++) {
       const weekDays = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(gridStart);
         d.setDate(gridStart.getDate() + w * 7 + i);
         weekDays.push(d);
       }
-      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount));
+      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, w, lastDayOfMonth));
     }
 
     const grid = document.getElementById('pickup-calendar-grid');
@@ -957,15 +995,50 @@
           .forEach(b => b.classList.remove('is-linked-hover'));
       });
     });
+
+    setupCalendarHoverGlow(grid);
+  }
+
+  // 윈도우 기본 달력/시계 앱처럼, 호버한 날짜 칸에 테두리+빛이 생기고 주변 칸으로
+  // 갈수록(체비쇼프 거리 기준) 옅어지는 그라데이션 느낌을 준다. 칸마다 --glow 값을
+  // 0~1로 매겨서 CSS의 color-mix()로 테두리/그림자 진하기를 조절한다.
+  function setupCalendarHoverGlow(grid) {
+    let lastCell = null;
+    const applyGlow = hoveredCell => {
+      const cells = grid.querySelectorAll('.calendar-date-cell');
+      if (!hoveredCell) {
+        cells.forEach(c => c.style.setProperty('--glow', 0));
+        return;
+      }
+      const hw = Number(hoveredCell.dataset.week);
+      const hd = Number(hoveredCell.dataset.dow);
+      cells.forEach(c => {
+        const dist = Math.max(Math.abs(Number(c.dataset.week) - hw), Math.abs(Number(c.dataset.dow) - hd));
+        const glow = Math.max(0, 1 - dist * 0.45);
+        c.style.setProperty('--glow', glow.toFixed(2));
+      });
+    };
+    grid.addEventListener('mousemove', e => {
+      const cell = e.target.closest('.calendar-date-cell');
+      if (cell === lastCell) return;
+      lastCell = cell;
+      applyGlow(cell);
+    });
+    grid.addEventListener('mouseleave', () => {
+      lastCell = null;
+      applyGlow(null);
+    });
   }
 
   // 한 주(일~토 7칸)를 하나의 CSS 그리드로 그린다. 픽업 기간이 여러 날에 걸치면
   // 매 칸마다 아이콘을 따로 반복하는 대신, 그 주 안에서 실제로 걸치는 만큼 가로로
   // 이어진 막대 하나로 그려서 "끈처럼 연결된" 느낌을 준다. 레인은 renderPickupCalendar가
-  // 달력 전체 기준으로 미리 배정한 값을 그대로 쓴다.
-  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount) {
+  // 달력 전체 기준으로 미리 배정한 값을 그대로 쓴다. 월말 이후(다음 달) 날짜는 칸 자체를
+  // 안 그린다 - 이 주가 마지막 주라 일부만 실제 이번 달 날짜인 경우에 해당.
+  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, weekIndex, lastDayOfMonth) {
     const weekStart = stripTime(weekDays[0]);
-    const weekEnd = stripTime(weekDays[6]);
+    const weekEndRaw = stripTime(weekDays[6]);
+    const weekEnd = weekEndRaw > lastDayOfMonth ? lastDayOfMonth : weekEndRaw;
 
     const segments = data
       .map(p => {
@@ -991,13 +1064,15 @@
       .filter(Boolean);
 
     const dateCellsHtml = weekDays.map(d => {
+      const dStripped = stripTime(d);
+      if (dStripped > lastDayOfMonth) return ''; // 월말 이후는 칸 자체를 표시 안 함
       const inMonth = d.getMonth() === month;
       const dow = d.getDay();
       const dowClass = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
-      const isToday = stripTime(d).getTime() === today.getTime();
+      const isToday = dStripped.getTime() === today.getTime();
       const cellClass = ['calendar-date-cell', inMonth ? '' : 'is-outside', isToday ? 'is-today' : ''].filter(Boolean).join(' ');
       return `
-        <div class="${cellClass}" style="grid-column:${dow + 1}; grid-row:1;">
+        <div class="${cellClass}" data-week="${weekIndex}" data-dow="${dow}" style="grid-column:${dow + 1}; grid-row:1;">
           <span class="calendar-date-label ${dowClass}">${d.getDate()}</span>
         </div>
       `;
