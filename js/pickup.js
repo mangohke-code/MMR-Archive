@@ -31,36 +31,36 @@
   };
 
   // 오버스펙: 기업마다 존재하는, 같은 기업의 다른 니케보다 성능이 훨씬 우월한 니케.
-  // IMG_니케 테이블의 '오버스펙' 열('O')로 니케 단위로 표시하고, IMG_아이콘 테이블에는
-  // "엘리시온(오)"처럼 기업명 뒤에 이 접미사를 붙인 전용 아이콘을 별도로 등록해서 쓴다.
+  // 별도 열 없이 픽업 데이터의 '기업' 값 자체에 "엘리시온(오)"처럼 접미사를 붙여서
+  // 표시한다 - 매칭/아이콘 조회 등 "검증"에는 이 값을 그대로 쓰고, 화면에 문구를
+  // 보여줄 때만 getBaseCompany()로 접미사를 뗀다. IMG_아이콘 테이블에도 같은 접미사가
+  // 붙은 전용 아이콘("엘리시온(오)")을 별도로 등록해서 쓴다.
   const OVERSPEC_SUFFIX = '(오)';
 
-  function isNikkeOverspec(nikkeName) {
-    const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === nikkeName);
-    return !!nikkeImg && nikkeImg['오버스펙'] === 'O';
+  function getBaseCompany(company) {
+    if (!company) return company;
+    return company.endsWith(OVERSPEC_SUFFIX) ? company.slice(0, -OVERSPEC_SUFFIX.length) : company;
   }
 
-  // 오버스펙 니케를 1명 이상 보유한 기업 집합. 오버스펙 여부는 IMG_니케(니케 단위)에,
-  // 소속 기업은 픽업 데이터 쪽에만 있어서 둘을 교차 참조해야 한다.
+  // 오버스펙 니케를 1명 이상 보유한 기업 집합(표시용 기준 이름)
   function getOverspecCompanies() {
     const companies = new Set();
     allPickupData.forEach(p => {
-      if (p['기업'] && isNikkeOverspec(p['니케'])) companies.add(p['기업']);
+      if (p['기업'] && p['기업'].endsWith(OVERSPEC_SUFFIX)) companies.add(getBaseCompany(p['기업']));
     });
     return companies;
   }
 
   // 기업 필터가 이 픽업 항목에 매치되는지 판단. 일반 선택("엘리시온")은 오버스펙 여부와
-  // 무관하게 그 기업 소속 전체와 매치하고, 오버스펙 선택("엘리시온(오)")은 그 기업의
-  // 오버스펙 니케만 매치한다.
+  // 무관하게 그 기업 소속 전체(기업 값이 "엘리시온"이든 "엘리시온(오)"든)와 매치하고,
+  // 오버스펙 선택("엘리시온(오)")은 기업 값이 정확히 그 접미사 붙은 값인 것만 매치한다.
   function companyFilterMatches(p) {
     if (activeFilters.company.size === 0) return true;
+    const pCompany = p['기업'];
+    if (!pCompany) return false;
     return [...activeFilters.company].some(v => {
-      if (v.endsWith(OVERSPEC_SUFFIX)) {
-        const company = v.slice(0, -OVERSPEC_SUFFIX.length);
-        return p['기업'] === company && isNikkeOverspec(p['니케']);
-      }
-      return p['기업'] === v;
+      if (v.endsWith(OVERSPEC_SUFFIX)) return pCompany === v;
+      return getBaseCompany(pCompany) === v;
     });
   }
 
@@ -265,6 +265,11 @@
     const container = document.getElementById('filter-company');
     container.innerHTML = '';
 
+    // values에는 "엘리시온"과 "엘리시온(오)"가 서로 다른 원본 값으로 섞여 들어올 수
+    // 있으므로, 칩은 기업당 하나만(괄호 뗀 이름 기준) 만든다 - 오버스펙은 같은 칩을
+    // 한 번 더 눌러서 전환하는 상태지 별도 칩이 아니다.
+    const baseCompanies = [...new Set(values.map(getBaseCompany))];
+
     const allBtn = document.createElement('button');
     allBtn.className = 'filter-chip';
     allBtn.dataset.company = '__all__';
@@ -272,7 +277,7 @@
     allBtn.addEventListener('click', onCompanyFilterClick);
     container.appendChild(allBtn);
 
-    values.forEach(company => {
+    baseCompanies.forEach(company => {
       const btn = document.createElement('button');
       btn.className = 'filter-chip';
       btn.dataset.company = company;
@@ -471,27 +476,23 @@
 
     const cardClass = ['nikke-card', isLimited ? 'is-limited' : '', isRerun ? 'is-rerun' : ''].filter(Boolean).join(' ');
 
-    const isOverspec = isNikkeOverspec(p['니케']);
-
     const attrOrder = ['기업', '유형', '버스트', '총기', '우월코드'];
     const attrs = attrOrder.map(attr => {
       const val = p[attr];
       if (!val) return '';
-      // 오버스펙 니케는 기업 아이콘을 "엘리시온(오)" 전용 아이콘으로 바꿔서 표기 —
-      // 해당 아이콘이 IMG_아이콘에 아직 없으면(등록 전) 일반 기업 아이콘으로 폴백된다.
-      let iconKey = val;
-      if (attr === '기업' && isOverspec) {
-        const overspecKey = val + OVERSPEC_SUFFIX;
-        if (iconImgData['기업'] && iconImgData['기업'][overspecKey]) iconKey = overspecKey;
-      }
-      const iconUrl = iconImgData[attr] && iconImgData[attr][iconKey] ? iconImgData[attr][iconKey] : null;
+      // 기업 값 자체가 오버스펙이면("엘리시온(오)") 이 값 그대로 아이콘을 먼저 찾고,
+      // IMG_아이콘에 전용 아이콘이 아직 없으면 괄호를 뗀 일반 기업 아이콘으로 폴백한다.
+      // 화면에 보여주는 문구(마우스오버 툴팁 포함)는 항상 괄호를 뗀 이름만 쓴다.
+      const displayVal = attr === '기업' ? getBaseCompany(val) : val;
+      const iconUrl = (iconImgData[attr] && iconImgData[attr][val])
+        || (attr === '기업' && iconImgData[attr] && iconImgData[attr][displayVal])
+        || null;
       if (!iconUrl) return '';
       const isCode = attr === '우월코드';
-      const codeClass = isCode ? `code-chip code-${val}` : '';
-      const title = attr === '기업' && isOverspec ? `${val} (오버스펙)` : val;
+      const codeClass = isCode ? `code-chip code-${displayVal}` : '';
       return `
-        <span class="nikke-attr-chip ${codeClass}" title="${title}">
-          <img src="${iconUrl}" alt="${val}">
+        <span class="nikke-attr-chip ${codeClass}" data-tooltip="${displayVal}">
+          <img src="${iconUrl}" alt="${displayVal}">
         </span>
       `;
     }).join('');
@@ -726,9 +727,12 @@
     });
 
     // 열 목록: 필터 전 전체 데이터 기준으로 고정 (필터링해도 열 유지)
+    // 기업은 오버스펙 값("엘리시온(오)")도 괄호를 뗀 같은 열로 합친다 - 별도 열이 아니다.
     let columns = config.order
       ? config.order.filter(v => allPickupData.some(p => p[groupKey] === v))
-      : [...new Set(allPickupData.map(p => p[groupKey]).filter(Boolean))];
+      : groupKey === '기업'
+        ? [...new Set(allPickupData.map(p => p['기업']).filter(Boolean).map(getBaseCompany))]
+        : [...new Set(allPickupData.map(p => p[groupKey]).filter(Boolean))];
 
     // 기간 키 (연도 분리)
     const periodKey = p => {
@@ -772,7 +776,7 @@
     tbody.innerHTML = periods.map(([pk, periodData]) => {
       const [year, dateRange] = pk.split('||');
       const cells = columns.map(col => {
-        const match = periodData.nikkes.filter(p => p[groupKey] === col);
+        const match = periodData.nikkes.filter(p => groupKey === '기업' ? getBaseCompany(p[groupKey]) === col : p[groupKey] === col);
         if (match.length === 0) return `<td class="group-cell-empty" style="${colWidthStyle}">—</td>`;
         return `<td style="${colWidthStyle}">${match.map(p => renderGroupNikkeItem(p)).join('')}</td>`;
       });
