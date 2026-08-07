@@ -259,7 +259,7 @@
     e.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도 그날 전체를 포함하도록
     if (now < s || now > e) return '';
     const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-remaining-badge">D-${Math.max(remain, 0)}</span>`;
+    return `<span class="pickup-remaining-badge">종료까지 D-${Math.max(remain, 0)}</span>`;
   }
 
   // 진행 예정 픽업/코스튬 픽업 카드에 시작까지 남은 일수를 D-n 배지로 표시
