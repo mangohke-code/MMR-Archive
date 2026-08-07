@@ -444,6 +444,7 @@
       </div>
       `;
     }).join('');
+    syncNameScrollAnimations(timeline, '.nikke-name-wrap', '.nikke-name');
     requestAnimationFrame(() => setupYearObserver());
   }
 
@@ -788,6 +789,7 @@
         ${cells.join('')}
       </tr>`;
     }).join('');
+    syncNameScrollAnimations(tbody, '.group-nikke-name-wrap', '.group-nikke-name');
     if (currentView === 'group') {
       requestAnimationFrame(() => setupGroupYearObserver());
     }
@@ -812,6 +814,19 @@
       });
     }
     window.addEventListener('resize', positionYearNav);
+
+    // 창 크기가 바뀌면 카드/칸 폭도 바뀌어서 이름 스크롤 여부·거리도 다시 재야 한다
+    let nameScrollResizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(nameScrollResizeTimer);
+      nameScrollResizeTimer = setTimeout(() => {
+        if (currentView === 'timeline') {
+          syncNameScrollAnimations(document.getElementById('pickup-timeline'), '.nikke-name-wrap', '.nikke-name');
+        } else {
+          syncNameScrollAnimations(document.getElementById('pickup-group-tbody'), '.group-nikke-name-wrap', '.group-nikke-name');
+        }
+      }, 200);
+    });
   }
 
   function positionYearNav() {

@@ -113,6 +113,30 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
   });
 }
 
+// 이름이 칸을 넘칠 때만 좌우로 스크롤되는 애니메이션 적용 (픽업 기록 탭의 니케 카드/
+// 몰아보기 니케 이름). CSS keyframe만으로는 실제 텍스트 폭을 알 수 없어서 정해진
+// 거리만큼 무조건 움직이게 되는데, 그러면 칸이 넉넉해서 필요 없을 때도 움직이거나,
+// 칸이 좁아서 실제로 넘치는 양보다 덜 움직여서(이름이 끝까지 안 보임) 문제가 생긴다.
+// wrap(overflow:hidden)과 그 안의 name 요소 실제 폭 차이를 재서, 넘치는 경우에만
+// 그 넘치는 만큼을 --scroll-distance로 넣고 애니메이션 클래스를 붙인다.
+// 읽기(scrollWidth/clientWidth)와 쓰기(style)를 분리해서 레이아웃 스래싱을 피한다.
+function syncNameScrollAnimations(root, wrapSelector, nameSelector) {
+  const wraps = root.querySelectorAll(wrapSelector);
+  const toAnimate = [];
+  wraps.forEach(wrap => {
+    const nameEl = wrap.querySelector(nameSelector);
+    if (!nameEl) return;
+    nameEl.classList.remove('is-scrolling');
+    nameEl.style.removeProperty('--scroll-distance');
+    const overflow = nameEl.scrollWidth - wrap.clientWidth;
+    if (overflow > 1) toAnimate.push({ nameEl, overflow });
+  });
+  toAnimate.forEach(({ nameEl, overflow }) => {
+    nameEl.style.setProperty('--scroll-distance', `-${overflow}px`);
+    nameEl.classList.add('is-scrolling');
+  });
+}
+
 // L2D 캔버스 드래그 이동(팬) + 휠 확대/축소 — spine-player 라이브러리 자체엔 이 기능이 없어서 직접 구현.
 // 이전 버전은 spine 내부 camera/currentViewport를 직접 조작했는데, 상호작용 시 캐릭터가 사라지는
 // 문제가 있었고 원인을 확정 짓지 못했다. 같은 니케 L2D 에셋을 쓰는 다른 사이트(Nikke-db.github.io)의

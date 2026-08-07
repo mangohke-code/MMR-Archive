@@ -1026,13 +1026,12 @@
     color: var(--accent);
     white-space: nowrap;
     will-change: transform;
-    animation: groupNameScroll 4s linear infinite;
   }
 
-  @keyframes groupNameScroll {
-    0%, 20%      { transform: translateX(0); }
-    70%, 90%     { transform: translateX(min(0px, calc(-100% + 170px))); }
-    90.01%, 100% { transform: translateX(0); }
+  /* 넘칠 때만(is-scrolling) 애니메이션 적용 — 실제 재는 로직과 keyframe은
+     .nikke-name과 공유(위쪽 "scrolling" keyframe 정의 참고) */
+  .group-nikke-name.is-scrolling {
+    animation: scrolling 4s ease-in-out infinite;
   }
 
   .group-nikke-badges {
@@ -1566,18 +1565,23 @@
     word-break: keep-all;
     white-space: nowrap;
     will-change: transform;
+  }
+
+  /* 이름이 실제로 칸을 넘칠 때만(JS가 넘치는 만큼 --scroll-distance를 재서 넣고
+     is-scrolling 클래스를 붙임) 애니메이션 적용 — 칸이 넉넉해서 안 넘치면 정적으로 표시.
+     끝까지 스크롤됐다가 처음으로 순간이동(스냅)하지 않고, 왔던 길을 그대로 부드럽게
+     되돌아가도록 왕복 구조로 구성 — 0%(시작 대기) → 스크롤 → 45~55%(끝 대기) →
+     되돌아오는 스크롤 → 100%(=0%, 매끄럽게 이어짐) */
+  .nikke-name.is-scrolling {
     animation: scrolling 5s ease-in-out infinite;
   }
 
-  /* 끝까지 스크롤됐다가 처음으로 순간이동(스냅)하지 않고, 왔던 길을 그대로 부드럽게
-     되돌아가도록 왕복 구조로 구성 — 0%(시작 대기) → 스크롤 → 45~55%(끝 대기) →
-     되돌아오는 스크롤 → 100%(=0%, 매끄럽게 이어짐) */
   @keyframes scrolling {
     0%, 15% {
       transform: translateX(0);
     }
     45%, 55% {
-      transform: translateX(min(0px, calc(-100% + 258px)));
+      transform: translateX(var(--scroll-distance, 0px));
     }
     85%, 100% {
       transform: translateX(0);
