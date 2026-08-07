@@ -57,14 +57,19 @@
     /* 속성 코드 칩 (라이트: 옅은 파스텔) */
     --code-scorch-bg: #fdeeea;
     --code-scorch-border: #f0b39a;
+    --code-scorch-text: #b23a1f;
     --code-iron-bg: #fbf3e0;
     --code-iron-border: #e8d090;
+    --code-iron-text: #93720e;
     --code-wind-bg: #e9f7ec;
     --code-wind-border: #a8dfb6;
+    --code-wind-text: #237a3d;
     --code-electric-bg: #f3eafb;
     --code-electric-border: #d3aeed;
+    --code-electric-text: #7a3fae;
     --code-water-bg: #e8f2fb;
     --code-water-border: #a8cdf0;
+    --code-water-text: #2f6bab;
 
     /* 반경 스케일 */
     --radius-sm: 4px;
@@ -128,14 +133,19 @@
 
     --code-scorch-bg: #1e0a06;
     --code-scorch-border: #5a2010;
+    --code-scorch-text: #ff9166;
     --code-iron-bg: #1a1606;
     --code-iron-border: #4a4010;
+    --code-iron-text: #e8c260;
     --code-wind-bg: #061a0a;
     --code-wind-border: #104a18;
+    --code-wind-text: #6fdb8f;
     --code-electric-bg: #18061a;
     --code-electric-border: #40104a;
+    --code-electric-text: #c79aef;
     --code-water-bg: #07101f;
     --code-water-border: #10304a;
+    --code-water-text: #7ab8f0;
   }
 
   /* 원래 다크 배경 전제로 만들어진 흰색 고정 아이콘 — 라이트 모드에서는 반전, 다크 모드에서는 원래대로
@@ -1102,19 +1112,22 @@
     color: var(--text-on-accent);
   }
 
-  /* 픽업 막대: 니케 이름을 해시한 --bar-hue로 픽업마다 고유한 색을 준다(전부 같은 색이라
-     구분 안 되던 문제 해결). 시작/끝이 아닌 쪽(그 주 안에서 이어지는 쪽)은 테두리·둥근
-     모서리를 안 그려서, 같은 픽업이 다음 주 막대로 이어질 때 끊기지 않고 연결된 느낌을 준다 */
+  /* 픽업 막대: 니케의 우월코드(속성)를 그대로 따라간 색 - 나머지 화면의 속성 아이콘
+     칩과 같은 --code-* 토큰이라 구분도 잘 되고 사이트 전체 색 언어와 일관된다.
+     시작/끝이 아닌 쪽(그 주 안에서 이어지는 쪽)은 테두리·둥근 모서리를 안 그려서,
+     같은 픽업이 다음 주 막대로 이어질 때 끊기지 않고 연결된 느낌을 준다 */
   .calendar-bar {
     display: flex;
     align-items: center;
     gap: 6px;
     height: 34px;
     padding: 0 8px;
-    background: hsl(var(--bar-hue, 220) 65% 92%);
-    border-top: 1px solid hsl(var(--bar-hue, 220) 45% 62%);
-    border-bottom: 1px solid hsl(var(--bar-hue, 220) 45% 62%);
-    color: hsl(var(--bar-hue, 220) 60% 28%);
+    border-top-style: solid;
+    border-bottom-style: solid;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left: none;
+    border-right: none;
     font-size: 15px;
     font-weight: 600;
     white-space: nowrap;
@@ -1123,33 +1136,27 @@
     transition: filter 0.15s, box-shadow 0.15s;
   }
 
-  [data-theme="dark"] .calendar-bar {
-    background: hsl(var(--bar-hue, 220) 38% 20%);
-    border-top-color: hsl(var(--bar-hue, 220) 45% 45%);
-    border-bottom-color: hsl(var(--bar-hue, 220) 45% 45%);
-    color: hsl(var(--bar-hue, 220) 75% 80%);
-  }
+  .calendar-bar.code-작열 { background: var(--code-scorch-bg); border-color: var(--code-scorch-border); color: var(--code-scorch-text); }
+  .calendar-bar.code-철갑 { background: var(--code-iron-bg); border-color: var(--code-iron-border); color: var(--code-iron-text); }
+  .calendar-bar.code-풍압 { background: var(--code-wind-bg); border-color: var(--code-wind-border); color: var(--code-wind-text); }
+  .calendar-bar.code-전격 { background: var(--code-electric-bg); border-color: var(--code-electric-border); color: var(--code-electric-text); }
+  .calendar-bar.code-수냉 { background: var(--code-water-bg); border-color: var(--code-water-border); color: var(--code-water-text); }
+  .calendar-bar.code-default { background: var(--bg-panel-alt); border-color: var(--border-strong); color: var(--text-secondary); }
 
   .calendar-bar.is-start {
     margin-left: 2px;
-    border-left: 1px solid hsl(var(--bar-hue, 220) 45% 62%);
+    border-left-style: solid;
+    border-left-width: 1px;
     border-top-left-radius: var(--radius-sm);
     border-bottom-left-radius: var(--radius-sm);
   }
 
-  [data-theme="dark"] .calendar-bar.is-start {
-    border-left-color: hsl(var(--bar-hue, 220) 45% 45%);
-  }
-
   .calendar-bar.is-end {
     margin-right: 2px;
-    border-right: 1px solid hsl(var(--bar-hue, 220) 45% 62%);
+    border-right-style: solid;
+    border-right-width: 1px;
     border-top-right-radius: var(--radius-sm);
     border-bottom-right-radius: var(--radius-sm);
-  }
-
-  [data-theme="dark"] .calendar-bar.is-end {
-    border-right-color: hsl(var(--bar-hue, 220) 45% 45%);
   }
 
   /* 아직 시작 전(픽업 예정) - 옅게+점선 테두리로 "아직"임을 바로 알 수 있게 */
@@ -1165,10 +1172,11 @@
     z-index: 2;
   }
 
-  /* 마우스오버 시 같은 픽업의 모든 주(週) 막대를 함께 강조 - JS가 data-pid로 묶어서 토글 */
+  /* 마우스오버 시 같은 픽업의 모든 주(週) 막대를 함께 강조 - JS가 data-pid로 묶어서 토글.
+     currentColor라 코드별 색을 따로 안 챙겨도 그 막대의 글자색과 자동으로 맞는다 */
   .calendar-bar.is-linked-hover {
     filter: brightness(1.15) saturate(1.3);
-    box-shadow: 0 0 0 2px hsl(var(--bar-hue, 220) 55% 50%);
+    box-shadow: 0 0 0 2px currentColor;
     position: relative;
     z-index: 3;
   }
@@ -1178,7 +1186,7 @@
     height: 24px;
     border-radius: 50%;
     object-fit: cover;
-    object-position: top center;
+    object-position: center 18%;
     flex-shrink: 0;
   }
 
@@ -1189,6 +1197,10 @@
     padding: 1px 5px;
     border-radius: var(--radius-sm);
     background: rgba(0, 0, 0, 0.18);
+  }
+
+  [data-theme="dark"] .calendar-bar-tag {
+    background: rgba(255, 255, 255, 0.22);
   }
 
   .calendar-bar-name {

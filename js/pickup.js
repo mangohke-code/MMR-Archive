@@ -862,18 +862,25 @@
     return `${p['니케']}__${p['시작일']}__${p['종료일']}`;
   }
 
-  // 픽업마다(니케 이름 기준) 고정된 색상을 준다 - 전부 같은 색이라 구분이 안 되던 문제
-  // 해결. 이름을 해시해서 고정 색상표에서 고르므로 같은 니케는 항상 같은 색이 나온다.
-  const CALENDAR_HUES = [212, 280, 340, 24, 152, 44, 262, 4, 190, 96, 322, 60];
-  function calendarHueFor(name) {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-    return CALENDAR_HUES[Math.abs(hash) % CALENDAR_HUES.length];
+  // 픽업 막대 색은 니케의 우월코드(속성)를 그대로 따라간다 - 나머지 화면에서 이미 쓰는
+  // 색 언어(작열/철갑/풍압/전격/수냉 아이콘 칩과 동일한 --code-* 토큰)라 구분도 잘 되고
+  // 사이트 전체적으로 일관된다. CSS 클래스명이라 그대로 못 쓰는 값이 있으면 폴백 처리.
+  const CALENDAR_CODE_CLASSES = new Set(['작열', '철갑', '풍압', '전격', '수냉']);
+  function calendarCodeClassFor(p) {
+    const code = p['우월코드'];
+    return CALENDAR_CODE_CLASSES.has(code) ? `code-${code}` : 'code-default';
   }
 
   // 이번에 보여줄 달력 전체(6주) 범위 안에서 겹치는 픽업들끼리 레인(세로 자리)을
   // 배정한다. 한 주씩 따로 배정하면 같은 픽업이 주가 바뀔 때마다 다른 레인에 배치돼
   // 세로 위치가 흔들리므로, 달력 전체를 기준으로 한 번에 배정해 항상 같은 레인을 쓰게 한다.
+  //
+  // 레인 번호는 항상 "시작일이 늦을수록 아래(큰 번호)"가 되도록, 그 시점에 겹쳐서
+  // 이미 떠 있는(끝나지 않은) 픽업들의 레인 중 가장 큰 값 + 1을 준다 - 단순히 비어있는
+  // 첫 레인을 재사용하면(컴팩트하긴 해도) 나중에 시작한 픽업이 먼저 끝난 이른 레인을
+  // 물려받아 더 위로 올라가 버리는 문제가 있었다. 겹치는 게 하나도 없으면 0으로 돌아가
+  // 레인을 재사용한다(동시에 안 보이니 순서 문제는 없음). 같은 시작일이면 신규를 먼저,
+  // 복각을 나중(더 아래)에 배치한다.
   function assignCalendarLanes(pickups, gridStart, gridEnd) {
     const items = pickups
       .map(p => {
@@ -881,20 +888,24 @@
         const pStart = stripTime(p['시작일']);
         const pEnd = stripTime(p['종료일']);
         if (pEnd < gridStart || pStart > gridEnd) return null;
-        return { pStart, pEnd, pid: pickupId(p) };
+        return { pStart, pEnd, pid: pickupId(p), isRerun: !!p['복각'] };
       })
       .filter(Boolean)
-      .sort((a, b) => a.pStart - b.pStart || (b.pEnd - b.pStart) - (a.pEnd - a.pStart));
+      .sort((a, b) => a.pStart - b.pStart
+        || (a.isRerun === b.isRerun ? 0 : a.isRerun ? 1 : -1)
+        || (b.pEnd - b.pStart) - (a.pEnd - a.pStart));
 
-    const laneEnds = [];
     const laneByPid = {};
+    const placed = []; // 지금까지 배치한 항목들 { pEnd, lane }
+    let maxLane = -1;
     items.forEach(item => {
-      let laneIdx = laneEnds.findIndex(end => end < item.pStart);
-      if (laneIdx === -1) { laneIdx = laneEnds.length; laneEnds.push(null); }
-      laneEnds[laneIdx] = item.pEnd;
-      laneByPid[item.pid] = laneIdx;
+      const activeLanes = placed.filter(x => x.pEnd >= item.pStart).map(x => x.lane);
+      const lane = activeLanes.length ? Math.max(...activeLanes) + 1 : 0;
+      laneByPid[item.pid] = lane;
+      placed.push({ pEnd: item.pEnd, lane });
+      if (lane > maxLane) maxLane = lane;
     });
-    return { laneByPid, laneCount: Math.max(laneEnds.length, 1) };
+    return { laneByPid, laneCount: Math.max(maxLane + 1, 1) };
   }
 
   function renderPickupCalendar() {
@@ -998,6 +1009,7 @@
       const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
       const barClass = [
         'calendar-bar',
+        calendarCodeClassFor(p),
         seg.isActualStart ? 'is-start' : '',
         seg.isActualEnd ? 'is-end' : '',
         seg.isUpcoming ? 'is-upcoming' : '',
@@ -1007,7 +1019,7 @@
       const rerunTag = p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : '';
       return `
         <div class="${barClass}" data-nikke="${p['니케']}" data-pid="${seg.pid}" data-tooltip="${tooltip}"
-             style="grid-column:${seg.startCol + 1} / ${seg.endCol + 2}; grid-row:${seg.lane + 2}; --bar-hue:${calendarHueFor(p['니케'])};">
+             style="grid-column:${seg.startCol + 1} / ${seg.endCol + 2}; grid-row:${seg.lane + 2};">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
           ${rerunTag}
           <span class="calendar-bar-name">${p['니케']}</span>
