@@ -70,20 +70,14 @@
       end.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도(날짜만 있어도) 그날 전체를 포함하도록
       return start <= now && now <= end;
     });
+    const upcomingPickups = data
+      .filter(p => new Date(p['시작일']) > now)
+      .sort((a, b) => new Date(a['시작일']) - new Date(b['시작일']));
 
     const nikkeImgMap = {};
     (APP_DATA.nikkeImg || []).forEach(n => {
       if (n['이름']) nikkeImgMap[n['이름']] = n['이미지'];
     });
-
-    const container = document.getElementById('pickup-list');
-    if (activePickups.length === 0) {
-      container.innerHTML = '<p>진행중인 픽업이 없습니다.</p>';
-      return;
-    }
-
-    const newPickups  = activePickups.filter(p => !p['복각']);
-    const rerunPickups = activePickups.filter(p => p['복각']);
 
     const renderNewCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
@@ -124,15 +118,37 @@
       `;
     };
 
-    container.innerHTML = `
-      ${newPickups.length > 0 ? `<div class="pickup-row">${newPickups.map(renderNewCard).join('')}</div>` : ''}
-      ${rerunPickups.length > 0 ? `<div class="pickup-row">${rerunPickups.map(renderRerunCard).join('')}</div>` : ''}
-    `;
+    function renderInto(containerId, list) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const newPickups = list.filter(p => !p['복각']);
+      const rerunPickups = list.filter(p => p['복각']);
+      container.innerHTML = `
+        ${newPickups.length > 0 ? `<div class="pickup-row">${newPickups.map(renderNewCard).join('')}</div>` : ''}
+        ${rerunPickups.length > 0 ? `<div class="pickup-row">${rerunPickups.map(renderRerunCard).join('')}</div>` : ''}
+      `;
+      container.onclick = e => {
+        const card = e.target.closest('.pickup-card[data-nikke]');
+        if (card) jumpToPickupNikke(card.dataset.nikke);
+      };
+    }
 
-    container.onclick = e => {
-      const card = e.target.closest('.pickup-card[data-nikke]');
-      if (card) jumpToPickupNikke(card.dataset.nikke);
-    };
+    const activeContainer = document.getElementById('pickup-list');
+    if (activePickups.length === 0) {
+      activeContainer.innerHTML = '<p>진행중인 픽업이 없습니다.</p>';
+    } else {
+      renderInto('pickup-list', activePickups);
+    }
+
+    const upcomingSection = document.getElementById('main-pickup-upcoming');
+    if (upcomingSection) {
+      if (upcomingPickups.length === 0) {
+        upcomingSection.classList.add('hidden');
+      } else {
+        upcomingSection.classList.remove('hidden');
+        renderInto('pickup-upcoming-list', upcomingPickups);
+      }
+    }
   }
 
   function renderCostumePickupList(data) {
@@ -155,21 +171,22 @@
       end.setHours(23, 59, 59, 999);
       return start <= now && now <= end;
     });
+    const upcomingCostumes = all
+      .filter(c => {
+        const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
+        if (!startDate) return false;
+        return new Date(startDate) > now;
+      })
+      .sort((a, b) => {
+        const startA = a._isRerun ? a['복각 시작일'] : a['시작일'];
+        const startB = b._isRerun ? b['복각 시작일'] : b['시작일'];
+        return new Date(startA) - new Date(startB);
+      });
 
     const nikkeImgMap = {};
     (APP_DATA.nikkeImg || []).forEach(n => {
       if (n['이름']) nikkeImgMap[n['이름']] = n;
     });
-
-    const container = document.getElementById('costume-pickup-list');
-    if (!container) return;
-    if (activeCostumes.length === 0) {
-      container.innerHTML = '<p>진행중인 코스튬 픽업이 없습니다.</p>';
-      return;
-    }
-
-    const newCostumes = activeCostumes.filter(c => !c._isRerun);
-    const rerunCostumes = activeCostumes.filter(c => c._isRerun);
 
     const renderCard = c => {
       const imgUrl = getCostumeThumbUrl(nikkeImgMap[c['니케']], c['코스튬명']);
@@ -191,16 +208,40 @@
       `;
     };
 
-    container.innerHTML = `
-      ${newCostumes.length > 0 ? `<div class="pickup-row">${newCostumes.map(renderCard).join('')}</div>` : ''}
-      ${rerunCostumes.length > 0 ? `<div class="pickup-row">${rerunCostumes.map(renderCard).join('')}</div>` : ''}
-    `;
+    function renderInto(containerId, list) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const newCostumes = list.filter(c => !c._isRerun);
+      const rerunCostumes = list.filter(c => c._isRerun);
+      container.innerHTML = `
+        ${newCostumes.length > 0 ? `<div class="pickup-row">${newCostumes.map(renderCard).join('')}</div>` : ''}
+        ${rerunCostumes.length > 0 ? `<div class="pickup-row">${rerunCostumes.map(renderCard).join('')}</div>` : ''}
+      `;
+      container.onclick = e => {
+        const card = e.target.closest('.pickup-card[data-nikke]');
+        if (!card) return;
+        jumpToCostume(card.dataset.nikke, card.dataset.costume, card.dataset.isRerun === 'true');
+      };
+    }
 
-    container.onclick = e => {
-      const card = e.target.closest('.pickup-card[data-nikke]');
-      if (!card) return;
-      jumpToCostume(card.dataset.nikke, card.dataset.costume, card.dataset.isRerun === 'true');
-    };
+    const activeContainer = document.getElementById('costume-pickup-list');
+    if (activeContainer) {
+      if (activeCostumes.length === 0) {
+        activeContainer.innerHTML = '<p>진행중인 코스튬 픽업이 없습니다.</p>';
+      } else {
+        renderInto('costume-pickup-list', activeCostumes);
+      }
+    }
+
+    const upcomingSection = document.getElementById('main-costume-pickup-upcoming');
+    if (upcomingSection) {
+      if (upcomingCostumes.length === 0) {
+        upcomingSection.classList.add('hidden');
+      } else {
+        upcomingSection.classList.remove('hidden');
+        renderInto('costume-pickup-upcoming-list', upcomingCostumes);
+      }
+    }
   }
 
   function formatPickupDateMain(date) {
