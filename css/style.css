@@ -1054,10 +1054,6 @@
   .calendar-weekday.is-sun { color: var(--status-limited-text); }
   .calendar-weekday.is-sat { color: var(--accent); }
 
-  #pickup-calendar-grid-wrap {
-    position: relative;
-  }
-
   #pickup-calendar-grid {
     display: flex;
     flex-direction: column;
@@ -1074,28 +1070,6 @@
   #pickup-calendar-grid.is-sliding-out-prev { transform: translateY(18px); opacity: 0; }
   #pickup-calendar-grid.is-sliding-in-next { transition: none; transform: translateY(18px); opacity: 0; }
   #pickup-calendar-grid.is-sliding-in-prev { transition: none; transform: translateY(-18px); opacity: 0; }
-
-  /* 마우스를 따라다니는 원형 그라데이션 빛 - 격자 칸 단위로 뚝뚝 끊기지 않고 마우스
-     위치 기준으로 완전히 매끄럽게 옅어진다. 그리드 전체(여러 주에 걸쳐)를 덮는 오버레이라
-     주(週) 경계에서도 안 끊기고 이어진다. 실제 날짜 칸 위에 얹히는 장식이라
-     pointer-events:none로 클릭/호버를 그대로 아래 요소에 통과시킨다. */
-  #pickup-calendar-glow {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 5;
-    opacity: 0;
-    background: radial-gradient(
-      circle 170px at var(--glow-x, 50%) var(--glow-y, 50%),
-      color-mix(in srgb, var(--accent) 22%, transparent) 0%,
-      transparent 70%
-    );
-    transition: opacity 0.2s ease;
-  }
-
-  #pickup-calendar-glow.is-active {
-    opacity: 1;
-  }
 
   /* 한 주 = 하나의 그리드. 1행은 날짜 숫자, 2행부터는 그 주에 걸치는 픽업 막대(레인별로
      쌓임) - 매 칸마다 아이콘을 반복하는 대신 기간만큼 가로로 이어진 막대로 표시한다 */
@@ -1114,17 +1088,16 @@
     border-bottom: none;
   }
 
-  /* 마우스가 있는 칸 자체는 살짝 또렷한 테두리로 - 어느 날짜인지는 명확히 짚어주고,
-     그 주변으로 퍼지는 은은한 빛은 위의 #pickup-calendar-glow 오버레이가 담당한다 */
+  /* 윈도우 기본 달력/시계 앱 느낌의 호버 - 마우스가 있는 칸 자체는 테두리+은은한 빛이
+     또렷하고, 주변 칸 테두리로 갈수록 옅어진다. JS가 마우스와 각 칸 중심 사이의 실제
+     픽셀 거리를 재서 --glow(0~1)를 매 칸마다 매기므로(격자 칸 단위로 뚝뚝 끊기지 않고
+     마우스를 따라 연속적으로 변함), color-mix()로 그 비율만큼만 accent 색을 섞는다. */
   .calendar-date-cell {
+    --glow: 0;
     padding: 3px 6px;
     border-radius: var(--radius-sm);
-    border: 1px solid transparent;
-    transition: border-color 0.12s ease;
-  }
-
-  .calendar-date-cell:hover {
-    border-color: var(--border-accent);
+    border: 1px solid color-mix(in srgb, var(--accent) calc(var(--glow) * 100%), transparent);
+    box-shadow: 0 0 calc(var(--glow) * 8px) color-mix(in srgb, var(--accent) calc(var(--glow) * 50%), transparent);
   }
 
   .calendar-date-cell.is-outside .calendar-date-label {

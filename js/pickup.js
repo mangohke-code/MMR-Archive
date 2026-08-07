@@ -989,6 +989,7 @@
 
     const grid = document.getElementById('pickup-calendar-grid');
     grid.innerHTML = weeksHtml.join('');
+    calendarGlowCells = null; // 칸들이 새로 그려졌으니 호버 글로우용 위치 캐시도 다시 재야 함
 
     // 픽업 막대 클릭 시 타임라인의 해당 카드로 이동, 마우스오버 시 같은 픽업의
     // 다른 주 막대까지 전부 같이 강조해서 하나로 이어진 픽업이라는 게 보이게 한다
@@ -1005,21 +1006,43 @@
     });
   }
 
-  // 마우스 위치를 그대로 따라다니는 원형 그라데이션 빛(#pickup-calendar-glow, CSS의
-  // radial-gradient가 실제 모양을 그림) - 격자 칸 하나 단위가 아니라 실제 커서 좌표
-  // 기준이라 완전히 매끄럽게 움직인다. 감싸는 wrap에 한 번만 붙이면 되고, 달이
-  // 바뀌어서 grid 내부가 다시 그려져도(이 리스너 대상이 아니라서) 그대로 유지된다.
-  function setupCalendarGlow() {
-    const wrap = document.getElementById('pickup-calendar-grid-wrap');
-    const glow = document.getElementById('pickup-calendar-glow');
-    wrap.addEventListener('mousemove', e => {
-      const rect = wrap.getBoundingClientRect();
-      glow.style.setProperty('--glow-x', `${e.clientX - rect.left}px`);
-      glow.style.setProperty('--glow-y', `${e.clientY - rect.top}px`);
-      glow.classList.add('is-active');
+  // 윈도우 기본 달력처럼, 마우스가 있는 날짜 칸의 테두리가 빛나고 주변 칸 테두리로
+  // 갈수록 옅어지는 효과. 칸 하나 단위로 뚝뚝 끊기지 않도록, 격자 칸 개수가 아니라
+  // 마우스와 각 칸 "중심" 사이의 실제 픽셀 거리로 --glow(0~1)를 매 칸마다 매긴다.
+  // 칸 위치는 mousemove마다 다시 재지 않고 캐시해뒀다가(레이아웃이 잦은 mousemove에서
+  // getBoundingClientRect를 반복 호출하면 버벅일 수 있어서) 달이 바뀌어 grid 내부가
+  // 다시 그려질 때만(renderPickupCalendar에서 캐시를 null로) 새로 잰다.
+  let calendarGlowCells = null;
+  const CALENDAR_GLOW_RADIUS = 220; // px - 이 거리 밖은 --glow가 0이 된다
+
+  function refreshCalendarGlowCells() {
+    const grid = document.getElementById('pickup-calendar-grid');
+    const gridRect = grid.getBoundingClientRect();
+    calendarGlowCells = [...grid.querySelectorAll('.calendar-date-cell')].map(el => {
+      const r = el.getBoundingClientRect();
+      return {
+        el,
+        cx: r.left + r.width / 2 - gridRect.left,
+        cy: r.top + r.height / 2 - gridRect.top,
+      };
     });
-    wrap.addEventListener('mouseleave', () => {
-      glow.classList.remove('is-active');
+  }
+
+  function setupCalendarGlow() {
+    const grid = document.getElementById('pickup-calendar-grid');
+    grid.addEventListener('mousemove', e => {
+      if (!calendarGlowCells) refreshCalendarGlowCells();
+      const gridRect = grid.getBoundingClientRect();
+      const mx = e.clientX - gridRect.left;
+      const my = e.clientY - gridRect.top;
+      calendarGlowCells.forEach(({ el, cx, cy }) => {
+        const dist = Math.hypot(mx - cx, my - cy);
+        const glow = Math.max(0, 1 - dist / CALENDAR_GLOW_RADIUS);
+        el.style.setProperty('--glow', glow.toFixed(3));
+      });
+    });
+    grid.addEventListener('mouseleave', () => {
+      (calendarGlowCells || []).forEach(({ el }) => el.style.setProperty('--glow', 0));
     });
   }
 
