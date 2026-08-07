@@ -91,7 +91,7 @@
               <span class="badge-pickup-type new">신규</span>
               ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
               ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
-              ${formatRemainingDaysMain(p['시작일'], p['종료일'])}
+              ${formatRemainingDaysMain(p['시작일'], p['종료일']) || formatUntilStartMain(p['시작일'])}
             </div>
           </div>
         </div>
@@ -101,7 +101,7 @@
     const renderRerunCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       const isLimited = LIMITED_SEASONS.includes(p['시즌']);
-      const remaining = formatRemainingDaysMain(p['시작일'], p['종료일']);
+      const remaining = formatRemainingDaysMain(p['시작일'], p['종료일']) || formatUntilStartMain(p['시작일']);
       return `
         <div class="pickup-card rerun" data-nikke="${p['니케']}">
           <div class="pickup-top-badges">
@@ -192,7 +192,7 @@
       const imgUrl = getCostumeThumbUrl(nikkeImgMap[c['니케']], c['코스튬명']);
       const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
       const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
-      const remaining = formatRemainingDaysMain(startDate, endDate);
+      const remaining = formatRemainingDaysMain(startDate, endDate) || formatUntilStartMain(startDate);
       return `
         <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
           <div class="pickup-top-badges">
@@ -260,6 +260,16 @@
     if (now < s || now > e) return '';
     const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
     return `<span class="pickup-remaining-badge">D-${Math.max(remain, 0)}</span>`;
+  }
+
+  // 진행 예정 픽업/코스튬 픽업 카드에 시작까지 남은 일수를 D-n 배지로 표시
+  function formatUntilStartMain(start) {
+    if (!start) return '';
+    const now = new Date();
+    const s = new Date(start);
+    if (now >= s) return '';
+    const remain = Math.ceil((s - now) / (1000 * 60 * 60 * 24));
+    return `<span class="pickup-remaining-badge">시작까지 D-${Math.max(remain, 0)}</span>`;
   }
 
   function formatDate(date) {
