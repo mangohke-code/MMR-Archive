@@ -30,6 +30,40 @@
     'filter-weapon':  '총기',
   };
 
+  // 오버스펙: 기업마다 존재하는, 같은 기업의 다른 니케보다 성능이 훨씬 우월한 니케.
+  // IMG_니케 테이블의 '오버스펙' 열('O')로 니케 단위로 표시하고, IMG_아이콘 테이블에는
+  // "엘리시온(오)"처럼 기업명 뒤에 이 접미사를 붙인 전용 아이콘을 별도로 등록해서 쓴다.
+  const OVERSPEC_SUFFIX = '(오)';
+
+  function isNikkeOverspec(nikkeName) {
+    const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === nikkeName);
+    return !!nikkeImg && nikkeImg['오버스펙'] === 'O';
+  }
+
+  // 오버스펙 니케를 1명 이상 보유한 기업 집합. 오버스펙 여부는 IMG_니케(니케 단위)에,
+  // 소속 기업은 픽업 데이터 쪽에만 있어서 둘을 교차 참조해야 한다.
+  function getOverspecCompanies() {
+    const companies = new Set();
+    allPickupData.forEach(p => {
+      if (p['기업'] && isNikkeOverspec(p['니케'])) companies.add(p['기업']);
+    });
+    return companies;
+  }
+
+  // 기업 필터가 이 픽업 항목에 매치되는지 판단. 일반 선택("엘리시온")은 오버스펙 여부와
+  // 무관하게 그 기업 소속 전체와 매치하고, 오버스펙 선택("엘리시온(오)")은 그 기업의
+  // 오버스펙 니케만 매치한다.
+  function companyFilterMatches(p) {
+    if (activeFilters.company.size === 0) return true;
+    return [...activeFilters.company].some(v => {
+      if (v.endsWith(OVERSPEC_SUFFIX)) {
+        const company = v.slice(0, -OVERSPEC_SUFFIX.length);
+        return p['기업'] === company && isNikkeOverspec(p['니케']);
+      }
+      return p['기업'] === v;
+    });
+  }
+
   function loadPickupData() {
     onAppDataReady(() => {
       iconImgData = APP_DATA.iconImg || {};
@@ -102,6 +136,12 @@
         values = uniqueValues;
       }
 
+      // 기업 필터는 오버스펙 상태(2단계 클릭)가 필요해서 별도 로직으로 처리한다
+      if (elId === 'filter-company') {
+        buildCompanyFilterChips(values);
+        return;
+      }
+
       const container = document.getElementById(elId);
       container.innerHTML = '';
       const iconKey = ICON_FILTER_KEYS[elId];
@@ -127,6 +167,10 @@
     resetBtn.addEventListener('click', () => {
       Object.keys(activeFilters).forEach(k => activeFilters[k].clear());
       document.querySelectorAll('#pickup-filter-wrap .filter-chips').forEach(container => {
+        if (container.id === 'filter-company') {
+          syncCompanyChipVisuals();
+          return;
+        }
         const firstBtn = container.querySelector('.filter-chip');
         if (!firstBtn) return;
         syncChipActive(container, activeFilters[firstBtn.dataset.filter]);
@@ -213,6 +257,96 @@
     });
   }
 
+  // 기업 필터 칩: 클릭할 때마다 꺼짐 -> 일반 선택 -> 오버스펙 선택(그 기업에 오버스펙
+  // 니케가 있을 때만) -> 꺼짐 순서로 순환한다. 일반 선택 상태에서는 활성 표시만 하고
+  // 그 기업 전체가 필터에 걸리며(오버스펙 니케 포함), 오버스펙 선택 상태에서는 아이콘이
+  // "(오)" 버전으로 바뀌고 그 기업의 오버스펙 니케만 필터에 걸린다.
+  function buildCompanyFilterChips(values) {
+    const container = document.getElementById('filter-company');
+    container.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'filter-chip';
+    allBtn.dataset.company = '__all__';
+    allBtn.textContent = '전체';
+    allBtn.addEventListener('click', onCompanyFilterClick);
+    container.appendChild(allBtn);
+
+    values.forEach(company => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-chip';
+      btn.dataset.company = company;
+
+      const iconUrl = iconImgData['기업'] && iconImgData['기업'][company] ? iconImgData['기업'][company] : null;
+      if (iconUrl) {
+        const img = document.createElement('img');
+        img.className = 'filter-chip-icon';
+        img.alt = company;
+        img.src = iconUrl;
+        btn.appendChild(img);
+      }
+      btn.appendChild(document.createTextNode(company));
+      btn.addEventListener('click', onCompanyFilterClick);
+      container.appendChild(btn);
+    });
+
+    syncCompanyChipVisuals();
+  }
+
+  function onCompanyFilterClick(e) {
+    const btn = e.target.closest('.filter-chip');
+    if (!btn) return;
+    const company = btn.dataset.company;
+    const set = activeFilters.company;
+
+    if (company === '__all__') {
+      set.clear();
+    } else {
+      const normal = company;
+      const overspec = company + OVERSPEC_SUFFIX;
+      if (set.has(overspec)) {
+        set.delete(overspec);
+      } else if (set.has(normal)) {
+        set.delete(normal);
+        if (getOverspecCompanies().has(company)) set.add(overspec);
+      } else {
+        set.add(normal);
+      }
+    }
+
+    syncCompanyChipVisuals();
+    if (currentView === 'timeline') {
+      renderPickupTimeline();
+    } else {
+      renderPickupGroupView();
+    }
+  }
+
+  function syncCompanyChipVisuals() {
+    const container = document.getElementById('filter-company');
+    if (!container) return;
+    container.querySelectorAll('.filter-chip').forEach(btn => {
+      const company = btn.dataset.company;
+      if (company === '__all__') {
+        btn.classList.toggle('active', activeFilters.company.size === 0);
+        return;
+      }
+      const overspec = company + OVERSPEC_SUFFIX;
+      const isOverspecState = activeFilters.company.has(overspec);
+      const isNormalState = activeFilters.company.has(company);
+      btn.classList.toggle('active', isNormalState || isOverspecState);
+      btn.classList.toggle('overspec', isOverspecState);
+
+      const img = btn.querySelector('img');
+      if (img && iconImgData['기업']) {
+        const iconUrl = isOverspecState
+          ? (iconImgData['기업'][overspec] || iconImgData['기업'][company])
+          : iconImgData['기업'][company];
+        if (iconUrl) img.src = iconUrl;
+      }
+    });
+  }
+
   function isAnniversary(v) {
     return /^\d+(\.\d+)?주년$/.test(String(v).trim());
   }
@@ -233,7 +367,7 @@
         if (!seasonMatch) return false;
       }
 
-      if (activeFilters.company.size > 0 && !activeFilters.company.has(p['기업'])) return false;
+      if (!companyFilterMatches(p)) return false;
       if (activeFilters.type.size > 0    && !activeFilters.type.has(p['유형']))    return false;
       if (activeFilters.code.size > 0    && !activeFilters.code.has(p['우월코드'])) return false;
       if (activeFilters.burst.size > 0   && !activeFilters.burst.has(p['버스트'])) return false;
@@ -337,16 +471,26 @@
 
     const cardClass = ['nikke-card', isLimited ? 'is-limited' : '', isRerun ? 'is-rerun' : ''].filter(Boolean).join(' ');
 
+    const isOverspec = isNikkeOverspec(p['니케']);
+
     const attrOrder = ['기업', '유형', '버스트', '총기', '우월코드'];
     const attrs = attrOrder.map(attr => {
       const val = p[attr];
       if (!val) return '';
-      const iconUrl = iconImgData[attr] && iconImgData[attr][val] ? iconImgData[attr][val] : null;
+      // 오버스펙 니케는 기업 아이콘을 "엘리시온(오)" 전용 아이콘으로 바꿔서 표기 —
+      // 해당 아이콘이 IMG_아이콘에 아직 없으면(등록 전) 일반 기업 아이콘으로 폴백된다.
+      let iconKey = val;
+      if (attr === '기업' && isOverspec) {
+        const overspecKey = val + OVERSPEC_SUFFIX;
+        if (iconImgData['기업'] && iconImgData['기업'][overspecKey]) iconKey = overspecKey;
+      }
+      const iconUrl = iconImgData[attr] && iconImgData[attr][iconKey] ? iconImgData[attr][iconKey] : null;
       if (!iconUrl) return '';
       const isCode = attr === '우월코드';
       const codeClass = isCode ? `code-chip code-${val}` : '';
+      const title = attr === '기업' && isOverspec ? `${val} (오버스펙)` : val;
       return `
-        <span class="nikke-attr-chip ${codeClass}" title="${val}">
+        <span class="nikke-attr-chip ${codeClass}" title="${title}">
           <img src="${iconUrl}" alt="${val}">
         </span>
       `;
@@ -428,6 +572,10 @@
     // 필터에 가려서 못 찾는 일이 없도록 필터 초기화
     Object.keys(activeFilters).forEach(k => activeFilters[k].clear());
     document.querySelectorAll('#pickup-filter-wrap .filter-chips').forEach(container => {
+      if (container.id === 'filter-company') {
+        syncCompanyChipVisuals();
+        return;
+      }
       const firstBtn = container.querySelector('.filter-chip');
       if (!firstBtn) return;
       syncChipActive(container, activeFilters[firstBtn.dataset.filter]);
@@ -569,7 +717,7 @@
         });
         if (!seasonMatch) return false;
       }
-      if (groupKey !== '기업'     && activeFilters.company.size > 0 && !activeFilters.company.has(p['기업']))    return false;
+      if (groupKey !== '기업'     && !companyFilterMatches(p))                                                   return false;
       if (groupKey !== '유형'     && activeFilters.type.size > 0    && !activeFilters.type.has(p['유형']))       return false;
       if (groupKey !== '우월코드'  && activeFilters.code.size > 0   && !activeFilters.code.has(p['우월코드']))   return false;
       if (groupKey !== '버스트'   && activeFilters.burst.size > 0   && !activeFilters.burst.has(p['버스트']))   return false;

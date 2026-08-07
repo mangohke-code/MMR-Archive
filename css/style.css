@@ -1171,6 +1171,20 @@
     box-shadow: 0 0 8px rgba(100, 100, 255, 0.25);
   }
 
+  /* 기업 필터를 한 번 더 눌러 오버스펙 상태로 전환했을 때 - 금색 계열로 구분 */
+  .filter-chip.overspec {
+    background: var(--status-warn-bg);
+    color: var(--status-warn-text);
+    border-color: var(--status-warn-border);
+    box-shadow: 0 0 8px rgba(184, 121, 15, 0.25);
+  }
+
+  .filter-chip.overspec:hover {
+    background: var(--status-warn-bg);
+    color: var(--status-warn-text);
+    border-color: var(--status-warn-text);
+  }
+
   .filter-chip img {
     width: 20px;
     height: 20px;
