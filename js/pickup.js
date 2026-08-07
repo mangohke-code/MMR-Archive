@@ -807,7 +807,10 @@
 
   function initPickupCalendarNav() {
     document.getElementById('pickup-calendar-prev').addEventListener('click', () => {
-      calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+      const minMonth = getMinPickupMonth();
+      const prevMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+      if (minMonth && prevMonth < minMonth) return; // 맨 처음 픽업보다 이전 달로는 못 넘어감
+      calendarMonth = prevMonth;
       renderPickupCalendar();
     });
     document.getElementById('pickup-calendar-next').addEventListener('click', () => {
@@ -832,9 +835,9 @@
     return copy;
   }
 
-  // 데이터에 실제로 입력된 픽업 중 가장 늦게 끝나는 달(종료일 기준) - 그 이후 달은
-  // 아직 아무것도 입력 안 된 빈 달이라 달력 넘겨보기에서 굳이 보여줄 필요가 없다.
-  // 종료일 기준으로 잡아야 마지막으로 입력된 픽업의 꼬리 부분이 잘리지 않는다.
+  // 데이터에 실제로 입력된 픽업 중 가장 늦게 끝나는/가장 먼저 시작하는 달 - 그 범위
+  // 바깥은 아직 아무것도 안 입력된(미래) 또는 애초에 데이터가 없는(과거) 빈 달이라
+  // 달력 넘겨보기에서 굳이 보여줄 필요가 없다.
   function getMaxPickupMonth() {
     let max = null;
     allPickupData.forEach(p => {
@@ -842,6 +845,56 @@
       if (end && (!max || end > max)) max = end;
     });
     return max ? new Date(max.getFullYear(), max.getMonth(), 1) : null;
+  }
+
+  function getMinPickupMonth() {
+    let min = null;
+    allPickupData.forEach(p => {
+      const start = p['시작일'] ? new Date(p['시작일']) : null;
+      if (start && (!min || start < min)) min = start;
+    });
+    return min ? new Date(min.getFullYear(), min.getMonth(), 1) : null;
+  }
+
+  // 같은 니케라도 픽업 기간이 다르면 별개 항목으로 봐야 하므로(신규+복각 등), 이름+기간을
+  // 묶은 문자열을 안정적인 식별자로 쓴다 - 레인 배정과 마우스오버 연동 강조에 공통 사용.
+  function pickupId(p) {
+    return `${p['니케']}__${p['시작일']}__${p['종료일']}`;
+  }
+
+  // 픽업마다(니케 이름 기준) 고정된 색상을 준다 - 전부 같은 색이라 구분이 안 되던 문제
+  // 해결. 이름을 해시해서 고정 색상표에서 고르므로 같은 니케는 항상 같은 색이 나온다.
+  const CALENDAR_HUES = [212, 280, 340, 24, 152, 44, 262, 4, 190, 96, 322, 60];
+  function calendarHueFor(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+    return CALENDAR_HUES[Math.abs(hash) % CALENDAR_HUES.length];
+  }
+
+  // 이번에 보여줄 달력 전체(6주) 범위 안에서 겹치는 픽업들끼리 레인(세로 자리)을
+  // 배정한다. 한 주씩 따로 배정하면 같은 픽업이 주가 바뀔 때마다 다른 레인에 배치돼
+  // 세로 위치가 흔들리므로, 달력 전체를 기준으로 한 번에 배정해 항상 같은 레인을 쓰게 한다.
+  function assignCalendarLanes(pickups, gridStart, gridEnd) {
+    const items = pickups
+      .map(p => {
+        if (!p['시작일'] || !p['종료일']) return null;
+        const pStart = stripTime(p['시작일']);
+        const pEnd = stripTime(p['종료일']);
+        if (pEnd < gridStart || pStart > gridEnd) return null;
+        return { pStart, pEnd, pid: pickupId(p) };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.pStart - b.pStart || (b.pEnd - b.pStart) - (a.pEnd - a.pStart));
+
+    const laneEnds = [];
+    const laneByPid = {};
+    items.forEach(item => {
+      let laneIdx = laneEnds.findIndex(end => end < item.pStart);
+      if (laneIdx === -1) { laneIdx = laneEnds.length; laneEnds.push(null); }
+      laneEnds[laneIdx] = item.pEnd;
+      laneByPid[item.pid] = laneIdx;
+    });
+    return { laneByPid, laneCount: Math.max(laneEnds.length, 1) };
   }
 
   function renderPickupCalendar() {
@@ -852,12 +905,19 @@
     document.getElementById('pickup-calendar-month-label').textContent = `${year}년 ${month + 1}월`;
 
     const maxMonth = getMaxPickupMonth();
+    const minMonth = getMinPickupMonth();
     document.getElementById('pickup-calendar-next').disabled =
       !!maxMonth && year === maxMonth.getFullYear() && month === maxMonth.getMonth();
+    document.getElementById('pickup-calendar-prev').disabled =
+      !!minMonth && year === minMonth.getFullYear() && month === minMonth.getMonth();
 
     const firstOfMonth = new Date(year, month, 1);
     const gridStart = new Date(year, month, 1 - firstOfMonth.getDay());
+    const gridEnd = new Date(gridStart);
+    gridEnd.setDate(gridStart.getDate() + 41);
     const today = stripTime(new Date());
+
+    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), stripTime(gridEnd));
 
     const weeksHtml = [];
     for (let w = 0; w < 6; w++) {
@@ -867,23 +927,32 @@
         d.setDate(gridStart.getDate() + w * 7 + i);
         weekDays.push(d);
       }
-      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data));
+      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount));
     }
 
     const grid = document.getElementById('pickup-calendar-grid');
     grid.innerHTML = weeksHtml.join('');
 
-    // 픽업 막대 클릭 시 타임라인의 해당 카드로 이동
-    grid.querySelectorAll('.calendar-bar[data-nikke]').forEach(bar => {
+    // 픽업 막대 클릭 시 타임라인의 해당 카드로 이동, 마우스오버 시 같은 픽업의
+    // 다른 주 막대까지 전부 같이 강조해서 하나로 이어진 픽업이라는 게 보이게 한다
+    grid.querySelectorAll('.calendar-bar[data-pid]').forEach(bar => {
       bar.addEventListener('click', () => jumpToPickupNikke(bar.dataset.nikke));
+      bar.addEventListener('mouseenter', () => {
+        grid.querySelectorAll(`.calendar-bar[data-pid="${CSS.escape(bar.dataset.pid)}"]`)
+          .forEach(b => b.classList.add('is-linked-hover'));
+      });
+      bar.addEventListener('mouseleave', () => {
+        grid.querySelectorAll(`.calendar-bar[data-pid="${CSS.escape(bar.dataset.pid)}"]`)
+          .forEach(b => b.classList.remove('is-linked-hover'));
+      });
     });
   }
 
   // 한 주(일~토 7칸)를 하나의 CSS 그리드로 그린다. 픽업 기간이 여러 날에 걸치면
   // 매 칸마다 아이콘을 따로 반복하는 대신, 그 주 안에서 실제로 걸치는 만큼 가로로
-  // 이어진 막대 하나로 그려서 "끈처럼 연결된" 느낌을 준다. 같은 주에 여러 픽업이
-  // 겹치면 겹치지 않는 자리(레인)를 찾아 세로로 쌓는다 - 흔한 캘린더 다중일 이벤트 배치 방식.
-  function renderCalendarWeek(weekDays, month, today, data) {
+  // 이어진 막대 하나로 그려서 "끈처럼 연결된" 느낌을 준다. 레인은 renderPickupCalendar가
+  // 달력 전체 기준으로 미리 배정한 값을 그대로 쓴다.
+  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount) {
     const weekStart = stripTime(weekDays[0]);
     const weekEnd = stripTime(weekDays[6]);
 
@@ -895,27 +964,20 @@
         if (pEnd < weekStart || pStart > weekEnd) return null;
         const segStart = pStart < weekStart ? weekStart : pStart;
         const segEnd = pEnd > weekEnd ? weekEnd : pEnd;
+        const pid = pickupId(p);
         return {
           p,
+          pid,
           startCol: Math.round((segStart - weekStart) / 86400000),
           endCol: Math.round((segEnd - weekStart) / 86400000),
           isActualStart: pStart.getTime() === segStart.getTime(),
           isActualEnd: pEnd.getTime() === segEnd.getTime(),
+          isUpcoming: pStart > today,
+          isTodayActive: pStart <= today && today <= pEnd,
+          lane: laneByPid[pid],
         };
       })
-      .filter(Boolean)
-      // 이 주에서 먼저 시작하는 것부터, 같은 시작이면 더 길게 이어지는 것부터 배치
-      .sort((a, b) => a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol));
-
-    // 레인 배정: lanes[i]는 그 레인에 마지막으로 배치한 막대의 endCol
-    const lanes = [];
-    segments.forEach(seg => {
-      let laneIdx = lanes.findIndex(lastEnd => lastEnd < seg.startCol);
-      if (laneIdx === -1) { laneIdx = lanes.length; lanes.push(-1); }
-      lanes[laneIdx] = seg.endCol;
-      seg.lane = laneIdx;
-    });
-    const laneCount = Math.max(lanes.length, 1);
+      .filter(Boolean);
 
     const dateCellsHtml = weekDays.map(d => {
       const inMonth = d.getMonth() === month;
@@ -936,15 +998,18 @@
       const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
       const barClass = [
         'calendar-bar',
-        p['복각'] ? 'is-rerun' : '',
         seg.isActualStart ? 'is-start' : '',
         seg.isActualEnd ? 'is-end' : '',
+        seg.isUpcoming ? 'is-upcoming' : '',
+        seg.isTodayActive ? 'is-today-active' : '',
       ].filter(Boolean).join(' ');
-      const tooltip = `${p['니케']}${p['복각'] ? ' (복각)' : ''}`;
+      const tooltip = `${p['니케']}${p['복각'] ? ' (복각)' : ''}${seg.isUpcoming ? ' - 픽업 예정' : ''}`;
+      const rerunTag = p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : '';
       return `
-        <div class="${barClass}" data-nikke="${p['니케']}" data-tooltip="${tooltip}"
-             style="grid-column:${seg.startCol + 1} / ${seg.endCol + 2}; grid-row:${seg.lane + 2};">
+        <div class="${barClass}" data-nikke="${p['니케']}" data-pid="${seg.pid}" data-tooltip="${tooltip}"
+             style="grid-column:${seg.startCol + 1} / ${seg.endCol + 2}; grid-row:${seg.lane + 2}; --bar-hue:${calendarHueFor(p['니케'])};">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
+          ${rerunTag}
           <span class="calendar-bar-name">${p['니케']}</span>
         </div>
       `;
