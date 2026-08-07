@@ -175,8 +175,7 @@
         if (!firstBtn) return;
         syncChipActive(container, activeFilters[firstBtn.dataset.filter]);
       });
-      renderPickupTimeline();
-      renderPickupGroupView();
+      renderCurrentView();
     });
   }
 
@@ -239,11 +238,7 @@
     }
 
     syncChipActive(btn.closest('.filter-chips'), set);
-    if (currentView === 'timeline') {
-      renderPickupTimeline();
-    } else {
-      renderPickupGroupView();
-    }
+    renderCurrentView();
   }
 
   function syncChipActive(container, set) {
@@ -320,11 +315,7 @@
     }
 
     syncCompanyChipVisuals();
-    if (currentView === 'timeline') {
-      renderPickupTimeline();
-    } else {
-      renderPickupGroupView();
-    }
+    renderCurrentView();
   }
 
   function syncCompanyChipVisuals() {
@@ -616,6 +607,18 @@
   let currentGroup = 'company';
   let showRerun = false;
 
+  // 현재 보기 모드에 맞는 렌더 함수만 호출 - 필터/복각 토글 등 여러 곳에서
+  // 공통으로 써서 뷰가 늘어나도(타임라인/몰아보기/달력) 분기를 한 곳에서만 관리한다
+  function renderCurrentView() {
+    if (currentView === 'timeline') {
+      renderPickupTimeline();
+    } else if (currentView === 'group') {
+      renderPickupGroupView();
+    } else if (currentView === 'calendar') {
+      renderPickupCalendar();
+    }
+  }
+
   function initPickupToolbar() {
     // 보기 전환
     document.querySelectorAll('.pickup-view-btn').forEach(btn => {
@@ -624,17 +627,17 @@
         document.querySelectorAll('.pickup-view-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        const isGroup = currentView === 'group';
-        document.getElementById('pickup-timeline').classList.toggle('hidden', isGroup);
-        document.getElementById('pickup-group-view').classList.toggle('hidden', !isGroup);
-        document.getElementById('pickup-group-selector').classList.toggle('hidden', !isGroup);
+        document.getElementById('pickup-timeline').classList.toggle('hidden', currentView !== 'timeline');
+        document.getElementById('pickup-group-view').classList.toggle('hidden', currentView !== 'group');
+        document.getElementById('pickup-calendar-view').classList.toggle('hidden', currentView !== 'calendar');
+        document.getElementById('pickup-group-selector').classList.toggle('hidden', currentView !== 'group');
 
-        if (isGroup) {
+        if (currentView === 'group') {
           syncGroupFilterVisibility();
-          renderPickupGroupView();
         } else {
           syncGroupFilterVisibility(null);
         }
+        renderCurrentView();
         updateYearNav();
       });
     });
@@ -655,12 +658,10 @@
     rerunToggle.addEventListener('click', () => {
       showRerun = !showRerun;
       rerunToggle.classList.toggle('active', showRerun);
-      if (currentView === 'timeline') {
-        renderPickupTimeline();
-      } else {
-        renderPickupGroupView();
-      }
+      renderCurrentView();
     });
+
+    initPickupCalendarNav();
 
     // 필터 토글
     const filterToggle = document.getElementById('pickup-filter-toggle');
@@ -799,6 +800,94 @@
     }
   }
 
+  // ===== 픽업 달력 =====
+  // 보고 있는 달(항상 1일로 고정) - 기본은 오늘이 속한 달
+  let calendarMonth = new Date();
+  calendarMonth.setDate(1);
+
+  function initPickupCalendarNav() {
+    document.getElementById('pickup-calendar-prev').addEventListener('click', () => {
+      calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+      renderPickupCalendar();
+    });
+    document.getElementById('pickup-calendar-next').addEventListener('click', () => {
+      calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+      renderPickupCalendar();
+    });
+    document.getElementById('pickup-calendar-today').addEventListener('click', () => {
+      calendarMonth = new Date();
+      calendarMonth.setDate(1);
+      renderPickupCalendar();
+    });
+  }
+
+  // 날짜만 비교(시:분 무시) - 픽업 시작/종료일이 날짜만 있는 경우가 많아서
+  // 시간 정보가 섞이면 하루 밀려 보이는 문제가 생긴다
+  function stripTime(d) {
+    const copy = new Date(d);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+  }
+
+  function isDayWithinPickup(day, start, end) {
+    if (!start || !end) return false;
+    const d = stripTime(day);
+    return d >= stripTime(start) && d <= stripTime(end);
+  }
+
+  function renderPickupCalendar() {
+    const data = getFilteredData();
+
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    document.getElementById('pickup-calendar-month-label').textContent = `${year}년 ${month + 1}월`;
+
+    const firstOfMonth = new Date(year, month, 1);
+    const gridStart = new Date(year, month, 1 - firstOfMonth.getDay());
+    const today = stripTime(new Date());
+
+    const grid = document.getElementById('pickup-calendar-grid');
+    const cellsHtml = [];
+    for (let i = 0; i < 42; i++) {
+      const day = new Date(gridStart);
+      day.setDate(gridStart.getDate() + i);
+      const inMonth = day.getMonth() === month;
+      const dayPickups = data.filter(p => isDayWithinPickup(day, p['시작일'], p['종료일']));
+      cellsHtml.push(renderCalendarCell(day, inMonth, dayPickups, stripTime(day).getTime() === today.getTime()));
+    }
+    grid.innerHTML = cellsHtml.join('');
+
+    // 니케 칩 클릭 시 타임라인의 해당 카드로 이동
+    grid.querySelectorAll('.calendar-nikke-chip[data-nikke]').forEach(chip => {
+      chip.addEventListener('click', () => jumpToPickupNikke(chip.dataset.nikke));
+    });
+  }
+
+  function renderCalendarCell(day, inMonth, pickups, isToday) {
+    const dow = day.getDay();
+    const dowClass = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
+    const cellClass = ['calendar-cell', inMonth ? '' : 'is-outside', isToday ? 'is-today' : ''].filter(Boolean).join(' ');
+
+    const chips = pickups.map(p => {
+      const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
+      const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
+      const chipClass = ['calendar-nikke-chip', p['복각'] ? 'is-rerun' : ''].filter(Boolean).join(' ');
+      const tooltip = `${p['니케']}${p['복각'] ? ' (복각)' : ''}`;
+      return `
+        <div class="${chipClass}" data-nikke="${p['니케']}" data-tooltip="${tooltip}">
+          ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="${cellClass}">
+        <div class="calendar-date-label ${dowClass}">${day.getDate()}</div>
+        <div class="calendar-nikke-list">${chips}</div>
+      </div>
+    `;
+  }
+
   // ===== 연도 네비게이터 =====
   let yearNavObserver = null;
   let yearSections = [];
@@ -842,6 +931,11 @@
 
   function updateYearNav() {
     const nav = document.getElementById('pickup-year-nav');
+    // 달력 뷰는 한 달씩만 보여줘서 스크롤 기반 연도 이동이 의미가 없다 - 숨긴다
+    if (currentView === 'calendar') {
+      nav.classList.add('hidden');
+      return;
+    }
     nav.classList.remove('hidden');
     positionYearNav();
     if (currentView === 'timeline') {
