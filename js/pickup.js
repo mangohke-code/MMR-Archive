@@ -825,6 +825,72 @@
     }, { passive: false });
 
     setupCalendarGlow();
+    initCalendarMonthPickers();
+  }
+
+  // 좌상단 "N년 M월"을 드롭다운 두 개로 - 연도는 픽업 데이터가 실제로 있는 범위만
+  // 나열하고, 월은 그 연도가 맨 처음/마지막 달일 때 범위 밖 월을 disabled 처리한다.
+  function initCalendarMonthPickers() {
+    const yearSelect = document.getElementById('pickup-calendar-year-select');
+    const monthSelect = document.getElementById('pickup-calendar-month-select');
+
+    const minMonth = getMinPickupMonth();
+    const maxMonth = getMaxPickupMonth();
+    const minYear = minMonth ? minMonth.getFullYear() : calendarMonth.getFullYear();
+    const maxYear = maxMonth ? maxMonth.getFullYear() : calendarMonth.getFullYear();
+
+    yearSelect.innerHTML = '';
+    for (let y = maxYear; y >= minYear; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      yearSelect.appendChild(opt);
+    }
+
+    monthSelect.innerHTML = '';
+    for (let m = 1; m <= 12; m++) {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      monthSelect.appendChild(opt);
+    }
+
+    const jumpFromPickers = () => {
+      goToCalendarMonth(new Date(Number(yearSelect.value), Number(monthSelect.value) - 1, 1));
+    };
+
+    yearSelect.addEventListener('change', () => {
+      updateCalendarMonthSelectOptions(Number(yearSelect.value));
+      // 연도를 바꿔서 지금 선택된 월이 범위 밖(disabled)이 되면 선택 가능한 쪽으로 맞춘다
+      if (monthSelect.options[monthSelect.selectedIndex]?.disabled) {
+        const firstEnabled = [...monthSelect.options].find(o => !o.disabled);
+        if (firstEnabled) monthSelect.value = firstEnabled.value;
+      }
+      jumpFromPickers();
+    });
+    monthSelect.addEventListener('change', jumpFromPickers);
+  }
+
+  function updateCalendarMonthSelectOptions(year) {
+    const monthSelect = document.getElementById('pickup-calendar-month-select');
+    const minMonth = getMinPickupMonth();
+    const maxMonth = getMaxPickupMonth();
+    [...monthSelect.options].forEach(opt => {
+      const m = Number(opt.value);
+      let disabled = false;
+      if (minMonth && year === minMonth.getFullYear() && m < minMonth.getMonth() + 1) disabled = true;
+      if (maxMonth && year === maxMonth.getFullYear() && m > maxMonth.getMonth() + 1) disabled = true;
+      opt.disabled = disabled;
+    });
+  }
+
+  // renderPickupCalendar가 매번 호출 - 버튼/스크롤로 달이 바뀌어도 드롭다운 표시값이 따라가게
+  function syncCalendarMonthPickers() {
+    const yearSelect = document.getElementById('pickup-calendar-year-select');
+    const monthSelect = document.getElementById('pickup-calendar-month-select');
+    yearSelect.value = calendarMonth.getFullYear();
+    updateCalendarMonthSelectOptions(calendarMonth.getFullYear());
+    monthSelect.value = calendarMonth.getMonth() + 1;
   }
 
   // 지금 보고 있는 달 기준으로 방향(-1/1)만큼 옮긴다. 맨 처음/마지막 픽업이 있는 달을 벗어나면 무시.
@@ -842,6 +908,10 @@
   // 과거면 이전 달 방향으로 슬라이드해서 방향감이 자연스럽게 맞게 한다.
   function goToCalendarMonth(targetMonth) {
     if (calendarTransitioning) return;
+    const minMonth = getMinPickupMonth();
+    const maxMonth = getMaxPickupMonth();
+    if (minMonth && targetMonth < minMonth) targetMonth = minMonth;
+    if (maxMonth && targetMonth > maxMonth) targetMonth = maxMonth;
     if (targetMonth.getFullYear() === calendarMonth.getFullYear() && targetMonth.getMonth() === calendarMonth.getMonth()) return;
     const direction = targetMonth > calendarMonth ? 1 : -1;
     animateCalendarMonthChange(direction, () => { calendarMonth = targetMonth; });
@@ -956,7 +1026,7 @@
 
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
-    document.getElementById('pickup-calendar-month-label').textContent = `${year}년 ${month + 1}월`;
+    syncCalendarMonthPickers();
 
     const maxMonth = getMaxPickupMonth();
     const minMonth = getMinPickupMonth();

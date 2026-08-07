@@ -1010,12 +1010,46 @@
     color: var(--text-secondary);
   }
 
-  #pickup-calendar-month-label {
+  #pickup-calendar-month-picker {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 24px;
     font-weight: 700;
     color: var(--text-heading);
-    min-width: 140px;
-    text-align: center;
+  }
+
+  .calendar-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .calendar-select:hover {
+    background: var(--bg-panel-alt);
+    border-color: var(--border-subtle);
+  }
+
+  .calendar-select:focus {
+    outline: none;
+    border-color: var(--border-accent);
+  }
+
+  .calendar-select option {
+    color: var(--text-body);
+    background: var(--bg-panel);
+  }
+
+  .calendar-select option:disabled {
+    color: var(--text-dim);
   }
 
   #pickup-calendar-today {
