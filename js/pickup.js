@@ -1037,6 +1037,17 @@
     document.getElementById('year-nav-down').disabled = idx >= uniqueYears.length - 1;
   }
 
+  // 몰아보기는 열 헤더가 position:sticky로 스크롤 컨테이너 위쪽에 붙어있어서,
+  // scrollIntoView(block:'start')로 그냥 맞추면 대상 행 윗부분이 그 헤더에 가려진다.
+  // 헤더 실제 높이를 재서 그만큼(+여백) 더 내려간 위치로 스크롤한다.
+  function scrollGroupRowIntoView(row) {
+    if (!row) return;
+    const headerWrap = document.getElementById('pickup-group-header-wrap');
+    const headerHeight = headerWrap ? headerWrap.offsetHeight : 0;
+    const targetTop = window.scrollY + row.getBoundingClientRect().top - headerHeight - 12;
+    window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' });
+  }
+
   function moveToYear(direction) {
     if (currentView === 'timeline') {
       const years = yearSections.map(el => el.querySelector('.year-label')?.textContent);
@@ -1056,7 +1067,7 @@
             // 해당 연도의 첫 번째 행 찾기
             const targetYear = years[i];
             const firstIdx = years.indexOf(targetYear);
-            yearSections[firstIdx].closest('tr').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollGroupRowIntoView(yearSections[firstIdx].closest('tr'));
             return;
           }
         }
@@ -1064,7 +1075,7 @@
         // 다음(아래) = 현재 연도보다 뒤에 있는 다른 연도의 첫 번째 행
         for (let i = currentIdx + 1; i < years.length; i++) {
           if (years[i] !== currentNavYear) {
-            yearSections[i].closest('tr').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollGroupRowIntoView(yearSections[i].closest('tr'));
             return;
           }
         }
