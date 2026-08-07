@@ -823,6 +823,8 @@
       e.preventDefault();
       changeCalendarMonth(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
+
+    setupCalendarGlow();
   }
 
   // 지금 보고 있는 달 기준으로 방향(-1/1)만큼 옮긴다. 맨 처음/마지막 픽업이 있는 달을 벗어나면 무시.
@@ -868,6 +870,12 @@
     const copy = new Date(d);
     copy.setHours(0, 0, 0, 0);
     return copy;
+  }
+
+  // 달력을 여러 해를 넘나들며 볼 수 있어서 툴팁에는 연도까지 포함해서 표기한다
+  function formatCalendarFullDate(d) {
+    const dt = new Date(d);
+    return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
   }
 
   // 데이터에 실제로 입력된 픽업 중 가장 늦게 끝나는/가장 먼저 시작하는 달 - 그 범위
@@ -976,7 +984,7 @@
         d.setDate(gridStart.getDate() + w * 7 + i);
         weekDays.push(d);
       }
-      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, w, lastDayOfMonth));
+      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, lastDayOfMonth));
     }
 
     const grid = document.getElementById('pickup-calendar-grid');
@@ -995,38 +1003,23 @@
           .forEach(b => b.classList.remove('is-linked-hover'));
       });
     });
-
-    setupCalendarHoverGlow(grid);
   }
 
-  // 윈도우 기본 달력/시계 앱처럼, 호버한 날짜 칸에 테두리+빛이 생기고 주변 칸으로
-  // 갈수록(체비쇼프 거리 기준) 옅어지는 그라데이션 느낌을 준다. 칸마다 --glow 값을
-  // 0~1로 매겨서 CSS의 color-mix()로 테두리/그림자 진하기를 조절한다.
-  function setupCalendarHoverGlow(grid) {
-    let lastCell = null;
-    const applyGlow = hoveredCell => {
-      const cells = grid.querySelectorAll('.calendar-date-cell');
-      if (!hoveredCell) {
-        cells.forEach(c => c.style.setProperty('--glow', 0));
-        return;
-      }
-      const hw = Number(hoveredCell.dataset.week);
-      const hd = Number(hoveredCell.dataset.dow);
-      cells.forEach(c => {
-        const dist = Math.max(Math.abs(Number(c.dataset.week) - hw), Math.abs(Number(c.dataset.dow) - hd));
-        const glow = Math.max(0, 1 - dist * 0.45);
-        c.style.setProperty('--glow', glow.toFixed(2));
-      });
-    };
-    grid.addEventListener('mousemove', e => {
-      const cell = e.target.closest('.calendar-date-cell');
-      if (cell === lastCell) return;
-      lastCell = cell;
-      applyGlow(cell);
+  // 마우스 위치를 그대로 따라다니는 원형 그라데이션 빛(#pickup-calendar-glow, CSS의
+  // radial-gradient가 실제 모양을 그림) - 격자 칸 하나 단위가 아니라 실제 커서 좌표
+  // 기준이라 완전히 매끄럽게 움직인다. 감싸는 wrap에 한 번만 붙이면 되고, 달이
+  // 바뀌어서 grid 내부가 다시 그려져도(이 리스너 대상이 아니라서) 그대로 유지된다.
+  function setupCalendarGlow() {
+    const wrap = document.getElementById('pickup-calendar-grid-wrap');
+    const glow = document.getElementById('pickup-calendar-glow');
+    wrap.addEventListener('mousemove', e => {
+      const rect = wrap.getBoundingClientRect();
+      glow.style.setProperty('--glow-x', `${e.clientX - rect.left}px`);
+      glow.style.setProperty('--glow-y', `${e.clientY - rect.top}px`);
+      glow.classList.add('is-active');
     });
-    grid.addEventListener('mouseleave', () => {
-      lastCell = null;
-      applyGlow(null);
+    wrap.addEventListener('mouseleave', () => {
+      glow.classList.remove('is-active');
     });
   }
 
@@ -1035,7 +1028,7 @@
   // 이어진 막대 하나로 그려서 "끈처럼 연결된" 느낌을 준다. 레인은 renderPickupCalendar가
   // 달력 전체 기준으로 미리 배정한 값을 그대로 쓴다. 월말 이후(다음 달) 날짜는 칸 자체를
   // 안 그린다 - 이 주가 마지막 주라 일부만 실제 이번 달 날짜인 경우에 해당.
-  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, weekIndex, lastDayOfMonth) {
+  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, lastDayOfMonth) {
     const weekStart = stripTime(weekDays[0]);
     const weekEndRaw = stripTime(weekDays[6]);
     const weekEnd = weekEndRaw > lastDayOfMonth ? lastDayOfMonth : weekEndRaw;
@@ -1072,7 +1065,7 @@
       const isToday = dStripped.getTime() === today.getTime();
       const cellClass = ['calendar-date-cell', inMonth ? '' : 'is-outside', isToday ? 'is-today' : ''].filter(Boolean).join(' ');
       return `
-        <div class="${cellClass}" data-week="${weekIndex}" data-dow="${dow}" style="grid-column:${dow + 1}; grid-row:1;">
+        <div class="${cellClass}" style="grid-column:${dow + 1}; grid-row:1;">
           <span class="calendar-date-label ${dowClass}">${d.getDate()}</span>
         </div>
       `;
@@ -1090,7 +1083,9 @@
         seg.isUpcoming ? 'is-upcoming' : '',
         seg.isTodayActive ? 'is-today-active' : '',
       ].filter(Boolean).join(' ');
-      const tooltip = `${p['니케']}${p['복각'] ? ' (복각)' : ''}${seg.isUpcoming ? ' - 픽업 예정' : ''}`;
+      // 이름은 막대에 이미 항상 보이니, 툴팁은 호버 안 하면 안 보이는 정보(기간·총 일수)를 담는다
+      const totalDays = Math.round((stripTime(p['종료일']) - stripTime(p['시작일'])) / 86400000) + 1;
+      const tooltip = `${formatCalendarFullDate(p['시작일'])} ~ ${formatCalendarFullDate(p['종료일'])} (${totalDays}일간)${p['복각'] ? ' · 복각' : ''}${seg.isUpcoming ? ' · 예정' : ''}`;
       const rerunTag = p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : '';
       return `
         <div class="${barClass}" data-nikke="${p['니케']}" data-pid="${seg.pid}" data-tooltip="${tooltip}"
