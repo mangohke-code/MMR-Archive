@@ -51,9 +51,11 @@
         <div class="event-info">
           <div class="event-name">${e['이벤트명']}</div>
           <div class="event-meta">
+            <span class="event-date">${formatDate(e['시작일'])} ~ ${formatDate(e['종료일'])}</span>
+          </div>
+          <div class="pickup-badge-row">
             ${e['신규복각'] ? `<span class="badge-pickup-type ${e['신규복각'] === '복각' ? 'rerun' : 'new'}">${e['신규복각']}</span>` : ''}
             ${e['시즌'] ? `<span class="badge badge-season">${e['시즌']}</span>` : ''}
-            <span class="event-date">${formatDate(e['시작일'])} ~ ${formatDate(e['종료일'])}</span>
             ${formatEventRemainingMain(e['시작일'], e['종료일'])}
           </div>
         </div>
@@ -80,18 +82,25 @@
       if (n['이름']) nikkeImgMap[n['이름']] = n['이미지'];
     });
 
+    // 어브노말 소속은 전부 콜라보 니케 - 한정 배지 대신 콜라보 배지를 보여준다
+    const statusBadges = p => {
+      const isCollab = isCollabCompany(p['기업']);
+      const isLimited = isCollab || LIMITED_SEASONS.includes(p['시즌']);
+      if (isCollab) return `<span class="badge-pickup-type collab">콜라보</span>`;
+      return isLimited ? `<span class="badge-pickup-type limited">한정</span>` : '';
+    };
+
     const renderNewCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
-      const isLimited = LIMITED_SEASONS.includes(p['시즌']);
       return `
         <div class="pickup-card" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${p['니케']}</div>
-            <div class="pickup-date">
+            <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
+            <div class="pickup-badge-row">
               <span class="badge-pickup-type new">신규</span>
-              ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
-              ${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}
+              ${statusBadges(p)}
               ${formatRemainingDaysMain(p['시작일'], p['종료일']) || formatUntilStartMain(p['시작일'])}
             </div>
           </div>
@@ -101,19 +110,17 @@
 
     const renderRerunCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
-      const isLimited = LIMITED_SEASONS.includes(p['시즌']);
-      const remaining = formatRemainingDaysMain(p['시작일'], p['종료일']) || formatUntilStartMain(p['시작일']);
       return `
         <div class="pickup-card rerun" data-nikke="${p['니케']}">
-          <div class="pickup-top-badges">
-            <span class="badge-pickup-type rerun">복각</span>
-            ${isLimited ? `<span class="badge-pickup-type limited">한정</span>` : ''}
-          </div>
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${p['니케']}</div>
             <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
-            ${remaining ? `<div class="pickup-remaining-line">${remaining}</div>` : ''}
+            <div class="pickup-badge-row">
+              <span class="badge-pickup-type rerun">복각</span>
+              ${statusBadges(p)}
+              ${formatRemainingDaysMain(p['시작일'], p['종료일']) || formatUntilStartMain(p['시작일'])}
+            </div>
           </div>
         </div>
       `;
@@ -196,14 +203,14 @@
       const remaining = formatRemainingDaysMain(startDate, endDate) || formatUntilStartMain(startDate);
       return `
         <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
-          <div class="pickup-top-badges">
-            <span class="badge-pickup-type ${c._isRerun ? 'rerun' : 'new'}">${c._isRerun ? '복각' : '신규'}</span>
-          </div>
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
           <div class="pickup-card-info">
             <div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div>
             <div class="pickup-date">${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}</div>
-            ${remaining ? `<div class="pickup-remaining-line">${remaining}</div>` : ''}
+            <div class="pickup-badge-row">
+              <span class="badge-pickup-type ${c._isRerun ? 'rerun' : 'new'}">${c._isRerun ? '복각' : '신규'}</span>
+              ${remaining}
+            </div>
           </div>
         </div>
       `;

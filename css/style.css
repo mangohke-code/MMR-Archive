@@ -529,23 +529,23 @@
     transition: box-shadow 0.15s, transform 0.15s;
   }
 
-  /* 복각/한정 배지: 픽업 날짜 문구 옆에 나란히 두면(특히 좁은 복각 카드에서) 날짜가 눌려
-     보이므로, 픽업 기록 페이지의 니케 카드처럼 카드 우측 상단에 올려서 보여준다. */
-  .pickup-top-badges {
-    position: absolute;
-    top: 8px;
-    right: 8px;
+  /* 신규/복각/한정(콜라보) 등 상태 배지 + D-n 배지를 픽업 기간 바로 아래 한 줄에 모은다.
+     예전에는 카드 우측 상단에 오버레이로 띄웠지만, 배너 이미지를 가리는 데다 D-n 배지와
+     떨어져 있어 한눈에 안 들어왔다. */
+  .pickup-badge-row {
     display: flex;
-    gap: 3px;
-    z-index: 3;
-    pointer-events: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
   }
 
-  /* 복각(가로형) 카드: 이미지가 왼쪽에만 있으므로 우측 상단(정보란 쪽)에 둬야
-     캐릭터 이미지를 가리지 않는다 */
-  .pickup-card.rerun .pickup-top-badges {
-    top: 6px;
-    right: 6px;
+  /* 복각(가로형) 카드는 이미지가 자리를 차지해 정보란이 150px 남짓뿐이라, 기본 배지 크기로는
+     배지 두 개만으로도 줄이 감긴다. 이 카드에서만 배지를 조금 줄여 한 줄에 담는다. */
+  .pickup-card.rerun .pickup-badge-row .badge-pickup-type,
+  .pickup-card.rerun .pickup-badge-row .pickup-remaining-badge {
+    font-size: 14px;
+    padding: 1px 6px;
   }
 
   /* 남은 기간 D-n 배지 */
@@ -561,16 +561,6 @@
     color: var(--status-new-text);
     border: 1px solid var(--status-new-border);
     vertical-align: middle;
-  }
-
-  /* 날짜 문구 옆에 나란히 붙는 경우(신규 니케 픽업)에만 간격을 준다 —
-     날짜 아래 줄에 따로 배치되는 경우는 그 줄의 margin-top으로 간격을 준다 */
-  .pickup-date .pickup-remaining-badge {
-    margin-left: 8px;
-  }
-
-  .pickup-remaining-line {
-    margin-top: 4px;
   }
 
   .pickup-card:hover {
@@ -603,8 +593,6 @@
     flex-direction: column;
     justify-content: flex-start;
     padding: 0.75rem 1rem;
-    /* 우측 상단 복각/한정 배지 영역과 겹치지 않도록 위쪽 여백을 더 준다 */
-    padding-top: 34px;
   }
 
   .pickup-card.rerun .pickup-name {
@@ -1361,6 +1349,18 @@
     white-space: nowrap;
   }
 
+  /* 콜라보(어브노말 소속)는 한정 배지를 대체한다 */
+  .group-badge-collab {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--status-special-bg);
+    color: var(--status-special-text);
+    border: 1px solid var(--status-special-border);
+    white-space: nowrap;
+  }
+
   /* 필터 */
   #pickup-filter-wrap {
     background: linear-gradient(135deg, var(--bg-panel-alt) 0%, var(--bg-panel-alt) 100%);
@@ -1651,6 +1651,13 @@
     border-color: var(--status-limited-border);
   }
 
+  /* 콜라보(어브노말 소속)는 한정 배지 자리를 대신 차지하므로 한정과 확실히 구분되는 색으로 */
+  .badge-pickup-type.collab {
+    background: var(--status-special-bg);
+    color: var(--status-special-text);
+    border-color: var(--status-special-border);
+  }
+
   /* 이벤트 라인 (박스 없이) */
   .event-line {
     display: flex;
@@ -1730,10 +1737,13 @@
     gap: 2px;
     z-index: 3;
     pointer-events: none;
-    width: 76px;
+    /* "콜라보"처럼 긴 배지가 들어와도 눌리지 않도록 고정폭 대신 최소폭으로 —
+       우측 고정이라 넘치는 만큼 왼쪽으로 자란다 */
+    min-width: 76px;
   }
 
   .nikke-badge-limited,
+  .nikke-badge-collab,
   .nikke-badge-rerun {
     font-size: 13px;
     font-weight: 700;
@@ -1746,6 +1756,13 @@
     background: var(--status-limited-bg);
     color: var(--status-limited-text);
     border: 1px solid var(--status-limited-border);
+  }
+
+  /* 콜라보(어브노말 소속)는 한정 배지를 대체한다 */
+  .nikke-badge-collab {
+    background: var(--status-special-bg);
+    color: var(--status-special-text);
+    border: 1px solid var(--status-special-border);
   }
 
   .nikke-badge-rerun {

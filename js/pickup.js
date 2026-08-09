@@ -30,17 +30,7 @@
     'filter-weapon':  '총기',
   };
 
-  // 오버스펙: 기업마다 존재하는, 같은 기업의 다른 니케보다 성능이 훨씬 우월한 니케.
-  // 별도 열 없이 픽업 데이터의 '기업' 값 자체에 "엘리시온(오)"처럼 접미사를 붙여서
-  // 표시한다 - 매칭/아이콘 조회 등 "검증"에는 이 값을 그대로 쓰고, 화면에 문구를
-  // 보여줄 때만 getBaseCompany()로 접미사를 뗀다. IMG_아이콘 테이블에도 같은 접미사가
-  // 붙은 전용 아이콘("엘리시온(오)")을 별도로 등록해서 쓴다.
-  const OVERSPEC_SUFFIX = '(오)';
-
-  function getBaseCompany(company) {
-    if (!company) return company;
-    return company.endsWith(OVERSPEC_SUFFIX) ? company.slice(0, -OVERSPEC_SUFFIX.length) : company;
-  }
+  // OVERSPEC_SUFFIX / getBaseCompany()는 여러 탭이 함께 쓰므로 common.js에 있다.
 
   // 오버스펙 니케를 1명 이상 보유한 기업 집합(표시용 기준 이름)
   function getOverspecCompanies() {
@@ -181,7 +171,9 @@
 
   function renderGroupNikkeItem(p) {
     const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
-    const isLimited = LIMITED_SEASONS.includes(p['시즌']);
+    // 어브노말 소속은 전부 콜라보 니케 - 한정 배지 대신 콜라보 배지를 보여준다
+    const isCollab = isCollabCompany(p['기업']);
+    const isLimited = isCollab || LIMITED_SEASONS.includes(p['시즌']);
     const isRerun = p['복각'];
 
     const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
@@ -190,7 +182,8 @@
     const itemClass = ['group-nikke-item', isLimited ? 'is-limited' : '', isRerun ? 'is-rerun' : ''].filter(Boolean).join(' ');
 
     const badges = [
-      isLimited ? `<span class="group-badge-limited">한정</span>` : '',
+      isCollab  ? `<span class="group-badge-collab">콜라보</span>`  : '',
+      !isCollab && isLimited ? `<span class="group-badge-limited">한정</span>` : '',
       isRerun   ? `<span class="group-badge-rerun">복각</span>`   : '',
     ].filter(Boolean).join('');
 
@@ -458,7 +451,9 @@
 
   function renderNikkeCard(p) {
     const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
-    const isLimited = LIMITED_SEASONS.includes(p['시즌']);
+    // 어브노말 소속은 전부 콜라보 니케 - 한정 배지 대신 콜라보 배지를 보여준다
+    const isCollab = isCollabCompany(p['기업']);
+    const isLimited = isCollab || LIMITED_SEASONS.includes(p['시즌']);
     const isRerun = p['복각'];
     const isActive = isPickupPeriodActive(p['시작일'], p['종료일']);
     const isUpcoming = !isActive && isPickupUpcoming(p['시작일']);
@@ -492,7 +487,8 @@
     return `
       <div class="${cardClass}" data-nikke-name="${p['니케']}" data-start="${p['시작일']}">
         <div class="nikke-top-badges">
-          ${isLimited ? `<span class="nikke-badge-limited">한정</span>` : ''}
+          ${isCollab ? `<span class="nikke-badge-collab">콜라보</span>` : ''}
+          ${!isCollab && isLimited ? `<span class="nikke-badge-limited">한정</span>` : ''}
           ${isRerun   ? `<span class="nikke-badge-rerun">복각</span>`   : ''}
         </div>
         <div class="nikke-card-top">
