@@ -1,6 +1,14 @@
   const SURVEY_STORAGE_KEY = 'nikke_unreleased_survey';
   const AFFILIATION_ORDER = ['엘리시온', '미실리스', '테트라', '필그림', '소속 불명', '중앙 정부', '중국 서버 한정'];
 
+  // 중섭 전용 캐릭터는 한국 서버에 없는 스토리에서 등장하므로 스포일러 설문의 대상이 아니다.
+  // 등장 값이 뭐로 적혀 있든 설문 선택지에서 빼고, 목록에서는 항상 기본 표시한다.
+  const CHINA_SERVER_AFFILIATION = '중국 서버 한정';
+
+  function isChinaServerRow(row) {
+    return String(row['소속1'] || '').trim() === CHINA_SERVER_AFFILIATION;
+  }
+
   // 픽업 기록의 "시즌" 값 중 화면에 먼저 보여주고 싶은 순서(픽업 탭 필터와 동일한 감각).
   // 여기 없는 시즌값(향후 새로 추가되는 것)은 이 목록 뒤에 알파벳/가나다 순으로 붙는다.
   const SEASON_ORDER_HINT = ['일반', '메이드', '바니걸', '여름', '크리스마스', '신년', '콜라보'];
@@ -88,6 +96,7 @@
     const seen = new Set();
     const appearValues = [];
     unreleasedData.forEach(row => {
+      if (isChinaServerRow(row)) return; // 중섭 전용 캐릭터의 등장 값은 설문 선택지로 만들지 않는다
       appearKeys.forEach(key => {
         const val = String(row[key] || '').trim();
         if (val && !seen.has(val)) {
@@ -331,7 +340,8 @@
     for (let i = 0; i < keys.length; i++) {
       const val = String(row[keys[i]] || '').trim();
       if (!val) break;
-      if (isVisible(val)) visibleVer = i + 1;
+      // 중섭 전용 캐릭터는 설문 대상이 아니므로 등장 값과 무관하게 항상 보여준다
+      if (isChinaServerRow(row) || isVisible(val)) visibleVer = i + 1;
       else break;
     }
     return visibleVer;
@@ -483,7 +493,8 @@
         const n      = i + 1;
         const appear = String(row[`등장${n}`] || '').trim();
         if (!appear) break;
-        if (!isVisible(appear)) break;
+        // 중섭 전용 캐릭터는 설문 대상이 아니므로 등장 값과 무관하게 항상 보여준다
+        if (!isChinaServerRow(row) && !isVisible(appear)) break;
         versions.push({
           num:    n,
           appear: appear,
