@@ -190,7 +190,7 @@
     });
 
     const renderCard = c => {
-      const imgUrl = getCostumeThumbUrl(nikkeImgMap[c['니케']], c['코스튬명']);
+      const imgUrl = c['픽업 배너'] || getCostumeThumbUrl(nikkeImgMap[c['니케']], c['코스튬명']);
       const startDate = c._isRerun ? c['복각 시작일'] : c['시작일'];
       const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
       const remaining = formatRemainingDaysMain(startDate, endDate) || formatUntilStartMain(startDate);

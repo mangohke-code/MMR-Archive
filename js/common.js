@@ -378,6 +378,7 @@ function buildCostumeData(rows) {
     'skel': r['skel'],
     'atlas': r['atlas'],
     '추가 파츠': parseCostumeExtraParts(r['추가_파츠']),
+    '픽업 배너': r['픽업_배너'],
   }));
 }
 
