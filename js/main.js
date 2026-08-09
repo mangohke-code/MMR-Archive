@@ -270,14 +270,15 @@
     return `<span class="pickup-remaining-badge">종료까지 D-${Math.max(remain, 0)}</span>`;
   }
 
-  // 진행 예정 픽업/코스튬 픽업 카드에 시작까지 남은 일수를 D-n 배지로 표시
+  // 진행 예정 픽업/코스튬 픽업 카드에 시작까지 남은 일수를 D-n 배지로 표시.
+  // "종료까지"와 세는 기준이 다르므로 is-upcoming 으로 색을 구분한다.
   function formatUntilStartMain(start) {
     if (!start) return '';
     const now = new Date();
     const s = new Date(start);
     if (now >= s) return '';
     const remain = Math.ceil((s - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-remaining-badge">시작까지 D-${Math.max(remain, 0)}</span>`;
+    return `<span class="pickup-remaining-badge is-upcoming">시작까지 D-${Math.max(remain, 0)}</span>`;
   }
 
   // 진행중인 이벤트 카드에 종료까지 남은 일수를 D-n 배지로 표시.

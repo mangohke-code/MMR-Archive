@@ -548,7 +548,7 @@
     padding: 1px 6px;
   }
 
-  /* 남은 기간 D-n 배지 */
+  /* 남은 기간 D-n 배지 — 기본형은 진행 중인 항목의 "종료까지" */
   .pickup-remaining-badge {
     display: inline-flex;
     align-items: center;
@@ -561,6 +561,14 @@
     color: var(--status-new-text);
     border: 1px solid var(--status-new-border);
     vertical-align: middle;
+  }
+
+  /* "시작까지"는 아직 시작 안 한 항목을 세는 거라 기준이 다르므로 색을 달리한다.
+     픽업 기록 페이지의 .pickup-upcoming-badge와 같은 주황 계열을 쓴다. */
+  .pickup-remaining-badge.is-upcoming {
+    background: var(--status-warn-bg);
+    color: var(--status-warn-text);
+    border-color: var(--status-warn-border);
   }
 
   .pickup-card:hover {
