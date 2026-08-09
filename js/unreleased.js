@@ -349,6 +349,18 @@
 
   // ===== 캐릭터 목록 렌더링 =====
 
+  // 미실장 캐릭터 표는 버전이 올라가면서 "바뀐 값만" 다음 번호 열에 적는다(안 바뀌면 빈 칸).
+  // 그래서 보이는 버전 기준 값 = 그 버전 이하에서 마지막으로 채워져 있는 값이다.
+  // 예: 릴리바이스는 소속1="필그림"/스쿼드1="갓데스", 소속2="랩쳐"/스쿼드2=빈칸 →
+  //     2번까지 봤으면 소속은 "랩쳐", 스쿼드는 그대로 "갓데스".
+  function valueAtVersion(row, field, ver) {
+    for (let i = ver; i >= 1; i--) {
+      const v = String(row[`${field}${i}`] || '').trim();
+      if (v) return v;
+    }
+    return '';
+  }
+
   function renderUnreleasedMain() {
     const data = APP_DATA.unreleased || [];
     const container = document.getElementById('unreleased-content');
@@ -359,18 +371,22 @@
     const affiliationMap = {};
 
     data.forEach((row, rowIdx) => {
-      const affil   = String(row['소속1'] || '소속 불명').trim();
-      const squad   = String(row['스쿼드1'] || '').trim();
-      const appear1 = String(row['등장1'] || '').trim();
-      const isUnappeared = !appear1;
+      const isUnappeared = !String(row['등장1'] || '').trim();
       const ver = getVisibleVersionCount(row);
 
       if (!isUnappeared && ver < 1) return;
 
+      // 소속/스쿼드가 2번에서 바뀌는 캐릭터는, 그 버전까지 본 사람에게만 새 소속/스쿼드로
+      // 묶인다 — 아직 안 본 사람에게는 예전 스쿼드에 그대로 남아있어야 스포일러가 안 된다.
+      const dispVer = Math.max(ver, 1);
+      const affil   = valueAtVersion(row, '소속', dispVer) || '소속 불명';
+      const squad   = valueAtVersion(row, '스쿼드', dispVer);
+      const appear  = valueAtVersion(row, '등장', dispVer);
+
       if (!affiliationMap[affil]) affiliationMap[affil] = {};
       const squadKey = squad || `__solo__${row['이름1']}`;
       if (!affiliationMap[affil][squadKey]) affiliationMap[affil][squadKey] = [];
-      affiliationMap[affil][squadKey].push({ row, ver, isUnappeared, rowIdx });
+      affiliationMap[affil][squadKey].push({ row, ver, dispVer, appear, isUnappeared, rowIdx });
     });
 
     const affiliationOrder = [...AFFILIATION_ORDER];
@@ -388,7 +404,7 @@
         // 전원 미등장인 스쿼드는 이 소속 안에서 맨 뒤로 밀린다.
         const squadEntries = Object.entries(squadMap).map(([squadKey, members]) => {
           const ranks = members
-            .map(m => appearanceRank(String(m.row['등장1'] || '').trim()))
+            .map(m => appearanceRank(m.appear))
             .filter(r => r !== Infinity);
           const squadRank = ranks.length > 0 ? Math.min(...ranks) : Infinity;
           return { squadKey, members, squadRank };
@@ -399,18 +415,14 @@
           const isSolo    = squadKey.startsWith('__solo__');
           const squadName = isSolo ? '' : squadKey;
 
-          // 스쿼드 내부 정렬: 챕터(번호순) → 이벤트 스토리(픽업 기록 페이지 순서) → 미등장(맨 뒤)
-          members.sort((a, b) => compareRank(
-            appearanceRank(String(a.row['등장1'] || '').trim()),
-            appearanceRank(String(b.row['등장1'] || '').trim())
-          ));
+          // 스쿼드 내부 정렬: 챕터(번호순) → 이벤트 스토리(픽업 기록 페이지 순서) → 미등장(맨 뒤).
+          // 스쿼드를 옮겨온 캐릭터는 옮겨온 시점(보이는 버전의 등장) 기준으로 자리를 잡는다.
+          members.sort((a, b) => compareRank(appearanceRank(a.appear), appearanceRank(b.appear)));
 
-          const membersHtml = members.map(({ row, ver, isUnappeared, rowIdx }) => {
-            const dispSuffix = (ver >= 2) ? String(ver) : '1';
-            const name   = String(row[`이름${dispSuffix}`] || row['이름1'] || '').trim();
-            const status = String(row[`상태${dispSuffix}`] || '').trim();
-            const appear = String(row[`등장${dispSuffix}`] || '').trim();
-            const imgUrl = String(row[`이미지${dispSuffix}`] || row['이미지1'] || '').trim();
+          const membersHtml = members.map(({ row, dispVer, appear, isUnappeared, rowIdx }) => {
+            const name   = valueAtVersion(row, '이름', dispVer);
+            const status = valueAtVersion(row, '상태', dispVer);
+            const imgUrl = valueAtVersion(row, '이미지', dispVer);
 
             const nameStrike = status === '이름빗금' || status === '전체빗금';
 
