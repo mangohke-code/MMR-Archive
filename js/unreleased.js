@@ -141,12 +141,26 @@
     surveyItems.dynamic = {};
     Object.entries(dynamicLists).forEach(([key, list]) => {
       surveyItems.dynamic[key] = list
-        .sort((a, b) => (pickupOrderMap[a] ?? 9999) - (pickupOrderMap[b] ?? 9999))
+        .sort(compareSurveyItems)
         .map(label => ({ label }));
       if (!surveyState.dynamic[key]) surveyState.dynamic[key] = new Set();
     });
 
     surveyItems.side = sideList.map(label => ({ label }));
+  }
+
+  // 설문 선택지 정렬: 픽업 기록에 있는 이벤트는 출시 순서대로.
+  // 픽업 기록에 없는 것(만우절 등)은 순번이 없어서 전부 동률이 돼 버리므로, 라벨에 적힌
+  // 연도("2023 만우절")로 오름차순 정렬한다. 연도도 없으면 원래 순서를 그대로 둔다.
+  function compareSurveyItems(a, b) {
+    const oa = pickupOrderMap[a], ob = pickupOrderMap[b];
+    if (oa !== undefined || ob !== undefined) return (oa ?? 9999) - (ob ?? 9999);
+    return surveyLabelYear(a) - surveyLabelYear(b);
+  }
+
+  function surveyLabelYear(label) {
+    const m = String(label).match(/(20\d{2})/);
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
   }
 
   // 동적 카테고리들을 화면에 보여줄 순서: SEASON_ORDER_HINT에 있는 건 그 순서대로,
@@ -170,13 +184,14 @@
     const container = document.getElementById('survey-right');
     container.innerHTML = '';
 
-    orderedDynamicKeys().forEach(key => {
-      container.appendChild(buildSurveySectionEl(surveyCategoryLabel(key), surveyItems.dynamic[key], surveyState.dynamic[key]));
-    });
-
+    // 사이드 스토리는 이벤트보다 먼저 접하는 내용이라 이벤트 분류들보다 앞에 둔다
     if (surveyItems.side.length > 0) {
       container.appendChild(buildSurveySectionEl('사이드 스토리', surveyItems.side, surveyState.side));
     }
+
+    orderedDynamicKeys().forEach(key => {
+      container.appendChild(buildSurveySectionEl(surveyCategoryLabel(key), surveyItems.dynamic[key], surveyState.dynamic[key]));
+    });
   }
 
   function buildSurveySectionEl(label, items, stateSet) {
