@@ -56,15 +56,23 @@
     });
   }
 
-  // 캐릭터 목록/설문에서 "등장" 값 하나를 정렬 가능한 순위로 바꾼다.
-  // 챕터가 항상 먼저(챕터 번호순), 그 다음 이벤트 스토리(픽업 기록 페이지의 시작일 순),
-  // 미등장(빈 값)은 항상 마지막(Infinity).
-  const APPEAR_EVENT_OFFSET = 100000; // 챕터 번호가 절대 이 값을 넘지 않는다고 가정
+  // 캐릭터 목록에서 "등장" 값 하나를 정렬 가능한 순위로 바꾼다. 순서는
+  // 챕터(번호순) → 사이드 스토리 → 이벤트 스토리(픽업 기록의 시작일 순) → 미등장(맨 뒤).
+  // 만우절은 픽업 기록에 없어서 순번을 못 받지만 사이드 스토리가 아니라 이벤트이므로,
+  // 이벤트들 뒤에 라벨의 연도순으로 붙인다.
+  const APPEAR_SIDE_OFFSET   = 100000; // 챕터 번호가 절대 이 값을 넘지 않는다고 가정
+  const APPEAR_EVENT_OFFSET  = 200000;
+  const APPEAR_UNDATED_EVENT = 300000; // 픽업 기록에 순번이 없는 이벤트(만우절)
   function appearanceRank(val) {
     if (!val) return Infinity;
     if (val.includes('챕터')) return parseInt(val) || 0;
     const idx = pickupOrderMap[val];
-    return APPEAR_EVENT_OFFSET + (idx !== undefined ? idx : Number.MAX_SAFE_INTEGER - APPEAR_EVENT_OFFSET);
+    if (idx !== undefined) return APPEAR_EVENT_OFFSET + idx;
+    if (val.includes('만우절')) {
+      const year = surveyLabelYear(val);
+      return APPEAR_UNDATED_EVENT + (year < 3000 ? year : 0);
+    }
+    return APPEAR_SIDE_OFFSET;
   }
 
   // Infinity - Infinity(둘 다 미등장)이 NaN이 되어 정렬이 불안정해지는 걸 피하기 위한 비교 함수
@@ -184,14 +192,13 @@
     const container = document.getElementById('survey-right');
     container.innerHTML = '';
 
-    // 사이드 스토리는 이벤트보다 먼저 접하는 내용이라 이벤트 분류들보다 앞에 둔다
-    if (surveyItems.side.length > 0) {
-      container.appendChild(buildSurveySectionEl('사이드 스토리', surveyItems.side, surveyState.side));
-    }
-
     orderedDynamicKeys().forEach(key => {
       container.appendChild(buildSurveySectionEl(surveyCategoryLabel(key), surveyItems.dynamic[key], surveyState.dynamic[key]));
     });
+
+    if (surveyItems.side.length > 0) {
+      container.appendChild(buildSurveySectionEl('사이드 스토리', surveyItems.side, surveyState.side));
+    }
   }
 
   function buildSurveySectionEl(label, items, stateSet) {
