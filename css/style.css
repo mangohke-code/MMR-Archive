@@ -1349,15 +1349,15 @@
     white-space: nowrap;
   }
 
-  /* 콜라보(어브노말 소속)는 한정 배지를 대체한다 */
+  /* 콜라보(어브노말 소속)는 한정 배지를 대체하므로 한정과 같은 색을 쓴다 */
   .group-badge-collab {
     font-size: 11px;
     font-weight: 700;
     padding: 1px 6px;
     border-radius: var(--radius-sm);
-    background: var(--status-special-bg);
-    color: var(--status-special-text);
-    border: 1px solid var(--status-special-border);
+    background: var(--status-limited-bg);
+    color: var(--status-limited-text);
+    border: 1px solid var(--status-limited-border);
     white-space: nowrap;
   }
 
@@ -1651,11 +1651,11 @@
     border-color: var(--status-limited-border);
   }
 
-  /* 콜라보(어브노말 소속)는 한정 배지 자리를 대신 차지하므로 한정과 확실히 구분되는 색으로 */
+  /* 콜라보(어브노말 소속)는 한정 배지를 대체하는 것이므로 한정과 같은 색을 쓴다 */
   .badge-pickup-type.collab {
-    background: var(--status-special-bg);
-    color: var(--status-special-text);
-    border-color: var(--status-special-border);
+    background: var(--status-limited-bg);
+    color: var(--status-limited-text);
+    border-color: var(--status-limited-border);
   }
 
   /* 이벤트 라인 (박스 없이) */
@@ -1752,17 +1752,12 @@
     white-space: nowrap;
   }
 
-  .nikke-badge-limited {
+  /* 콜라보(어브노말 소속)는 한정 배지를 대체하므로 한정과 같은 색을 쓴다 */
+  .nikke-badge-limited,
+  .nikke-badge-collab {
     background: var(--status-limited-bg);
     color: var(--status-limited-text);
     border: 1px solid var(--status-limited-border);
-  }
-
-  /* 콜라보(어브노말 소속)는 한정 배지를 대체한다 */
-  .nikke-badge-collab {
-    background: var(--status-special-bg);
-    color: var(--status-special-text);
-    border: 1px solid var(--status-special-border);
   }
 
   .nikke-badge-rerun {

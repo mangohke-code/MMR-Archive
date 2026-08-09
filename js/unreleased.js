@@ -1,5 +1,5 @@
   const SURVEY_STORAGE_KEY = 'nikke_unreleased_survey';
-  const AFFILIATION_ORDER = ['엘리시온', '미실리스', '테트라', '필그림', '소속 불명', '중앙 정부', '중국 서버'];
+  const AFFILIATION_ORDER = ['엘리시온', '미실리스', '테트라', '필그림', '소속 불명', '중앙 정부', '중국 서버 한정'];
 
   // 픽업 기록의 "시즌" 값 중 화면에 먼저 보여주고 싶은 순서(픽업 탭 필터와 동일한 감각).
   // 여기 없는 시즌값(향후 새로 추가되는 것)은 이 목록 뒤에 알파벳/가나다 순으로 붙는다.
@@ -372,7 +372,7 @@
       .filter(affil => affiliationMap[affil])
       .map(affil => {
         const squadMap = affiliationMap[affil];
-        const isChinaServer = affil === '중국 서버';
+        const isChinaServer = affil === '중국 서버 한정';
 
         // 스쿼드 정렬: 스쿼드 내 등장한(미등장이 아닌) 캐릭터 중 가장 빠른 등장 시점 기준.
         // 전원 미등장인 스쿼드는 이 소속 안에서 맨 뒤로 밀린다.

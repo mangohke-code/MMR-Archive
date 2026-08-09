@@ -34,9 +34,9 @@
     renderSouvenirStrip();
   }
 
-  // 덜 중요한 시즌부터: 밸런타인·만우절·여름·크리스마스 → 신년·주년·기념일 케이크.
-  // 여기 없는 시즌(예: 콜라보레이션)은 목록 맨 뒤로 밀린다.
-  const SOUVENIR_SEASON_ORDER = ['밸런타인', '만우절', '여름', '크리스마스', '신년', '주년', '기념일 케이크'];
+  // 덜 중요한 시즌부터: 밸런타인·만우절·여름·크리스마스·콜라보레이션 → 신년·주년·기념일 케이크.
+  // 여기 없는 시즌(향후 새로 생기는 값)은 목록 맨 뒤로 밀린다.
+  const SOUVENIR_SEASON_ORDER = ['밸런타인', '만우절', '여름', '크리스마스', '콜라보레이션', '신년', '주년', '기념일 케이크'];
 
   function souvenirSeasonRank(season) {
     const idx = SOUVENIR_SEASON_ORDER.indexOf(season);
