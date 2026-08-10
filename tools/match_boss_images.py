@@ -14,6 +14,8 @@
 #   1) 보스 자신의 속성 코드가 붙은 파일이 있으면 그것을 쓴다 (확실)
 #   2) 그 보스의 파일이 코드 없는 것 하나뿐이면 그것을 쓴다 (고를 여지가 없음)
 #   3) 둘 다 아니면 건너뛰고 사유를 보고한다 (애매한 것은 손대지 않는다)
+#   4) 한 이미지는 한 시즌에만 쓴다. 같은 파일이 두 시즌에 걸리면(같은 보스가 다른 속성으로
+#      다시 나왔는데 파일은 하나뿐인 경우) 어느 쪽이 맞는지 알 수 없으므로 둘 다 건너뛴다.
 
 import io, json, os, re, shutil, urllib.parse, urllib.request
 
@@ -112,9 +114,23 @@ def main():
             continue
         picks.append({'id': r['id'], '시즌': r['시즌'], '보스': boss, '약점': weak,
                       '보스속성': self_attr, '파일': picked, '근거': why})
-        used_files.add(picked)
 
+    # 한 이미지가 두 시즌에 걸리면 어느 쪽이 맞는지 알 수 없다 → 그 파일을 쓰는 시즌 전부 제외
+    from collections import Counter
+    dup = {f for f, n in Counter(p['파일'] for p in picks).items() if n > 1}
+    if dup:
+        for f in sorted(dup):
+            seasons = [p for p in picks if p['파일'] == f]
+            info = ', '.join(f"시즌{p['시즌']}({p['보스속성']})" for p in seasons)
+            skipped.append(f'{f}: {info} 가 같은 파일을 가리킨다 → 어느 시즌 것인지 몰라 모두 제외')
+        picks = [p for p in picks if p['파일'] not in dup]
+
+    used_files = {p['파일'] for p in picks}
     os.makedirs(OUT_DIR, exist_ok=True)
+    # 이전 실행에서 남은 파일 정리 (이번에 안 쓰는 것은 지운다)
+    for f in os.listdir(OUT_DIR):
+        if f not in used_files:
+            os.remove(os.path.join(OUT_DIR, f))
     for f in sorted(used_files):
         shutil.copy2(os.path.join(SRC_DIR, f), os.path.join(OUT_DIR, f))
 
