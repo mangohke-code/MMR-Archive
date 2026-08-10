@@ -1065,23 +1065,48 @@
     return weeksHtml.join('');
   }
 
-  // 전체보기: 데이터가 있는 첫 달부터 마지막 달까지 세로로 이어 그린다.
+  // 전체보기: 처음 달부터 마지막 달까지를 "끊기지 않은 하나의 달력"으로 그린다.
+  // 달마다 따로 그리면 달 경계에서 픽업 막대가 잘리고 레인(위아래 줄)도 다시 배치돼서
+  // 같은 픽업이 이어져 보이지 않는다. 그래서 레인을 전체 기간에 대해 한 번만 계산하고,
+  // 첫 주부터 마지막 주까지 주를 계속 이어 붙인다.
   // 페이지가 길어지지 않도록 달력 영역 자체에 높이를 두고 그 안에서만 스크롤한다(CSS).
   function renderAllMonthsCalendar(data, today) {
     const min = getMinPickupMonth(), max = getMaxPickupMonth();
     if (!min || !max) return '';
-    const blocks = [];
-    const cur = new Date(min);
-    while (cur <= max) {
-      const y = cur.getFullYear(), m = cur.getMonth();
-      blocks.push(`
-        <div class="calendar-month-block" data-month="${y}-${m + 1}">
-          <div class="calendar-month-title">${y}년 ${m + 1}월</div>
-          ${buildCalendarMonthHtml(y, m, data, today)}
-        </div>`);
-      cur.setMonth(cur.getMonth() + 1);
+
+    // 첫 주의 일요일부터, 마지막 달 말일이 포함된 주의 토요일까지
+    const first = new Date(min.getFullYear(), min.getMonth(), 1);
+    const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
+    const lastDay = new Date(max.getFullYear(), max.getMonth() + 1, 0);
+    const gridEnd = new Date(lastDay);
+    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+
+    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), stripTime(gridEnd));
+
+    const html = [];
+    const cur = new Date(gridStart);
+    let shownMonth = null;
+    while (cur <= gridEnd) {
+      const weekDays = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(cur);
+        d.setDate(cur.getDate() + i);
+        weekDays.push(d);
+      }
+      // 그 주에 새로운 달이 시작되면 제목 줄을 끼워 넣는다(주 자체는 자르지 않는다)
+      const monthsInWeek = [...new Set(weekDays.map(d => `${d.getFullYear()}-${d.getMonth() + 1}`))];
+      for (const key of monthsInWeek) {
+        if (key === shownMonth) continue;
+        shownMonth = key;
+        const [y, m] = key.split('-');
+        html.push(`<div class="calendar-month-title" data-month="${key}">${y}년 ${m}월</div>`);
+      }
+      // 전체보기에서는 "이번 달 밖" 흐리게 처리와 월말 자르기를 하지 않는다 —
+      // 모든 날이 어느 달엔가 속하고, 주가 끊기면 안 되기 때문.
+      html.push(renderCalendarWeek(weekDays, null, today, data, laneByPid, laneCount, stripTime(gridEnd)));
+      cur.setDate(cur.getDate() + 7);
     }
-    return blocks.join('');
+    return html.join('');
   }
 
   function renderPickupCalendar() {
@@ -1212,7 +1237,8 @@
     const dateCellsHtml = weekDays.map(d => {
       const dStripped = stripTime(d);
       if (dStripped > lastDayOfMonth) return ''; // 월말 이후는 칸 자체를 표시 안 함
-      const inMonth = d.getMonth() === month;
+      // month 가 null 이면 전체보기(연속 달력)라 "이번 달 밖" 개념이 없다
+      const inMonth = month === null || d.getMonth() === month;
       const dow = d.getDay();
       const dowClass = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
       const isToday = dStripped.getTime() === today.getTime();

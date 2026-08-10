@@ -3996,7 +3996,7 @@
   #frames-layout.is-detail-open #frames-selector-col {
     position: relative;
     flex: 0 0 auto;
-    width: 200px;
+    width: 250px;
     align-self: stretch;
   }
 
@@ -4008,6 +4008,7 @@
     flex-wrap: nowrap;
     flex-direction: column;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0 4px 0 0;
   }
 
@@ -4027,25 +4028,27 @@
   }
 
   #frames-layout.is-detail-open .frames-item-img {
-    width: 76px;
-    height: 76px;
+    width: 96px;
+    height: 96px;
     flex-shrink: 0;
   }
 
   #frames-layout.is-detail-open .frames-item-weak {
-    right: 2px;
-    bottom: 2px;
-    width: 22px;
-    height: 26px;
+    right: 3px;
+    bottom: 3px;
+    width: 26px;
+    height: 30px;
   }
 
   #frames-layout.is-detail-open .frames-item-season {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   #frames-layout.is-detail-open .frames-item-boss {
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.25;
+    /* 5시즌 보스처럼 공백 없는 긴 이름이 열을 넘어 가로 스크롤을 만들지 않게 한다 */
+    overflow-wrap: anywhere;
   }
 
   /* 시즌/보스 이름 묶음. 가로형에서는 썸네일 오른쪽에 세로로 쌓이고 왼쪽 정렬이 된다 */
