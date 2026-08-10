@@ -187,9 +187,10 @@
     // 정보 업데이트
     document.getElementById('costume-nikke-name').textContent = costume['니케'];
     document.getElementById('costume-name').textContent = costume['코스튬명'];
+    // D-day 배지는 기간 문구(와 복각의 "N일 만에 복각" 부연) 다음 줄에 놓는다
     document.getElementById('costume-date').innerHTML =
       formatCostumeDate(costume['시작일'], costume['종료일']) +
-      formatRemainingDays(costume['시작일'], costume['종료일']);
+      formatRemainingDays(costume['시작일'], costume['종료일'], 'is-own-line');
     document.getElementById('costume-ticket-name').textContent = costume['티켓'];
 
     const freeTicketWrap = document.getElementById('costume-free-ticket-wrap');
@@ -209,8 +210,8 @@
       rerunWrap.classList.remove('hidden');
       rerunDate.innerHTML =
         formatCostumeDate(costume['복각 시작일'], costume['복각 종료일']) +
-        formatRemainingDays(costume['복각 시작일'], costume['복각 종료일']) +
-        formatRerunGap(costume['시작일'], costume['복각 시작일']);
+        formatRerunGap(costume['시작일'], costume['복각 시작일']) +
+        formatRemainingDays(costume['복각 시작일'], costume['복각 종료일'], 'is-own-line');
     } else {
       rerunWrap.classList.add('hidden');
     }

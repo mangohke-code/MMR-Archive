@@ -2326,6 +2326,15 @@
     border-color: var(--status-warn-border);
   }
 
+  /* 정보란에서는 기간 문구와 "(N일 만에 복각)" 부연 아래 줄에 따로 놓는다.
+     flex 는 블록 레벨이라 줄이 바뀌고, fit-content 로 배지 폭만 차지하게 한다. */
+  .costume-remaining-badge.is-own-line {
+    display: flex;
+    width: fit-content;
+    margin-left: 0;
+    margin-top: 6px;
+  }
+
   /* 하단 선택 카드 안에 들어가는 형태 — 아래 배지들과 같은 폭/정렬로 세로로 쌓인다 */
   .costume-remaining-badge.is-on-portrait {
     display: block;
