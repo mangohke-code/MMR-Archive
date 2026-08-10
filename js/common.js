@@ -501,7 +501,6 @@ function logVisit() {
 
     const 세션 = (crypto.randomUUID && crypto.randomUUID())
       || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    sessionStorage.setItem(VISIT_SESSION_KEY, 세션);
 
     let 유입 = null;
     try {
@@ -513,8 +512,16 @@ function logVisit() {
       }
     } catch (e) { /* 잘못된 referrer 는 무시 */ }
 
-    // 응답을 기다리지 않는다 — 화면 표시를 막지 않도록
-    supabaseClient.from('방문_기록').insert({ 세션, 유입 }).then(() => {}, () => {});
+    // 응답을 기다리지 않는다 — 화면 표시를 막지 않도록.
+    // 세션 표시는 기록에 성공했을 때만 남긴다. 먼저 표시해 두면 한 번 실패했을 때
+    // 그 세션은 새로고침해도 영영 다시 시도하지 않아 통째로 누락된다.
+    supabaseClient.from('방문_기록').insert({ 세션, 유입 }).then(
+      res => {
+        if (res && res.error) return;
+        try { sessionStorage.setItem(VISIT_SESSION_KEY, 세션); } catch (e) { /* 저장 실패는 무시 */ }
+      },
+      () => {}
+    );
   } catch (e) { /* 방문 기록 실패가 사이트를 막아서는 안 된다 */ }
 }
 
