@@ -486,6 +486,38 @@ function buildFramesData(rows) {
   }));
 }
 
+// ===== 방문 기록 =====
+// 방문자 수를 세기 위해 브라우저 세션당 한 줄만 남긴다. 개인정보는 담지 않는다 —
+// 무작위 세션 키와 유입 도메인뿐이고, 세션 키는 탭을 닫으면 사라진다.
+// 실패해도 사이트 동작에는 영향이 없어야 하므로 전부 조용히 넘긴다.
+const VISIT_SESSION_KEY = 'mmr_visit_session';
+
+function logVisit() {
+  try {
+    // 로컬 개발 중에는 기록하지 않는다
+    if (['localhost', '127.0.0.1', ''].includes(location.hostname)) return;
+    // 이미 이 세션에서 기록했으면 다시 보내지 않는다 (새로고침·탭 이동 시 중복 방지)
+    if (sessionStorage.getItem(VISIT_SESSION_KEY)) return;
+
+    const 세션 = (crypto.randomUUID && crypto.randomUUID())
+      || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(VISIT_SESSION_KEY, 세션);
+
+    let 유입 = null;
+    try {
+      const ref = document.referrer;
+      // 도메인만 남긴다. 우리 사이트 안에서의 이동은 유입이 아니므로 제외.
+      if (ref) {
+        const host = new URL(ref).hostname;
+        if (host && host !== location.hostname) 유입 = host;
+      }
+    } catch (e) { /* 잘못된 referrer 는 무시 */ }
+
+    // 응답을 기다리지 않는다 — 화면 표시를 막지 않도록
+    supabaseClient.from('방문_기록').insert({ 세션, 유입 }).then(() => {}, () => {});
+  } catch (e) { /* 방문 기록 실패가 사이트를 막아서는 안 된다 */ }
+}
+
 // Supabase(PostgREST)는 한 번에 최대 1000행까지만 반환하므로, 그 이상인 테이블(스테이지 정보 등)을
 // 위해 다 받을 때까지 range()로 이어붙인다.
 async function fetchAll(tableName, orderColumn) {
@@ -578,6 +610,8 @@ document.addEventListener('DOMContentLoaded', function () {
       updateThemeIcon();
     });
   }
+
+  logVisit();
 
   // 로딩 소요 시간 표시
   const loadStart = performance.now();
