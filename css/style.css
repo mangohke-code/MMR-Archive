@@ -3898,27 +3898,26 @@
     text-align: center;
   }
 
-  /* 보스 썸네일 우측 하단에 약점 속성 아이콘 */
+  /* 보스 썸네일 우측 하단에 약점 속성 아이콘.
+     우월코드 아이콘은 그림 자체가 투명 배경의 육각형(가로:세로 = 137:159)이라,
+     원형 판을 깔면 모양이 어긋난다. 아이콘을 그대로 얹고 그림자로만 띄운다. */
   .frames-item-weak {
     position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+    right: 5px;
+    bottom: 5px;
+    width: 31px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-strong);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
   }
 
   .frames-item-weak img {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    display: block;
   }
 
   .frames-item-weak-text {
@@ -3935,8 +3934,8 @@
   }
 
   .frames-attr-icon {
-    width: 24px;
-    height: 24px;
+    width: auto;
+    height: 26px;          /* 육각형 비율을 유지하도록 높이만 지정 */
     object-fit: contain;
   }
 
