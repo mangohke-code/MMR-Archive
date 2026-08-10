@@ -1081,6 +1081,63 @@
     color: var(--accent);
   }
 
+  #pickup-calendar-all {
+    margin-left: 8px;
+    padding: 6px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  #pickup-calendar-all:hover {
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  #pickup-calendar-all.active {
+    background: var(--bg-panel-active);
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  /* 전체보기: 모든 달을 세로로 이어 붙이되, 페이지가 길어지지 않도록 달력 영역에
+     높이를 두고 그 안에서만 스크롤한다. */
+  #pickup-calendar-view.is-all-months #pickup-calendar-grid {
+    /* 화면 안에 들어오는 선에서 최대한 크게. 화면보다 크게 잡으면 페이지 스크롤과
+       달력 안쪽 스크롤이 겹쳐서 조작이 불편해진다. */
+    max-height: min(78vh, 1000px);
+    overflow-y: auto;
+    transition: none;   /* 달 넘김 슬라이드는 전체보기에서 쓰지 않는다 */
+  }
+
+  .calendar-month-block + .calendar-month-block {
+    border-top: 2px solid var(--border-strong);
+  }
+
+  .calendar-month-title {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    padding: 8px 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-heading);
+    background: var(--bg-panel-alt);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  /* 전체보기에서 달 이동 조작은 막아 둔다 */
+  #pickup-calendar-view.is-all-months .calendar-nav-btn,
+  #pickup-calendar-view.is-all-months #pickup-calendar-today,
+  #pickup-calendar-view.is-all-months .calendar-select {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
   #pickup-calendar-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -3934,13 +3991,22 @@
 
   /* 보스를 고르면 목록이 모델 왼쪽의 세로 열로 바뀐다. 카드가 39개라 그대로 두면
      상세가 한참 아래로 밀려서, 옆에 붙여 놓고 목록에서만 스크롤되게 한다. */
-  #frames-layout.is-detail-open #frames-selector {
+  /* 목록 열. 상세(오른쪽)와 같은 높이로 늘어나고, 스크롤은 이 안에서만 일어난다.
+     안쪽 목록을 absolute 로 채워서 목록 내용이 줄 높이를 밀어올리지 않게 한다. */
+  #frames-layout.is-detail-open #frames-selector-col {
+    position: relative;
     flex: 0 0 auto;
-    width: 172px;
+    width: 200px;
+    align-self: stretch;
+  }
+
+  #frames-layout.is-detail-open #frames-selector {
+    position: absolute;
+    inset: 0;
+    flex: 0 0 auto;
+    width: auto;
     flex-wrap: nowrap;
     flex-direction: column;
-    /* 카드 한 장이 200px 이라 높이를 넉넉히 줘야 여러 보스가 한눈에 들어온다 */
-    max-height: min(80vh, 900px);
     overflow-y: auto;
     padding: 0 4px 0 0;
   }
@@ -3961,24 +4027,24 @@
   }
 
   #frames-layout.is-detail-open .frames-item-img {
-    width: 52px;
-    height: 52px;
+    width: 76px;
+    height: 76px;
     flex-shrink: 0;
   }
 
   #frames-layout.is-detail-open .frames-item-weak {
-    right: 1px;
-    bottom: 1px;
-    width: 17px;
-    height: 20px;
+    right: 2px;
+    bottom: 2px;
+    width: 22px;
+    height: 26px;
   }
 
   #frames-layout.is-detail-open .frames-item-season {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   #frames-layout.is-detail-open .frames-item-boss {
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.25;
   }
 

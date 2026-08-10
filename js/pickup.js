@@ -809,6 +809,9 @@
   // 달을 넘길 때마다 매번 새로 확인 - 애니메이션 도중에 또 넘기려고 하면 무시(중복 방지)
   let calendarTransitioning = false;
 
+  // 전체보기: 모든 달을 세로로 이어서 보여준다(달력 영역 안에서만 스크롤)
+  let calendarAllMonths = false;
+
   function initPickupCalendarNav() {
     document.getElementById('pickup-calendar-prev').addEventListener('click', () => changeCalendarMonth(-1));
     document.getElementById('pickup-calendar-next').addEventListener('click', () => changeCalendarMonth(1));
@@ -819,8 +822,16 @@
     });
 
     // 달력 위에서 스크롤(휠)하면 다음/이전 달로 스르륵 넘어간다 - 아래로 스크롤하면 다음 달
+    document.getElementById('pickup-calendar-all').addEventListener('click', () => {
+      calendarAllMonths = !calendarAllMonths;
+      renderPickupCalendar();
+      // 전체보기로 켤 때는 보고 있던 달로 스크롤을 맞춰 준다
+      if (calendarAllMonths) scrollCalendarToMonth(calendarMonth);
+    });
+
+    // 전체보기에서는 휠이 달력 안쪽 스크롤로 쓰이므로 달 넘기기를 하지 않는다
     document.getElementById('pickup-calendar-view').addEventListener('wheel', e => {
-      if (currentView !== 'calendar') return;
+      if (currentView !== 'calendar' || calendarAllMonths) return;
       e.preventDefault();
       changeCalendarMonth(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
@@ -1022,8 +1033,76 @@
     return { laneByPid, laneCount: Math.max(maxLane + 1, 1) };
   }
 
+  // 전체보기에서 특정 달 위치로 스크롤
+  function scrollCalendarToMonth(monthDate) {
+    const grid = document.getElementById('pickup-calendar-grid');
+    const key = `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`;
+    const block = grid.querySelector(`.calendar-month-block[data-month="${key}"]`);
+    if (block) grid.scrollTop = block.offsetTop - grid.offsetTop;
+  }
+
+  // 한 달치 주(週) HTML 을 만든다. 한 달만 보기와 전체보기가 같은 코드를 쓴다.
+  function buildCalendarMonthHtml(year, month, data, today) {
+    const firstOfMonth = new Date(year, month, 1);
+    const gridStart = new Date(year, month, 1 - firstOfMonth.getDay());
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const lastDayOfMonth = stripTime(new Date(year, month, daysInMonth));
+
+    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), lastDayOfMonth);
+
+    // 그 달을 표시하는 데 필요한 주 수만큼만 그린다(보통 5~6주)
+    const weekCount = Math.ceil((firstOfMonth.getDay() + daysInMonth) / 7);
+    const weeksHtml = [];
+    for (let w = 0; w < weekCount; w++) {
+      const weekDays = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(gridStart);
+        d.setDate(gridStart.getDate() + w * 7 + i);
+        weekDays.push(d);
+      }
+      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, lastDayOfMonth));
+    }
+    return weeksHtml.join('');
+  }
+
+  // 전체보기: 데이터가 있는 첫 달부터 마지막 달까지 세로로 이어 그린다.
+  // 페이지가 길어지지 않도록 달력 영역 자체에 높이를 두고 그 안에서만 스크롤한다(CSS).
+  function renderAllMonthsCalendar(data, today) {
+    const min = getMinPickupMonth(), max = getMaxPickupMonth();
+    if (!min || !max) return '';
+    const blocks = [];
+    const cur = new Date(min);
+    while (cur <= max) {
+      const y = cur.getFullYear(), m = cur.getMonth();
+      blocks.push(`
+        <div class="calendar-month-block" data-month="${y}-${m + 1}">
+          <div class="calendar-month-title">${y}년 ${m + 1}월</div>
+          ${buildCalendarMonthHtml(y, m, data, today)}
+        </div>`);
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return blocks.join('');
+  }
+
   function renderPickupCalendar() {
     const data = getFilteredData();
+    const today = stripTime(new Date());
+    const grid = document.getElementById('pickup-calendar-grid');
+    const view = document.getElementById('pickup-calendar-view');
+
+    view.classList.toggle('is-all-months', calendarAllMonths);
+    document.getElementById('pickup-calendar-all').classList.toggle('active', calendarAllMonths);
+    // 전체보기에서는 달 이동 조작이 의미가 없다
+    ['pickup-calendar-prev', 'pickup-calendar-next', 'pickup-calendar-today',
+     'pickup-calendar-year-select', 'pickup-calendar-month-select']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = calendarAllMonths; });
+
+    if (calendarAllMonths) {
+      grid.innerHTML = renderAllMonthsCalendar(data, today);
+      calendarGlowCells = null;
+      bindCalendarBarEvents(grid);
+      return;
+    }
 
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
@@ -1036,34 +1115,14 @@
     document.getElementById('pickup-calendar-prev').disabled =
       !!minMonth && year === minMonth.getFullYear() && month === minMonth.getMonth();
 
-    const firstOfMonth = new Date(year, month, 1);
-    const gridStart = new Date(year, month, 1 - firstOfMonth.getDay());
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const lastDayOfMonth = stripTime(new Date(year, month, daysInMonth));
-    const today = stripTime(new Date());
-
-    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), lastDayOfMonth);
-
-    // 그 달을 표시하는 데 필요한 주(週) 수만큼만 그린다(보통 5~6주) - 월말 이후
-    // 다음 달 날짜로 남은 마지막 줄 전체는 아예 안 그린다.
-    const weekCount = Math.ceil((firstOfMonth.getDay() + daysInMonth) / 7);
-    const weeksHtml = [];
-    for (let w = 0; w < weekCount; w++) {
-      const weekDays = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(gridStart);
-        d.setDate(gridStart.getDate() + w * 7 + i);
-        weekDays.push(d);
-      }
-      weeksHtml.push(renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, lastDayOfMonth));
-    }
-
-    const grid = document.getElementById('pickup-calendar-grid');
-    grid.innerHTML = weeksHtml.join('');
+    grid.innerHTML = buildCalendarMonthHtml(year, month, data, today);
     calendarGlowCells = null; // 칸들이 새로 그려졌으니 호버 글로우용 위치 캐시도 다시 재야 함
+    bindCalendarBarEvents(grid);
+  }
 
-    // 픽업 막대 클릭 시 타임라인의 해당 카드로 이동, 마우스오버 시 같은 픽업의
-    // 다른 주 막대까지 전부 같이 강조해서 하나로 이어진 픽업이라는 게 보이게 한다
+  // 픽업 막대 클릭 시 타임라인의 해당 카드로 이동, 마우스오버 시 같은 픽업의
+  // 다른 주 막대까지 전부 같이 강조해서 하나로 이어진 픽업이라는 게 보이게 한다
+  function bindCalendarBarEvents(grid) {
     grid.querySelectorAll('.calendar-bar[data-pid]').forEach(bar => {
       bar.addEventListener('click', () => jumpToPickupNikke(bar.dataset.nikke));
       bar.addEventListener('mouseenter', () => {
