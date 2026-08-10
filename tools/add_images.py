@@ -51,6 +51,11 @@ def main():
         if os.path.splitext(name)[1].lower() not in ALLOWED:
             print(f'[건너뜀] 이미지 파일이 아니다: {name}')
             continue
+        # 주소에서 뜻이 달라지는 글자가 이름에 있으면 미리 막는다(한글·공백은 괜찮다)
+        bad = [ch for ch in '#%&+?' if ch in name]
+        if bad:
+            print(f'[건너뜀] 파일 이름에 쓸 수 없는 글자 {bad} 가 있다: {name}')
+            continue
         dest = os.path.join(dest_dir, name)
         if os.path.exists(dest):
             print(f'[덮어씀] 같은 이름이 이미 있다: {name}')
