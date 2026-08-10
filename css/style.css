@@ -1840,6 +1840,15 @@
     display: block;
   }
 
+  /* 아직 공개되지 않은 속성 자리. 아이콘 대신 물음표를 세워 칸 배열을 유지한다 */
+  .nikke-attr-chip.is-unknown {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-faint);
+    background: var(--bg-panel-alt);
+    border-style: dashed;
+  }
+
   .nikke-attr-chip.code-chip {
     width: 76px;
     height: 30px;
