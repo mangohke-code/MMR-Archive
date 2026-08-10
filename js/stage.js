@@ -21,16 +21,17 @@
   }
 
   function renderChapterGrid(data) {
-    const chapters = getChapterList();
+    const chapters = getDisplayChapterList();
 
     const makeCard = (ch) => {
       const chapImg = allChapImgData.find(c => String(c['챕터']) === String(ch));
       const imgUrl = chapImg ? chapImg['이미지'] : '';
       const chapName = chapImg ? chapImg['명칭'] : '';
+      const locked = !hasStageData(ch);   // 스테이지 정보가 없으면 열 수 없다
       return `
-        <div class="chapter-card" data-chapter="${ch}">
+        <div class="chapter-card ${locked ? 'is-locked' : ''}" data-chapter="${ch}">
           <div class="chapter-img">
-            <img src="${imgUrl}" alt="챕터 ${ch}" onerror="this.style.display='none'">
+            ${imgUrl ? `<img src="${imgUrl}" alt="챕터 ${ch}" onerror="this.style.display='none'">` : ''}
             <div class="chapter-label">CHAPTER.${ch}<br>${chapName}</div>
           </div>
         </div>
@@ -62,13 +63,33 @@
     renderStageTable();
   }
 
+  function compareChapter(a, b) {
+    const na = Number(a), nb = Number(b);
+    if (na === 0 && nb !== 0) return -1;
+    if (nb === 0 && na !== 0) return 1;
+    return na - nb;
+  }
+
+  // 스테이지 정보가 들어있는 챕터 — 실제로 열어볼 수 있는 챕터.
+  // 상세 화면의 이전/다음 이동도 이 목록을 따라가므로 빈 챕터로 넘어가지 않는다.
   function getChapterList() {
-    return [...new Set(allStageData.map(s => s['챕터']))].sort((a, b) => {
-      const na = Number(a), nb = Number(b);
-      if (na === 0 && nb !== 0) return -1;
-      if (nb === 0 && na !== 0) return 1;
-      return na - nb;
+    return [...new Set(allStageData.map(s => s['챕터']))].sort(compareChapter);
+  }
+
+  // 카드로 보여줄 챕터 — IMG_챕터에만 올라와 있고 스테이지 정보는 아직 없는 새 챕터도 넣는다.
+  // 새 챕터가 나왔는데 스테이지를 아직 못 채웠어도 자리는 보이게 하려는 것.
+  function getDisplayChapterList() {
+    const list = new Set(allStageData.map(s => String(s['챕터'])));
+    (allChapImgData || []).forEach(c => {
+      const ch = c['챕터'];
+      if (ch !== null && ch !== undefined && String(ch) !== '') list.add(String(ch));
     });
+    return [...list].sort(compareChapter);
+  }
+
+  // 스테이지 정보가 있어야 눌러서 들어갈 수 있다
+  function hasStageData(ch) {
+    return allStageData.some(s => String(s['챕터']) === String(ch));
   }
 
   function renderChapterNav(direction = null) {
@@ -211,7 +232,8 @@
     // 챕터 카드 클릭 (이벤트 위임 — 렌더될 때마다 innerHTML로 새로 그려지므로 컨테이너에 한 번만 등록)
     const handleChapterCardClick = (e) => {
       const card = e.target.closest('.chapter-card');
-      if (card) selectChapter(card.dataset.chapter);
+      // 스테이지 정보가 아직 없는 챕터는 눌러도 아무 일이 없어야 한다
+      if (card && !card.classList.contains('is-locked')) selectChapter(card.dataset.chapter);
     };
     document.getElementById('chapter-grid-zero').addEventListener('click', handleChapterCardClick);
     document.getElementById('chapter-grid').addEventListener('click', handleChapterCardClick);
