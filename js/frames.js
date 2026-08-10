@@ -60,6 +60,8 @@
     currentFrame = item;
 
     document.getElementById('frames-top').classList.remove('hidden');
+    // 상세가 열리면 보스 목록을 왼쪽 세로 열로 바꾼다(CSS 가 처리)
+    document.getElementById('frames-layout').classList.add('is-detail-open');
     document.querySelectorAll('.frames-item').forEach(el => {
       el.classList.toggle('active', allFramesData[el.dataset.idx] === item);
     });

@@ -451,8 +451,10 @@
 
             const nameStrike = status === '이름빗금' || status === '전체빗금';
 
+            // 미등장 캐릭터는 보여줄 상세 내용이 없으므로 누르지 못하게 한다
             return `
-              <div class="unreleased-card" data-row-idx="${rowIdx}" onclick="selectUnreleasedCard(${rowIdx})">
+              <div class="unreleased-card${isUnappeared ? ' is-unappeared' : ''}" data-row-idx="${rowIdx}"
+                   ${isUnappeared ? '' : `onclick="selectUnreleasedCard(${rowIdx})"`}>
                 ${imgUrl ? `<div class="unreleased-card-portrait"><img src="${imgUrl}" alt="${name}"></div>` : ''}
                 <div class="unreleased-card-info">
                   <div class="unreleased-card-name ${nameStrike ? 'strikethrough' : ''}">${name || '???'}</div>

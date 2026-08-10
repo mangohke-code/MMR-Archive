@@ -2127,9 +2127,37 @@
   /* 접힌 상태에서 내용이 56px 폭으로 줄어들면서 줄바꿈이 꾸겨지는 것 방지 —
      펼쳐졌을 때 폭(420px - 좌우 padding)으로 고정해두고 접힌 상태에서는 overflow:hidden으로
      잘라서 보여주기만 함(레이아웃 자체는 안 줄어들게) */
-  #costume-info > * {
+  #costume-info > *:not(.info-handle) {
     flex-shrink: 0;
     width: 372px;
+    /* 접혀 있을 때는 내용을 감춘다. 예전엔 56px 로 잘라서 글자 왼쪽 끝만 삐죽 보였다. */
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  #costume-info:hover > *:not(.info-handle) {
+    opacity: 1;
+  }
+
+  /* 접힌 상태에 보이는 손잡이(아이콘). 펼치면 사라진다. */
+  #costume-info .info-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 56px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 18px;
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  #costume-info:hover .info-handle {
+    opacity: 0;
   }
 
   #costume-info-header {
@@ -2809,6 +2837,18 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+
+  /* 미등장 캐릭터는 보여줄 상세가 없어 누를 수 없다 */
+  .unreleased-card.is-unappeared {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .unreleased-card.is-unappeared:hover {
+    border-color: transparent;
+    box-shadow: var(--shadow-card);
+    transform: none;
   }
 
   .unreleased-card {
@@ -3853,11 +3893,36 @@
     margin: 0 auto;
   }
 
+  #frames-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
   #frames-selector {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     padding: 1.25rem 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* 보스를 고르면 목록이 모델 왼쪽의 세로 열로 바뀐다. 카드가 39개라 그대로 두면
+     상세가 한참 아래로 밀려서, 옆에 붙여 놓고 목록에서만 스크롤되게 한다. */
+  #frames-layout.is-detail-open #frames-selector {
+    flex: 0 0 auto;
+    width: 172px;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    max-height: 640px;
+    overflow-y: auto;
+    padding: 0 4px 0 0;
+  }
+
+  #frames-layout.is-detail-open #frames-top {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .frames-item {
@@ -4046,9 +4111,37 @@
     width: 420px;
   }
 
-  #frames-info > * {
+  #frames-info > *:not(.info-handle) {
     flex-shrink: 0;
     width: 372px;
+    /* 접혀 있을 때는 내용을 감춘다. 예전엔 56px 로 잘라서 글자 왼쪽 끝만 삐죽 보였다. */
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  #frames-info:hover > *:not(.info-handle) {
+    opacity: 1;
+  }
+
+  /* 접힌 상태에 보이는 손잡이(아이콘). 펼치면 사라진다. */
+  #frames-info .info-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 56px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 18px;
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  #frames-info:hover .info-handle {
+    opacity: 0;
   }
 
   #frames-info-header {

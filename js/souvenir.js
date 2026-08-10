@@ -144,21 +144,27 @@
       </div>
     `).join('');
 
-    // 첫 번째 아이템 자동 선택
-    if (!currentSouvenir || !data.includes(currentSouvenir)) {
-      if (data.length > 0) selectSouvenirItem(data[0]);
-    } else {
-      // 현재 선택 유지하면서 active 표시만 갱신
-      document.querySelectorAll('.souvenir-strip-item').forEach(el => {
-        el.classList.toggle('active', allSouvenirData[el.dataset.idx] === currentSouvenir);
-      });
-    }
+    // 처음 들어왔을 때는 아무것도 고르지 않은 상태로 둔다. 고른 것이 있으면 표시만 갱신하고,
+    // 시즌을 바꿔서 고른 것이 목록에서 사라졌으면 선택을 푼다.
+    if (currentSouvenir && !data.includes(currentSouvenir)) clearSouvenirSelection();
+    document.querySelectorAll('.souvenir-strip-item').forEach(el => {
+      el.classList.toggle('active', allSouvenirData[el.dataset.idx] === currentSouvenir);
+    });
+    document.getElementById('souvenir-detail').classList.toggle('hidden', !currentSouvenir);
+  }
+
+  function clearSouvenirSelection() {
+    currentSouvenir = null;
+    document.querySelectorAll('.souvenir-strip-item').forEach(el => el.classList.remove('active'));
+    const detail = document.getElementById('souvenir-detail');
+    if (detail) detail.classList.add('hidden');
   }
 
   const revealedSouvenirs = new Set();
 
   function selectSouvenirItem(item) {
     currentSouvenir = item;
+    document.getElementById('souvenir-detail').classList.remove('hidden');
 
     document.querySelectorAll('.souvenir-strip-item').forEach(el => {
       el.classList.toggle('active', allSouvenirData[el.dataset.idx] === item);
