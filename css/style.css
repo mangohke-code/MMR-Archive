@@ -3622,7 +3622,7 @@
   }
 
   #stage-chapter-title {
-    font-size: 18px;
+    font-size: 26px;
     font-weight: 500;
     color: var(--text-heading);
     flex: 1;
@@ -3634,8 +3634,8 @@
   }
 
   .mode-btn {
-    font-size: 13px;
-    padding: 6px 16px;
+    font-size: 16px;
+    padding: 8px 20px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-subtle);
     background: transparent;
@@ -3655,8 +3655,8 @@
   }
 
   #stage-blur-toggle {
-    font-size: 13px;
-    padding: 6px 14px;
+    font-size: 16px;
+    padding: 8px 18px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-subtle);
     background: transparent;
@@ -3677,13 +3677,13 @@
   #stage-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 17px;
     table-layout: fixed;
   }
 
   #stage-table th {
     text-align: left;
-    padding: 8px 12px;
+    padding: 11px 14px;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-muted);
     font-weight: 500;
@@ -3693,7 +3693,7 @@
   }
 
   #stage-table td {
-    padding: 8px 12px;
+    padding: 11px 14px;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-body);
     overflow: hidden;
@@ -3711,8 +3711,8 @@
   #stage-table th:nth-child(7), #stage-table td:nth-child(7) { width: auto; }   /* 특이사항 */
 
   .stage-code-icon {
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
     object-fit: contain;
     vertical-align: middle;
   }
@@ -3754,7 +3754,7 @@
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
-    font-size: 13px;
+    font-size: 15px;
     padding: 6px 16px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-strong);
