@@ -3519,6 +3519,28 @@
     z-index: 1;
   }
 
+  /* 아직 스테이지 정보가 없는 챕터 칸 — 자물쇠를 덧씌우고 눌러도 반응하지 않는다 */
+  .chapter-nav-item.side.is-locked {
+    cursor: default;
+  }
+
+  .chapter-nav-item.side.is-locked:hover {
+    opacity: 0.5;
+  }
+
+  .chapter-lock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    font-size: 48px;
+    z-index: 3;
+    pointer-events: none;
+  }
+
   .chapter-nav-item.side:hover {
     opacity: 0.75;
     box-shadow: 0 2px 12px rgba(80, 80, 200, 0.2);

@@ -93,7 +93,9 @@
   }
 
   function renderChapterNav(direction = null) {
-    const chapters = getChapterList();
+    // 옆칸에는 아직 스테이지가 없는 챕터도 보여준다(자물쇠 표시). 그래서 스테이지 기준이
+    // 아니라 카드 그리드와 같은 전체 목록을 쓴다.
+    const chapters = getDisplayChapterList();
     const idx = chapters.findIndex(ch => String(ch) === String(currentChapter));
 
     const prevCh = idx > 0 ? chapters[idx - 1] : null;
@@ -105,9 +107,11 @@
       const chapImg = allChapImgData.find(c => String(c['챕터']) === String(ch));
       const imgUrl = chapImg ? chapImg['이미지'] : '';
       const chapName = chapImg ? chapImg['명칭'] : '';
+      const locked = !hasStageData(ch);
       return `
         ${imgUrl ? `<img src="${imgUrl}" alt="챕터 ${ch}">` : ''}
         <div class="chapter-label">CHAPTER.${ch}<br>${chapName}</div>
+        ${locked ? `<div class="chapter-lock"><i class="fas fa-lock"></i></div>` : ''}
       `;
     };
 
@@ -135,14 +139,20 @@
 
     prevEl.style.visibility = prevCh !== null ? 'visible' : 'hidden';
     nextEl.style.visibility = 'visible';
+
+    // 잠긴 챕터 칸은 눌러도 반응하지 않는다 (커서/호버도 같이 죽인다)
+    prevEl.classList.toggle('is-locked', prevCh !== null && !hasStageData(prevCh));
+    nextEl.classList.toggle('is-locked', isLast || (nextCh !== null && !hasStageData(nextCh)));
   }
 
   function navigateChapter(direction) {
-    const chapters = getChapterList();
+    const chapters = getDisplayChapterList();
     const idx = chapters.findIndex(ch => String(ch) === String(currentChapter));
     const newIdx = idx + direction;
     if (newIdx < 0 || newIdx >= chapters.length) return;
-    selectChapter(chapters[newIdx], direction);
+    const target = chapters[newIdx];
+    if (!hasStageData(target)) return;   // 스테이지가 없는 챕터로는 넘어가지 않는다
+    selectChapter(target, direction);
   }
 
   function renderStageTable() {
