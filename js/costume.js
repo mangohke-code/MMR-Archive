@@ -114,9 +114,8 @@
                   ${costumeImgUrl ? `<img src="${costumeImgUrl}" alt="${c['니케']}">` : c['니케']}
                 </div>
                 <div class="costume-portrait-name">${c['니케']}</div>
-                ${c._isRerun ? `<div class="costume-rerun-badge">복각</div>` : ''}
-                ${isActive && !c._isRerun ? `<div class="costume-active-badge">픽업 중</div>` : ''}
-                ${isActive &&  c._isRerun ? `<div class="costume-active-badge">복각 중</div>` : ''}
+                ${c._isRerun && !isActive ? `<div class="costume-rerun-badge">복각</div>` : ''}
+                ${isActive ? `<div class="costume-active-badge">${c._isRerun ? '복각 중' : '픽업 중'}</div>` : ''}
                 ${formatRemainingDays(startDate, endDate, 'is-on-portrait')}
               </div>
               `;
