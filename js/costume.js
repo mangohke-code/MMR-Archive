@@ -117,6 +117,7 @@
                 ${c._isRerun ? `<div class="costume-rerun-badge">복각</div>` : ''}
                 ${isActive && !c._isRerun ? `<div class="costume-active-badge">픽업 중</div>` : ''}
                 ${isActive &&  c._isRerun ? `<div class="costume-active-badge">복각 중</div>` : ''}
+                ${formatRemainingDays(startDate, endDate, 'is-on-portrait')}
               </div>
               `;
             }).join('')}
@@ -519,15 +520,16 @@
   // 남은 일수를 D-n 배지로 표시. 진행중이면 종료까지, 아직 시작 전이면 시작까지 —
   // 세는 기준이 다르므로 메인 페이지와 같이 문구와 색을 구분한다. 이미 끝났으면 표시 안 함.
   // (코스튬 기간은 시:분까지 들어있으므로 픽업과 달리 자정으로 밀지 않고 그대로 계산한다)
-  function formatRemainingDays(start, end) {
+  function formatRemainingDays(start, end, variantClass = '') {
     if (!start || !end) return '';
     const now = new Date();
     const s = new Date(start);
     const e = new Date(end);
+    const cls = extra => ['costume-remaining-badge', variantClass, extra].filter(Boolean).join(' ');
     const days = target => Math.max(Math.ceil((target - now) / (1000 * 60 * 60 * 24)), 0);
-    if (now < s) return `<span class="costume-remaining-badge is-upcoming">시작까지 D-${days(s)}</span>`;
+    if (now < s) return `<span class="${cls('is-upcoming')}">시작까지 D-${days(s)}</span>`;
     if (now > e) return '';
-    return `<span class="costume-remaining-badge">종료까지 D-${days(e)}</span>`;
+    return `<span class="${cls()}">종료까지 D-${days(e)}</span>`;
   }
 
   // 최초 픽업 시작일 기준 며칠 만에 복각했는지 표시
