@@ -163,6 +163,8 @@
   const revealedSouvenirs = new Set();
 
   function selectSouvenirItem(item) {
+    // 이미 펼쳐진 항목을 다시 누르면 접는다
+    if (currentSouvenir === item) { clearSouvenirSelection(); return; }
     currentSouvenir = item;
     document.getElementById('souvenir-detail').classList.remove('hidden');
 

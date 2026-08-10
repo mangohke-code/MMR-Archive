@@ -3030,12 +3030,36 @@
     width: 420px;
   }
 
-  /* 접힌 상태에서 내용이 56px 폭으로 줄어들면서 줄바꿈이 꾸겨지는 것 방지 —
-     펼쳐졌을 때 폭(420px - 좌우 padding)으로 고정해두고 접힌 상태에서는 overflow:hidden으로
-     잘라서 보여주기만 함(레이아웃 자체는 안 줄어들게) */
-  #unreleased-detail-info > * {
+  #unreleased-detail-info > *:not(.info-handle) {
     flex-shrink: 0;
     width: 388px;
+    /* 접혀 있을 때는 내용을 감춘다. 예전엔 56px 로 잘라서 글자 왼쪽 끝만 삐죽 보였다. */
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  #unreleased-detail-info:hover > *:not(.info-handle) {
+    opacity: 1;
+  }
+
+  #unreleased-detail-info .info-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 56px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 18px;
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  #unreleased-detail-info:hover .info-handle {
+    opacity: 0;
   }
 
   #unreleased-detail-name {
@@ -3915,7 +3939,8 @@
     width: 172px;
     flex-wrap: nowrap;
     flex-direction: column;
-    max-height: 640px;
+    /* 카드 한 장이 200px 이라 높이를 넉넉히 줘야 여러 보스가 한눈에 들어온다 */
+    max-height: min(80vh, 900px);
     overflow-y: auto;
     padding: 0 4px 0 0;
   }
@@ -3923,6 +3948,58 @@
   #frames-layout.is-detail-open #frames-top {
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  /* 세로 열에서는 카드를 가로형으로 압축한다. 원래 크기(150x200)로는 39개 중 3개밖에
+     안 보여서 목록을 훑기가 어렵다. 접힌(가로) 배치에서는 원래 크기 그대로다. */
+  #frames-layout.is-detail-open .frames-item {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+  }
+
+  #frames-layout.is-detail-open .frames-item-img {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+  }
+
+  #frames-layout.is-detail-open .frames-item-weak {
+    right: 1px;
+    bottom: 1px;
+    width: 17px;
+    height: 20px;
+  }
+
+  #frames-layout.is-detail-open .frames-item-season {
+    font-size: 11px;
+  }
+
+  #frames-layout.is-detail-open .frames-item-boss {
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  /* 시즌/보스 이름 묶음. 가로형에서는 썸네일 오른쪽에 세로로 쌓이고 왼쪽 정렬이 된다 */
+  .frames-item-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  #frames-layout.is-detail-open .frames-item-text {
+    align-items: flex-start;
+    text-align: left;
+    gap: 2px;
+  }
+
+  #frames-layout.is-detail-open .frames-item-boss {
+    text-align: left;
   }
 
   .frames-item {

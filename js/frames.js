@@ -47,16 +47,30 @@
             ${imgUrl ? `<img src="${imgUrl}" alt="${item['보스']}">` : item['보스']}
             ${weaknessIconHtml(item)}
           </div>
-          <div class="frames-item-season">시즌 ${item['시즌']}</div>
-          <div class="frames-item-boss">${item['보스']}</div>
+          <div class="frames-item-text">
+            <div class="frames-item-season">시즌 ${item['시즌']}</div>
+            <div class="frames-item-boss">${item['보스']}</div>
+          </div>
         </div>
       `;
     }).join('');
 
-    if (sorted.length > 0) selectFrame(sorted[0]);
+    // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
+    collapseFrame();
+  }
+
+  // 상세를 접고 목록을 원래(가로) 배치로 되돌린다
+  function collapseFrame() {
+    currentFrame = null;
+    clearFramesSpine();
+    document.getElementById('frames-top').classList.add('hidden');
+    document.getElementById('frames-layout').classList.remove('is-detail-open');
+    document.querySelectorAll('.frames-item').forEach(el => el.classList.remove('active'));
   }
 
   function selectFrame(item) {
+    // 이미 펼쳐진 보스를 다시 누르면 접는다
+    if (currentFrame === item) { collapseFrame(); return; }
     currentFrame = item;
 
     document.getElementById('frames-top').classList.remove('hidden');
