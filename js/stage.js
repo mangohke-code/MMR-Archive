@@ -202,12 +202,22 @@
     const existing = document.getElementById('stage-spoiler-overlay');
     if (existing) existing.remove();
 
-    if (isRevealed) {
-      document.querySelectorAll('.blurable-cell').forEach(el => el.classList.remove('spoiler-blur'));
-      return;
-    }
+    // 글자를 흐리게만 하면 글자 길이가 그대로 드러난다. 보스가 있는 줄만 덩어리가 길쭉해서
+    // "여기가 보스 스테이지구나"가 다 보이고, 비어 있는 줄("-")은 점 하나로 보인다.
+    // 그래서 흐림 대신, 값이 있든 없든 모든 줄을 똑같은 크기의 가림막으로 바꾼다.
+    document.querySelectorAll('.blurable-cell').forEach(el => {
+      // 가리고 나면 칸에서 원래 값을 읽을 수 없으므로 처음 한 번만 따로 보관한다
+      if (el.dataset.real === undefined) el.dataset.real = el.textContent;
+      if (isRevealed) {
+        el.textContent = el.dataset.real;
+        el.classList.remove('spoiler-blur');
+      } else {
+        el.innerHTML = '<span class="spoiler-mask"></span>';
+        el.classList.add('spoiler-blur');
+      }
+    });
 
-    document.querySelectorAll('.blurable-cell').forEach(el => el.classList.add('spoiler-blur'));
+    if (isRevealed) return;
 
     // 보스 열(3번째 th) 위치 기준으로 버튼 배치
     const bossHeader = document.querySelector('#stage-table th:nth-child(3)');

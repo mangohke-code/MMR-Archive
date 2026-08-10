@@ -3733,9 +3733,19 @@
   }
 
   .spoiler-blur {
-    filter: blur(5px);
     user-select: none;
-    transition: filter 0.3s;
+  }
+
+  /* 가려진 칸을 채우는 막대. 값이 있든 없든 모두 같은 크기라서 어느 줄에 보스가 있는지
+     길이로 짐작할 수 없다. */
+  .spoiler-mask {
+    display: inline-block;
+    width: 84px;
+    height: 0.95em;
+    vertical-align: middle;
+    border-radius: var(--radius-sm);
+    background: var(--border-strong);
+    opacity: 0.35;
   }
 
   .spoiler-reveal-btn {
