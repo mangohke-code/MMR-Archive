@@ -3347,11 +3347,14 @@
     justify-content: center;
   }
 
-  .blurred-desc {
+  /* 기념품 설명 가리기. 스테이지 표는 칸마다 가림막을 넣지만(글자 길이로 보스 유무가
+     드러나서), 여기는 줄글이라 흐림으로 충분하다 — 스포일러 항목이라는 사실 자체는
+     해제 버튼으로 이미 드러나므로 길이가 보여도 새어나갈 정보가 없다. */
+  #souvenir-detail-desc.spoiler-blur {
     filter: blur(5px);
-    user-select: none;
     cursor: pointer;
-    transition: filter 0.3s;
+    /* transition 을 걸면 안 된다 - 항목을 고른 직후 흐림이 0에서 서서히 올라가느라
+       그 사이 글자가 그대로 읽힌다. 가리는 건 즉시여야 한다. */
   }
 
   #souvenir-spoiler-btn {
