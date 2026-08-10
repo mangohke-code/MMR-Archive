@@ -20,6 +20,18 @@
     renderFramesSelector(data);
   }
 
+  // 보스의 약점 속성 아이콘. 니케 쪽에서 쓰는 우월코드 아이콘을 그대로 재사용한다
+  // (약점 속성이 곧 그 보스에 대한 우월코드라 같은 그림이면 된다).
+  function weaknessIconHtml(item) {
+    const code = item['약점 속성'];
+    if (!code) return '';
+    const url = (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[code];
+    const inner = url
+      ? `<img src="${url}" alt="${code}">`
+      : `<span class="frames-item-weak-text">${code}</span>`;
+    return `<div class="frames-item-weak code-${code}" data-tooltip="약점 ${code}">${inner}</div>`;
+  }
+
   function renderFramesSelector(data) {
     const container = document.getElementById('frames-selector');
 
@@ -33,6 +45,7 @@
         <div class="frames-item" data-idx="${idx}" onclick="selectFrame(allFramesData[${idx}])">
           <div class="frames-item-img">
             ${imgUrl ? `<img src="${imgUrl}" alt="${item['보스']}">` : item['보스']}
+            ${weaknessIconHtml(item)}
           </div>
           <div class="frames-item-season">시즌 ${item['시즌']}</div>
           <div class="frames-item-boss">${item['보스']}</div>
@@ -54,12 +67,13 @@
     document.getElementById('frames-boss-name').textContent = item['보스'] || '';
     document.getElementById('frames-season-label').textContent = `시즌 ${item['시즌']}`;
     document.getElementById('frames-date').textContent = formatFramesDate(item['시작일'], item['종료일']);
-    document.getElementById('frames-attr').textContent = item['속성'] || '-';
-
-    // 테두리1~3 설명 중 실제로 채워진 것 하나를 공통 레이드 설명으로 사용
-    // (테두리마다 다른 설명이 아니라, 레이드 하나에 대한 공통 설명이라 한 번만 보여준다)
-    const rawDesc = item['테두리1 설명'] || item['테두리2 설명'] || item['테두리3 설명'] || '';
-    document.getElementById('frames-desc').textContent = rawDesc;
+    // 약점 속성: 아이콘이 있으면 아이콘과 이름을 같이 보여준다
+    const attrEl = document.getElementById('frames-attr');
+    const code = item['약점 속성'];
+    const iconUrl = code ? (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[code] : null;
+    attrEl.innerHTML = code
+      ? `${iconUrl ? `<img src="${iconUrl}" alt="${code}" class="frames-attr-icon">` : ''}<span>${code}</span>`
+      : '-';
 
     renderFrameTiers(item);
     loadFramesSpine(item);

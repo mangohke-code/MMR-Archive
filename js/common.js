@@ -469,7 +469,9 @@ function buildFramesData(rows) {
     '시작일': r['시작일'],
     '종료일': r['종료일'],
     '보스': r['보스'],
-    '속성': r['속성'],
+    // 표에 "속성"으로 적어온 값은 사실 그 보스의 약점 속성이다. 열 이름을 약점_속성 으로
+    // 바꾸는 중이라 새 이름을 먼저 보고 없으면 옛 이름을 쓴다.
+    '약점 속성': r['약점_속성'] ?? r['속성'],
     '보스 이미지': r['보스_이미지'],
     'atlas': r['atlas'],
     'skel': r['skel'],
@@ -578,15 +580,19 @@ async function loadAllData() {
   APP_DATA.iconImg = buildIconImgData(iconRows);
   APP_DATA.chapImg = buildChapImgData(chapRows);
 
-  // 역대 테두리는 별도 테이블이라 다른 테이블들과 묶어서 Promise.all로 처리하지 않는다 —
+  // 솔로 레이드는 별도 테이블이라 다른 테이블들과 묶어서 Promise.all로 처리하지 않는다 —
   // 이 테이블에 문제(권한/데이터 없음 등)가 생겨도 나머지 탭이 전부 먹통이 되면 안 되므로,
   // 실패해도 여기서만 조용히 빈 배열로 처리하고 넘어간다.
-  try {
-    const framesRows = await fetchAll('역대_테두리', '시즌');
-    APP_DATA.frames = buildFramesData(framesRows);
-  } catch (err) {
-    console.error('[역대 테두리] 데이터 로드 실패:', err);
-    APP_DATA.frames = [];
+  // 표 이름을 역대_테두리 → 솔로_레이드 로 바꾸는 중이라 둘 다 시도한다. 이름 변경 SQL 을
+  // 언제 실행하든 화면이 깨지지 않게 하려는 것이고, 변경이 끝나면 옛 이름은 지워도 된다.
+  APP_DATA.frames = [];
+  for (const table of ['솔로_레이드', '역대_테두리']) {
+    try {
+      APP_DATA.frames = buildFramesData(await fetchAll(table, '시즌'));
+      break;
+    } catch (err) {
+      console.warn(`[솔로 레이드] ${table} 읽기 실패:`, err.message || err);
+    }
   }
 
   APP_DATA.ready = true;

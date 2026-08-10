@@ -59,6 +59,7 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     document.getElementById('stage-chapter-title').textContent = `챕터 ${chapter}`;
+    applyModeTheme();
     renderChapterNav(direction);
     renderStageTable();
   }
@@ -153,6 +154,12 @@
     const target = chapters[newIdx];
     if (!hasStageData(target)) return;   // 스테이지가 없는 챕터로는 넘어가지 않는다
     selectChapter(target, direction);
+  }
+
+  // 노말은 푸른 계열, 하드는 검붉은 계열. 상세 화면 전체에 표시를 걸어두고 색은 CSS 가 잡는다.
+  function applyModeTheme() {
+    const detail = document.getElementById('stage-detail');
+    if (detail) detail.dataset.mode = currentMode;
   }
 
   function renderStageTable() {
@@ -276,6 +283,7 @@
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = btn.dataset.mode;
+        applyModeTheme();
         renderStageTable();
       });
     });

@@ -54,6 +54,14 @@
     --status-warn-text: #b8790f;
     --status-warn-border: #f0d29b;
 
+    /* 스테이지 난이도 (노말: 푸른 계열 / 하드: 검붉은 계열) */
+    --stage-normal-bg: #e8f1fd;
+    --stage-normal-text: #1c5fa8;
+    --stage-normal-border: #a9c9ee;
+    --stage-hard-bg: #fbe9e9;
+    --stage-hard-text: #9e2b2b;
+    --stage-hard-border: #e0a6a6;
+
     /* 속성 코드 칩 (라이트: 옅은 파스텔) */
     --code-scorch-bg: #fdeeea;
     --code-scorch-border: #f0b39a;
@@ -130,6 +138,14 @@
     --status-warn-bg: #2e2210;
     --status-warn-text: #ffcc66;
     --status-warn-border: #7a5a20;
+
+    /* 스테이지 난이도 (다크) */
+    --stage-normal-bg: #0d1c2e;
+    --stage-normal-text: #6fb3f5;
+    --stage-normal-border: #2a4d75;
+    --stage-hard-bg: #250d0d;
+    --stage-hard-text: #f07070;
+    --stage-hard-border: #6e2626;
 
     --code-scorch-bg: #1e0a06;
     --code-scorch-border: #5a2010;
@@ -3647,10 +3663,34 @@
     transition: all 0.2s;
   }
 
+  /* 노말은 푸른 계열, 하드는 검붉은 계열로 난이도를 색으로 구분한다.
+     선택된 버튼과 표 머리글에만 색을 얹어 정보 자체를 읽는 데는 방해되지 않게 한다. */
   .mode-btn.active {
     background: var(--bg-panel-alt);
     color: var(--text-heading);
     border-color: var(--border-strong);
+  }
+
+  #stage-detail[data-mode="normal"] .mode-btn.active {
+    background: var(--stage-normal-bg);
+    color: var(--stage-normal-text);
+    border-color: var(--stage-normal-border);
+  }
+
+  #stage-detail[data-mode="hard"] .mode-btn.active {
+    background: var(--stage-hard-bg);
+    color: var(--stage-hard-text);
+    border-color: var(--stage-hard-border);
+  }
+
+  #stage-detail[data-mode="normal"] #stage-table th {
+    color: var(--stage-normal-text);
+    border-bottom-color: var(--stage-normal-border);
+  }
+
+  #stage-detail[data-mode="hard"] #stage-table th {
+    color: var(--stage-hard-text);
+    border-bottom-color: var(--stage-hard-border);
   }
 
   #stage-blur-btn-wrap {
@@ -3821,12 +3861,12 @@
   }
 
   .frames-item {
-    width: 96px;
+    width: 150px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px 6px;
+    gap: 6px;
+    padding: 12px 10px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border: 1px solid transparent;
@@ -3844,17 +3884,60 @@
   }
 
   .frames-item-img {
-    width: 72px;
-    height: 72px;
+    position: relative;   /* 약점 아이콘을 모서리에 얹기 위해 */
+    width: 128px;
+    height: 128px;
     border-radius: var(--radius-md);
     background: var(--bg-inset);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-faint);
     text-align: center;
+  }
+
+  /* 보스 썸네일 우측 하단에 약점 속성 아이콘 */
+  .frames-item-weak {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .frames-item-weak img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .frames-item-weak-text {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  /* 우측 설명창의 약점 속성 표시 */
+  #frames-attr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .frames-attr-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
   }
 
   .frames-item-img img {
@@ -4006,13 +4089,6 @@
   #frames-attr {
     font-size: 18px;
     color: var(--text-secondary);
-  }
-
-  #frames-desc {
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--text-secondary);
-    white-space: pre-line;
   }
 
   #frames-tiers {
