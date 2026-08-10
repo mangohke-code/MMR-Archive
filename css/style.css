@@ -2303,6 +2303,7 @@
     padding-bottom: 8px;
   }
 
+  /* 기본형은 진행 중인 코스튬의 "종료까지" */
   .costume-remaining-badge {
     display: inline-flex;
     align-items: center;
@@ -2316,6 +2317,13 @@
     color: var(--status-new-text);
     border: 1px solid var(--status-new-border);
     vertical-align: middle;
+  }
+
+  /* "시작까지"는 세는 기준이 달라 색을 구분한다 (메인 페이지 카드와 같은 주황 계열) */
+  .costume-remaining-badge.is-upcoming {
+    background: var(--status-warn-bg);
+    color: var(--status-warn-text);
+    border-color: var(--status-warn-border);
   }
 
   .costume-portrait-list {
