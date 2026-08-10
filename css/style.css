@@ -2303,13 +2303,13 @@
     padding-bottom: 8px;
   }
 
-  /* 기본형은 진행 중인 코스튬의 "종료까지" */
+  /* 기본형은 진행 중인 코스튬의 "종료까지" — 옆에 붙는 기간 문구가 24px라 그에 맞춘 크기 */
   .costume-remaining-badge {
     display: inline-flex;
     align-items: center;
     margin-left: 8px;
-    padding: 2px 7px;
-    font-size: 13px;
+    padding: 2px 9px;
+    font-size: 18px;
     font-weight: 500;
     letter-spacing: 0.04em;
     border-radius: var(--radius-sm);
@@ -2362,10 +2362,11 @@
     white-space: nowrap;
   }
 
+  /* "(21일간)", "(최초 픽업 후 N일 만에 복각)" — 24px 기간 문구에 딸린 부연이라 그보다만 작게 */
   .costume-date-days {
     display: inline-block;
     margin-left: 8px;
-    font-size: 13px;
+    font-size: 18px;
     color: var(--text-secondary);
     letter-spacing: 0.04em;
   }

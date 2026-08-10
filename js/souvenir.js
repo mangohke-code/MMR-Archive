@@ -43,6 +43,57 @@
     return idx === -1 ? SOUVENIR_SEASON_ORDER.length : idx;
   }
 
+  // ===== 이벤트 시점 =====
+  // 기념품 목록은 시즌 안에서 이벤트 그룹을 시간순으로 늘어놓는다. 표에 적는 순서를 사람이
+  // 매번 맞춰줄 필요가 없도록, 이벤트마다 "시점"을 다른 표에서 끌어와 그 값 하나로만 정렬한다.
+  let souvenirEventTimes = null;
+
+  function buildSouvenirEventTimes() {
+    const times = {};
+    const put = (name, value) => {
+      if (!name || !value) return;
+      const t = new Date(value).getTime();
+      if (!Number.isNaN(t) && (times[name] === undefined || t < times[name])) times[name] = t;
+    };
+    // 1) 픽업 기록 / 메인 이벤트 표에 같은 이름의 이벤트가 있으면 그 시작일을 그대로 쓴다
+    (APP_DATA.pickup || []).forEach(p => put(p['이벤트'], p['시작일']));
+    ((APP_DATA.main || {}).events || []).forEach(e => put(e['이벤트명'], e['시작일']));
+
+    // 2) 기념일 케이크("1주년", "1000일" …)는 어느 표에도 날짜가 없다. 서비스 시작일에서
+    //    경과일을 더해 같은 시간축에 올린다 — 주년과 일수가 섞여 있어도(1000일은 2.5주년과
+    //    3주년 사이다) 제자리를 찾고, 새 케이크가 늘어도 손댈 필요가 없다.
+    const starts = (APP_DATA.pickup || [])
+      .map(p => new Date(p['시작일']).getTime())
+      .filter(t => !Number.isNaN(t));
+    if (starts.length > 0) {
+      const serviceStart = Math.min(...starts);
+      const DAY = 24 * 60 * 60 * 1000;
+      new Set(allSouvenirData.map(d => d['이벤트']).filter(Boolean)).forEach(name => {
+        if (times[name] !== undefined) return;
+        const 주년 = String(name).match(/^(\d+(?:\.\d+)?)\s*주년$/);
+        if (주년) { times[name] = serviceStart + Number(주년[1]) * 365.25 * DAY; return; }
+        const 일 = String(name).match(/^(\d+)\s*일$/);
+        if (일) times[name] = serviceStart + Number(일[1]) * DAY;
+      });
+    }
+    return times;
+  }
+
+  // 시점을 못 구한 이벤트(어느 표에도 없고 이름으로도 알 수 없는 것)는 맨 뒤로 보낸다.
+  function souvenirEventTime(event) {
+    if (!souvenirEventTimes) souvenirEventTimes = buildSouvenirEventTimes();
+    const t = souvenirEventTimes[event];
+    return t === undefined ? Infinity : t;
+  }
+
+  function compareSouvenirEvents([a], [b]) {
+    const ta = souvenirEventTime(a), tb = souvenirEventTime(b);
+    if (ta === tb) return 0;
+    if (ta === Infinity) return 1;
+    if (tb === Infinity) return -1;
+    return ta - tb;
+  }
+
   function renderSouvenirStrip() {
     const data = souvenirActiveSeason === '__all__'
       ? allSouvenirData
@@ -65,6 +116,7 @@
       if (!bySeason[season]) bySeason[season] = [];
       bySeason[season].push([event, items]);
     });
+    Object.values(bySeason).forEach(groups => groups.sort(compareSouvenirEvents));
 
     const sortedSeasons = Object.keys(bySeason).sort((a, b) => souvenirSeasonRank(a) - souvenirSeasonRank(b));
 
