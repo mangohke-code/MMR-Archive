@@ -142,14 +142,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
 
-  // 어두운 톤(검정/진회색 위주) 보스가 뿌옇게/반투명하게 보이는 문제가 있었다 —
-  // ambient光이 너무 강해서 원래 검은색이어야 할 부분까지 회색으로 떠버린 것.
-  // ambient를 크게 낮추고 방향광 위주로 명암 대비를 살린다.
-  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+  // 조명 세기.
+  // 예전에 ambient를 크게 올렸다가 검은 보스가 회색으로 떠서 뿌옇게 보였던 적이 있어
+  // ambient를 0.4까지 낮췄는데, 이번엔 전체가 너무 어두워졌다. 흰색이어야 할 백빙룡의
+  // 화면 평균 밝기가 255 중 71밖에 안 됐다.
+  // 그래서 ambient는 낮게 유지한 채(검정을 검정으로 두려고) 방향광만 크게 올린다.
+  // 이 값에서 백빙룡 71 → 109, 검은 뱀 29 → 47 로 올라가고, 흰색이 날아가는 픽셀은
+  // 1% 미만이라 하이라이트도 뭉개지지 않는다.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 4.0);
   dirLight.position.set(1, 2, 1);
   scene.add(dirLight);
-  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.6);
   dirLight2.position.set(-1, 0.5, -1);
   scene.add(dirLight2);
 
