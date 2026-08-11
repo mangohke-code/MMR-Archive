@@ -1171,7 +1171,8 @@
     color: var(--accent);
   }
 
-  #pickup-calendar-all {
+  #pickup-calendar-all,
+  #pickup-calendar-strict {
     margin-left: 8px;
     padding: 6px 14px;
     border-radius: var(--radius-md);
@@ -1183,12 +1184,14 @@
     transition: all 0.15s;
   }
 
-  #pickup-calendar-all:hover {
+  #pickup-calendar-all:hover,
+  #pickup-calendar-strict:hover {
     border-color: var(--border-accent);
     color: var(--accent);
   }
 
-  #pickup-calendar-all.active {
+  #pickup-calendar-all.active,
+  #pickup-calendar-strict.active {
     background: var(--bg-panel-active);
     border-color: var(--border-accent);
     color: var(--accent);
@@ -1283,6 +1286,18 @@
     bottom: 0;
     width: 1px;
     background: var(--border-subtle);
+  }
+
+  /* 하루 간격 세로 구분선. 요소를 1,400개 만드는 대신 하루 폭으로 반복되는 배경 한 장으로
+     깐다(반복 간격은 JS 가 background-size 로 넣어 준다). 날짜를 눈으로 따라가는 용도라
+     아주 희미하게만 보이면 된다. */
+  .tl-daylines {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(to right, var(--border-subtle) 0, var(--border-subtle) 1px, transparent 1px);
+    background-repeat: repeat;
+    opacity: 0.55;
+    pointer-events: none;
   }
 
   /* 한 달 걸러 한 번씩 아주 옅은 배경 띠. 선을 더 긋지 않고도 달 경계가 눈에 들어온다 */

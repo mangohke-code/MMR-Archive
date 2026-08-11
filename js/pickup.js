@@ -811,6 +811,9 @@
 
   // 전체보기: 모든 달을 세로로 이어서 보여준다(달력 영역 안에서만 스크롤)
   let calendarAllMonths = false;
+  // 전체보기 안에서 줄 배치 방식. false 면 줄을 아껴 쓰고(기본), true 면 "먼저 시작한 게
+  // 항상 위" 규칙을 예외 없이 지키는 대신 줄 수가 늘어난다.
+  let calendarStrictLanes = false;
 
   function initPickupCalendarNav() {
     document.getElementById('pickup-calendar-prev').addEventListener('click', () => changeCalendarMonth(-1));
@@ -829,12 +832,23 @@
       if (calendarAllMonths) scrollCalendarToMonth(calendarMonth);
     });
 
+    // 줄 배치 방식 전환. 보고 있던 위치는 그대로 두고 다시 그리기만 한다.
+    document.getElementById('pickup-calendar-strict').addEventListener('click', () => {
+      const grid = document.getElementById('pickup-calendar-grid');
+      const keep = grid.scrollLeft;
+      calendarStrictLanes = !calendarStrictLanes;
+      renderPickupCalendar();
+      grid.scrollLeft = keep;
+    });
+
     document.getElementById('pickup-calendar-view').addEventListener('wheel', e => {
       if (currentView !== 'calendar') return;
-      // 전체보기(가로 타임라인)에서는 세로 휠을 가로 스크롤로 바꿔 준다
+      // 전체보기(가로 타임라인)에서는 세로 휠을 가로 스크롤로 바꿔 준다.
+      // 단 줄이 많아 세로로도 넘칠 때는(순서 그대로 배치) 세로 스크롤을 그대로 살려 둔다.
       if (calendarAllMonths) {
         const grid = document.getElementById('pickup-calendar-grid');
         if (!e.deltaY) return;
+        if (grid.scrollHeight > grid.clientHeight + 1) return;
         e.preventDefault();
         grid.scrollLeft += e.deltaY;
         return;
@@ -1277,8 +1291,13 @@
     const dayIndex = d => Math.round((stripTime(d) - start) / 86400000);
     const totalDays = dayIndex(end) + 1;
 
-    // 줄 배치는 전체 기간에 대해 한 번만. 겹치지 않는 픽업은 같은 줄을 다시 쓴다.
-    const { laneByPid, laneCount } = assignTimelineLanes(data, start, end);
+    // 줄 배치는 전체 기간에 대해 한 번만.
+    //  - 기본: 겹치지 않는 픽업은 같은 줄을 다시 써서 줄 수를 아낀다.
+    //  - 순서 그대로: 겹치는 픽업은 예외 없이 아래로 내린다. 줄이 늘어나는 대신
+    //    "먼저 시작한 게 위" 규칙이 100% 지켜진다.
+    const { laneByPid, laneCount } = calendarStrictLanes
+      ? assignCalendarLanes(data, start, end)
+      : assignTimelineLanes(data, start, end);
 
     // 달 머리글 + 달 경계선. 홀수/짝수 달에 아주 옅은 배경 띠를 번갈아 깔아서
     // 선을 더 긋지 않고도 달 경계가 보이게 한다.
@@ -1336,14 +1355,20 @@
         </div>`;
     }).join('');
 
+    // 하루 간격 세로 구분선. 날짜 수만큼 요소를 만들면(1,400개+) 무거워서, 하루 폭으로
+    // 반복되는 배경 한 장으로 깐다.
+    const dayLines = `<div class="tl-daylines" style="background-size:${CAL_DAY_W}px 100%"></div>`;
+
     return `
       <div class="calendar-timeline" style="width:${totalDays * CAL_DAY_W}px">
         <div class="tl-head">
+          ${dayLines}
           ${months.map(m => `<div class="tl-month" data-month="${m.key}" style="left:${m.left}px; width:${m.width}px">${m.label}</div>`).join('')}
           ${ticks.join('')}
         </div>
         <div class="tl-body" style="height:${Math.max(laneCount, 1) * CAL_LANE_H}px">
           ${months.filter(m => m.odd).map(m => `<div class="tl-month-band" style="left:${m.left}px; width:${m.width}px"></div>`).join('')}
+          ${dayLines}
           ${months.map(m => `<div class="tl-month-line" style="left:${m.left}px"></div>`).join('')}
           ${todayLine}
           ${bars}
@@ -1359,6 +1384,10 @@
 
     view.classList.toggle('is-all-months', calendarAllMonths);
     document.getElementById('pickup-calendar-all').classList.toggle('active', calendarAllMonths);
+    // 줄 배치 전환 버튼은 전체보기에서만 의미가 있다
+    const strictBtn = document.getElementById('pickup-calendar-strict');
+    strictBtn.classList.toggle('hidden', !calendarAllMonths);
+    strictBtn.classList.toggle('active', calendarStrictLanes);
     // 전체보기에서는 좌우가 아니라 위아래로 움직이므로 화살표도 바꿔 준다
     const prevBtn = document.getElementById('pickup-calendar-prev');
     const nextBtn = document.getElementById('pickup-calendar-next');
