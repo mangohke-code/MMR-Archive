@@ -814,6 +814,9 @@
   // 전체보기 안에서 줄 배치 방식. false 면 줄을 아껴 쓰고(기본), true 면 "먼저 시작한 게
   // 항상 위" 규칙을 예외 없이 지키는 대신 줄 수가 늘어난다.
   let calendarStrictLanes = false;
+  // 전체보기에서 행을 나누는 기준. 'none' 이면 안 나누고, 그 외에는 몰아보기와 같은
+  // 기준(기업/유형/우월코드/버스트/총기)으로 가로 띠를 나눠서 그린다.
+  let calendarGroup = 'none';
 
   function initPickupCalendarNav() {
     document.getElementById('pickup-calendar-prev').addEventListener('click', () => changeCalendarMonth(-1));
@@ -834,11 +837,14 @@
 
     // 줄 배치 방식 전환. 보고 있던 위치는 그대로 두고 다시 그리기만 한다.
     document.getElementById('pickup-calendar-strict').addEventListener('click', () => {
-      const grid = document.getElementById('pickup-calendar-grid');
-      const keep = grid.scrollLeft;
-      calendarStrictLanes = !calendarStrictLanes;
-      renderPickupCalendar();
-      grid.scrollLeft = keep;
+      redrawCalendarKeepingScroll(() => { calendarStrictLanes = !calendarStrictLanes; });
+    });
+
+    // 행 구분 기준 전환
+    document.querySelectorAll('.calendar-group-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        redrawCalendarKeepingScroll(() => { calendarGroup = btn.dataset.group; });
+      });
     });
 
     document.getElementById('pickup-calendar-view').addEventListener('wheel', e => {
@@ -1173,6 +1179,16 @@
     return { laneByPid, laneCount: Math.max(maxLane + 1, 1) };
   }
 
+  // 전체보기 설정을 바꿔 다시 그린다. 가로로 멀리 스크롤해 둔 상태에서 설정만 바꿨는데
+  // 맨 처음으로 튕겨 가면 지금 보던 시기를 다시 찾아야 해서, 스크롤 위치를 되돌려 준다.
+  function redrawCalendarKeepingScroll(change) {
+    const grid = document.getElementById('pickup-calendar-grid');
+    const keep = grid.scrollLeft;
+    change();
+    renderPickupCalendar();
+    grid.scrollLeft = keep;
+  }
+
   // 전체보기에서 특정 달 위치로 스크롤
   function scrollCalendarToMonth(monthDate) {
     const grid = document.getElementById('pickup-calendar-grid');
@@ -1291,14 +1307,6 @@
     const dayIndex = d => Math.round((stripTime(d) - start) / 86400000);
     const totalDays = dayIndex(end) + 1;
 
-    // 줄 배치는 전체 기간에 대해 한 번만.
-    //  - 기본: 겹치지 않는 픽업은 같은 줄을 다시 써서 줄 수를 아낀다.
-    //  - 순서 그대로: 겹치는 픽업은 예외 없이 아래로 내린다. 줄이 늘어나는 대신
-    //    "먼저 시작한 게 위" 규칙이 100% 지켜진다.
-    const { laneByPid, laneCount } = calendarStrictLanes
-      ? assignCalendarLanes(data, start, end)
-      : assignTimelineLanes(data, start, end);
-
     // 달 머리글 + 달 경계선. 홀수/짝수 달에 아주 옅은 배경 띠를 번갈아 깔아서
     // 선을 더 긋지 않고도 달 경계가 보이게 한다.
     const months = [];
@@ -1330,35 +1338,55 @@
     const todayLine = (todayIdx >= 0 && todayIdx < totalDays)
       ? `<div class="tl-today" style="left:${todayIdx * CAL_DAY_W}px"></div>` : '';
 
-    // 픽업 막대
-    const bars = data.map(p => {
-      if (!p['시작일'] || !p['종료일']) return '';
-      const pStart = stripTime(p['시작일']), pEnd = stripTime(p['종료일']);
-      if (pEnd < start || pStart > end) return '';
-      const from = Math.max(dayIndex(pStart), 0);
-      const to = Math.min(dayIndex(pEnd), totalDays - 1);
-      const pid = pickupId(p);
-      const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
-      const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
-      const totalCount = Math.round((pEnd - pStart) / 86400000) + 1;
-      const cls = ['calendar-bar', 'tl-bar', calendarCodeClassFor(p),
-                   pStart > today ? 'is-upcoming' : '',
-                   pStart <= today && today <= pEnd ? 'is-today-active' : ''].filter(Boolean).join(' ');
-      const tip = `${formatCalendarFullDate(pStart)} ~ ${formatCalendarFullDate(pEnd)} (${totalCount}일간)`
-        + (p['복각'] ? ' · 복각' : '') + (pStart > today ? ' · 예정' : '');
-      return `
-        <div class="${cls}" data-pid="${pid}" data-nikke="${p['니케']}" data-tooltip="${tip}"
-             style="left:${from * CAL_DAY_W + CAL_BAR_GAP}px; width:${(to - from + 1) * CAL_DAY_W - CAL_BAR_GAP * 2}px; top:${laneByPid[pid] * CAL_LANE_H}px">
-          ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
-          ${p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : ''}
-          <span class="calendar-bar-name">${p['니케']}</span>
+    // 한 띠(그룹) 분량의 막대를 그린다. 줄 배치는 띠 안에서만 계산해서, 다른 기업/속성의
+    // 픽업 때문에 줄이 밀려 내려가는 일이 없게 한다.
+    const renderBand = items => {
+      const { laneByPid, laneCount } = calendarStrictLanes
+        ? assignCalendarLanes(items, start, end)
+        : assignTimelineLanes(items, start, end);
+      const bars = items.map(p => {
+        if (!p['시작일'] || !p['종료일']) return '';
+        const pStart = stripTime(p['시작일']), pEnd = stripTime(p['종료일']);
+        if (pEnd < start || pStart > end) return '';
+        const from = Math.max(dayIndex(pStart), 0);
+        const to = Math.min(dayIndex(pEnd), totalDays - 1);
+        const pid = pickupId(p);
+        const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
+        const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
+        const totalCount = Math.round((pEnd - pStart) / 86400000) + 1;
+        const cls = ['calendar-bar', 'tl-bar', calendarCodeClassFor(p),
+                     pStart > today ? 'is-upcoming' : '',
+                     pStart <= today && today <= pEnd ? 'is-today-active' : ''].filter(Boolean).join(' ');
+        const tip = `${formatCalendarFullDate(pStart)} ~ ${formatCalendarFullDate(pEnd)} (${totalCount}일간)`
+          + (p['복각'] ? ' · 복각' : '') + (pStart > today ? ' · 예정' : '');
+        return `
+          <div class="${cls}" data-pid="${pid}" data-nikke="${p['니케']}" data-tooltip="${tip}"
+               style="left:${from * CAL_DAY_W + CAL_BAR_GAP}px; width:${(to - from + 1) * CAL_DAY_W - CAL_BAR_GAP * 2}px; top:${laneByPid[pid] * CAL_LANE_H}px">
+            ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
+            ${p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : ''}
+            <span class="calendar-bar-name">${p['니케']}</span>
+          </div>`;
+      }).join('');
+      return `<div class="tl-band-body" style="height:${Math.max(laneCount, 1) * CAL_LANE_H}px">${bars}</div>`;
+    };
+
+    // 행 구분: 몰아보기와 같은 기준으로 가로 띠를 나눈다. 'none' 이면 띠 하나로 그린다.
+    const bands = calendarGroupsOf(data).map(g => {
+      const head = g.label === null ? '' : `
+        <div class="tl-band-head">
+          <span class="tl-band-name">
+            ${g.icon ? `<img src="${g.icon}" alt="">` : ''}${g.label}<em>${g.items.length}</em>
+          </span>
         </div>`;
+      return `<div class="tl-band">${head}${renderBand(g.items)}</div>`;
     }).join('');
 
     // 하루 간격 세로 구분선. 날짜 수만큼 요소를 만들면(1,400개+) 무거워서, 하루 폭으로
     // 반복되는 배경 한 장으로 깐다.
     const dayLines = `<div class="tl-daylines" style="background-size:${CAL_DAY_W}px 100%"></div>`;
 
+    // 배경(달 띠·날짜선·달 경계선·오늘선)은 띠마다 다시 그리지 않고 전체에 한 장 깐다.
+    // 띠가 몇 개든 선이 끊기지 않고 위아래로 쭉 이어져야 날짜를 따라가기 쉽다.
     return `
       <div class="calendar-timeline" style="width:${totalDays * CAL_DAY_W}px">
         <div class="tl-head">
@@ -1366,14 +1394,48 @@
           ${months.map(m => `<div class="tl-month" data-month="${m.key}" style="left:${m.left}px; width:${m.width}px">${m.label}</div>`).join('')}
           ${ticks.join('')}
         </div>
-        <div class="tl-body" style="height:${Math.max(laneCount, 1) * CAL_LANE_H}px">
-          ${months.filter(m => m.odd).map(m => `<div class="tl-month-band" style="left:${m.left}px; width:${m.width}px"></div>`).join('')}
-          ${dayLines}
-          ${months.map(m => `<div class="tl-month-line" style="left:${m.left}px"></div>`).join('')}
-          ${todayLine}
-          ${bars}
+        <div class="tl-body">
+          <div class="tl-layer">
+            ${months.filter(m => m.odd).map(m => `<div class="tl-month-band" style="left:${m.left}px; width:${m.width}px"></div>`).join('')}
+            ${dayLines}
+            ${months.map(m => `<div class="tl-month-line" style="left:${m.left}px"></div>`).join('')}
+            ${todayLine}
+          </div>
+          ${bands}
         </div>
       </div>`;
+  }
+
+  // 전체보기의 가로 띠 목록. 'none' 이면 라벨 없는 띠 하나만 돌려준다.
+  // 값의 순서와 기업 합치기(오버스펙 표기 제거)는 몰아보기와 같은 규칙을 쓴다.
+  function calendarGroupsOf(data) {
+    if (calendarGroup === 'none') return [{ label: null, icon: null, items: data }];
+
+    const config = GROUP_CONFIGS[calendarGroup];
+    const key = config.key;
+    const valueOf = p => {
+      const v = p[key];
+      if (!v) return '기타';
+      return key === '기업' ? getBaseCompany(v) : v;
+    };
+
+    const buckets = new Map();
+    data.forEach(p => {
+      const v = valueOf(p);
+      if (!buckets.has(v)) buckets.set(v, []);
+      buckets.get(v).push(p);
+    });
+
+    // 정해진 순서가 있으면 그대로, 없으면(기업) 전체 데이터에 나온 순서대로.
+    // 어느 쪽에도 없는 값은 뒤에 붙여서 빠지는 픽업이 없게 한다.
+    const base = config.order
+      ? config.order
+      : [...new Set(allPickupData.map(p => p[key]).filter(Boolean).map(v => key === '기업' ? getBaseCompany(v) : v))];
+    const values = base.filter(v => buckets.has(v));
+    [...buckets.keys()].forEach(v => { if (!values.includes(v)) values.push(v); });
+
+    const icons = (typeof iconImgData !== 'undefined' && iconImgData[key]) || {};
+    return values.map(v => ({ label: v, icon: icons[v] || null, items: buckets.get(v) }));
   }
 
   function renderPickupCalendar() {
@@ -1388,6 +1450,11 @@
     const strictBtn = document.getElementById('pickup-calendar-strict');
     strictBtn.classList.toggle('hidden', !calendarAllMonths);
     strictBtn.classList.toggle('active', calendarStrictLanes);
+    // 행 구분 선택도 전체보기에서만 쓴다
+    document.getElementById('pickup-calendar-group-selector').classList.toggle('hidden', !calendarAllMonths);
+    document.querySelectorAll('.calendar-group-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.group === calendarGroup);
+    });
     // 전체보기에서는 좌우가 아니라 위아래로 움직이므로 화살표도 바꿔 준다
     const prevBtn = document.getElementById('pickup-calendar-prev');
     const nextBtn = document.getElementById('pickup-calendar-next');
