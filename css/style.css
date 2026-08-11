@@ -1213,7 +1213,7 @@
     position: sticky;
     top: 0;
     z-index: 5;
-    height: 52px;
+    height: 66px;
     background: var(--bg-panel-alt);
     border-bottom: 1px solid var(--border-strong);
   }
@@ -1221,12 +1221,13 @@
   .tl-month {
     position: absolute;
     top: 0;
-    height: 28px;
+    height: 34px;
     display: flex;
     align-items: center;
-    padding-left: 8px;
-    font-size: 15px;
-    font-weight: 700;
+    padding-left: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
     color: var(--accent-strong);
     border-left: 2px solid var(--border-accent);
     box-sizing: border-box;
@@ -1234,16 +1235,40 @@
     overflow: hidden;
   }
 
-  .tl-tick {
+  /* 날짜는 하루도 빼놓지 않고 적는다. 세로선을 긋는 대신 일/토요일만 색으로 구분해서
+     선을 늘리지 않고도 주 단위를 읽을 수 있게 한다. */
+  .tl-day {
     position: absolute;
-    top: 30px;
-    padding-left: 4px;
-    font-size: 11px;
-    color: var(--text-faint);
-    border-left: 1px solid var(--border-subtle);
-    height: 20px;
+    top: 36px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
     box-sizing: border-box;
-    white-space: nowrap;
+  }
+
+  .tl-day.is-sun { color: var(--code-scorch-text); font-weight: 800; }
+  .tl-day.is-sat { color: var(--code-water-text); }
+
+  /* 1일은 동그란 배경으로 확실히 표시 - 달이 바뀌는 지점을 날짜 줄에서도 알 수 있다 */
+  .tl-day.is-first {
+    color: var(--text-heading);
+    font-weight: 800;
+  }
+  .tl-day.is-first::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--bg-panel-active);
+    z-index: -1;
   }
 
   .tl-body {
@@ -1260,6 +1285,15 @@
     background: var(--border-subtle);
   }
 
+  /* 한 달 걸러 한 번씩 아주 옅은 배경 띠. 선을 더 긋지 않고도 달 경계가 눈에 들어온다 */
+  .tl-month-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--bg-panel-alt);
+    opacity: 0.45;
+  }
+
   .tl-today {
     position: absolute;
     top: 0;
@@ -1273,15 +1307,27 @@
   /* 타임라인 막대는 날짜 위치에 직접 놓는다(그리드 칸이 아니라 좌표 기준) */
   .calendar-bar.tl-bar {
     position: absolute;
-    height: 28px;
+    height: 46px;
     margin: 0;
-    border-radius: var(--radius-sm);
+    padding: 0 10px 0 15px;
+    gap: 8px;
+    font-size: 17px;
+    border-radius: var(--radius-md);
     border-left-style: solid;
     border-right-style: solid;
     border-left-width: 1px;
     border-right-width: 1px;
     z-index: 2;
   }
+
+  .calendar-bar.tl-bar::before { width: 7px; }
+
+  .calendar-bar.tl-bar img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .calendar-bar.tl-bar .calendar-bar-tag { font-size: 13px; padding: 2px 7px; }
 
   .calendar-month-block + .calendar-month-block {
     border-top: 2px solid var(--border-strong);

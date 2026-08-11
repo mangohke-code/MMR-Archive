@@ -1004,9 +1004,14 @@
     const months = Array.from(grid.querySelectorAll('.tl-month'));
     if (!months.length) return;
     const lefts = months.map(m => parseFloat(m.style.left) || 0);
-    // 지금 화면 왼쪽 끝에 걸려 있는 달을 찾는다
-    let idx = 0;
-    lefts.forEach((l, i) => { if (l <= grid.scrollLeft + 2) idx = i; });
+    // 기준이 되는 달: 마지막으로 이동한 달(연/월 선택칸에 떠 있는 값)을 먼저 쓴다.
+    // 스크롤 위치로만 찾으면 부드러운 스크롤이 끝나기 전에 또 누를 때 같은 달에 머문다.
+    const key = `${calendarMonth.getFullYear()}-${calendarMonth.getMonth() + 1}`;
+    let idx = months.findIndex(m => m.dataset.month === key);
+    if (idx === -1) {
+      idx = 0;
+      lefts.forEach((l, i) => { if (l <= grid.scrollLeft + 2) idx = i; });
+    }
     const next = Math.min(Math.max(idx + direction, 0), months.length - 1);
     grid.scrollTo({ left: lefts[next], behavior: 'smooth' });
     syncCalendarAllMonthLabel(months[next].dataset.month);
@@ -1191,8 +1196,74 @@
   // 같은 픽업이 이어져 보이지 않는다. 그래서 레인을 전체 기간에 대해 한 번만 계산하고,
   // 첫 주부터 마지막 주까지 주를 계속 이어 붙인다.
   // 페이지가 길어지지 않도록 달력 영역 자체에 높이를 두고 그 안에서만 스크롤한다(CSS).
-  const CAL_DAY_W = 26;    // 하루당 가로 폭(px)
-  const CAL_LANE_H = 32;   // 픽업 한 줄 높이(px)
+  const CAL_DAY_W = 40;    // 하루당 가로 폭(px)
+  const CAL_LANE_H = 54;   // 픽업 한 줄 높이(px)
+  const CAL_BAR_GAP = 3;   // 같은 줄에서 앞뒤 막대가 붙어 보이지 않게 두는 좌우 여백(px)
+
+  // 전체보기(가로 타임라인) 전용 줄 배치.
+  //
+  // 한 달만 보기는 "겹치는 것 중 가장 아래"(max+1) 규칙을 쓴다. 한 달 안에서는 그래야
+  // 먼저 시작한 픽업이 항상 위에 오는데, 전체 기간에 같은 규칙을 쓰면 한 번 내려간 줄이
+  // 다시 안 올라와서 3년치가 16줄까지 쌓인다. 아래쪽 줄은 점유율이 1~3%라 화면 대부분이
+  // 빈칸이 된다.
+  //
+  // 그래서 여기서는 "기간이 안 겹치면 위 줄을 다시 쓴다". 겹치는 픽업끼리는 그 줄이 이미
+  // 차 있으므로 같은 줄에 들어갈 수 없고, 화면에서 나란히 보일 일이 없는 픽업들만 줄을
+  // 나눠 쓴다. 줄이 비었다고 보려면 앞 막대가 끝난 "다음 날"부터여야 한다. 종료일 당일에
+  // 시작하는 픽업을 같은 줄에 두면 하루치가 겹쳐 그려지기 때문이다.
+  //
+  // 다만 줄을 재사용하면 "먼저 시작한 게 위" 규칙이 늘 지켜지지는 않는다(겹치지 않는
+  // 앞 픽업이 비운 윗줄을, 나중에 시작한 픽업이 물려받을 수 있다). 두 규칙을 동시에
+  // 만족시키는 배치는 없어서, 줄 수는 그대로 두고 순서 규칙을 최대한 지키는 쪽으로 맞춘다.
+  //   1) 먼저 줄을 최대한 재사용해 필요한 최소 줄 수를 구하고,
+  //   2) 그 줄 수 안에서는 "겹치는 것들보다 아래"를 우선 적용한다.
+  // 결과: 줄 수는 재사용 방식과 같고(16 → 4) 순서가 뒤집히는 경우만 절반으로 줄어든다.
+  function assignTimelineLanes(pickups, start, end) {
+    const items = pickups
+      .map(p => {
+        if (!p['시작일'] || !p['종료일']) return null;
+        const pStart = stripTime(p['시작일']);
+        const pEnd = stripTime(p['종료일']);
+        if (pEnd < start || pStart > end) return null;
+        return { pStart, pEnd, pid: pickupId(p), isRerun: !!p['복각'] };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.pStart - b.pStart
+        || (a.isRerun === b.isRerun ? 0 : a.isRerun ? 1 : -1)
+        || (b.pEnd - b.pStart) - (a.pEnd - a.pStart));
+
+    // limit: 이 줄 번호 미만이면 "겹치는 것들 바로 아래"를 그대로 쓴다(순서 규칙 우선).
+    // 그보다 아래로 내려가야 하면 비어 있는 줄을 대신 찾아 쓴다(줄 수 절약 우선).
+    const place = limit => {
+      const laneByPid = {};
+      const laneEnd = [];   // 줄마다 마지막 막대가 끝난 날
+      const placed = [];
+      items.forEach(item => {
+        const active = placed.filter(x => x.pEnd >= item.pStart).map(x => x.lane);
+        const want = active.length ? Math.max(...active) + 1 : 0;
+        let lane = -1;
+        if (want < limit) {
+          lane = want;
+        } else {
+          for (let k = want; k < laneEnd.length; k++) {
+            if (laneEnd[k] < item.pStart) { lane = k; break; }
+          }
+          if (lane === -1) {
+            const free = laneEnd.findIndex(e => e < item.pStart);
+            lane = free === -1 ? laneEnd.length : free;
+          }
+        }
+        laneEnd[lane] = item.pEnd;
+        placed.push({ pEnd: item.pEnd, lane });
+        laneByPid[item.pid] = lane;
+      });
+      return { laneByPid, laneCount: Math.max(laneEnd.length, 1) };
+    };
+
+    const compact = place(0);                     // 1) 최소 줄 수
+    const ordered = place(compact.laneCount);     // 2) 그 안에서 순서 우선
+    return ordered.laneCount <= compact.laneCount ? ordered : compact;
+  }
 
   // 전체보기: 달을 세로로 쌓지 않고 날짜를 가로로 쭉 이어 붙인 타임라인으로 그린다.
   // 세로로 쌓으면 주마다 구분선이 생겨서 화면에 선이 너무 많아지는데, 가로로 이으면
@@ -1206,28 +1277,34 @@
     const dayIndex = d => Math.round((stripTime(d) - start) / 86400000);
     const totalDays = dayIndex(end) + 1;
 
-    // 줄 배치는 전체 기간에 대해 한 번만. 늦게 시작한 픽업이 항상 아래로 간다.
-    const { laneByPid, laneCount } = assignCalendarLanes(data, start, end);
+    // 줄 배치는 전체 기간에 대해 한 번만. 겹치지 않는 픽업은 같은 줄을 다시 쓴다.
+    const { laneByPid, laneCount } = assignTimelineLanes(data, start, end);
 
-    // 달 머리글 + 달 경계선
+    // 달 머리글 + 달 경계선. 홀수/짝수 달에 아주 옅은 배경 띠를 번갈아 깔아서
+    // 선을 더 긋지 않고도 달 경계가 보이게 한다.
     const months = [];
     const cur = new Date(start);
+    let mi = 0;
     while (cur <= end) {
       const y = cur.getFullYear(), m = cur.getMonth();
       const mStart = Math.max(dayIndex(new Date(y, m, 1)), 0);
       const mEnd = Math.min(dayIndex(new Date(y, m + 1, 0)), totalDays - 1);
       months.push({ key: `${y}-${m + 1}`, label: `${y}년 ${m + 1}월`, left: mStart * CAL_DAY_W,
-                    width: (mEnd - mStart + 1) * CAL_DAY_W });
+                    width: (mEnd - mStart + 1) * CAL_DAY_W, odd: mi % 2 === 1 });
       cur.setMonth(cur.getMonth() + 1);
+      mi++;
     }
 
-    // 날짜 눈금: 일요일마다 날짜를 적고, 그 자리에 세로선을 둔다
+    // 날짜 눈금: 하루도 빠짐없이 날짜를 적는다. 예전에는 일요일에만 적고 그 자리에 세로선을
+    // 그었는데, 날짜를 읽으려면 선을 세어야 했다. 선은 없애고 숫자를 다 적는 편이 잘 보인다.
     const ticks = [];
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      if (d.getDay() !== 0) continue;
-      ticks.push(`<div class="tl-tick" style="left:${i * CAL_DAY_W}px">${d.getMonth() + 1}/${d.getDate()}</div>`);
+      const dow = d.getDay();
+      const cls = 'tl-day' + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '')
+        + (d.getDate() === 1 ? ' is-first' : '');
+      ticks.push(`<div class="${cls}" style="left:${i * CAL_DAY_W}px; width:${CAL_DAY_W}px">${d.getDate()}</div>`);
     }
 
     const todayIdx = dayIndex(today);
@@ -1252,7 +1329,7 @@
         + (p['복각'] ? ' · 복각' : '') + (pStart > today ? ' · 예정' : '');
       return `
         <div class="${cls}" data-pid="${pid}" data-nikke="${p['니케']}" data-tooltip="${tip}"
-             style="left:${from * CAL_DAY_W}px; width:${(to - from + 1) * CAL_DAY_W}px; top:${laneByPid[pid] * CAL_LANE_H}px">
+             style="left:${from * CAL_DAY_W + CAL_BAR_GAP}px; width:${(to - from + 1) * CAL_DAY_W - CAL_BAR_GAP * 2}px; top:${laneByPid[pid] * CAL_LANE_H}px">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
           ${p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : ''}
           <span class="calendar-bar-name">${p['니케']}</span>
@@ -1266,6 +1343,7 @@
           ${ticks.join('')}
         </div>
         <div class="tl-body" style="height:${Math.max(laneCount, 1) * CAL_LANE_H}px">
+          ${months.filter(m => m.odd).map(m => `<div class="tl-month-band" style="left:${m.left}px; width:${m.width}px"></div>`).join('')}
           ${months.map(m => `<div class="tl-month-line" style="left:${m.left}px"></div>`).join('')}
           ${todayLine}
           ${bars}
