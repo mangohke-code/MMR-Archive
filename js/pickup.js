@@ -1006,7 +1006,7 @@
   // 물려받아 더 위로 올라가 버리는 문제가 있었다. 겹치는 게 하나도 없으면 0으로 돌아가
   // 레인을 재사용한다(동시에 안 보이니 순서 문제는 없음). 같은 시작일이면 신규를 먼저,
   // 복각을 나중(더 아래)에 배치한다.
-  function assignCalendarLanes(pickups, gridStart, gridEnd) {
+  function assignCalendarLanes(pickups, gridStart, gridEnd, compact = false) {
     const items = pickups
       .map(p => {
         if (!p['시작일'] || !p['종료일']) return null;
@@ -1021,15 +1021,31 @@
         || (b.pEnd - b.pStart) - (a.pEnd - a.pStart));
 
     const laneByPid = {};
-    const placed = []; // 지금까지 배치한 항목들 { pEnd, lane }
     let maxLane = -1;
-    items.forEach(item => {
-      const activeLanes = placed.filter(x => x.pEnd >= item.pStart).map(x => x.lane);
-      const lane = activeLanes.length ? Math.max(...activeLanes) + 1 : 0;
-      laneByPid[item.pid] = lane;
-      placed.push({ pEnd: item.pEnd, lane });
-      if (lane > maxLane) maxLane = lane;
-    });
+
+    if (compact) {
+      // 전체보기용. 빈 레인을 재사용해 레인 수를 최소로 줄인다(겹치는 것끼리만 다른 줄).
+      // 한 달 보기와 달리 모든 주가 같은 수의 줄을 잡아야 해서, 줄이 많으면 한 주가
+      // 화면을 다 먹어버린다. 대신 "늦게 시작할수록 아래"는 보장되지 않는다.
+      const laneEnd = []; // 레인별로 마지막으로 끝나는 날짜
+      items.forEach(item => {
+        let lane = laneEnd.findIndex(end => end < item.pStart);
+        if (lane === -1) { lane = laneEnd.length; }
+        laneEnd[lane] = item.pEnd;
+        laneByPid[item.pid] = lane;
+        if (lane > maxLane) maxLane = lane;
+      });
+    } else {
+      // 한 달 보기용. 늦게 시작한 픽업이 항상 아래로 가도록 겹치는 것들 중 가장 아래에 놓는다.
+      const placed = []; // 지금까지 배치한 항목들 { pEnd, lane }
+      items.forEach(item => {
+        const activeLanes = placed.filter(x => x.pEnd >= item.pStart).map(x => x.lane);
+        const lane = activeLanes.length ? Math.max(...activeLanes) + 1 : 0;
+        laneByPid[item.pid] = lane;
+        placed.push({ pEnd: item.pEnd, lane });
+        if (lane > maxLane) maxLane = lane;
+      });
+    }
     return { laneByPid, laneCount: Math.max(maxLane + 1, 1) };
   }
 
@@ -1081,7 +1097,7 @@
     const gridEnd = new Date(lastDay);
     gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
 
-    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), stripTime(gridEnd));
+    const { laneByPid, laneCount } = assignCalendarLanes(data, stripTime(gridStart), stripTime(gridEnd), true);
 
     const html = [];
     const cur = new Date(gridStart);
@@ -1103,7 +1119,7 @@
       }
       // 전체보기에서는 "이번 달 밖" 흐리게 처리와 월말 자르기를 하지 않는다 —
       // 모든 날이 어느 달엔가 속하고, 주가 끊기면 안 되기 때문.
-      html.push(renderCalendarWeek(weekDays, null, today, data, laneByPid, laneCount, stripTime(gridEnd)));
+      html.push(renderCalendarWeek(weekDays, null, today, data, laneByPid, laneCount, stripTime(gridEnd), true));
       cur.setDate(cur.getDate() + 7);
     }
     return html.join('');
@@ -1206,7 +1222,7 @@
   // 이어진 막대 하나로 그려서 "끈처럼 연결된" 느낌을 준다. 레인은 renderPickupCalendar가
   // 달력 전체 기준으로 미리 배정한 값을 그대로 쓴다. 월말 이후(다음 달) 날짜는 칸 자체를
   // 안 그린다 - 이 주가 마지막 주라 일부만 실제 이번 달 날짜인 경우에 해당.
-  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, lastDayOfMonth) {
+  function renderCalendarWeek(weekDays, month, today, data, laneByPid, laneCount, lastDayOfMonth, fixedRows = false) {
     const weekStart = stripTime(weekDays[0]);
     const weekEndRaw = stripTime(weekDays[6]);
     const weekEnd = weekEndRaw > lastDayOfMonth ? lastDayOfMonth : weekEndRaw;
@@ -1277,7 +1293,7 @@
     }).join('');
 
     return `
-      <div class="calendar-week" style="grid-template-rows: auto repeat(${laneCount}, auto);">
+      <div class="calendar-week" style="grid-template-rows: ${fixedRows ? 'var(--calendar-date-h)' : 'auto'} repeat(${laneCount}, ${fixedRows ? 'var(--calendar-lane-h)' : 'auto'});">
         ${dateCellsHtml}
         ${barsHtml}
       </div>
