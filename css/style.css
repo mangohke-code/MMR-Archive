@@ -1118,25 +1118,33 @@
     border-top: 2px solid var(--border-strong);
   }
 
+  /* 달 구분선. 스크롤해도 위에 붙어 있고, 위쪽에 굵은 선을 둬서 달이 바뀌는 지점이
+     한눈에 들어오게 한다. */
   .calendar-month-title {
     position: sticky;
     top: 0;
-    z-index: 4;
-    padding: 8px 12px;
-    font-size: 18px;
+    z-index: 6;
+    padding: 10px 14px;
+    font-size: 19px;
     font-weight: 700;
-    color: var(--text-heading);
-    background: var(--bg-panel-alt);
-    border-bottom: 1px solid var(--border-subtle);
+    letter-spacing: 0.02em;
+    color: var(--accent-strong);
+    background: var(--bg-panel-active);
+    border-top: 3px solid var(--border-accent);
+    border-bottom: 1px solid var(--border-strong);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   }
 
-  /* 전체보기에서 달 이동 조작은 막아 둔다 */
-  #pickup-calendar-view.is-all-months .calendar-nav-btn,
-  #pickup-calendar-view.is-all-months #pickup-calendar-today,
-  #pickup-calendar-view.is-all-months .calendar-select {
-    opacity: 0.4;
-    pointer-events: none;
+  .calendar-month-title:first-child {
+    border-top: none;
   }
+
+  /* 주 구분. 한 주씩 배경을 번갈아 줘서 어디까지가 한 주인지 바로 보이게 한다. */
+  #pickup-calendar-view.is-all-months .calendar-week:nth-of-type(even) {
+    background: var(--bg-panel-alt);
+  }
+
+
 
   #pickup-calendar-weekdays {
     display: grid;
@@ -1246,8 +1254,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 34px;
+    height: 38px;
     padding: 0 8px;
+    border-radius: 3px;
     border-top-style: solid;
     border-bottom-style: solid;
     border-top-width: 1px;
@@ -1307,13 +1316,21 @@
     z-index: 3;
   }
 
+  /* 같은 속성이면 막대 색이 같아서 누구 픽업인지 초상화로 구분하게 된다.
+     초상화를 키우고 테두리를 둘러 서로 잘 구분되게 한다. */
   .calendar-bar img {
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     object-fit: cover;
     object-position: center 18%;
     flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  [data-theme="dark"] .calendar-bar img {
+    border-color: rgba(255, 255, 255, 0.25);
   }
 
   .calendar-bar-tag {

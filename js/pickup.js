@@ -906,7 +906,39 @@
   }
 
   // 지금 보고 있는 달 기준으로 방향(-1/1)만큼 옮긴다. 맨 처음/마지막 픽업이 있는 달을 벗어나면 무시.
+  // 전체보기에서 위/아래(이전 달/다음 달) 로 스크롤한다
+  // 요소가 달력 안에서 몇 px 지점에 있는지. offsetTop 은 positioned 조상 기준이라
+  // 달력이 아닌 다른 요소가 기준이 될 수 있어서, 화면 좌표로 직접 계산한다.
+  function calendarOffsetOf(el, grid) {
+    return el.getBoundingClientRect().top - grid.getBoundingClientRect().top + grid.scrollTop;
+  }
+
+  function scrollCalendarByMonth(direction) {
+    const grid = document.getElementById('pickup-calendar-grid');
+    const titles = Array.from(grid.querySelectorAll('.calendar-month-title'));
+    if (!titles.length) return;
+    const offsets = titles.map(t => calendarOffsetOf(t, grid));
+    // 지금 화면 맨 위에 걸려 있는 달을 찾는다
+    let idx = 0;
+    offsets.forEach((o, i) => { if (o <= grid.scrollTop + 2) idx = i; });
+    const next = Math.min(Math.max(idx + direction, 0), titles.length - 1);
+    grid.scrollTo({ top: offsets[next], behavior: 'smooth' });
+    syncCalendarAllMonthLabel(titles[next].dataset.month);
+  }
+
+  // 전체보기에서 스크롤한 위치의 달을 연/월 선택칸에 반영한다
+  function syncCalendarAllMonthLabel(key) {
+    if (!key) return;
+    const [y, m] = key.split('-');
+    const ys = document.getElementById('pickup-calendar-year-select');
+    const ms = document.getElementById('pickup-calendar-month-select');
+    if (ys && [...ys.options].some(o => o.value === y)) ys.value = y;
+    if (ms) { updateCalendarMonthSelectOptions(Number(y)); ms.value = m; }
+    calendarMonth = new Date(Number(y), Number(m) - 1, 1);
+  }
+
   function changeCalendarMonth(direction) {
+    if (calendarAllMonths) { scrollCalendarByMonth(direction); return; }
     if (calendarTransitioning) return;
     const proposed = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + direction, 1);
     const minMonth = getMinPickupMonth();
@@ -919,6 +951,7 @@
   // 특정 달로 바로 이동(오늘 버튼용) - 지금 보고 있는 달보다 미래면 다음 달 방향으로,
   // 과거면 이전 달 방향으로 슬라이드해서 방향감이 자연스럽게 맞게 한다.
   function goToCalendarMonth(targetMonth) {
+    if (calendarAllMonths) { scrollCalendarToMonth(targetMonth); return; }
     if (calendarTransitioning) return;
     const minMonth = getMinPickupMonth();
     const maxMonth = getMaxPickupMonth();
@@ -1039,8 +1072,8 @@
   function scrollCalendarToMonth(monthDate) {
     const grid = document.getElementById('pickup-calendar-grid');
     const key = `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`;
-    const block = grid.querySelector(`.calendar-month-block[data-month="${key}"]`);
-    if (block) grid.scrollTop = block.offsetTop - grid.offsetTop;
+    const title = grid.querySelector(`.calendar-month-title[data-month="${key}"]`);
+    if (title) grid.scrollTop = calendarOffsetOf(title, grid);
   }
 
   // 한 달치 주(週) HTML 을 만든다. 한 달만 보기와 전체보기가 같은 코드를 쓴다.
@@ -1117,10 +1150,15 @@
 
     view.classList.toggle('is-all-months', calendarAllMonths);
     document.getElementById('pickup-calendar-all').classList.toggle('active', calendarAllMonths);
-    // 전체보기에서는 달 이동 조작이 의미가 없다
-    ['pickup-calendar-prev', 'pickup-calendar-next', 'pickup-calendar-today',
-     'pickup-calendar-year-select', 'pickup-calendar-month-select']
-      .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = calendarAllMonths; });
+    // 전체보기에서는 좌우가 아니라 위아래로 움직이므로 화살표도 바꿔 준다
+    const prevBtn = document.getElementById('pickup-calendar-prev');
+    const nextBtn = document.getElementById('pickup-calendar-next');
+    prevBtn.textContent = calendarAllMonths ? '▲' : '◀';
+    nextBtn.textContent = calendarAllMonths ? '▼' : '▶';
+    prevBtn.setAttribute('aria-label', calendarAllMonths ? '이전 달로 이동' : '이전 달');
+    nextBtn.setAttribute('aria-label', calendarAllMonths ? '다음 달로 이동' : '다음 달');
+    if (calendarAllMonths) { prevBtn.disabled = false; nextBtn.disabled = false; }
+    // 전체보기에서도 조작은 그대로 쓴다 - 달을 바꾸는 대신 그 달 위치로 스크롤한다.
 
     if (calendarAllMonths) {
       grid.innerHTML = renderAllMonthsCalendar(data, today);
