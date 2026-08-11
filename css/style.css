@@ -1194,14 +1194,93 @@
     color: var(--accent);
   }
 
-  /* 전체보기: 모든 달을 세로로 이어 붙이되, 페이지가 길어지지 않도록 달력 영역에
-     높이를 두고 그 안에서만 스크롤한다. */
+  /* 전체보기: 날짜를 가로로 쭉 이어 붙인 타임라인. 세로로 쌓으면 주마다 구분선이 생겨
+     화면에 선이 너무 많아지는데, 가로로 이으면 그 선들이 사라지고 픽업이 한 줄로 이어진다.
+     페이지는 그대로 두고 이 영역 안에서 좌우로 스크롤한다. */
   #pickup-calendar-view.is-all-months #pickup-calendar-grid {
-    /* 화면 안에 들어오는 선에서 최대한 크게. 화면보다 크게 잡으면 페이지 스크롤과
-       달력 안쪽 스크롤이 겹쳐서 조작이 불편해진다. */
-    max-height: min(78vh, 1000px);
+    overflow-x: auto;
     overflow-y: auto;
-    transition: none;   /* 달 넘김 슬라이드는 전체보기에서 쓰지 않는다 */
+    /* 줄이 많아도 웬만하면 세로 스크롤 없이 다 보이도록 조금 넉넉히 잡는다 */
+    max-height: min(86vh, 1000px);
+    transition: none;
+  }
+
+  .calendar-timeline {
+    position: relative;
+  }
+
+  .tl-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    height: 52px;
+    background: var(--bg-panel-alt);
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .tl-month {
+    position: absolute;
+    top: 0;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent-strong);
+    border-left: 2px solid var(--border-accent);
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .tl-tick {
+    position: absolute;
+    top: 30px;
+    padding-left: 4px;
+    font-size: 11px;
+    color: var(--text-faint);
+    border-left: 1px solid var(--border-subtle);
+    height: 20px;
+    box-sizing: border-box;
+    white-space: nowrap;
+  }
+
+  .tl-body {
+    position: relative;
+    padding: 6px 0;
+  }
+
+  /* 달이 바뀌는 자리에만 세로선을 둔다 - 주마다 긋지 않아 화면이 훨씬 깔끔해진다 */
+  .tl-month-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-subtle);
+  }
+
+  .tl-today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0.7;
+    z-index: 1;
+  }
+
+  /* 타임라인 막대는 날짜 위치에 직접 놓는다(그리드 칸이 아니라 좌표 기준) */
+  .calendar-bar.tl-bar {
+    position: absolute;
+    height: 28px;
+    margin: 0;
+    border-radius: var(--radius-sm);
+    border-left-style: solid;
+    border-right-style: solid;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    z-index: 2;
   }
 
   .calendar-month-block + .calendar-month-block {

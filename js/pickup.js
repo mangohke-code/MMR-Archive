@@ -829,9 +829,16 @@
       if (calendarAllMonths) scrollCalendarToMonth(calendarMonth);
     });
 
-    // 전체보기에서는 휠이 달력 안쪽 스크롤로 쓰이므로 달 넘기기를 하지 않는다
     document.getElementById('pickup-calendar-view').addEventListener('wheel', e => {
-      if (currentView !== 'calendar' || calendarAllMonths) return;
+      if (currentView !== 'calendar') return;
+      // 전체보기(가로 타임라인)에서는 세로 휠을 가로 스크롤로 바꿔 준다
+      if (calendarAllMonths) {
+        const grid = document.getElementById('pickup-calendar-grid');
+        if (!e.deltaY) return;
+        e.preventDefault();
+        grid.scrollLeft += e.deltaY;
+        return;
+      }
       e.preventDefault();
       changeCalendarMonth(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
@@ -994,15 +1001,15 @@
 
   function scrollCalendarByMonth(direction) {
     const grid = document.getElementById('pickup-calendar-grid');
-    const titles = Array.from(grid.querySelectorAll('.calendar-month-title'));
-    if (!titles.length) return;
-    const offsets = titles.map(t => calendarOffsetOf(t, grid));
-    // 지금 화면 맨 위에 걸려 있는 달을 찾는다
+    const months = Array.from(grid.querySelectorAll('.tl-month'));
+    if (!months.length) return;
+    const lefts = months.map(m => parseFloat(m.style.left) || 0);
+    // 지금 화면 왼쪽 끝에 걸려 있는 달을 찾는다
     let idx = 0;
-    offsets.forEach((o, i) => { if (o <= grid.scrollTop + 2) idx = i; });
-    const next = Math.min(Math.max(idx + direction, 0), titles.length - 1);
-    grid.scrollTo({ top: offsets[next], behavior: 'smooth' });
-    syncCalendarAllMonthLabel(titles[next].dataset.month);
+    lefts.forEach((l, i) => { if (l <= grid.scrollLeft + 2) idx = i; });
+    const next = Math.min(Math.max(idx + direction, 0), months.length - 1);
+    grid.scrollTo({ left: lefts[next], behavior: 'smooth' });
+    syncCalendarAllMonthLabel(months[next].dataset.month);
   }
 
   // 전체보기에서 스크롤한 위치의 달을 연/월 선택칸에 반영한다
@@ -1151,8 +1158,8 @@
   function scrollCalendarToMonth(monthDate) {
     const grid = document.getElementById('pickup-calendar-grid');
     const key = `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`;
-    const title = grid.querySelector(`.calendar-month-title[data-month="${key}"]`);
-    if (title) grid.scrollTop = calendarOffsetOf(title, grid);
+    const el = grid.querySelector(`.tl-month[data-month="${key}"]`);
+    if (el) grid.scrollLeft = parseFloat(el.style.left) || 0;
   }
 
   // 한 달치 주(週) HTML 을 만든다. 한 달만 보기와 전체보기가 같은 코드를 쓴다.
@@ -1184,41 +1191,86 @@
   // 같은 픽업이 이어져 보이지 않는다. 그래서 레인을 전체 기간에 대해 한 번만 계산하고,
   // 첫 주부터 마지막 주까지 주를 계속 이어 붙인다.
   // 페이지가 길어지지 않도록 달력 영역 자체에 높이를 두고 그 안에서만 스크롤한다(CSS).
+  const CAL_DAY_W = 26;    // 하루당 가로 폭(px)
+  const CAL_LANE_H = 32;   // 픽업 한 줄 높이(px)
+
+  // 전체보기: 달을 세로로 쌓지 않고 날짜를 가로로 쭉 이어 붙인 타임라인으로 그린다.
+  // 세로로 쌓으면 주마다 구분선이 생겨서 화면에 선이 너무 많아지는데, 가로로 이으면
+  // 그 선들이 아예 없어지고 픽업 기간이 한 줄로 이어져 읽기 쉬워진다.
   function renderAllMonthsCalendar(data, today) {
     const min = getMinPickupMonth(), max = getMaxPickupMonth();
     if (!min || !max) return '';
 
-    // 첫 주의 일요일부터, 마지막 달 말일이 포함된 주의 토요일까지
-    const first = new Date(min.getFullYear(), min.getMonth(), 1);
-    const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
-    const lastDay = new Date(max.getFullYear(), max.getMonth() + 1, 0);
-    const gridEnd = new Date(lastDay);
-    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+    const start = stripTime(new Date(min.getFullYear(), min.getMonth(), 1));
+    const end = stripTime(new Date(max.getFullYear(), max.getMonth() + 1, 0));
+    const dayIndex = d => Math.round((stripTime(d) - start) / 86400000);
+    const totalDays = dayIndex(end) + 1;
 
-    const html = [];
-    const cur = new Date(gridStart);
-    let shownMonth = null;
-    while (cur <= gridEnd) {
-      const weekDays = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(cur);
-        d.setDate(cur.getDate() + i);
-        weekDays.push(d);
-      }
-      // 그 주에 새로운 달이 시작되면 제목 줄을 끼워 넣는다(주 자체는 자르지 않는다)
-      const monthsInWeek = [...new Set(weekDays.map(d => `${d.getFullYear()}-${d.getMonth() + 1}`))];
-      for (const key of monthsInWeek) {
-        if (key === shownMonth) continue;
-        shownMonth = key;
-        const [y, m] = key.split('-');
-        html.push(`<div class="calendar-month-title" data-month="${key}">${y}년 ${m}월</div>`);
-      }
-      // 전체보기에서는 "이번 달 밖" 흐리게 처리와 월말 자르기를 하지 않는다 —
-      // 모든 날이 어느 달엔가 속하고, 주가 끊기면 안 되기 때문.
-      html.push(renderCalendarWeek(weekDays, null, today, data, null, 1, stripTime(gridEnd), true));
-      cur.setDate(cur.getDate() + 7);
+    // 줄 배치는 전체 기간에 대해 한 번만. 늦게 시작한 픽업이 항상 아래로 간다.
+    const { laneByPid, laneCount } = assignCalendarLanes(data, start, end);
+
+    // 달 머리글 + 달 경계선
+    const months = [];
+    const cur = new Date(start);
+    while (cur <= end) {
+      const y = cur.getFullYear(), m = cur.getMonth();
+      const mStart = Math.max(dayIndex(new Date(y, m, 1)), 0);
+      const mEnd = Math.min(dayIndex(new Date(y, m + 1, 0)), totalDays - 1);
+      months.push({ key: `${y}-${m + 1}`, label: `${y}년 ${m + 1}월`, left: mStart * CAL_DAY_W,
+                    width: (mEnd - mStart + 1) * CAL_DAY_W });
+      cur.setMonth(cur.getMonth() + 1);
     }
-    return html.join('');
+
+    // 날짜 눈금: 일요일마다 날짜를 적고, 그 자리에 세로선을 둔다
+    const ticks = [];
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      if (d.getDay() !== 0) continue;
+      ticks.push(`<div class="tl-tick" style="left:${i * CAL_DAY_W}px">${d.getMonth() + 1}/${d.getDate()}</div>`);
+    }
+
+    const todayIdx = dayIndex(today);
+    const todayLine = (todayIdx >= 0 && todayIdx < totalDays)
+      ? `<div class="tl-today" style="left:${todayIdx * CAL_DAY_W}px"></div>` : '';
+
+    // 픽업 막대
+    const bars = data.map(p => {
+      if (!p['시작일'] || !p['종료일']) return '';
+      const pStart = stripTime(p['시작일']), pEnd = stripTime(p['종료일']);
+      if (pEnd < start || pStart > end) return '';
+      const from = Math.max(dayIndex(pStart), 0);
+      const to = Math.min(dayIndex(pEnd), totalDays - 1);
+      const pid = pickupId(p);
+      const nikkeImg = pickupNikkeImgData.find(n => n['이름'] === p['니케']);
+      const imgUrl = nikkeImg ? nikkeImg['이미지'] : '';
+      const totalCount = Math.round((pEnd - pStart) / 86400000) + 1;
+      const cls = ['calendar-bar', 'tl-bar', calendarCodeClassFor(p),
+                   pStart > today ? 'is-upcoming' : '',
+                   pStart <= today && today <= pEnd ? 'is-today-active' : ''].filter(Boolean).join(' ');
+      const tip = `${formatCalendarFullDate(pStart)} ~ ${formatCalendarFullDate(pEnd)} (${totalCount}일간)`
+        + (p['복각'] ? ' · 복각' : '') + (pStart > today ? ' · 예정' : '');
+      return `
+        <div class="${cls}" data-pid="${pid}" data-nikke="${p['니케']}" data-tooltip="${tip}"
+             style="left:${from * CAL_DAY_W}px; width:${(to - from + 1) * CAL_DAY_W}px; top:${laneByPid[pid] * CAL_LANE_H}px">
+          ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
+          ${p['복각'] ? '<span class="calendar-bar-tag">복각</span>' : ''}
+          <span class="calendar-bar-name">${p['니케']}</span>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="calendar-timeline" style="width:${totalDays * CAL_DAY_W}px">
+        <div class="tl-head">
+          ${months.map(m => `<div class="tl-month" data-month="${m.key}" style="left:${m.left}px; width:${m.width}px">${m.label}</div>`).join('')}
+          ${ticks.join('')}
+        </div>
+        <div class="tl-body" style="height:${Math.max(laneCount, 1) * CAL_LANE_H}px">
+          ${months.map(m => `<div class="tl-month-line" style="left:${m.left}px"></div>`).join('')}
+          ${todayLine}
+          ${bars}
+        </div>
+      </div>`;
   }
 
   function renderPickupCalendar() {
@@ -1232,10 +1284,8 @@
     // 전체보기에서는 좌우가 아니라 위아래로 움직이므로 화살표도 바꿔 준다
     const prevBtn = document.getElementById('pickup-calendar-prev');
     const nextBtn = document.getElementById('pickup-calendar-next');
-    prevBtn.textContent = calendarAllMonths ? '▲' : '◀';
-    nextBtn.textContent = calendarAllMonths ? '▼' : '▶';
-    prevBtn.setAttribute('aria-label', calendarAllMonths ? '이전 달로 이동' : '이전 달');
-    nextBtn.setAttribute('aria-label', calendarAllMonths ? '다음 달로 이동' : '다음 달');
+    prevBtn.textContent = '◀';
+    nextBtn.textContent = '▶';
     if (calendarAllMonths) { prevBtn.disabled = false; nextBtn.disabled = false; }
     // 전체보기에서도 조작은 그대로 쓴다 - 달을 바꾸는 대신 그 달 위치로 스크롤한다.
 
