@@ -1031,6 +1031,96 @@
     color: var(--text-heading);
   }
 
+  /* 커스텀 드롭다운. 네이티브 select 는 값/이벤트용으로만 남기고 화면에서 감춘다. */
+  .nice-select {
+    position: relative;
+    display: inline-block;
+  }
+
+  .nice-select .calendar-select {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .nice-select-btn {
+    font: inherit;
+    font-weight: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .nice-select-btn:hover {
+    background: var(--bg-panel-alt);
+    border-color: var(--border-subtle);
+  }
+
+  .nice-select-btn[aria-expanded="true"] {
+    background: var(--bg-panel-active);
+    border-color: var(--border-accent);
+  }
+
+  .nice-select-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .nice-select-list {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    min-width: 100%;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card-hover);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nice-select-item {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+    color: var(--text-body);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .nice-select-item:hover:not(.is-disabled) {
+    background: var(--bg-panel-alt);
+    color: var(--text-heading);
+  }
+
+  .nice-select-item.is-selected {
+    background: var(--bg-panel-active);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .nice-select-item.is-disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
   .calendar-select {
     appearance: none;
     -webkit-appearance: none;
@@ -1254,8 +1344,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    position: relative;
     height: 38px;
-    padding: 0 8px;
+    padding: 0 8px 0 12px;   /* 왼쪽 색 띠 자리 */
     border-radius: 3px;
     border-top-style: solid;
     border-bottom-style: solid;
@@ -1264,19 +1355,41 @@
     border-left: none;
     border-right: none;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     cursor: pointer;
     transition: filter 0.15s, box-shadow 0.15s;
   }
 
-  .calendar-bar.code-작열 { background: var(--code-scorch-bg); border-color: var(--code-scorch-border); color: var(--code-scorch-text); }
-  .calendar-bar.code-철갑 { background: var(--code-iron-bg); border-color: var(--code-iron-border); color: var(--code-iron-text); }
-  .calendar-bar.code-풍압 { background: var(--code-wind-bg); border-color: var(--code-wind-border); color: var(--code-wind-text); }
-  .calendar-bar.code-전격 { background: var(--code-electric-bg); border-color: var(--code-electric-border); color: var(--code-electric-text); }
-  .calendar-bar.code-수냉 { background: var(--code-water-bg); border-color: var(--code-water-border); color: var(--code-water-text); }
-  .calendar-bar.code-default { background: var(--bg-panel-alt); border-color: var(--border-strong); color: var(--text-secondary); }
+  /* 예전에는 막대 전체를 속성색(파스텔)으로 칠했다. 막대가 많아지면 화면이 알록달록해서
+     정신없고, 옅은 파스텔 위의 글자라 이름도 잘 안 읽혔다.
+     이제 막대는 중립색으로 통일하고 속성은 왼쪽 색 띠로만 표시한다. 색 수가 줄어 차분해지고
+     글자는 진한 색으로 올려 또렷해진다. */
+  .calendar-bar {
+    background: var(--bg-panel);
+    border-color: var(--border-strong);
+    color: var(--text-heading);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  .calendar-bar::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: var(--calendar-bar-accent, var(--border-strong));
+  }
+
+  .calendar-bar.code-작열   { --calendar-bar-accent: var(--code-scorch-text); }
+  .calendar-bar.code-철갑   { --calendar-bar-accent: var(--code-iron-text); }
+  .calendar-bar.code-풍압   { --calendar-bar-accent: var(--code-wind-text); }
+  .calendar-bar.code-전격   { --calendar-bar-accent: var(--code-electric-text); }
+  .calendar-bar.code-수냉   { --calendar-bar-accent: var(--code-water-text); }
+  .calendar-bar.code-default { --calendar-bar-accent: var(--border-strong); }
 
   .calendar-bar.is-start {
     margin-left: 2px;

@@ -881,6 +881,82 @@
       jumpFromPickers();
     });
     monthSelect.addEventListener('change', jumpFromPickers);
+
+    // 네이티브 select 의 펼침 목록은 OS 가 그려서 사이트 디자인을 입힐 수 없다.
+    // select 는 그대로 두고(값·이벤트 로직을 전부 재사용) 그 위에 우리 목록을 얹는다.
+    enhanceSelect(yearSelect);
+    enhanceSelect(monthSelect);
+  }
+
+  // select 하나를 사이트 디자인의 드롭다운으로 감싼다. 값이 바뀌면 원래 select 에
+  // 반영하고 change 를 발생시키므로, 기존 코드는 손댈 필요가 없다.
+  function enhanceSelect(select) {
+    const wrap = document.createElement('div');
+    wrap.className = 'nice-select';
+    select.parentNode.insertBefore(wrap, select);
+    wrap.appendChild(select);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nice-select-btn';
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.setAttribute('aria-expanded', 'false');
+    const list = document.createElement('div');
+    list.className = 'nice-select-list hidden';
+    list.setAttribute('role', 'listbox');
+    wrap.append(btn, list);
+
+    const syncBtn = () => {
+      const opt = select.options[select.selectedIndex];
+      btn.textContent = opt ? opt.textContent : '';
+      btn.disabled = select.disabled;
+    };
+
+    const buildList = () => {
+      list.innerHTML = '';
+      [...select.options].forEach(opt => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'nice-select-item'
+          + (opt.value === select.value ? ' is-selected' : '')
+          + (opt.disabled ? ' is-disabled' : '');
+        item.textContent = opt.textContent;
+        item.disabled = opt.disabled;
+        item.setAttribute('role', 'option');
+        item.addEventListener('click', () => {
+          select.value = opt.value;
+          select.dispatchEvent(new Event('change'));
+          close();
+        });
+        list.appendChild(item);
+      });
+    };
+
+    const open = () => {
+      buildList();
+      list.classList.remove('hidden');
+      btn.setAttribute('aria-expanded', 'true');
+      const sel = list.querySelector('.is-selected');
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+    };
+    const close = () => {
+      list.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
+    };
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      // 다른 드롭다운은 닫는다
+      document.querySelectorAll('.nice-select-list').forEach(l => { if (l !== list) l.classList.add('hidden'); });
+      list.classList.contains('hidden') ? open() : close();
+    });
+    document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    select.addEventListener('change', syncBtn);
+
+    syncBtn();
+    // 바깥에서 select.value 를 직접 바꾸는 경우(스크롤 동기화 등)도 따라가게 한다
+    select.__syncNice = syncBtn;
   }
 
   function updateCalendarMonthSelectOptions(year) {
@@ -903,6 +979,9 @@
     yearSelect.value = calendarMonth.getFullYear();
     updateCalendarMonthSelectOptions(calendarMonth.getFullYear());
     monthSelect.value = calendarMonth.getMonth() + 1;
+    // 값을 코드로 바꾼 경우엔 change 가 안 나므로 표시 버튼을 직접 갱신한다
+    yearSelect.__syncNice?.();
+    monthSelect.__syncNice?.();
   }
 
   // 지금 보고 있는 달 기준으로 방향(-1/1)만큼 옮긴다. 맨 처음/마지막 픽업이 있는 달을 벗어나면 무시.
@@ -932,8 +1011,8 @@
     const [y, m] = key.split('-');
     const ys = document.getElementById('pickup-calendar-year-select');
     const ms = document.getElementById('pickup-calendar-month-select');
-    if (ys && [...ys.options].some(o => o.value === y)) ys.value = y;
-    if (ms) { updateCalendarMonthSelectOptions(Number(y)); ms.value = m; }
+    if (ys && [...ys.options].some(o => o.value === y)) { ys.value = y; ys.__syncNice?.(); }
+    if (ms) { updateCalendarMonthSelectOptions(Number(y)); ms.value = m; ms.__syncNice?.(); }
     calendarMonth = new Date(Number(y), Number(m) - 1, 1);
   }
 
