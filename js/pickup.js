@@ -849,6 +849,9 @@
 
     document.getElementById('pickup-calendar-view').addEventListener('wheel', e => {
       if (currentView !== 'calendar') return;
+      // 연/월 드롭다운은 그 안에서 스크롤해야 한다. 달력 전체에 휠을 걸어 둔 탓에 목록 위에서
+      // 굴려도 달이 넘어가 버리고 정작 목록은 안 움직였다.
+      if (e.target.closest('.nice-select-list')) return;
       // 전체보기(가로 타임라인)에서는 세로 휠을 가로 스크롤로 바꿔 준다.
       // 단 줄이 많아 세로로도 넘칠 때는(순서 그대로 배치) 세로 스크롤을 그대로 살려 둔다.
       if (calendarAllMonths) {
