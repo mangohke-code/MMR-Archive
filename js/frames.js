@@ -18,6 +18,9 @@
     }
 
     renderFramesSelector(data);
+    // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
+    collapseFrame();
+    document.getElementById('frames-sort-btn').addEventListener('click', toggleFramesAttrSort);
   }
 
   // 보스의 약점 속성 아이콘. 니케 쪽에서 쓰는 우월코드 아이콘을 그대로 재사용한다
@@ -32,31 +35,77 @@
     return `<div class="frames-item-weak code-${code}" data-tooltip="약점 ${code}">${inner}</div>`;
   }
 
+  function framesItemHtml(item) {
+    const idx = allFramesData.indexOf(item);
+    const imgUrl = item['보스 이미지'];
+    return `
+      <div class="frames-item" data-idx="${idx}" onclick="selectFrame(allFramesData[${idx}])">
+        <div class="frames-item-img">
+          ${imgUrl ? `<img src="${imgUrl}" alt="${item['보스']}">` : item['보스']}
+          ${weaknessIconHtml(item)}
+        </div>
+        <div class="frames-item-text">
+          <div class="frames-item-season">시즌 ${item['시즌']}</div>
+          <div class="frames-item-boss">${item['보스']}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 약점 속성별로 열을 나눠서 보여주는 모드. 순서는 사이트 다른 곳(우월코드 필터/몰아보기)
+  // 에서 쓰는 순서와 맞춘다.
+  const FRAMES_ATTR_ORDER = ['작열', '철갑', '풍압', '전격', '수냉'];
+  let framesSortByAttr = false;
+
+  function framesAttrColumnsHtml(sorted) {
+    const byAttr = new Map(FRAMES_ATTR_ORDER.map(a => [a, []]));
+    const etc = [];
+    sorted.forEach(item => {
+      const attr = item['약점 속성'];
+      if (byAttr.has(attr)) byAttr.get(attr).push(item);
+      else etc.push(item);
+    });
+    // 5속성 중 어디에도 안 들어가는 값이 있어도 목록에서 사라지지 않게 뒤에 붙인다
+    if (etc.length) byAttr.set('기타', etc);
+
+    return [...byAttr]
+      .filter(([, items]) => items.length > 0)
+      .map(([attr, items]) => {
+        const url = (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[attr];
+        return `
+          <div class="frames-attr-col">
+            <div class="frames-attr-col-head">
+              ${url ? `<img src="${url}" alt="${attr}">` : ''}
+              <span>${attr}</span><em>${items.length}</em>
+            </div>
+            <div class="frames-attr-col-body">${items.map(framesItemHtml).join('')}</div>
+          </div>`;
+      }).join('');
+  }
+
   function renderFramesSelector(data) {
     const container = document.getElementById('frames-selector');
 
     // 최신 시즌부터 먼저 보여준다
     const sorted = [...data].sort((a, b) => Number(b['시즌']) - Number(a['시즌']));
 
-    container.innerHTML = sorted.map(item => {
-      const idx = allFramesData.indexOf(item);
-      const imgUrl = item['보스 이미지'];
-      return `
-        <div class="frames-item" data-idx="${idx}" onclick="selectFrame(allFramesData[${idx}])">
-          <div class="frames-item-img">
-            ${imgUrl ? `<img src="${imgUrl}" alt="${item['보스']}">` : item['보스']}
-            ${weaknessIconHtml(item)}
-          </div>
-          <div class="frames-item-text">
-            <div class="frames-item-season">시즌 ${item['시즌']}</div>
-            <div class="frames-item-boss">${item['보스']}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    container.classList.toggle('is-attr-sorted', framesSortByAttr);
+    container.innerHTML = framesSortByAttr
+      ? framesAttrColumnsHtml(sorted)
+      : sorted.map(framesItemHtml).join('');
 
-    // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
-    collapseFrame();
+    // 다시 그리면 고른 표시가 지워지니 되살린다(정렬만 바꿨을 때 선택이 풀리면 안 된다)
+    if (currentFrame) {
+      document.querySelectorAll('.frames-item').forEach(el => {
+        el.classList.toggle('active', allFramesData[el.dataset.idx] === currentFrame);
+      });
+    }
+  }
+
+  function toggleFramesAttrSort() {
+    framesSortByAttr = !framesSortByAttr;
+    document.getElementById('frames-sort-btn').classList.toggle('active', framesSortByAttr);
+    renderFramesSelector(allFramesData);
   }
 
   // 상세를 접고 목록을 원래(가로) 배치로 되돌린다
@@ -65,6 +114,9 @@
     clearFramesSpine();
     document.getElementById('frames-top').classList.add('hidden');
     document.getElementById('frames-layout').classList.remove('is-detail-open');
+    // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
+    // 남아 있으면 무엇에 딸린 건지 알 수 없다.
+    document.getElementById('frames-tiers').innerHTML = '';
     document.querySelectorAll('.frames-item').forEach(el => el.classList.remove('active'));
   }
 

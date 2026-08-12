@@ -4362,6 +4362,119 @@
     min-width: 0;
   }
 
+  #frames-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  #frames-sort-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  #frames-sort-btn:hover {
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  #frames-sort-btn.active {
+    background: var(--bg-panel-active);
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  /* 속성별 정렬: 5속성을 열로 나란히 놓고 보스를 제 열로 보낸다.
+     열 폭은 화면에 맞춰 나눠 가지므로 카드가 열 폭을 꽉 채우게 한다. */
+  #frames-selector.is-attr-sorted {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+
+  .frames-attr-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .frames-attr-col-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 10px;
+    background: var(--bg-panel-alt);
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-heading);
+  }
+
+  .frames-attr-col-head img {
+    height: 24px;
+    width: auto;          /* 우월코드 아이콘은 육각형이라 비율을 지킨다 */
+    object-fit: contain;
+  }
+
+  .frames-attr-col-head em {
+    font-style: normal;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .frames-attr-col-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* 열 안에서는 카드가 열 폭을 따라간다(고정 190px 이면 5열이 화면을 넘는다) */
+  #frames-selector.is-attr-sorted .frames-item {
+    width: 100%;
+  }
+
+  #frames-selector.is-attr-sorted .frames-item-img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  /* 상세가 열려 목록이 좁은 세로 열이 되면 5열이 못 들어간다. 속성별로 구역을 나눠
+     위아래로 쌓고, 속성 이름은 스크롤해도 구역 위에 붙어 있게 한다. */
+  #frames-layout.is-detail-open #frames-selector.is-attr-sorted {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #frames-layout.is-detail-open .frames-attr-col-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  #frames-layout.is-detail-open .frames-attr-col-body {
+    align-items: stretch;
+  }
+
+  #frames-layout.is-detail-open #frames-selector.is-attr-sorted .frames-item-img {
+    width: 108px;
+    height: 108px;
+    aspect-ratio: auto;
+  }
+
   /* 보스를 고르면 목록이 모델 왼쪽의 세로 열로 바뀐다. 카드가 39개라 그대로 두면
      상세가 한참 아래로 밀려서, 옆에 붙여 놓고 목록에서만 스크롤되게 한다. */
   /* 목록 열. 상세(오른쪽)와 같은 높이로 늘어나고, 스크롤은 이 안에서만 일어난다.
@@ -4369,7 +4482,7 @@
   #frames-layout.is-detail-open #frames-selector-col {
     position: relative;
     flex: 0 0 auto;
-    width: 250px;
+    width: 280px;
     align-self: stretch;
   }
 
@@ -4401,24 +4514,24 @@
   }
 
   #frames-layout.is-detail-open .frames-item-img {
-    width: 96px;
-    height: 96px;
+    width: 108px;
+    height: 108px;
     flex-shrink: 0;
   }
 
   #frames-layout.is-detail-open .frames-item-weak {
     right: 3px;
     bottom: 3px;
-    width: 26px;
-    height: 30px;
+    width: 30px;
+    height: 35px;
   }
 
   #frames-layout.is-detail-open .frames-item-season {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   #frames-layout.is-detail-open .frames-item-boss {
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1.25;
     /* 5시즌 보스처럼 공백 없는 긴 이름이 열을 넘어 가로 스크롤을 만들지 않게 한다 */
     overflow-wrap: anywhere;
@@ -4445,7 +4558,7 @@
   }
 
   .frames-item {
-    width: 150px;
+    width: 190px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -4469,8 +4582,8 @@
 
   .frames-item-img {
     position: relative;   /* 약점 아이콘을 모서리에 얹기 위해 */
-    width: 128px;
-    height: 128px;
+    width: 166px;
+    height: 166px;
     border-radius: var(--radius-md);
     background: var(--bg-inset);
     overflow: hidden;
@@ -4487,10 +4600,10 @@
      원형 판을 깔면 모양이 어긋난다. 아이콘을 그대로 얹고 그림자로만 띄운다. */
   .frames-item-weak {
     position: absolute;
-    right: 5px;
-    bottom: 5px;
-    width: 31px;
-    height: 36px;
+    right: 6px;
+    bottom: 6px;
+    width: 38px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4530,14 +4643,15 @@
   }
 
   .frames-item-season {
-    font-size: 12px;
+    font-size: 14px;
     color: var(--text-faint);
     letter-spacing: 0.04em;
   }
 
   .frames-item-boss {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-body);
     text-align: center;
     word-break: keep-all;
     line-height: 1.3;
@@ -4709,7 +4823,7 @@
   }
 
   .frames-tier-card {
-    width: 160px;
+    width: 200px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -4721,8 +4835,8 @@
   }
 
   .frames-tier-img {
-    width: 120px;
-    height: 120px;
+    width: 158px;
+    height: 158px;
     border-radius: var(--radius-md);
     background: var(--bg-inset);
     overflow: hidden;
@@ -4738,8 +4852,9 @@
   }
 
   .frames-tier-name {
-    font-size: 14px;
-    color: var(--text-secondary);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-body);
     text-align: center;
     word-break: keep-all;
     line-height: 1.3;

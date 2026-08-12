@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=78">
+  <link rel="stylesheet" href="css/style.css?v=79">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -415,6 +415,11 @@
 
         <div class="section-title">역대 솔로 레이드</div>
 
+        <div id="frames-toolbar">
+          <button id="frames-sort-btn" type="button"
+                  data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
+        </div>
+
         <!-- 시즌 선택 목록 -->
         <div id="frames-layout">
         <div id="frames-selector-col"><div id="frames-selector"></div></div>
@@ -528,7 +533,7 @@
   }
   </script>
   <script type="module" src="js/frames3d.js?v=30"></script>
-  <script src="js/frames.js?v=8"></script>
+  <script src="js/frames.js?v=9"></script>
   <script src="js/stage.js?v=7"></script>
 
 </body>
