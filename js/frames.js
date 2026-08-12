@@ -108,11 +108,25 @@
     renderFramesSelector(allFramesData);
   }
 
+  // 세로 목록은 오른쪽(모델+테두리) 높이에 맞춰 늘어나는데, 테두리가 적은 보스는 그
+  // 높이가 화면 중간에서 끝나 버린다. 최소한 화면 아래까지는 닿게 해서 한 번에 보이는
+  // 보스 수를 늘린다. 창 크기가 바뀌면 다시 잰다.
+  function syncFramesSelectorHeight() {
+    const col = document.getElementById('frames-selector-col');
+    if (!col || !document.getElementById('frames-layout').classList.contains('is-detail-open')) return;
+    col.style.minHeight = '';
+    const docTop = col.getBoundingClientRect().top + window.scrollY;
+    col.style.minHeight = Math.max(420, window.innerHeight - docTop - 16) + 'px';
+  }
+
+  window.addEventListener('resize', syncFramesSelectorHeight);
+
   // 상세를 접고 목록을 원래(가로) 배치로 되돌린다
   function collapseFrame() {
     currentFrame = null;
     clearFramesSpine();
     document.getElementById('frames-top').classList.add('hidden');
+    document.getElementById('frames-selector-col').style.minHeight = '';
     document.getElementById('frames-layout').classList.remove('is-detail-open');
     // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
     // 남아 있으면 무엇에 딸린 건지 알 수 없다.
@@ -144,6 +158,7 @@
       : '-';
 
     renderFrameTiers(item);
+    syncFramesSelectorHeight();
     loadFramesSpine(item);
   }
 

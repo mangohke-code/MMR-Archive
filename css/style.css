@@ -4411,26 +4411,36 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 7px 10px;
+    gap: 8px;
+    padding: 9px 12px;
     background: var(--bg-panel-alt);
     border-radius: var(--radius-md);
-    font-size: 15px;
+    font-size: 19px;
     font-weight: 800;
     color: var(--text-heading);
   }
 
   .frames-attr-col-head img {
-    height: 24px;
+    height: 30px;
     width: auto;          /* 우월코드 아이콘은 육각형이라 비율을 지킨다 */
     object-fit: contain;
   }
 
   .frames-attr-col-head em {
     font-style: normal;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-muted);
+  }
+
+  /* 속성별 정렬은 열 하나에 카드가 8~10개뿐이라 여백이 넉넉하다. 글자를 키워서
+     한눈에 읽히게 한다. */
+  #frames-selector.is-attr-sorted .frames-item-season {
+    font-size: 16px;
+  }
+
+  #frames-selector.is-attr-sorted .frames-item-boss {
+    font-size: 20px;
   }
 
   .frames-attr-col-body {
@@ -4475,6 +4485,15 @@
     aspect-ratio: auto;
   }
 
+  /* 좁은 세로 열이라 넓은 열만큼은 못 키워도, 안 나눴을 때보다는 크게 */
+  #frames-layout.is-detail-open #frames-selector.is-attr-sorted .frames-item-season {
+    font-size: 15px;
+  }
+
+  #frames-layout.is-detail-open #frames-selector.is-attr-sorted .frames-item-boss {
+    font-size: 19px;
+  }
+
   /* 보스를 고르면 목록이 모델 왼쪽의 세로 열로 바뀐다. 카드가 39개라 그대로 두면
      상세가 한참 아래로 밀려서, 옆에 붙여 놓고 목록에서만 스크롤되게 한다. */
   /* 목록 열. 상세(오른쪽)와 같은 높이로 늘어나고, 스크롤은 이 안에서만 일어난다.
@@ -4498,9 +4517,16 @@
     padding: 0 4px 0 0;
   }
 
-  #frames-layout.is-detail-open #frames-top {
+  /* 상세와 테두리를 묶은 오른쪽 기둥. 테두리가 이 안에 있어서 왼쪽 끝이 모델 구역과
+     자동으로 맞고, 왼쪽 보스 목록은 테두리 높이만큼 아래까지 이어진다. */
+  #frames-main {
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  /* 보스를 안 골랐으면 오른쪽 기둥은 아예 자리를 차지하지 않는다(목록이 폭을 다 쓴다) */
+  #frames-layout:not(.is-detail-open) #frames-main {
+    display: none;
   }
 
   /* 세로 열에서는 카드를 가로형으로 압축한다. 원래 크기(150x200)로는 39개 중 3개밖에
@@ -4644,7 +4670,8 @@
 
   .frames-item-season {
     font-size: 14px;
-    color: var(--text-faint);
+    font-weight: 600;
+    color: var(--text-secondary);
     letter-spacing: 0.04em;
   }
 
