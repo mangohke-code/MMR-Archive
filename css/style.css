@@ -887,18 +887,6 @@
     transition: all 0.15s;
   }
 
-  /* 동작 줄 안에서 "연출" 묶음을 구분하는 라벨 */
-  .anim-sep {
-    align-self: center;
-    margin-left: 6px;
-    padding-left: 10px;
-    border-left: 1px solid var(--border-subtle);
-    font-size: 12px;
-    font-weight: 800;
-    color: var(--text-muted);
-    cursor: help;
-  }
-
   .anim-btn:hover {
     border-color: var(--border-accent);
     color: var(--accent);

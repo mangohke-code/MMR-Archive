@@ -324,7 +324,9 @@
     try {
       if (!player || !player.skeleton || !name) return false;
       if (!player.skeleton.data.findAnimation(name)) return false;
+      if (!player.__costumeOverlays) player.__costumeOverlays = buildCostumeOverlays(player.skeleton.data);
       player.setAnimation(name, true);
+      applyCostumeOverlays(player, name);
       player.play();
       return true;
     } catch (err) {
@@ -421,26 +423,125 @@
       .filter(n => [...per.get(n)].some(k => !covered.has(k)));
   }
 
+  // ===== 배경·연출을 대기 동작 위에 겹쳐 재생 =====
+  //
+  // bg_idle 은 배경 전용 애니메이션이고, expression_* 안에도 다른 데서는 안 나오는 텍스처가
+  // 있다. 이것들을 보려고 대기 동작을 포기할 필요는 없다 — Spine 은 트랙을 여러 개 쓸 수
+  // 있어서, 몸을 건드리지 않는 부분만 뽑아 위 트랙에 얹으면 idle 을 그대로 두고 같이 나온다.
+  //
+  // 얹어도 되는지는 파일을 읽어서 판단한다. 겹쳐 트는 쪽이 대기 동작이 건드리는 본이나
+  // 슬롯을 하나라도 건드리면 얹지 않는다(서로 잡아당겨 자세가 망가진다).
+  function touchedByAnimation(anim) {
+    const bones = new Set(), slots = new Set();
+    anim.timelines.forEach(t => {
+      if (t.boneIndex !== undefined) bones.add(t.boneIndex);
+      if (t.slotIndex !== undefined) slots.add(t.slotIndex);
+    });
+    return { bones, slots };
+  }
+
+  function overlapsAnimation(a, b) {
+    for (const i of a.bones) if (b.bones.has(i)) return true;
+    for (const i of a.slots) if (b.slots.has(i)) return true;
+    return false;
+  }
+
+  // 고유 텍스처를 켜는 슬롯과, 그 슬롯이 매달린 본 사슬만 뽑아 새 애니메이션을 만든다.
+  // 대기 동작이 이미 움직이는 본은 빼야(그쪽이 주인이다) 자세가 흔들리지 않는다.
+  function buildTextureOverlay(src, skeletonData, busyBones) {
+    const shown = new Set();
+    src.timelines.forEach(t => {
+      if (!t.attachmentNames || t.slotIndex === undefined) return;
+      const slot = skeletonData.slots[t.slotIndex];
+      if (slot) t.attachmentNames.forEach(n => { if (n) shown.add(slot.name + '::' + n); });
+    });
+
+    const covered = new Set();
+    skeletonData.slots.forEach(s => { if (s.attachmentName) covered.add(s.name + '::' + s.attachmentName); });
+    skeletonData.animations.forEach(a => {
+      if (COSTUME_HIDDEN_ANIM_RE.test(a.name)) return;
+      a.timelines.forEach(t => {
+        if (!t.attachmentNames || t.slotIndex === undefined) return;
+        const slot = skeletonData.slots[t.slotIndex];
+        if (slot) t.attachmentNames.forEach(n => { if (n) covered.add(slot.name + '::' + n); });
+      });
+    });
+
+    const wantSlots = new Set();
+    shown.forEach(k => { if (!covered.has(k)) wantSlots.add(k.split('::')[0]); });
+    if (!wantSlots.size) return null;
+
+    const slotIndexes = new Set();
+    const boneIndexes = new Set();
+    skeletonData.slots.forEach((sd, i) => {
+      if (!wantSlots.has(sd.name)) return;
+      slotIndexes.add(i);
+      for (let bone = sd.boneData; bone; bone = bone.parent) boneIndexes.add(bone.index);
+    });
+
+    const timelines = src.timelines.filter(t => {
+      if (t.slotIndex !== undefined) return slotIndexes.has(t.slotIndex);
+      if (t.boneIndex !== undefined) return boneIndexes.has(t.boneIndex) && !busyBones.has(t.boneIndex);
+      return false;   // 그리기 순서·제약 타임라인은 전체에 영향을 주므로 가져오지 않는다
+    });
+    if (!timelines.length) return null;
+    return new spine.Animation(src.name + '__overlay', timelines, src.duration);
+  }
+
+  function buildCostumeOverlays(skeletonData) {
+    // 목록에 있는 동작·표정이 건드리는 본 = 이미 임자가 있는 본
+    const busyBones = new Set();
+    skeletonData.animations.forEach(a => {
+      if (COSTUME_HIDDEN_ANIM_RE.test(a.name)) return;
+      a.timelines.forEach(t => { if (t.boneIndex !== undefined) busyBones.add(t.boneIndex); });
+    });
+
+    const overlays = [];
+    const bg = skeletonData.animations.find(a => a.name === 'bg_idle');
+    if (bg && bg.duration > 0 && bg.timelines.length) {
+      overlays.push({ anim: bg, touched: touchedByAnimation(bg) });
+    }
+    animationsWithUniqueTextures(skeletonData).forEach(name => {
+      if (name === 'bg_idle') return;
+      const src = skeletonData.animations.find(a => a.name === name);
+      if (!src) return;
+      const overlay = buildTextureOverlay(src, skeletonData, busyBones);
+      if (overlay) overlays.push({ anim: overlay, touched: touchedByAnimation(overlay), from: name });
+    });
+    return overlays;
+  }
+
+  function applyCostumeOverlays(player, baseName) {
+    const overlays = player.__costumeOverlays;
+    if (!overlays) return;
+    const state = player.animationState;
+    for (let i = 1; i <= overlays.length; i++) {
+      try { state.clearTrack(i); } catch (err) {}
+    }
+    const baseAnim = player.skeleton.data.findAnimation(baseName);
+    const base = baseAnim ? touchedByAnimation(baseAnim) : null;
+    let track = 1;
+    overlays.forEach(o => {
+      if (o.anim.name === baseName) return;                  // 지금 트랙 0 에서 틀고 있다
+      if (base && overlapsAnimation(o.touched, base)) return; // 몸을 건드리면 얹지 않는다
+      try { state.setAnimationWith(track++, o.anim, true); } catch (err) {}
+    });
+  }
+
   // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
   // 표정은 하나만 고를 수 있고, "기본"을 누르면 고른 동작으로 돌아간다.
   function renderCostumeAnimControls(skeletonData) {
     const { motions, expressions } = classifyCostumeAnimations(skeletonData);
 
-    const extras = animationsWithUniqueTextures(skeletonData);
-
     const motionBox = document.getElementById('costume-anim-toggle');
     if (motionBox) {
-      if (motions.length <= 1 && !extras.length) {
+      if (motions.length <= 1) {
         motionBox.innerHTML = '';
         motionBox.classList.add('hidden');
       } else {
         motionBox.classList.remove('hidden');
         motionBox.innerHTML = motions.map(n =>
-          `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('')
-          + (extras.length
-              ? `<span class="anim-sep" data-tooltip="이 코스튬에서만, 다른 동작으로는 볼 수 없는 텍스처가 들어 있는 애니메이션입니다">연출</span>`
-                + extras.map(n => `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('')
-              : '');
+          `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
         motionBox.querySelectorAll('.anim-btn').forEach(btn => {
           btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
         });
