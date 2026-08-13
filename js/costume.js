@@ -370,17 +370,55 @@
       const base = m ? m[1] : name;
       const num = m ? Number(m[2]) : 0;
       let row = rowByBase.get(base);
-      if (!row) { row = { base, items: [] }; rowByBase.set(base, row); rows.push(row); }
-      row.items.push({ name, num });
+      if (!row) { row = { base, slots: [] }; rowByBase.set(base, row); rows.push(row); }
+      // 번호가 곧 열 자리다. 레트로 데이즈의 sad 처럼 01 없이 02 만 있으면 1열은 비우고
+      // 2열에 놓는다 — 그래야 다른 표정의 02 와 세로로 줄이 맞는다.
+      let col = Math.max(num, 1) - 1;
+      while (row.slots[col]) col++;   // 같은 번호가 겹치면 다음 빈 칸으로
+      row.slots[col] = name;
     });
-    rows.forEach(r => r.items.sort((a, b) => a.num - b.num));
     return rows;
   }
 
-  // 열 수는 가장 변형이 많은 표정에 맞춘다. 변형이 하나도 없는 코스튬(홍련 레이서즈 하이)은
-  // 1열이 되어 쓸데없이 열이 갈리지 않는다.
+  // 열 수는 가장 오른쪽까지 쓰는 표정에 맞춘다. 변형이 하나도 없는 코스튬(홍련 레이서즈
+  // 하이)은 1열이 되어 쓸데없이 열이 갈리지 않는다.
   function expressionColumnCount(rows) {
-    return rows.reduce((max, r) => Math.max(max, r.items.length), 1);
+    return rows.reduce((max, r) => Math.max(max, r.slots.length), 1);
+  }
+
+  // 숨긴 애니메이션 중에는 "다른 데서는 절대 안 나오는 텍스처"를 켜는 것이 있다.
+  // 예를 들어 라피 레드 플레이버의 배경 조명(bg_idle)과 돌고래(expression_1),
+  // 리틀 머메이드 쉘 프린세스의 물방울(expression_0)이 그렇다. 그런 것만 골라
+  // "연출"로 되살린다 — 나머지 코스튬은 숨긴 채로 둔다.
+  // talk_* 는 0.03초짜리 입모양 한 컷이라 살려 봐야 정지 화면이므로 제외한다.
+  function animationsWithUniqueTextures(skeletonData) {
+    const shownBy = anim => {
+      const set = new Set();
+      anim.timelines.forEach(t => {
+        if (!t.attachmentNames || t.slotIndex === undefined) return;
+        const slot = skeletonData.slots[t.slotIndex];
+        if (!slot) return;
+        t.attachmentNames.forEach(n => { if (n) set.add(slot.name + '::' + n); });
+      });
+      return set;
+    };
+
+    // 이미 볼 수 있는 것: 설정 자세에 그냥 붙어 있는 것 + 목록에 있는 애니메이션이 켜는 것
+    const covered = new Set();
+    skeletonData.slots.forEach(s => {
+      if (s.attachmentName) covered.add(s.name + '::' + s.attachmentName);
+    });
+    const per = new Map();
+    skeletonData.animations.forEach(a => {
+      const set = shownBy(a);
+      per.set(a.name, set);
+      if (!COSTUME_HIDDEN_ANIM_RE.test(a.name)) set.forEach(k => covered.add(k));
+    });
+
+    return skeletonData.animations
+      .map(a => a.name)
+      .filter(n => COSTUME_HIDDEN_ANIM_RE.test(n) && !/^talk/.test(n))
+      .filter(n => [...per.get(n)].some(k => !covered.has(k)));
   }
 
   // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
@@ -388,15 +426,21 @@
   function renderCostumeAnimControls(skeletonData) {
     const { motions, expressions } = classifyCostumeAnimations(skeletonData);
 
+    const extras = animationsWithUniqueTextures(skeletonData);
+
     const motionBox = document.getElementById('costume-anim-toggle');
     if (motionBox) {
-      if (motions.length <= 1) {
+      if (motions.length <= 1 && !extras.length) {
         motionBox.innerHTML = '';
         motionBox.classList.add('hidden');
       } else {
         motionBox.classList.remove('hidden');
         motionBox.innerHTML = motions.map(n =>
-          `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
+          `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('')
+          + (extras.length
+              ? `<span class="anim-sep" data-tooltip="이 코스튬에서만, 다른 동작으로는 볼 수 없는 텍스처가 들어 있는 애니메이션입니다">연출</span>`
+                + extras.map(n => `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('')
+              : '');
         motionBox.querySelectorAll('.anim-btn').forEach(btn => {
           btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
         });
@@ -412,8 +456,8 @@
         const base = motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM);
         const rows = groupExpressionsByVariant(expressions);
         const cols = expressionColumnCount(rows);
-        const cell = item => item
-          ? `<button class="anim-btn expr-btn" data-anim="${item.name}">${item.name}</button>`
+        const cell = name => name
+          ? `<button class="anim-btn expr-btn" data-anim="${name}">${name}</button>`
           : `<span class="expr-empty"></span>`;
         exprBox.classList.remove('hidden');
         exprBox.innerHTML = `<div class="expr-title">표정</div>`
@@ -421,7 +465,7 @@
           + `<div class="expr-grid" style="--expr-cols:${cols}">`
           + rows.map(r => {
               let cells = '';
-              for (let i = 0; i < cols; i++) cells += cell(r.items[i]);
+              for (let i = 0; i < cols; i++) cells += cell(r.slots[i]);
               return cells;
             }).join('')
           + `</div>`;
