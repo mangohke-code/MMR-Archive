@@ -475,9 +475,10 @@
       .filter(n => COSTUME_HIDDEN_ANIM_RE.test(n) && n !== 'bg_idle' && !/^talk/.test(n))
       .filter(n => [...per.get(n)].some(k => !covered.has(k)));
 
-    const list = [];
-    if (skeletonData.findAnimation('action')) list.push('action');
-    return list.concat(extras);
+    // 특수 연출이 있으면 그것만 돌린다. action 과 번갈아 재생하면 두 번에 한 번만 나와서
+    // 클릭해도 안 나오는 것처럼 느껴진다. 연출이 여럿이면 그것들끼리 번갈아 나온다.
+    if (extras.length) return extras;
+    return skeletonData.findAnimation('action') ? ['action'] : [];
   }
 
   function buildCostumeOverlays(skeletonData) {
