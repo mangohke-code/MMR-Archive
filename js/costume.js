@@ -289,6 +289,46 @@
   // 'idle' 등). 없으면(추가 파츠처럼 어떤 애니메이션이 있는지 모르는 경우) null을 넘기면
   // 로드 후 실제 존재하는 애니메이션 중에서 안전하게 골라 재생한다 — 없는 이름을 config에
   // 직접 넘기면 라이브러리 내부에서 예외가 나서 블랙박스 에러 화면이 뜨기 때문.
+  // 코스튬 기본 재생 애니메이션.
+  //
+  // idle 은 "가만히 서 있는" 동작만 들어 있어서, 코스튬 고유 연출 파츠는 슬롯도 텍스처도
+  // 다 있는데 켜지지 않는다. 예를 들어 팬텀 세인트 시프의 떨어지는 지폐(paper_1/paper_2)와
+  // 반짝임 파티클(c851_cover_00-particle_idle_04/08, additive)은 idle 에 attachment 키가
+  // 아예 없고 expression_0 / action 에만 있다. 파티클 리전 이름이 particle_idle 인 걸 보면
+  // 원래 대기용으로 만든 연출인데 idle 이 아닌 쪽에 물려 있는 것이다.
+  //
+  // expression_0 은 idle 처럼 전신을 다루는 애니메이션이라(본 477 / 슬롯 245, idle 은
+  // 371 / 69) 트랙을 겹치는 게 아니라 그냥 이걸 틀면 된다. 없는 스켈레톤은 idle 그대로.
+  const COSTUME_IDLE_PREFERENCE = ['expression_0', 'idle'];
+
+  function preferredIdleAnimation(skeletonData) {
+    const names = skeletonData.animations.map(a => a.name);
+    const found = COSTUME_IDLE_PREFERENCE.find(n => names.includes(n));
+    return found || names[0] || null;
+  }
+
+  // 애니메이션 선택 버튼. 기본값이 마음에 안 들 때 직접 고를 수 있게 스켈레톤에 있는
+  // 애니메이션을 그대로 늘어놓는다. 고르면 그때부터 그게 기본 대기 동작이 된다.
+  function renderCostumeAnimToggle(player, onPick) {
+    const box = document.getElementById('costume-anim-toggle');
+    if (!box) return;
+    const names = player.skeleton.data.animations.map(a => a.name);
+    if (names.length <= 1) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+
+    box.classList.remove('hidden');
+    box.innerHTML = names.map(n =>
+      `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
+    box.querySelectorAll('.anim-btn').forEach(btn => {
+      btn.addEventListener('click', () => onPick(btn.dataset.anim));
+    });
+  }
+
+  function markCostumeAnimActive(name) {
+    document.querySelectorAll('#costume-anim-toggle .anim-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.anim === name);
+    });
+  }
+
   function createSpineLayer(stageDiv, layerKey, skelUrl, atlasUrl, knownAnimation, viewportConfig, onReady) {
     const layerDiv = document.createElement('div');
     layerDiv.id = 'spine-layer-' + layerKey;
@@ -335,6 +375,9 @@
 
     const extraPartsToggle = document.getElementById('costume-extra-parts-toggle');
     if (extraPartsToggle) { extraPartsToggle.innerHTML = ''; extraPartsToggle.classList.add('hidden'); }
+
+    const animToggle = document.getElementById('costume-anim-toggle');
+    if (animToggle) { animToggle.innerHTML = ''; animToggle.classList.add('hidden'); }
 
     if (costumePanZoom) { costumePanZoom.destroy(); costumePanZoom = null; }
 
@@ -410,6 +453,15 @@
       createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, 'idle', viewportConfig, (player2, layerDiv) => {
         spinePlayer = player2;
 
+        // 대기 동작. 연출이 붙어 있는 애니메이션이 있으면 그걸 기본으로 쓴다.
+        let idleAnim = preferredIdleAnimation(player2.skeleton.data) || 'idle';
+        const playIdle = () => {
+          try { player2.setAnimation(idleAnim, true); markCostumeAnimActive(idleAnim); }
+          catch (err) { console.error('[코스튬 L2D] 대기 애니메이션 재생 실패:', idleAnim, err); }
+        };
+        renderCostumeAnimToggle(player2, name => { idleAnim = name; playIdle(); });
+        playIdle();
+
         const skeleton = player2.skeleton;
         const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
         const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
@@ -447,7 +499,7 @@
             costumePanZoom.reset();
             try {
               player2.animationState.clearListeners();
-              player2.setAnimation('idle', true);
+              playIdle();
             } catch (err) {
               console.error('[코스튬 L2D] 초기화 실패:', err);
             }
@@ -461,11 +513,7 @@
             player2.setAnimation('action', false);
             player2.animationState.addListener({
               complete: () => {
-                try {
-                  player2.setAnimation('idle', true);
-                } catch (err) {
-                  console.error('[코스튬 L2D] idle 애니메이션 복귀 실패:', err);
-                }
+                playIdle();
                 player2.animationState.clearListeners();
               }
             });

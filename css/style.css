@@ -864,6 +864,41 @@
     margin-left: 0;
   }
 
+  /* 애니메이션 선택 줄. 기본값(연출이 붙은 대기 동작)이 마음에 안 들면 여기서 고른다. */
+  .anim-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0.65rem 1rem;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-lg);
+  }
+
+  .anim-btn {
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-alt);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .anim-btn:hover {
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  .anim-btn.active {
+    background: var(--bg-panel-active);
+    border-color: var(--border-accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
   .toggle-switch-wrap .toggle-label {
     font-size: 15px;
     color: var(--text-faint);
