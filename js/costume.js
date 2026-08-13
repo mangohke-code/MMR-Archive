@@ -301,8 +301,17 @@
   // 코스튬 고유 연출(팬텀 세인트 시프의 떨어지는 지폐·반짝임 파티클, 뒤에 뜨는 요정)은
   // expression_0 에만 붙어 있다. idle 에서는 해당 슬롯의 attachment 가 아예 없고,
   // 추가 파츠(요정) 스켈레톤은 idle 에서 ps_* 슬롯을 전부 null 로 꺼버린다.
-  const COSTUME_EXPRESSION_RE = /^(angry|delight|sad|shy|smile|surprise|no|special|expression_\d+)(_(\d+|alt))?$/;
-  const COSTUME_TALK_RE = /^talk(_|$)/;
+  // 목록에서 아예 빼는 것들.
+  //  - bg_idle: 배경 파츠 전용이라 사람이 고를 일이 없다.
+  //  - expression_0 계열: 코스튬 연출용인데 화면이 멈춘 것처럼 보인다.
+  //  - talk_*: 0.03초짜리 입모양 한 컷이라 혼자 틀면 정지 화면이 된다.
+  const COSTUME_HIDDEN_ANIM_RE = /^(bg_idle|expression_\d+|talk)/;
+
+  // 동작은 idle 계열과 action 계열뿐이고, 나머지는 전부 표정으로 본다.
+  // 표정 이름을 목록으로 못 박아 두면(angry/delight/sad/...) 코스튬마다 think, worry,
+  // pain, cry, sleep, rage 처럼 처음 보는 이름이 나올 때마다 동작 쪽으로 새어 나간다.
+  // 실제로 36개 스켈레톤을 훑어보니 그런 이름이 여럿 있었다.
+  const COSTUME_MOTION_RE = /^(idle|action)(_|$)/;
 
   const COSTUME_DEFAULT_ANIM = 'idle';
 
@@ -342,11 +351,28 @@
   }
 
   function classifyCostumeAnimations(skeletonData) {
-    const names = skeletonData.animations.map(a => a.name);
+    const names = skeletonData.animations.map(a => a.name).filter(n => !COSTUME_HIDDEN_ANIM_RE.test(n));
     return {
-      motions: names.filter(n => !COSTUME_EXPRESSION_RE.test(n) && !COSTUME_TALK_RE.test(n)),
-      expressions: names.filter(n => COSTUME_EXPRESSION_RE.test(n)),
+      motions: names.filter(n => COSTUME_MOTION_RE.test(n)),
+      expressions: names.filter(n => !COSTUME_MOTION_RE.test(n)),
     };
+  }
+
+  // 표정은 대부분 기본형과 _02 변형이 짝을 이룬다. 둘을 좌우 두 열로 붙여 놓으면
+  // 같은 표정의 변형이라는 게 한눈에 보인다. _02 가 없는 표정은 오른쪽 칸을 비운다.
+  function pairExpressionsByVariant(names) {
+    const rows = [];
+    const rowByBase = new Map();
+    names.forEach(name => {
+      const m = name.match(/^(.*)_02$/);
+      const base = m ? m[1] : name;
+      let row = rowByBase.get(base);
+      if (!row) { row = { base: null, variant: null }; rowByBase.set(base, row); rows.push(row); }
+      if (m) row.variant = name; else row.base = name;
+    });
+    // 기본형 없이 _02 만 있는 경우엔 그것을 왼쪽 칸에 둔다(빈 줄이 생기지 않게)
+    rows.forEach(r => { if (!r.base && r.variant) { r.base = r.variant; r.variant = null; } });
+    return rows;
   }
 
   // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
@@ -376,11 +402,15 @@
         exprBox.classList.add('hidden');
       } else {
         const base = motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM);
+        const cell = n => n
+          ? `<button class="anim-btn expr-btn" data-anim="${n}">${n}</button>`
+          : `<span class="expr-empty"></span>`;
         exprBox.classList.remove('hidden');
         exprBox.innerHTML = `<div class="expr-title">표정</div>`
-          + `<button class="anim-btn expr-btn" data-anim="${base}">기본</button>`
-          + expressions.map(n =>
-              `<button class="anim-btn expr-btn" data-anim="${n}">${n}</button>`).join('');
+          + `<button class="anim-btn expr-btn expr-base" data-anim="${base}">기본</button>`
+          + `<div class="expr-grid">`
+          + pairExpressionsByVariant(expressions).map(r => cell(r.base) + cell(r.variant)).join('')
+          + `</div>`;
         exprBox.querySelectorAll('.expr-btn').forEach(btn => {
           btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
         });
