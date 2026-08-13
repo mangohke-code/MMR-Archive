@@ -388,49 +388,19 @@
     return rows.reduce((max, r) => Math.max(max, r.slots.length), 1);
   }
 
-  // 숨긴 애니메이션 중에는 "다른 데서는 절대 안 나오는 텍스처"를 켜는 것이 있다.
-  // 예를 들어 라피 레드 플레이버의 배경 조명(bg_idle)과 돌고래(expression_1),
-  // 리틀 머메이드 쉘 프린세스의 물방울(expression_0)이 그렇다. 그런 것만 골라
-  // "연출"로 되살린다 — 나머지 코스튬은 숨긴 채로 둔다.
-  // talk_* 는 0.03초짜리 입모양 한 컷이라 살려 봐야 정지 화면이므로 제외한다.
-  function animationsWithUniqueTextures(skeletonData) {
-    const shownBy = anim => {
-      const set = new Set();
-      anim.timelines.forEach(t => {
-        if (!t.attachmentNames || t.slotIndex === undefined) return;
-        const slot = skeletonData.slots[t.slotIndex];
-        if (!slot) return;
-        t.attachmentNames.forEach(n => { if (n) set.add(slot.name + '::' + n); });
-      });
-      return set;
-    };
-
-    // 이미 볼 수 있는 것: 설정 자세에 그냥 붙어 있는 것 + 목록에 있는 애니메이션이 켜는 것
-    const covered = new Set();
-    skeletonData.slots.forEach(s => {
-      if (s.attachmentName) covered.add(s.name + '::' + s.attachmentName);
-    });
-    const per = new Map();
-    skeletonData.animations.forEach(a => {
-      const set = shownBy(a);
-      per.set(a.name, set);
-      if (!COSTUME_HIDDEN_ANIM_RE.test(a.name)) set.forEach(k => covered.add(k));
-    });
-
-    return skeletonData.animations
-      .map(a => a.name)
-      .filter(n => COSTUME_HIDDEN_ANIM_RE.test(n) && !/^talk/.test(n))
-      .filter(n => [...per.get(n)].some(k => !covered.has(k)));
-  }
-
-  // ===== 배경·연출을 대기 동작 위에 겹쳐 재생 =====
+  // ===== 배경을 대기 동작 위에 겹쳐 재생 =====
   //
-  // bg_idle 은 배경 전용 애니메이션이고, expression_* 안에도 다른 데서는 안 나오는 텍스처가
-  // 있다. 이것들을 보려고 대기 동작을 포기할 필요는 없다 — Spine 은 트랙을 여러 개 쓸 수
-  // 있어서, 몸을 건드리지 않는 부분만 뽑아 위 트랙에 얹으면 idle 을 그대로 두고 같이 나온다.
+  // bg_idle 은 배경 전용 애니메이션이라 대기 동작과 따로 논다. 스켈레톤 36개를 확인해 보니
+  // bg_idle 이 있는 19개 중 13개는 목록에 있는 어떤 동작·표정과도 본·슬롯이 하나도 안
+  // 겹친다 — 애초에 겹쳐 틀라고 만든 것이다. Spine 은 트랙을 여러 개 쓸 수 있으므로 위
+  // 트랙에 얹으면 idle 을 그대로 두고 배경만 같이 움직인다.
   //
   // 얹어도 되는지는 파일을 읽어서 판단한다. 겹쳐 트는 쪽이 대기 동작이 건드리는 본이나
   // 슬롯을 하나라도 건드리면 얹지 않는다(서로 잡아당겨 자세가 망가진다).
+  //
+  // expression_* 안에만 있는 텍스처는 여기 넣지 않는다. 쉘 프린세스의 물방울 소용돌이처럼
+  // 가만히 있을 때가 아니라 클릭했을 때 나와야 하는 연출이 섞여 있어서, 자동으로 켜면
+  // 원래 의도와 다른 그림이 된다.
   function touchedByAnimation(anim) {
     const bones = new Set(), slots = new Set();
     anim.timelines.forEach(t => {
@@ -446,68 +416,12 @@
     return false;
   }
 
-  // 고유 텍스처를 켜는 슬롯과, 그 슬롯이 매달린 본 사슬만 뽑아 새 애니메이션을 만든다.
-  // 대기 동작이 이미 움직이는 본은 빼야(그쪽이 주인이다) 자세가 흔들리지 않는다.
-  function buildTextureOverlay(src, skeletonData, busyBones) {
-    const shown = new Set();
-    src.timelines.forEach(t => {
-      if (!t.attachmentNames || t.slotIndex === undefined) return;
-      const slot = skeletonData.slots[t.slotIndex];
-      if (slot) t.attachmentNames.forEach(n => { if (n) shown.add(slot.name + '::' + n); });
-    });
-
-    const covered = new Set();
-    skeletonData.slots.forEach(s => { if (s.attachmentName) covered.add(s.name + '::' + s.attachmentName); });
-    skeletonData.animations.forEach(a => {
-      if (COSTUME_HIDDEN_ANIM_RE.test(a.name)) return;
-      a.timelines.forEach(t => {
-        if (!t.attachmentNames || t.slotIndex === undefined) return;
-        const slot = skeletonData.slots[t.slotIndex];
-        if (slot) t.attachmentNames.forEach(n => { if (n) covered.add(slot.name + '::' + n); });
-      });
-    });
-
-    const wantSlots = new Set();
-    shown.forEach(k => { if (!covered.has(k)) wantSlots.add(k.split('::')[0]); });
-    if (!wantSlots.size) return null;
-
-    const slotIndexes = new Set();
-    const boneIndexes = new Set();
-    skeletonData.slots.forEach((sd, i) => {
-      if (!wantSlots.has(sd.name)) return;
-      slotIndexes.add(i);
-      for (let bone = sd.boneData; bone; bone = bone.parent) boneIndexes.add(bone.index);
-    });
-
-    const timelines = src.timelines.filter(t => {
-      if (t.slotIndex !== undefined) return slotIndexes.has(t.slotIndex);
-      if (t.boneIndex !== undefined) return boneIndexes.has(t.boneIndex) && !busyBones.has(t.boneIndex);
-      return false;   // 그리기 순서·제약 타임라인은 전체에 영향을 주므로 가져오지 않는다
-    });
-    if (!timelines.length) return null;
-    return new spine.Animation(src.name + '__overlay', timelines, src.duration);
-  }
-
   function buildCostumeOverlays(skeletonData) {
-    // 목록에 있는 동작·표정이 건드리는 본 = 이미 임자가 있는 본
-    const busyBones = new Set();
-    skeletonData.animations.forEach(a => {
-      if (COSTUME_HIDDEN_ANIM_RE.test(a.name)) return;
-      a.timelines.forEach(t => { if (t.boneIndex !== undefined) busyBones.add(t.boneIndex); });
-    });
-
     const overlays = [];
     const bg = skeletonData.animations.find(a => a.name === 'bg_idle');
     if (bg && bg.duration > 0 && bg.timelines.length) {
       overlays.push({ anim: bg, touched: touchedByAnimation(bg) });
     }
-    animationsWithUniqueTextures(skeletonData).forEach(name => {
-      if (name === 'bg_idle') return;
-      const src = skeletonData.animations.find(a => a.name === name);
-      if (!src) return;
-      const overlay = buildTextureOverlay(src, skeletonData, busyBones);
-      if (overlay) overlays.push({ anim: overlay, touched: touchedByAnimation(overlay), from: name });
-    });
     return overlays;
   }
 
