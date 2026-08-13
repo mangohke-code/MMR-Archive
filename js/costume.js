@@ -289,43 +289,115 @@
   // 'idle' 등). 없으면(추가 파츠처럼 어떤 애니메이션이 있는지 모르는 경우) null을 넘기면
   // 로드 후 실제 존재하는 애니메이션 중에서 안전하게 골라 재생한다 — 없는 이름을 config에
   // 직접 넘기면 라이브러리 내부에서 예외가 나서 블랙박스 에러 화면이 뜨기 때문.
-  // 코스튬 기본 재생 애니메이션.
+  // ===== 코스튬 L2D 애니메이션 =====
   //
-  // idle 은 "가만히 서 있는" 동작만 들어 있어서, 코스튬 고유 연출 파츠는 슬롯도 텍스처도
-  // 다 있는데 켜지지 않는다. 예를 들어 팬텀 세인트 시프의 떨어지는 지폐(paper_1/paper_2)와
-  // 반짝임 파티클(c851_cover_00-particle_idle_04/08, additive)은 idle 에 attachment 키가
-  // 아예 없고 expression_0 / action 에만 있다. 파티클 리전 이름이 particle_idle 인 걸 보면
-  // 원래 대기용으로 만든 연출인데 idle 이 아닌 쪽에 물려 있는 것이다.
+  // 니케 코스튬 스켈레톤의 애니메이션은 크게 셋으로 나뉜다.
+  //  - 동작: idle / idle_02 / idle_alt / action. 몸이 계속 움직이는 대기·특수 동작.
+  //  - 표정: angry / delight / sad / shy / smile / surprise / no / special / expression_0.
+  //    전부 idle 과 같은 길이(5.33초)의 전신 애니메이션이라, 얼굴만 바꾼 idle 변형이다.
+  //    그래서 겹쳐 트는 게 아니라 하나만 골라서 idle 대신 튼다.
+  //  - talk_*: 0.03초짜리 입모양 한 컷. 혼자 틀면 정지 화면이라 목록에서 뺀다.
   //
-  // expression_0 은 idle 처럼 전신을 다루는 애니메이션이라(본 477 / 슬롯 245, idle 은
-  // 371 / 69) 트랙을 겹치는 게 아니라 그냥 이걸 틀면 된다. 없는 스켈레톤은 idle 그대로.
-  const COSTUME_IDLE_PREFERENCE = ['expression_0', 'idle'];
+  // 코스튬 고유 연출(팬텀 세인트 시프의 떨어지는 지폐·반짝임 파티클, 뒤에 뜨는 요정)은
+  // expression_0 에만 붙어 있다. idle 에서는 해당 슬롯의 attachment 가 아예 없고,
+  // 추가 파츠(요정) 스켈레톤은 idle 에서 ps_* 슬롯을 전부 null 로 꺼버린다.
+  const COSTUME_EXPRESSION_RE = /^(angry|delight|sad|shy|smile|surprise|no|special|expression_\d+)(_(\d+|alt))?$/;
+  const COSTUME_TALK_RE = /^talk(_|$)/;
 
-  function preferredIdleAnimation(skeletonData) {
-    const names = skeletonData.animations.map(a => a.name);
-    const found = COSTUME_IDLE_PREFERENCE.find(n => names.includes(n));
-    return found || names[0] || null;
+  const COSTUME_DEFAULT_ANIM = 'idle';
+
+  // 지금 모든 레이어가 함께 재생 중인 애니메이션. 추가 파츠 레이어는 본체보다 늦게
+  // 준비될 수 있어서, 준비되는 시점에 이 값을 보고 같은 동작으로 맞춘다 — 본체는 표정을
+  // 짓는데 뒤의 요정만 딴 동작을 하고 있으면 안 되니까.
+  let costumeCurrentAnim = COSTUME_DEFAULT_ANIM;
+
+  function playAnimOn(player, name) {
+    try {
+      if (!player || !player.skeleton || !name) return false;
+      if (!player.skeleton.data.findAnimation(name)) return false;
+      player.setAnimation(name, true);
+      player.play();
+      return true;
+    } catch (err) {
+      console.error('[코스튬 L2D] 애니메이션 적용 실패:', name, err);
+      return false;
+    }
   }
 
-  // 애니메이션 선택 버튼. 기본값이 마음에 안 들 때 직접 고를 수 있게 스켈레톤에 있는
-  // 애니메이션을 그대로 늘어놓는다. 고르면 그때부터 그게 기본 대기 동작이 된다.
-  function renderCostumeAnimToggle(player, onPick) {
-    const box = document.getElementById('costume-anim-toggle');
-    if (!box) return;
-    const names = player.skeleton.data.animations.map(a => a.name);
-    if (names.length <= 1) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+  // 레이어가 이 이름을 못 가지고 있으면 기본 동작으로라도 움직이게 한다(정지 화면 방지)
+  function syncLayerAnimation(player) {
+    if (playAnimOn(player, costumeCurrentAnim)) return;
+    if (playAnimOn(player, COSTUME_DEFAULT_ANIM)) return;
+    try {
+      const first = player.skeleton.data.animations[0];
+      if (first) playAnimOn(player, first.name);
+      else player.play();
+    } catch (err) {}
+  }
 
-    box.classList.remove('hidden');
-    box.innerHTML = names.map(n =>
-      `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
-    box.querySelectorAll('.anim-btn').forEach(btn => {
-      btn.addEventListener('click', () => onPick(btn.dataset.anim));
-    });
+  function applyCostumeAnimation(name) {
+    costumeCurrentAnim = name;
+    activeSpinePlayers.forEach(p => syncLayerAnimation(p));
+    markCostumeAnimActive(name);
+  }
+
+  function classifyCostumeAnimations(skeletonData) {
+    const names = skeletonData.animations.map(a => a.name);
+    return {
+      motions: names.filter(n => !COSTUME_EXPRESSION_RE.test(n) && !COSTUME_TALK_RE.test(n)),
+      expressions: names.filter(n => COSTUME_EXPRESSION_RE.test(n)),
+    };
+  }
+
+  // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
+  // 표정은 하나만 고를 수 있고, "기본"을 누르면 고른 동작으로 돌아간다.
+  function renderCostumeAnimControls(skeletonData) {
+    const { motions, expressions } = classifyCostumeAnimations(skeletonData);
+
+    const motionBox = document.getElementById('costume-anim-toggle');
+    if (motionBox) {
+      if (motions.length <= 1) {
+        motionBox.innerHTML = '';
+        motionBox.classList.add('hidden');
+      } else {
+        motionBox.classList.remove('hidden');
+        motionBox.innerHTML = motions.map(n =>
+          `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
+        motionBox.querySelectorAll('.anim-btn').forEach(btn => {
+          btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
+        });
+      }
+    }
+
+    const exprBox = document.getElementById('costume-expression');
+    if (exprBox) {
+      if (!expressions.length) {
+        exprBox.innerHTML = '';
+        exprBox.classList.add('hidden');
+      } else {
+        const base = motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM);
+        exprBox.classList.remove('hidden');
+        exprBox.innerHTML = `<div class="expr-title">표정</div>`
+          + `<button class="anim-btn expr-btn" data-anim="${base}">기본</button>`
+          + expressions.map(n =>
+              `<button class="anim-btn expr-btn" data-anim="${n}">${n}</button>`).join('');
+        exprBox.querySelectorAll('.expr-btn').forEach(btn => {
+          btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
+        });
+      }
+    }
   }
 
   function markCostumeAnimActive(name) {
     document.querySelectorAll('#costume-anim-toggle .anim-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.anim === name);
+    });
+    // 표정 줄은 "기본" 버튼도 같은 data-anim 을 쓰므로 첫 일치만 켠다
+    let marked = false;
+    document.querySelectorAll('#costume-expression .expr-btn').forEach(b => {
+      const hit = !marked && b.dataset.anim === name;
+      b.classList.toggle('active', hit);
+      if (hit) marked = true;
     });
   }
 
@@ -346,13 +418,9 @@
       viewport: viewportConfig,
       success: function(realPlayer) {
         if (!knownAnimation) {
-          try {
-            const animNames = realPlayer.skeleton.data.animations.map(a => a.name);
-            const animName = animNames.includes('idle') ? 'idle' : animNames[0];
-            if (animName) realPlayer.setAnimation(animName, true);
-          } catch (err) {
-            console.error('[코스튬 L2D] 파츠 애니메이션 재생 실패:', err);
-          }
+          // 본체가 지금 재생 중인 동작에 맞춘다. 같은 이름이 없으면 idle, 그것도 없으면
+          // 첫 애니메이션으로 내려간다.
+          syncLayerAnimation(realPlayer);
           // 애니메이션이 하나도 없거나 재생에 실패해도 렌더 루프 자체는 계속 돌아야
           // 캔버스 크기 계산/그리기가 멈추지 않는다 — 애니메이션 없이 정지 포즈만
           // 보여줘야 하는 파츠(장식/소품)도 있을 수 있으므로 항상 play()를 호출해둔다.
@@ -378,6 +446,12 @@
 
     const animToggle = document.getElementById('costume-anim-toggle');
     if (animToggle) { animToggle.innerHTML = ''; animToggle.classList.add('hidden'); }
+
+    const exprBox = document.getElementById('costume-expression');
+    if (exprBox) { exprBox.innerHTML = ''; exprBox.classList.add('hidden'); }
+
+    // 다른 코스튬으로 넘어가면 표정 선택은 풀고 기본 동작부터 다시 시작한다
+    costumeCurrentAnim = COSTUME_DEFAULT_ANIM;
 
     if (costumePanZoom) { costumePanZoom.destroy(); costumePanZoom = null; }
 
@@ -453,14 +527,8 @@
       createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, 'idle', viewportConfig, (player2, layerDiv) => {
         spinePlayer = player2;
 
-        // 대기 동작. 연출이 붙어 있는 애니메이션이 있으면 그걸 기본으로 쓴다.
-        let idleAnim = preferredIdleAnimation(player2.skeleton.data) || 'idle';
-        const playIdle = () => {
-          try { player2.setAnimation(idleAnim, true); markCostumeAnimActive(idleAnim); }
-          catch (err) { console.error('[코스튬 L2D] 대기 애니메이션 재생 실패:', idleAnim, err); }
-        };
-        renderCostumeAnimToggle(player2, name => { idleAnim = name; playIdle(); });
-        playIdle();
+        renderCostumeAnimControls(player2.skeleton.data);
+        applyCostumeAnimation(costumeCurrentAnim);
 
         const skeleton = player2.skeleton;
         const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
@@ -499,7 +567,7 @@
             costumePanZoom.reset();
             try {
               player2.animationState.clearListeners();
-              playIdle();
+              applyCostumeAnimation(costumeCurrentAnim);
             } catch (err) {
               console.error('[코스튬 L2D] 초기화 실패:', err);
             }
@@ -510,10 +578,19 @@
 
         player2.canvas.addEventListener('click', () => {
           try {
-            player2.setAnimation('action', false);
+            // 클릭하면 특수 동작을 한 번 보여주고 원래 보던 동작으로 돌아온다.
+            // 뒤의 추가 파츠도 같이 움직여야 해서 모든 레이어에 건다.
+            activeSpinePlayers.forEach(p => {
+              try {
+                if (p.skeleton && p.skeleton.data.findAnimation('action')) {
+                  p.setAnimation('action', false);
+                  p.play();
+                }
+              } catch (err) {}
+            });
             player2.animationState.addListener({
               complete: () => {
-                playIdle();
+                applyCostumeAnimation(costumeCurrentAnim);
                 player2.animationState.clearListeners();
               }
             });

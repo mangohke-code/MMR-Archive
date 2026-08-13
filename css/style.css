@@ -899,6 +899,39 @@
     font-weight: 700;
   }
 
+  /* 표정 선택. 새로고침 버튼 바로 아래에 세로로 붙여 둔다. 표정은 idle 과 같은 길이의
+     전신 애니메이션이라 겹쳐 트는 게 아니라 하나만 고르는 방식이다. */
+  .spine-expression {
+    position: absolute;
+    top: 58px;
+    left: 14px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 118px;
+    max-height: calc(100% - 76px);
+    overflow-y: auto;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-active);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .spine-expression .expr-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 0 2px 2px;
+  }
+
+  .spine-expression .expr-btn {
+    text-align: left;
+    padding: 4px 8px;
+  }
+
   .toggle-switch-wrap .toggle-label {
     font-size: 15px;
     color: var(--text-faint);
