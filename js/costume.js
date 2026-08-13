@@ -346,6 +346,27 @@
     } catch (err) {}
   }
 
+  // 클릭할 때마다 다음 반응으로 넘어간다
+  let costumeReactionIndex = 0;
+
+  function playReactionOn(player, name) {
+    try {
+      if (!player || !player.skeleton) return false;
+      const data = player.skeleton.data;
+      // 추가 파츠에 그 반응이 없으면 action 으로, 그것도 없으면 건드리지 않는다
+      const anim = data.findAnimation(name) || data.findAnimation('action');
+      if (!anim) return false;
+      if (!player.__costumeOverlays) player.__costumeOverlays = buildCostumeOverlays(data);
+      player.setAnimation(anim.name, false);
+      applyCostumeOverlays(player, anim.name);
+      player.play();
+      return true;
+    } catch (err) {
+      console.error('[코스튬 L2D] 클릭 반응 재생 실패:', name, err);
+      return false;
+    }
+  }
+
   function applyCostumeAnimation(name) {
     costumeCurrentAnim = name;
     activeSpinePlayers.forEach(p => syncLayerAnimation(p));
@@ -414,6 +435,49 @@
     for (const i of a.bones) if (b.bones.has(i)) return true;
     for (const i of a.slots) if (b.slots.has(i)) return true;
     return false;
+  }
+
+  // ===== 클릭했을 때 보여줄 반응 =====
+  //
+  // 클릭 반응이 action 하나뿐인 코스튬이 대부분이지만, 어떤 코스튬은 숨긴 애니메이션에만
+  // 들어 있는 연출이 있다 — 라피 레드 플레이버의 돌고래(expression_1), 리틀 머메이드 쉘
+  // 프린세스의 거품 소용돌이(expression_0). 인게임에서도 탭할 때 나오는 연출이라, 클릭할
+  // 때마다 번갈아 재생한다.
+  //
+  // "다른 동작·표정으로는 볼 수 없는 텍스처를 켜는가"로 판정하므로 코스튬마다 손댈 것이
+  // 없다. 그런 게 없으면 예전처럼 action 만 나온다.
+  function costumeReactionAnimations(skeletonData) {
+    const shownBy = anim => {
+      const set = new Set();
+      anim.timelines.forEach(t => {
+        if (!t.attachmentNames || t.slotIndex === undefined) return;
+        const slot = skeletonData.slots[t.slotIndex];
+        if (slot) t.attachmentNames.forEach(n => { if (n) set.add(slot.name + '::' + n); });
+      });
+      return set;
+    };
+
+    // 이미 볼 수 있는 것: 설정 자세 + 목록에 있는 동작·표정 + 배경(겹쳐 재생 중)
+    const covered = new Set();
+    skeletonData.slots.forEach(sd => {
+      if (sd.attachmentName) covered.add(sd.name + '::' + sd.attachmentName);
+    });
+    const per = new Map();
+    skeletonData.animations.forEach(a => {
+      const set = shownBy(a);
+      per.set(a.name, set);
+      if (!COSTUME_HIDDEN_ANIM_RE.test(a.name) || a.name === 'bg_idle') set.forEach(k => covered.add(k));
+    });
+
+    const extras = skeletonData.animations
+      .map(a => a.name)
+      // bg_idle 은 겹쳐 재생 중이고, talk_* 는 입모양 한 컷이라 반응이 못 된다
+      .filter(n => COSTUME_HIDDEN_ANIM_RE.test(n) && n !== 'bg_idle' && !/^talk/.test(n))
+      .filter(n => [...per.get(n)].some(k => !covered.has(k)));
+
+    const list = [];
+    if (skeletonData.findAnimation('action')) list.push('action');
+    return list.concat(extras);
   }
 
   function buildCostumeOverlays(skeletonData) {
@@ -555,6 +619,7 @@
 
     // 다른 코스튬으로 넘어가면 표정 선택은 풀고 기본 동작부터 다시 시작한다
     costumeCurrentAnim = COSTUME_DEFAULT_ANIM;
+    costumeReactionIndex = 0;
 
     if (costumePanZoom) { costumePanZoom.destroy(); costumePanZoom = null; }
 
@@ -679,18 +744,18 @@
 
         player2.animationState.data.defaultMix = 0;
 
+        const reactions = costumeReactionAnimations(player2.skeleton.data);
+
         player2.canvas.addEventListener('click', () => {
           try {
-            // 클릭하면 특수 동작을 한 번 보여주고 원래 보던 동작으로 돌아온다.
+            if (!reactions.length) return;
+            // 클릭하면 반응을 한 번 보여주고 원래 보던 동작으로 돌아온다. 반응이 여럿이면
+            // 누를 때마다 다음 것으로 넘어간다.
+            const name = reactions[costumeReactionIndex % reactions.length];
+            costumeReactionIndex++;
             // 뒤의 추가 파츠도 같이 움직여야 해서 모든 레이어에 건다.
-            activeSpinePlayers.forEach(p => {
-              try {
-                if (p.skeleton && p.skeleton.data.findAnimation('action')) {
-                  p.setAnimation('action', false);
-                  p.play();
-                }
-              } catch (err) {}
-            });
+            activeSpinePlayers.forEach(p => playReactionOn(p, name));
+            player2.animationState.clearListeners();
             player2.animationState.addListener({
               complete: () => {
                 applyCostumeAnimation(costumeCurrentAnim);
@@ -698,7 +763,7 @@
               }
             });
           } catch (err) {
-            console.error('[코스튬 L2D] action 애니메이션 재생 실패:', err);
+            console.error('[코스튬 L2D] 클릭 반응 재생 실패:', err);
           }
         });
       });
