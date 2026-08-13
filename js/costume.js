@@ -311,7 +311,7 @@
   // 표정 이름을 목록으로 못 박아 두면(angry/delight/sad/...) 코스튬마다 think, worry,
   // pain, cry, sleep, rage 처럼 처음 보는 이름이 나올 때마다 동작 쪽으로 새어 나간다.
   // 실제로 36개 스켈레톤을 훑어보니 그런 이름이 여럿 있었다.
-  const COSTUME_MOTION_RE = /^(idle|action)(_|$)/;
+  const COSTUME_MOTION_RE = /^(idle|action)([_\d]|$)/;
 
   const COSTUME_DEFAULT_ANIM = 'idle';
 
@@ -358,21 +358,29 @@
     };
   }
 
-  // 표정은 대부분 기본형과 _02 변형이 짝을 이룬다. 둘을 좌우 두 열로 붙여 놓으면
-  // 같은 표정의 변형이라는 게 한눈에 보인다. _02 가 없는 표정은 오른쪽 칸을 비운다.
-  function pairExpressionsByVariant(names) {
+  // 표정은 같은 표정의 번호 변형이 함께 들어 있는 경우가 많은데, 번호 붙이는 방식이
+  // 코스튬마다 다르다. 팬텀은 angry / angry_02, 마스트는 delight / delight2 이고,
+  // 마스트의 shy 는 기본형 없이 shy1 / shy2 / shy3 셋이다. 그래서 이름 끝의 숫자만 떼어
+  // 같은 이름끼리 한 줄로 묶고 번호순으로 왼쪽부터 채운다.
+  function groupExpressionsByVariant(names) {
     const rows = [];
     const rowByBase = new Map();
     names.forEach(name => {
-      const m = name.match(/^(.*)_02$/);
+      const m = name.match(/^(.*?)_?(\d{1,2})$/);
       const base = m ? m[1] : name;
+      const num = m ? Number(m[2]) : 0;
       let row = rowByBase.get(base);
-      if (!row) { row = { base: null, variant: null }; rowByBase.set(base, row); rows.push(row); }
-      if (m) row.variant = name; else row.base = name;
+      if (!row) { row = { base, items: [] }; rowByBase.set(base, row); rows.push(row); }
+      row.items.push({ name, num });
     });
-    // 기본형 없이 _02 만 있는 경우엔 그것을 왼쪽 칸에 둔다(빈 줄이 생기지 않게)
-    rows.forEach(r => { if (!r.base && r.variant) { r.base = r.variant; r.variant = null; } });
+    rows.forEach(r => r.items.sort((a, b) => a.num - b.num));
     return rows;
+  }
+
+  // 열 수는 가장 변형이 많은 표정에 맞춘다. 변형이 하나도 없는 코스튬(홍련 레이서즈 하이)은
+  // 1열이 되어 쓸데없이 열이 갈리지 않는다.
+  function expressionColumnCount(rows) {
+    return rows.reduce((max, r) => Math.max(max, r.items.length), 1);
   }
 
   // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
@@ -402,14 +410,20 @@
         exprBox.classList.add('hidden');
       } else {
         const base = motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM);
-        const cell = n => n
-          ? `<button class="anim-btn expr-btn" data-anim="${n}">${n}</button>`
+        const rows = groupExpressionsByVariant(expressions);
+        const cols = expressionColumnCount(rows);
+        const cell = item => item
+          ? `<button class="anim-btn expr-btn" data-anim="${item.name}">${item.name}</button>`
           : `<span class="expr-empty"></span>`;
         exprBox.classList.remove('hidden');
         exprBox.innerHTML = `<div class="expr-title">표정</div>`
           + `<button class="anim-btn expr-btn expr-base" data-anim="${base}">기본</button>`
-          + `<div class="expr-grid">`
-          + pairExpressionsByVariant(expressions).map(r => cell(r.base) + cell(r.variant)).join('')
+          + `<div class="expr-grid" style="--expr-cols:${cols}">`
+          + rows.map(r => {
+              let cells = '';
+              for (let i = 0; i < cols; i++) cells += cell(r.items[i]);
+              return cells;
+            }).join('')
           + `</div>`;
         exprBox.querySelectorAll('.expr-btn').forEach(btn => {
           btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
