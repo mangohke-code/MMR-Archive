@@ -18,7 +18,9 @@
 않습니다.
 
 **저작권자 또는 정당한 권리자의 요청이 있을 경우, 해당 자료를 즉시 삭제합니다.**
-연락처: mango.hke@gmail.com
+요청은 아래 이슈 트래커로 남겨 주시면 확인 후 처리하겠습니다.
+
+> https://github.com/mangohke-code/MMR-Archive/issues
 
 ### Copyright Notice (English)
 
@@ -31,7 +33,9 @@ names, dialogue, and animation data — are the property of **SHIFT UP CORP.** a
 and this project claims no ownership of them.
 
 **Any material will be removed immediately upon request from the copyright holder.**
-Contact: mango.hke@gmail.com
+Please file a request through the issue tracker below and it will be handled promptly.
+
+> https://github.com/mangohke-code/MMR-Archive/issues
 
 ---
 
