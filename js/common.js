@@ -463,11 +463,41 @@ function buildChapImgData(rows) {
   return rows.map(r => ({ '챕터': r['챕터'], '이미지': r['이미지'], '명칭': r['명칭'] }));
 }
 
+// 한국시간으로 찍어 준다.
+//
+// 기간을 날짜만이 아니라 시간까지 저장하면서(timestamptz) 보는 사람의 시간대가 그대로
+// 반영된다. 그냥 두면 종료 05:00(KST)이 다른 나라에서는 전날로 보인다. 게임 일정은 한국
+// 기준이므로 어디서 보든 한국시간으로 고정해서 보여준다.
+function formatKst(value, opts) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+  const date = `${parts.year}.${parts.month}.${parts.day}`;
+  if (!(opts && opts.withTime)) return date;
+  // 자정을 24시로 찍는 브라우저가 있어 00 으로 맞춘다
+  const hour = parts.hour === '24' ? '00' : parts.hour;
+  return `${date} ${hour}:${parts.minute}`;
+}
+
+// 값에 시간이 들어 있는지(날짜만인지) 본다. SQL 로 timestamptz 로 바꾸기 전후 모두
+// 자연스럽게 나오도록, 날짜만이면 시간을 안 붙인다.
+function hasTimePart(value) {
+  return typeof value === 'string' && value.includes('T');
+}
+
 function buildFramesData(rows) {
   return rows.map(r => ({
     '시즌': r['시즌'],
     '시작일': r['시작일'],
     '종료일': r['종료일'],
+    // 점검·버그로 중간에 멈춘 구간. 몇 번을 멈췄든 열을 늘리지 않도록 배열 하나로 받는다.
+    // 열이 아직 없는(SQL 실행 전) 상태에서도 화면이 깨지지 않게 빈 배열로 둔다.
+    '중단 기간': Array.isArray(r['중단_기간']) ? r['중단_기간'] : [],
     '보스': r['보스'],
     // 표에 "속성"으로 적어온 값은 사실 그 보스의 약점 속성이다. 열 이름을 약점_속성 으로
     // 바꾸는 중이라 새 이름을 먼저 보고 없으면 옛 이름을 쓴다.

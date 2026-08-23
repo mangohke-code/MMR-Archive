@@ -4906,10 +4906,22 @@
     color: var(--text-secondary);
   }
 
-  #frames-info-row {
+  .frames-info-row {
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+
+  /* 중단 기간은 여러 줄이 될 수 있다 */
+  #frames-pause {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .frames-pause-item {
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   .frames-info-label {
