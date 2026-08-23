@@ -126,14 +126,17 @@ def main():
                 elif f == f'{entry}.png':    # 아틀라스가 이 이름으로 참조하므로 그대로 둔다
                     copy(src, os.path.join(WEB, 'l2d', code), f)
                 elif f.startswith('mi_'):
-                    fn = f'{info["name"]}.png'
-                    assets[f'이미지{slot}'] = 'img/nikke/' + copy(src, os.path.join(WEB, 'img', 'nikke'), fn)
+                    # 원본 이름 그대로 둔다. 캐릭터 이름으로 바꾸면 장화처럼 두 버전이 같은
+                    # 이름이 되어 서로 덮어쓴다. 어느 캐릭터 것인지는 코드 열로 잇는다.
+                    assets[f'이미지{slot}'] = 'img/nikke/' + copy(src, os.path.join(WEB, 'img', 'nikke'), f)
                 # si_ 는 쓰지 않는다
 
             if not any(k.startswith('mi') for k in info['files']):
                 pass
             if not any(f.startswith('mi_') for f in info['files']):
                 warns.append(f'{entry} {info["name"]}: mi_ 이미지 없음 (이미지{slot} 못 채움)')
+
+        assets['코드'] = code
 
         if row:
             used_rows.add(row['번호'])
@@ -177,7 +180,17 @@ def main():
         return
 
     # ---------------------------------------------------------------- SQL
-    lines = ['-- 미실장 캐릭터 L2D·초상화 주소 (상대 경로)', 'BEGIN;', '']
+    lines = [
+        '-- 미실장 캐릭터 L2D·초상화 주소 (상대 경로)',
+        '--',
+        '-- 파일은 원본 이름 그대로 올렸다(mi_c104_00_s.png). 캐릭터 이름으로 바꾸면 장화처럼',
+        '-- 두 버전이 같은 이름이 되어 서로 덮어쓴다. 대신 코드 열로 어느 캐릭터인지 잇는다.',
+        '',
+        'ALTER TABLE "미실장_캐릭터" ADD COLUMN IF NOT EXISTS "코드" text;',
+        '',
+        'BEGIN;',
+        '',
+    ]
     for num, dbname, folder, a, nv in updates:
         sets = ', '.join(f'"{k}" = \'{sql_escape(v)}\'' for k, v in sorted(a.items()))
         lines.append(f'-- {dbname}')
