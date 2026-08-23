@@ -3396,12 +3396,50 @@
   }
 
   /* 미등장 캐릭터는 보여줄 상세가 없어 누를 수 없다 */
-  .unreleased-card.is-unappeared {
+  /* 같은 등장 시기에 모델이 둘 이상일 때 고르는 버튼 */
+  .detail-appear-models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 8px 18px;
+  }
+
+  .detail-model-btn {
+    padding: 3px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+
+  .detail-model-btn:hover {
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  .detail-model-btn.active {
+    background: var(--bg-panel-active);
+    border-color: var(--border-accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* 모델도 없는 미등장 캐릭터만 누를 수 없다 */
+  .unreleased-card.is-empty {
     cursor: default;
+  }
+
+  /* 미등장이어도 모델이 있으면 누를 수 있다. 흐리게만 두고 커서·호버는 그대로 살린다. */
+  .unreleased-card.is-unappeared {
     opacity: 0.55;
   }
 
-  .unreleased-card.is-unappeared:hover {
+  /* 모델도 없어 보여줄 게 없는 카드만 반응을 없앤다 */
+  .unreleased-card.is-empty:hover {
     border-color: transparent;
     box-shadow: var(--shadow-card);
     transform: none;
@@ -3502,8 +3540,9 @@
 
   #unreleased-spine-wrap {
     width: 100%;
-    flex: 1;
-    min-height: 0;
+    /* 코스튬 페이지 뷰어와 같은 높이로 맞춘다 */
+    height: calc(100vh - 240px);
+    min-height: 520px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);

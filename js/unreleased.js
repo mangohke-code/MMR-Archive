@@ -449,10 +449,13 @@
             const imgUrl = valueAtVersion(row, '이미지', dispVer);
 
 
-            // 미등장 캐릭터는 보여줄 상세 내용이 없으므로 누르지 못하게 한다
+            // 미등장이어도 모델이 있으면(잉크처럼) 눌러서 볼 수 있게 둔다.
+            // 아무것도 없는 캐릭터만 누르지 못하게 한다.
+            const hasSpine = !!(String(row['skel1'] || '').trim() && String(row['atlas1'] || '').trim());
+            const clickable = !isUnappeared || hasSpine;
             return `
-              <div class="unreleased-card${isUnappeared ? ' is-unappeared' : ''}" data-row-idx="${rowIdx}"
-                   ${isUnappeared ? '' : `onclick="selectUnreleasedCard(${rowIdx})"`}>
+              <div class="unreleased-card${isUnappeared ? ' is-unappeared' : ''}${clickable ? '' : ' is-empty'}" data-row-idx="${rowIdx}"
+                   ${clickable ? `onclick="selectUnreleasedCard(${rowIdx})"` : ''}>
                 ${imgUrl ? `<div class="unreleased-card-portrait"><img src="${imgUrl}" alt="${name}"></div>` : ''}
                 <div class="unreleased-card-info">
                   <div class="unreleased-card-name">${name || '???'}</div>
@@ -597,18 +600,30 @@
       .join(' <span class="detail-arrow">→</span> ');
 
     // 등장 시점 — 클릭으로 스파인 전환
+    // 프리티처럼 같은 등장 시기에 모델이 둘인 경우가 있다. 그 줄 아래에 모델 번호 버튼을
+    // 달아서 같은 자리에서 바꿔 볼 수 있게 한다.
     const appearsEl = document.getElementById('unreleased-detail-appears');
-    appearsEl.innerHTML = versions.map((v, i) => {
-      const hasSpine = !!(v.skel && v.atlas);
-      const spineIdx = currentSpineList.findIndex(s => s.appear === v.appear && s.skel === v.skel);
+    appearsEl.innerHTML = versions.map(v => {
+      const mine = currentSpineList
+        .map((s, idx) => ({ s, idx }))
+        .filter(({ s }) => s.appear === v.appear && s.num === v.num);
+      const hasSpine = mine.length > 0;
+      const firstIdx = hasSpine ? mine[0].idx : -1;
+      const picker = mine.length > 1
+        ? `<div class="detail-appear-models">` + mine.map(({ idx }, k) =>
+            `<button class="detail-model-btn" data-spine-idx="${idx}"
+                     onclick="event.stopPropagation(); selectSpineByAppear(${idx})">모델 ${k + 1}</button>`
+          ).join('') + `</div>`
+        : '';
       return `
         <div class="detail-appear-item ${hasSpine ? 'has-spine' : ''}"
-             data-spine-idx="${spineIdx}"
-             onclick="${hasSpine ? `selectSpineByAppear(${spineIdx})` : ''}">
+             data-spine-idx="${firstIdx}"
+             onclick="${hasSpine ? `selectSpineByAppear(${firstIdx})` : ''}">
           <span class="detail-appear-num">등장${v.num}</span>
           <span class="detail-appear-val">${v.appear || '미등장'}</span>
           ${hasSpine ? '<span class="detail-appear-spine-icon">▶</span>' : ''}
         </div>
+        ${picker}
       `;
     }).join('');
 
@@ -632,13 +647,17 @@
   }
 
   function syncAppearHighlight() {
-    const activeAppear = currentSpineList[currentSpineIdx]?.appear || '';
-    const activeSkel   = currentSpineList[currentSpineIdx]?.skel   || '';
+    const cur = currentSpineList[currentSpineIdx];
     document.querySelectorAll('.detail-appear-item').forEach(el => {
-      const valEl = el.querySelector('.detail-appear-val');
-      const val   = valEl ? valEl.textContent.trim() : '';
-      const idx   = Number(el.dataset.spineIdx);
-      el.classList.toggle('active', idx === currentSpineIdx && el.classList.contains('has-spine'));
+      // 모델이 여럿인 줄은 그 줄에 딸린 어느 모델이든 보고 있으면 켠다
+      const idx = Number(el.dataset.spineIdx);
+      const mine = cur && currentSpineList[idx]
+        && currentSpineList[idx].appear === cur.appear
+        && currentSpineList[idx].num === cur.num;
+      el.classList.toggle('active', !!mine && el.classList.contains('has-spine'));
+    });
+    document.querySelectorAll('.detail-model-btn').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.spineIdx) === currentSpineIdx);
     });
   }
 
@@ -739,6 +758,23 @@
             rebuildSkin();
             renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
+            // 표정·동작 고르기. 코스튬 페이지와 같은 UI 를 그대로 쓴다.
+            const animOpts = {
+              motionId: 'unreleased-anim-toggle',
+              exprId:   'unreleased-expression',
+              onPick:   name => {
+                try {
+                  player2.setAnimation(name, true);
+                  player2.play();
+                  markCostumeAnimActive(name, animOpts);
+                } catch (err) {
+                  console.error('[미실장 L2D] 애니메이션 적용 실패:', name, err);
+                }
+              },
+            };
+            renderCostumeAnimControls(player2.skeleton.data, animOpts);
+            markCostumeAnimActive('idle', animOpts);
+
             unreleasedPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
             const resetBtn = document.getElementById('unreleased-spine-reset');
@@ -787,10 +823,17 @@
     Object.entries(surveyState.dynamic).forEach(([key, set]) => {
       dynamicData[key] = [...set];
     });
+    const allDynamic = {};
+    Object.entries(surveyItems.dynamic).forEach(([key, items]) => {
+      allDynamic[key] = items.map(i => i.label);
+    });
     const data = {
       main: [...surveyState.main],
       side: [...surveyState.side],
       dynamic: dynamicData,
+      // 다음에 열었을 때 "그때 전부 골랐었나"를 알기 위한 그 시점의 선택지 목록
+      allSide: surveyItems.side.map(i => i.label),
+      allDynamic: allDynamic,
     };
     try { localStorage.setItem(SURVEY_STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
   }
@@ -801,11 +844,29 @@
       if (!raw) return;
       const data = JSON.parse(raw);
 
-      const validMain = new Set(surveyItems.main.map(i => i.label));
-      (data.main || []).forEach(v => { if (validMain.has(v)) surveyState.main.add(v); });
+      // 메인 스토리는 "여기까지 봤다" 라서 고른 챕터 이하가 전부 선택된다. 그런데 저장은
+      // 고른 라벨 목록으로만 해 두니, 나중에 낮은 번호 챕터가 새로 생기면(에닉의 4챕터)
+      // 저장값에 없어서 빠지고 그 캐릭터가 목록에서 사라졌다. 라벨을 그대로 되살리지 말고
+      // 저장된 것 중 가장 높은 챕터를 찾아 거기까지 다시 채운다.
+      const savedMain = new Set(data.main || []);
+      const maxSeen = surveyItems.main
+        .filter(i => savedMain.has(i.label))
+        .reduce((max, i) => Math.max(max, i.num), -Infinity);
+      if (maxSeen > -Infinity) {
+        surveyItems.main.forEach(i => { if (i.num <= maxSeen) surveyState.main.add(i.label); });
+      }
+
+      // 이벤트·사이드 스토리는 순서가 없어서 같은 방법을 못 쓴다. 대신 저장할 때 그때의
+      // 선택지 목록을 같이 남겨 두고, 그때 전부 고른 상태였다면 새로 생긴 것도 고른 것으로
+      // 본다("전체 선택" 해 둔 사람이 새 이벤트 때문에 캐릭터를 놓치지 않게).
+      const allWasChecked = (savedList, savedAll) =>
+        Array.isArray(savedAll) && savedAll.length > 0 && savedAll.length === (savedList || []).length;
 
       const validSide = new Set(surveyItems.side.map(i => i.label));
       (data.side || []).forEach(v => { if (validSide.has(v)) surveyState.side.add(v); });
+      if (allWasChecked(data.side, data.allSide)) {
+        surveyItems.side.forEach(i => surveyState.side.add(i.label));
+      }
 
       // 예전 버전(anniv/newyear 고정 키) 저장값과의 호환은 신경쓰지 않는다 — 유효하지 않은
       // 라벨은 아래에서 자연히 걸러진다.
@@ -815,6 +876,10 @@
         const validSet = new Set(items.map(i => i.label));
         if (!surveyState.dynamic[key]) surveyState.dynamic[key] = new Set();
         values.forEach(v => { if (validSet.has(v)) surveyState.dynamic[key].add(v); });
+        const savedAll = (data.allDynamic || {})[key];
+        if (Array.isArray(savedAll) && savedAll.length > 0 && savedAll.length === values.length) {
+          items.forEach(i => surveyState.dynamic[key].add(i.label));
+        }
       });
     } catch(e) {}
   }

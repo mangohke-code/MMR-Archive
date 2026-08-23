@@ -34,10 +34,12 @@ def scan():
     out = {}
     for entry in sorted(os.listdir(SRC)):
         path = os.path.join(SRC, entry)
-        m = re.match(r'^(c\d+)_(\d+)$', entry)
+        # 변형 번호가 없는 폴더(c8004)도 받는다. 그 경우 1번으로 본다.
+        m = re.match(r'^(c\d+)(?:_(\d+))?$', entry)
         if not (m and os.path.isdir(path)):
             continue
-        code, slot = m.group(1), int(m.group(2)) + 1
+        code = m.group(1)
+        slot = int(m.group(2)) + 1 if m.group(2) else 1
         got = {}
         for f in sorted(os.listdir(path)):
             if f.endswith('.skel'):

@@ -509,10 +509,15 @@
 
   // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
   // 표정은 하나만 고를 수 있고, "기본"을 누르면 고른 동작으로 돌아간다.
-  function renderCostumeAnimControls(skeletonData) {
+  // 코스튬 페이지 말고 미실장 캐릭터 페이지도 같은 UI 를 쓴다. 어느 상자에 그릴지와
+  // 고르면 뭘 할지만 넘겨받고 나머지는 똑같이 동작한다.
+  function renderCostumeAnimControls(skeletonData, opts) {
+    const motionId = (opts && opts.motionId) || 'costume-anim-toggle';
+    const exprId   = (opts && opts.exprId)   || 'costume-expression';
+    const onPick   = (opts && opts.onPick)   || applyCostumeAnimation;
     const { motions, expressions } = classifyCostumeAnimations(skeletonData);
 
-    const motionBox = document.getElementById('costume-anim-toggle');
+    const motionBox = document.getElementById(motionId);
     if (motionBox) {
       if (motions.length <= 1) {
         motionBox.innerHTML = '';
@@ -522,12 +527,12 @@
         motionBox.innerHTML = motions.map(n =>
           `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
         motionBox.querySelectorAll('.anim-btn').forEach(btn => {
-          btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
+          btn.addEventListener('click', () => onPick(btn.dataset.anim));
         });
       }
     }
 
-    const exprBox = document.getElementById('costume-expression');
+    const exprBox = document.getElementById(exprId);
     if (exprBox) {
       if (!expressions.length) {
         exprBox.innerHTML = '';
@@ -562,19 +567,21 @@
         });
 
         exprBox.querySelectorAll('.expr-btn').forEach(btn => {
-          btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
+          btn.addEventListener('click', () => onPick(btn.dataset.anim));
         });
       }
     }
   }
 
-  function markCostumeAnimActive(name) {
-    document.querySelectorAll('#costume-anim-toggle .anim-btn').forEach(b => {
+  function markCostumeAnimActive(name, opts) {
+    const motionId = (opts && opts.motionId) || 'costume-anim-toggle';
+    const exprId   = (opts && opts.exprId)   || 'costume-expression';
+    document.querySelectorAll(`#${motionId} .anim-btn`).forEach(b => {
       b.classList.toggle('active', b.dataset.anim === name);
     });
     // 표정 줄은 "기본" 버튼도 같은 data-anim 을 쓰므로 첫 일치만 켠다
     let marked = false;
-    document.querySelectorAll('#costume-expression .expr-btn').forEach(b => {
+    document.querySelectorAll(`#${exprId} .expr-btn`).forEach(b => {
       const hit = !marked && b.dataset.anim === name;
       b.classList.toggle('active', hit);
       if (hit) marked = true;
