@@ -148,8 +148,7 @@
 
     document.getElementById('frames-boss-name').textContent = item['보스'] || '';
     document.getElementById('frames-season-label').textContent = `시즌 ${item['시즌']}`;
-    document.getElementById('frames-date').textContent = formatFramesDate(item['시작일'], item['종료일']);
-    renderFramesPause(item);
+    renderFramesPeriod(item);
     // 약점 속성: 아이콘이 있으면 아이콘과 이름을 같이 보여준다
     const attrEl = document.getElementById('frames-attr');
     const code = item['약점 속성'];
@@ -163,27 +162,46 @@
     loadFramesSpine(item);
   }
 
-  function formatFramesDate(start, end) {
-    if (!start || !end) return '-';
-    const withTime = hasTimePart(start) || hasTimePart(end);
-    return `${formatKst(start, { withTime })} ~ ${formatKst(end, { withTime })}`;
+  // 실제로 돌아간 구간만 뽑아낸다.
+  //
+  // 버그·점검으로 중간에 멈췄다 다시 연 시즌이 있어서, 시작~종료를 한 줄로 적으면 멈춰
+  // 있던 날까지 진행한 것처럼 보인다. 중단 구간을 빼고 "시작~중단 / 재오픈~중단 /
+  // 재오픈~종료" 로 끊어서 보여 준다.
+  //
+  // 중단 기록이 없으면 시작~종료 한 줄이 그대로 나온다(대부분의 시즌이 여기 해당).
+  function framesRunSegments(item) {
+    const start = item['시작일'];
+    const end = item['종료일'];
+    if (!start || !end) return [];
+
+    const pauses = (item['중단 기간'] || [])
+      .filter(p => p && p['시작'])
+      .sort((a, b) => new Date(a['시작']) - new Date(b['시작']));
+
+    const segments = [];
+    let cursor = start;
+    for (const p of pauses) {
+      if (new Date(p['시작']) > new Date(cursor)) segments.push([cursor, p['시작']]);
+      // 종료 시각이 없으면 다시 안 열린 것이라 여기서 끝난다
+      if (!p['종료']) return segments;
+      cursor = p['종료'];
+    }
+    if (new Date(end) > new Date(cursor)) segments.push([cursor, end]);
+    return segments;
   }
 
-  // 중간에 멈춘 구간. 없으면 줄 자체를 숨긴다 — 대부분의 시즌은 멈춘 적이 없다.
-  function renderFramesPause(item) {
-    const row = document.getElementById('frames-pause-row');
-    const box = document.getElementById('frames-pause');
-    if (!row || !box) return;
+  function renderFramesPeriod(item) {
+    const box = document.getElementById('frames-date');
+    if (!box) return;
 
-    const list = (item['중단 기간'] || []).filter(p => p && p['시작']);
-    if (!list.length) { row.classList.add('hidden'); box.innerHTML = ''; return; }
+    const segments = framesRunSegments(item);
+    if (!segments.length) { box.textContent = '-'; return; }
 
-    row.classList.remove('hidden');
-    box.innerHTML = list.map(p => {
-      const start = formatKst(p['시작'], { withTime: true });
-      const end = p['종료'] ? formatKst(p['종료'], { withTime: true }) : '';
-      return `<div class="frames-pause-item">${start}${end ? ` ~ ${end}` : ' ~ (미복구)'}</div>`;
-    }).join('');
+    const withTime = hasTimePart(item['시작일']) || hasTimePart(item['종료일']);
+    box.innerHTML = segments
+      .map(([a, b]) => `<div class="frames-date-item">`
+        + `${formatKst(a, { withTime })} ~ ${formatKst(b, { withTime })}</div>`)
+      .join('');
   }
 
   function renderFrameTiers(item) {

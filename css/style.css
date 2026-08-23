@@ -4912,15 +4912,14 @@
     gap: 4px;
   }
 
-  /* 중단 기간은 여러 줄이 될 수 있다 */
-  #frames-pause {
+  /* 중간에 멈췄다 다시 연 시즌은 진행 구간이 여러 줄이 된다 */
+  #frames-date {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
-  .frames-pause-item {
-    font-size: 15px;
+  .frames-date-item {
     line-height: 1.5;
   }
 
