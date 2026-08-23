@@ -3476,6 +3476,9 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* 초상화가 128x256 처럼 세로로 길어서, 정사각으로 자르면 가운데(가슴)만 남고 얼굴이
+       잘린다. 사이트 다른 초상화와 같은 값으로 위쪽을 보게 한다. */
+    object-position: center 18%;
   }
 
   .unreleased-card-info {
