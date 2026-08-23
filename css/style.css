@@ -4969,3 +4969,42 @@
     word-break: keep-all;
     line-height: 1.3;
   }
+
+  /* ===== 사이트 푸터 (저작권 고지) ===== */
+  #site-footer {
+    max-width: 1900px;
+    margin: 4rem auto 2rem;
+    padding: 1.5rem 1.25rem 2rem;
+    border-top: 1px solid var(--border-subtle);
+    text-align: center;
+  }
+
+  .footer-disclaimer {
+    margin: 0 0 0.5rem;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-muted);
+    word-break: keep-all;
+  }
+
+  .footer-disclaimer strong {
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+
+  .footer-meta {
+    margin: 1rem 0 0;
+    font-size: 13px;
+    color: var(--text-faint);
+  }
+
+  .footer-meta a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .footer-meta a:hover {
+    color: var(--accent);
+    border-bottom-color: var(--border-accent);
+  }
