@@ -361,6 +361,21 @@ function getCostumeThumbUrl(nikkeImg, costumeName) {
 // "추가_파츠" 컬럼: 파츠가 하나의 skel/atlas가 아니라 여러 파일로 나뉜 코스튬을 위한 것.
 // 한 줄에 파츠 하나씩, 형식은 "skel주소,atlas주소" (기본 텍스처보다 앞에 그려짐) 또는
 // "뒤,skel주소,atlas주소" (기본 텍스처보다 뒤에 그려짐). 앞/뒤 표시를 생략하면 앞으로 취급한다.
+// "바리에이션" 컬럼: 한 줄에 하나씩 "이름,skel주소,atlas주소".
+// 이름을 안 적으면 순서대로 번호를 붙인다.
+function parseCostumeVariations(raw) {
+  if (!raw) return [];
+  return String(raw).split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      const cols = line.split(',').map(s => (s || '').trim());
+      if (cols.length >= 3) return { name: cols[0], skel: cols[1], atlas: cols[2] };
+      return { name: `모델 ${i + 2}`, skel: cols[0], atlas: cols[1] };
+    })
+    .filter(v => v.skel && v.atlas);
+}
+
 function parseCostumeExtraParts(raw) {
   if (!raw) return [];
   return raw.split('\n')
@@ -398,6 +413,9 @@ function buildCostumeData(rows) {
     'skel': r['skel'],
     'atlas': r['atlas'],
     '추가 파츠': parseCostumeExtraParts(r['추가_파츠']),
+    // 같은 코스튬의 다른 모델(목단 화중지왕의 c281_98 처럼). 파츠처럼 겹쳐 그리는 게
+    // 아니라 기본 모델을 통째로 바꿔 끼운다.
+    '바리에이션': parseCostumeVariations(r['바리에이션']),
     '픽업 배너': r['픽업_배너'],
   }));
 }

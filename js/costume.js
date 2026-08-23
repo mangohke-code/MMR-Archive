@@ -172,6 +172,10 @@
       document.getElementById('costume-top').classList.add('hidden');
       currentCostume = null;
       clearCostumeSpinePlayer();
+      // 바리에이션 줄은 모델을 다시 불러올 때마다 지우면 안 된다(고르는 순간 사라진다).
+      // 코스튬을 접을 때만 치운다.
+      const varBox = document.getElementById('costume-variation');
+      if (varBox) { varBox.innerHTML = ''; varBox.classList.add('hidden'); }
       return;
     }
 
@@ -216,8 +220,46 @@
       rerunWrap.classList.add('hidden');
     }
 
+    // 다른 코스튬으로 넘어가면 기본 모델부터 보여 준다
+    currentVariationIdx = -1;
+    renderCostumeVariations(costume);
+
     // 스파인 플레이어 로드
     loadSpinePlayer(costume);
+
+    // 목록이 길어서 아래쪽 코스튬을 고르면 모델이 화면 밖에 있다. 모델 쪽으로 올려 준다.
+    const top = document.getElementById('costume-top');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // 같은 코스튬의 다른 모델 고르기. 표정 고르기 바로 아래에 둔다.
+  function renderCostumeVariations(costume) {
+    const box = document.getElementById('costume-variation');
+    if (!box) return;
+
+    const variations = costume['바리에이션'] || [];
+    if (!variations.length) {
+      box.innerHTML = '';
+      box.classList.add('hidden');
+      return;
+    }
+
+    const items = [{ name: '기본' }].concat(variations);
+    box.classList.remove('hidden');
+    box.innerHTML = `<div class="variation-title">모델</div>`
+      + items.map((v, i) =>
+          `<button class="anim-btn variation-btn${i - 1 === currentVariationIdx ? ' active' : ''}"
+                   data-idx="${i - 1}">${v.name}</button>`).join('');
+
+    box.querySelectorAll('.variation-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentVariationIdx = Number(btn.dataset.idx);
+        box.querySelectorAll('.variation-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.idx) === currentVariationIdx);
+        });
+        loadSpinePlayer(currentCostume);
+      });
+    });
   }
 
   // 스켈레톤 하나를 로드하지 않고 바운딩 박스(x/y/width/height)만 알아내기 위한 프로브.
@@ -637,6 +679,7 @@
     const exprBox = document.getElementById('costume-expression');
     if (exprBox) { exprBox.innerHTML = ''; exprBox.classList.add('hidden'); }
 
+
     // 다른 코스튬으로 넘어가면 표정 선택은 풀고 기본 동작부터 다시 시작한다
     costumeCurrentAnim = COSTUME_DEFAULT_ANIM;
     costumeReactionIndex = 0;
@@ -648,9 +691,14 @@
     spinePlayer = null;
   }
 
+  // 지금 고른 바리에이션(-1 이면 기본 모델)
+  let currentVariationIdx = -1;
+
   function loadSpinePlayer(costume) {
-    const skelUrl = costume['skel'];
-    const atlasUrl = costume['atlas'];
+    const variations = costume['바리에이션'] || [];
+    const picked = currentVariationIdx >= 0 ? variations[currentVariationIdx] : null;
+    const skelUrl = picked ? picked.skel : costume['skel'];
+    const atlasUrl = picked ? picked.atlas : costume['atlas'];
     const extraParts = costume['추가 파츠'] || [];
 
     clearCostumeSpinePlayer();

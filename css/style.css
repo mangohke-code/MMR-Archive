@@ -975,6 +975,37 @@
     pointer-events: none;
   }
 
+  /* 같은 코스튬의 다른 모델 고르기. 표정 버튼 바로 아래에 붙는다.
+     표정처럼 접었다 펴지 않고 늘 보이게 둔다 — 항목이 두세 개뿐이다. */
+  .spine-variation {
+    position: absolute;
+    top: 106px;
+    left: 14px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: max-content;
+    max-width: 160px;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-active);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .spine-variation .variation-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 0 2px 2px;
+  }
+
+  .spine-variation .variation-btn {
+    text-align: left;
+  }
+
   /* 기본형은 왼쪽 열, _02 변형은 오른쪽 열. 변형이 없으면 오른쪽 칸을 비워 둬서
      같은 표정끼리 가로로 나란히 오게 한다. */
   .spine-expression .expr-grid {
