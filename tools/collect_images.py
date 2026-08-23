@@ -90,7 +90,8 @@ def do_souvenir(db_names):
 
     rows = []
     for name, (path, ext) in sorted(found.items()):
-        rows.append((name, copy(path, os.path.join(DST, 'souvenir'), name + ext)))
+        # 원본 이름 그대로 올린다. 표기를 바꾸면 나중에 원본과 대조하기 어려워진다.
+        rows.append((name, copy(path, os.path.join(DST, 'souvenir'), os.path.basename(path))))
     return found, unused, rows
 
 
@@ -112,11 +113,10 @@ def do_costume(db_rows):
         seen.add(match['티켓'])
 
         for f in sorted(os.listdir(path)):
-            ext = os.path.splitext(f)[1]
             kind = '무료티켓' if '_free' in f else '유료티켓'
+            # 원본 이름 그대로. 파일 이름만 봐도 원본 어느 것인지 알 수 있다.
             rows.append((match['티켓'], kind,
-                         copy(os.path.join(path, f), os.path.join(DST, 'costume'),
-                              f'{entry} {kind}{ext}')))
+                         copy(os.path.join(path, f), os.path.join(DST, 'costume'), f)))
         # DB 에는 무료티켓이 있는데 파일이 없는 경우를 잡는다
         has_free = any(r[0] == match['티켓'] and r[1] == '무료티켓' for r in rows)
         if match['무료티켓'] and not has_free:
@@ -168,9 +168,34 @@ def do_frames(db_rows):
     return rows, sorted(set(files) - used), missing, extra
 
 
-def main():
+def db_data():
+    """표를 직접 읽어 온다. 예전에는 옆에 만들어 둔 _db.json 을 읽었는데, 그 파일이 없으면
+    스크립트가 못 돌아서 다시 쓸 수가 없었다."""
     import json
-    data = json.load(io.open(os.path.join(os.path.dirname(__file__), '_db.json'), encoding='utf-8'))
+    import urllib.parse
+    import urllib.request
+
+    web = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cfg = io.open(os.path.join(web, 'js', 'config.js'), encoding='utf-8').read()
+    url = re.search(r"SUPABASE_URL\s*=\s*'([^']+)'", cfg).group(1)
+    key = re.search(r"SUPABASE_ANON_KEY\s*=\s*'([^']+)'", cfg).group(1)
+
+    def get(table, select, order):
+        q = urllib.parse.urlencode({'select': select, 'order': order})
+        req = urllib.request.Request(f'{url}/rest/v1/{urllib.parse.quote(table)}?{q}',
+                                     headers={'apikey': key, 'Authorization': 'Bearer ' + key})
+        return json.load(urllib.request.urlopen(req))
+
+    return {
+        'souvenir': [r['이름'] for r in get('기념품', '이름', '번호')],
+        'costume': [{'티켓': r['티켓'], '무료티켓': bool(r['무료티켓'])}
+                    for r in get('유니크_코스튬', '티켓,무료티켓', '번호')],
+        'frames': get('솔로_레이드', 'id,시즌,테두리1,테두리2,테두리3', '시즌'),
+    }
+
+
+def main():
+    data = db_data()
 
     print('=' * 70)
     print('기념품')
