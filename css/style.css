@@ -3479,11 +3479,6 @@
     border: 1px solid var(--border-subtle);
   }
 
-  .strikethrough {
-    text-decoration: line-through;
-    opacity: 0.5;
-  }
-
   /* 상세 패널 */
   #unreleased-detail {
     position: relative;

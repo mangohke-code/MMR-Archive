@@ -446,10 +446,8 @@
 
           const membersHtml = members.map(({ row, dispVer, appear, isUnappeared, rowIdx }) => {
             const name   = valueAtVersion(row, '이름', dispVer);
-            const status = valueAtVersion(row, '상태', dispVer);
             const imgUrl = valueAtVersion(row, '이미지', dispVer);
 
-            const nameStrike = status === '이름빗금' || status === '전체빗금';
 
             // 미등장 캐릭터는 보여줄 상세 내용이 없으므로 누르지 못하게 한다
             return `
@@ -457,7 +455,7 @@
                    ${isUnappeared ? '' : `onclick="selectUnreleasedCard(${rowIdx})"`}>
                 ${imgUrl ? `<div class="unreleased-card-portrait"><img src="${imgUrl}" alt="${name}"></div>` : ''}
                 <div class="unreleased-card-info">
-                  <div class="unreleased-card-name ${nameStrike ? 'strikethrough' : ''}">${name || '???'}</div>
+                  <div class="unreleased-card-name">${name || '???'}</div>
                   ${isUnappeared ? `<span class="unreleased-card-badge unappeared">미등장</span>` : ''}
                   ${appear ? `<div class="unreleased-card-appear">${appear}</div>` : ''}
                 </div>
@@ -523,7 +521,6 @@
         name:   String(row['이름1']   || '').trim(),
         affil:  String(row['소속1']   || '').trim(),
         squad:  String(row['스쿼드1'] || '').trim(),
-        status: String(row['상태1']   || '').trim(),
         skel:   String(row['skel1']   || '').trim(),
         atlas:  String(row['atlas1']  || '').trim(),
       });
@@ -540,15 +537,27 @@
           name:   String(row[`이름${n}`]   || '').trim(),
           affil:  String(row[`소속${n}`]   || '').trim(),
           squad:  String(row[`스쿼드${n}`] || '').trim(),
-          status: String(row[`상태${n}`]   || '').trim(),
           skel:   String(row[`skel${n}`]   || '').trim(),
           atlas:  String(row[`atlas${n}`]  || '').trim(),
         });
       }
     }
 
+    // 등장 시기가 비어 있는데 skel/atlas 만 더 적혀 있는 경우가 있다(같은 시기에 모델이
+    // 둘인 캐릭터). 이걸 새 버전으로 세면 등장 시기가 빈 줄이 생기므로, 바로 앞 버전에
+    // 딸린 모델로 붙인다.
+    const extraSpines = [];
+    for (let n = versions.length + 1; row[`skel${n}`] !== undefined; n++) {
+      if (String(row[`등장${n}`] || '').trim()) break;   // 등장 시기가 있으면 별개 버전이다
+      const skel = String(row[`skel${n}`] || '').trim();
+      const atlas = String(row[`atlas${n}`] || '').trim();
+      if (!skel || !atlas) continue;
+      const owner = versions[versions.length - 1];
+      if (owner) extraSpines.push({ ...owner, skel, atlas });
+    }
+
     // 스파인 목록 (skel/atlas 있는 버전만)
-    currentSpineList = versions.filter(v => v.skel && v.atlas);
+    currentSpineList = versions.filter(v => v.skel && v.atlas).concat(extraSpines);
     currentSpineIdx  = currentSpineList.length > 0 ? currentSpineList.length - 1 : 0;
 
     renderDetailPanel(versions);
@@ -564,10 +573,9 @@
     versions.forEach((v, i) => {
       if (i === 0 || v.name !== versions[i-1].name) nameChain.push(v);
     });
-    nameEl.innerHTML = nameChain.map(v => {
-      const strike = v.status === '이름빗금' || v.status === '전체빗금';
-      return `<span class="${strike ? 'strikethrough' : ''}">${v.name || '???'}</span>`;
-    }).join(' <span class="detail-arrow">→</span> ');
+    nameEl.innerHTML = nameChain
+      .map(v => `<span>${v.name || '???'}</span>`)
+      .join(' <span class="detail-arrow">→</span> ');
 
     // 소속
     const affilEl = document.getElementById('unreleased-detail-affil');
@@ -584,10 +592,9 @@
     versions.forEach((v, i) => {
       if (i === 0 || v.squad !== versions[i-1].squad) squadChain.push(v);
     });
-    squadEl.innerHTML = squadChain.filter(v => v.squad).map(v => {
-      const strike = v.status === '스쿼드빗금' || v.status === '전체빗금';
-      return `<span class="${strike ? 'strikethrough' : ''}">${v.squad}</span>`;
-    }).join(' <span class="detail-arrow">→</span> ');
+    squadEl.innerHTML = squadChain.filter(v => v.squad)
+      .map(v => `<span>${v.squad}</span>`)
+      .join(' <span class="detail-arrow">→</span> ');
 
     // 등장 시점 — 클릭으로 스파인 전환
     const appearsEl = document.getElementById('unreleased-detail-appears');
