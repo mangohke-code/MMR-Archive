@@ -216,8 +216,16 @@
   function renderFrameTiers(item) {
     const container = document.getElementById('frames-tiers');
     const tiers = [1, 2, 3]
-      .map(n => ({ name: item[`테두리${n}`], img: item[`테두리${n} 이미지`] }))
+      .map(n => ({
+        name: item[`테두리${n}`],
+        img: item[`테두리${n} 이미지`],
+        desc: item[`테두리${n} 설명`],
+      }))
       .filter(t => t.name);
+
+    // 모델 아래 폭을 테두리 수만큼 똑같이 나눈다. 보통 셋이라 3등분이 되고, 설명이 길어도
+    // 서로 겹치지 않게 각자 제 칸 안에서만 줄바꿈된다.
+    container.style.setProperty('--tier-cols', Math.max(tiers.length, 1));
 
     container.innerHTML = tiers.map(t => `
       <div class="frames-tier-card">
@@ -225,8 +233,19 @@
           ${t.img ? `<img src="${t.img}" alt="${t.name}">` : ''}
         </div>
         <div class="frames-tier-name">${t.name}</div>
+        ${t.desc ? `<div class="frames-tier-desc">${escapeHtml(t.desc).split(NEWLINE_RE).join('<br>')}</div>` : ''}
       </div>
     `).join('');
+  }
+
+  // 표에 적힌 줄바꿈(CRLF/LF)을 <br> 로 바꿀 때 쓴다
+  const NEWLINE_RE = /\r\n|\r|\n/;
+
+  // 설명은 사람이 표에 적어 넣는 값이라 그대로 innerHTML 에 넣지 않는다
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   function clearFramesSpine() {

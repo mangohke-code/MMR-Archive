@@ -5004,22 +5004,36 @@
     color: var(--text-secondary);
   }
 
+  /* 모델 아래 폭을 테두리 수만큼 똑같이 나눈다(보통 셋이라 3등분).
+     칸마다 그림 → 이름 → 설명 순으로 쌓인다. */
   #frames-tiers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(var(--tier-cols, 3), minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
   }
 
   .frames-tier-card {
-    width: 200px;
+    width: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 12px;
+    gap: 10px;
+    padding: 16px 14px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-md);
+  }
+
+  .frames-tier-desc {
+    align-self: stretch;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    text-align: center;
+    word-break: keep-all;
   }
 
   .frames-tier-img {
