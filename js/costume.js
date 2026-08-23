@@ -540,7 +540,12 @@
           ? `<button class="anim-btn expr-btn" data-anim="${name}">${name}</button>`
           : `<span class="expr-empty"></span>`;
         exprBox.classList.remove('hidden');
-        exprBox.innerHTML = `<div class="expr-title">표정</div>`
+        // 평소에는 버튼만 놓고 접어 둔다. 모델을 가리지 않게 하려는 것이다.
+        exprBox.classList.add('is-collapsed');
+        exprBox.innerHTML =
+            `<button class="expr-toggle" type="button" aria-expanded="false">`
+          + `<span>표정</span><i class="fas fa-chevron-down"></i></button>`
+          + `<div class="expr-panel">`
           + `<button class="anim-btn expr-btn expr-base" data-anim="${base}">기본</button>`
           + `<div class="expr-grid" style="--expr-cols:${cols}">`
           + rows.map(r => {
@@ -548,7 +553,14 @@
               for (let i = 0; i < cols; i++) cells += cell(r.slots[i]);
               return cells;
             }).join('')
-          + `</div>`;
+          + `</div></div>`;
+
+        const toggle = exprBox.querySelector('.expr-toggle');
+        toggle.addEventListener('click', () => {
+          const collapsed = exprBox.classList.toggle('is-collapsed');
+          toggle.setAttribute('aria-expanded', String(!collapsed));
+        });
+
         exprBox.querySelectorAll('.expr-btn').forEach(btn => {
           btn.addEventListener('click', () => applyCostumeAnimation(btn.dataset.anim));
         });

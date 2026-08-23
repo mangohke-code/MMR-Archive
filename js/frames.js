@@ -181,27 +181,36 @@
     const segments = [];
     let cursor = start;
     for (const p of pauses) {
-      if (new Date(p['시작']) > new Date(cursor)) segments.push([cursor, p['시작']]);
-      // 종료 시각이 없으면 다시 안 열린 것이라 여기서 끝난다
-      if (!p['종료']) return segments;
+      // paused: 이 구간이 자연스럽게 끝난 게 아니라 중단으로 끊겼다는 표시
+      if (new Date(p['시작']) > new Date(cursor)) {
+        segments.push({ from: cursor, to: p['시작'], paused: true });
+      }
+      // 재오픈 시각이 없으면 다시 안 열린 것이라 여기서 끝난다
+      if (!p['종료']) return { segments, paused: true };
       cursor = p['종료'];
     }
-    if (new Date(end) > new Date(cursor)) segments.push([cursor, end]);
-    return segments;
+    if (new Date(end) > new Date(cursor)) {
+      segments.push({ from: cursor, to: end, paused: false });
+    }
+    return { segments, paused: pauses.length > 0 };
   }
 
   function renderFramesPeriod(item) {
     const box = document.getElementById('frames-date');
     if (!box) return;
 
-    const segments = framesRunSegments(item);
+    const { segments, paused } = framesRunSegments(item);
     if (!segments.length) { box.textContent = '-'; return; }
 
     const withTime = hasTimePart(item['시작일']) || hasTimePart(item['종료일']);
-    box.innerHTML = segments
-      .map(([a, b]) => `<div class="frames-date-item">`
-        + `${formatKst(a, { withTime })} ~ ${formatKst(b, { withTime })}</div>`)
-      .join('');
+    box.innerHTML = segments.map((seg, i) => {
+      // 중단된 적이 없는 시즌은 한 줄뿐이라 차수도 중단 표시도 붙이지 않는다
+      const order = paused ? `<span class="frames-date-order">${i + 1}차</span>` : '';
+      const mark = seg.paused ? `<span class="frames-date-pause">중단</span>` : '';
+      return `<div class="frames-date-item">${order}`
+        + `<span>${formatKst(seg.from, { withTime })} ~ ${formatKst(seg.to, { withTime })}</span>`
+        + `${mark}</div>`;
+    }).join('');
   }
 
   function renderFrameTiers(item) {
