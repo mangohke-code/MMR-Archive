@@ -688,10 +688,11 @@
     playerDiv.style.height = '100%';
     wrap.appendChild(playerDiv);
 
+    // idle 이 없는 스켈레톤이 있어서(action 만 든 것) 이름을 못 박지 않는다.
+    // 먼저 아무 것도 지정하지 않고 읽어 온 다음, 있는 것 중에서 고른다.
     unreleasedSpinePlayer = new spine.SpinePlayer('unreleased-spine-inner', {
       skelUrl:   skelUrl,
       atlasUrl:  atlasUrl,
-      animation: 'idle',
       backgroundColor: '#00000000',
       showControls: false,
       success: function(player) {
@@ -713,7 +714,7 @@
         unreleasedSpinePlayer = new spine.SpinePlayer('unreleased-spine-inner', {
           skelUrl:   skelUrl,
           atlasUrl:  atlasUrl,
-          animation: 'idle',
+          animation: pickSpineAnimation(data),
           backgroundColor: '#00000000',
           showControls: false,
           preserveDrawingBuffer: false,
@@ -785,7 +786,7 @@
                 unreleasedPanZoom.reset();
                 try {
                   player2.animationState.clearListeners();
-                  player2.setAnimation('idle', true);
+                  player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
                 } catch (err) {
                   console.error('[미실장 L2D] 초기화 실패:', err);
                 }
@@ -795,13 +796,14 @@
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               try {
+                if (!player2.skeleton.data.findAnimation('action')) return;
                 player2.setAnimation('action', false);
                 player2.animationState.addListener({
                   complete: () => {
                     try {
-                      player2.setAnimation('idle', true);
+                      player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
                     } catch (err) {
-                      console.error('[미실장 L2D] idle 애니메이션 복귀 실패:', err);
+                      console.error('[미실장 L2D] 대기 애니메이션 복귀 실패:', err);
                     }
                     player2.animationState.clearListeners();
                   }

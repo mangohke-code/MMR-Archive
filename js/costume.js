@@ -760,7 +760,10 @@
         extraLayerDivs[part._idx] = layerDiv;
       });
 
-      createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, 'idle', viewportConfig, (player2, layerDiv) => {
+      // idle 을 못 박아 넘기면 그 애니메이션이 없는 스켈레톤에서 라이브러리가 예외를 던진다.
+      // 나유타 무위·목단 화중지왕·리틀 머메이드 어비스 플라워의 _action.skel 은 action 하나만
+      // 들어 있다. null 을 넘겨서 로드한 뒤 실제로 있는 것 중에서 고르게 한다.
+      createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, null, viewportConfig, (player2, layerDiv) => {
         spinePlayer = player2;
 
         renderCostumeAnimControls(player2.skeleton.data);

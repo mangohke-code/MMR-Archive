@@ -307,10 +307,10 @@
     playerDiv.style.height = '100%';
     wrap.appendChild(playerDiv);
 
+    // idle 이 없는 스켈레톤이 있어서 이름을 못 박지 않는다. 읽어 온 뒤 있는 것 중에서 고른다.
     framesSpinePlayer = new spine.SpinePlayer('frames-spine-inner', {
       skelUrl: skelUrl,
       atlasUrl: atlasUrl,
-      animation: 'idle',
       backgroundColor: '#00000000',
       showControls: false,
       success: function(player) {
@@ -332,7 +332,7 @@
         framesSpinePlayer = new spine.SpinePlayer('frames-spine-inner', {
           skelUrl: skelUrl,
           atlasUrl: atlasUrl,
-          animation: 'idle',
+          animation: pickSpineAnimation(data),
           backgroundColor: '#00000000',
           showControls: false,
           preserveDrawingBuffer: false,
@@ -381,7 +381,7 @@
                 framesPanZoom.reset();
                 try {
                   player2.animationState.clearListeners();
-                  player2.setAnimation('idle', true);
+                  player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
                 } catch (err) {
                   console.error('[역대 테두리 L2D] 초기화 실패:', err);
                 }
@@ -392,13 +392,14 @@
 
             player2.canvas.addEventListener('click', () => {
               try {
+                if (!player2.skeleton.data.findAnimation('action')) return;
                 player2.setAnimation('action', false);
                 player2.animationState.addListener({
                   complete: () => {
                     try {
-                      player2.setAnimation('idle', true);
+                      player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
                     } catch (err) {
-                      console.error('[역대 테두리 L2D] idle 애니메이션 복귀 실패:', err);
+                      console.error('[역대 테두리 L2D] 대기 애니메이션 복귀 실패:', err);
                     }
                     player2.animationState.clearListeners();
                   }

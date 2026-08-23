@@ -83,6 +83,17 @@ document.addEventListener('contextmenu', e => {
   });
 })();
 
+// 그 스켈레톤에 실제로 들어 있는 것 중에서 대기용 애니메이션을 고른다.
+//
+// 여태 'idle' 을 못 박아 썼는데, 코스튬 몇 개는 _action.skel 이라 action 하나만 들어 있다
+// (나유타 무위 · 목단 화중지왕 · 리틀 머메이드 어비스 플라워). 없는 이름을 SpinePlayer 설정에
+// 넘기면 "Animation does not exist in skeleton" 예외가 나면서 뷰어가 통째로 안 뜬다.
+function pickSpineAnimation(skeletonData) {
+  if (!skeletonData || !skeletonData.animations || !skeletonData.animations.length) return undefined;
+  const names = skeletonData.animations.map(a => a.name);
+  return names.includes('idle') ? 'idle' : names[0];
+}
+
 // L2D 파츠(스킨) on/off 토글 UI — costume.js/unreleased.js 공용
 // skins: default를 제외한 spine.Skin 배열, enabledSet: 현재 켜져있는 스킨 이름 Set
 function renderPartsToggle(containerId, skins, enabledSet, onChange) {
