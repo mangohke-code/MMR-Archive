@@ -18,6 +18,12 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 // 그 외 페이즈에서는 그 페이즈 태그가 붙은 파츠만 켠다 — 예를 들어 날개처럼 2페이즈 태그가
 // 붙었지만 실제로는 항상 보여야 하는 파츠가 있는 보스, 또는 페이즈별로 파츠가 완전히
 // 갈리면서도 1페이즈에서는 전체를 다 보여줘야 하는 보스용.
+//
+// ※ 아래 보정 테이블 3종(PHASE_MODE / MESH_TRANSFORM / BOSS_TRANSFORM)은 전부
+//   구형(FBX -> glTF 변환) 모델 전용이다. 신형 추출본에는 적용하지 않는다 —
+//   신형은 방향·위치·페이즈가 파일 자체에 이미 들어 있어서, 여기 값을 또 얹으면
+//   회전이 두 번 걸려 통째로 틀어진다. 같은 보스를 신형으로 재업로드해도 이 표를
+//   지울 필요는 없다. 코드가 알아서 무시한다.
 const PHASE_MODE_OVERRIDES = {
   xbg003: { mode: 'phase1-all' }, // 온리 원 - 날개(2phase 태그)가 상시 노출 파츠라 1페이즈에서 같이 켠다
   mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
@@ -63,13 +69,131 @@ const BOSS_TRANSFORM_OVERRIDES = {
   mbg001: { position: [-0.1, -0.1, 0], scale: 1 }, // 알트아이젠 - 확정 (회전은 기본값)
 };
 
-function getBossTransform(bossCode) {
+function getBossTransform(bossCode, isCatalogExport) {
+  // 신형 추출본은 루트 노드에 방향 회전이 이미 들어 있고(쿼터니언 [0,-1,0,0] = yaw 180도)
+  // GLTFLoader 가 그걸 적용한다. 보스별 보정값은 구형 파이프라인이 어긋나게 뽑아준 걸
+  // 손으로 맞춘 값이라, 신형에 얹으면 회전이 두 번 걸려 오히려 망가진다.
+  // 같은 보스를 신형으로 다시 올리면 이 함수가 알아서 보정을 건너뛴다.
+  if (isCatalogExport) return { rotation: [0, 0, 0], position: [0, 0, 0], scale: 1 };
+
   const raw = BOSS_TRANSFORM_OVERRIDES[bossCode] || {};
   return {
     rotation: raw.rotation || DEFAULT_ROTATION,
     position: raw.position || [0, 0, 0],
     scale: raw.scale || 1,
   };
+}
+
+// 사망 연출에서 떨어져 나가는 파편 본. 화면 잡기·카메라 추적 기준에서 뺀다.
+const DEBRIS_BONE_RE = /twp/i;
+
+// 몸통 중심축 본. 3ds Max Biped 표준 이름 + body/bust/neck 계열.
+// 파츠가 떨어져 나가는 연출에서 파츠까지 평균 내면 본체와 파편 사이 빈 공간을 잡는다.
+const CORE_BONE_RE = /(^|_)(bip\d*|pelvis|spine|neck|bust|head|body|root)/i;
+
+// 카메라가 따라갈 본체 메쉬 — 파편을 뺀 본이 가장 많은 스킨드메쉬.
+// 보스마다 이름이 달라서(body_skin / 1phase_skin) 이름으로 찍지 않는다.
+function pickFocusMesh(meshes) {
+  let best = null, bestN = -1;
+  for (const m of meshes) {
+    if (!m.isSkinnedMesh || !m.skeleton) continue;
+    let n = 0;
+    for (const b of m.skeleton.bones) if (!DEBRIS_BONE_RE.test(b.name || '')) n++;
+    if (n > bestN) { bestN = n; best = m; }
+  }
+  return best;
+}
+
+// 본체 본의 평균 위치. 코어 본이 잡히면 그것만, 아니면 파편 뺀 전체.
+function rigCenter(mesh, out) {
+  if (!mesh || !mesh.skeleton) return null;
+  const bones = mesh.skeleton.bones;
+  const v = new THREE.Vector3();
+  const gather = (useCore) => {
+    let n = 0;
+    out.set(0, 0, 0);
+    for (const b of bones) {
+      const name = b.name || '';
+      if (DEBRIS_BONE_RE.test(name)) continue;
+      if (useCore && !CORE_BONE_RE.test(name)) continue;
+      b.getWorldPosition(v);
+      out.add(v); n++;
+    }
+    return n;
+  };
+  let n = gather(true);
+  if (n < 3) n = gather(false);
+  return n ? out.divideScalar(n) : null;
+}
+
+// 로드 직후의 모든 노드 트랜스폼. 클립을 바꿀 때 여기로 되돌린다.
+function capturePose(root) {
+  const list = [];
+  root.traverse(o => list.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]));
+  return list;
+}
+
+// 클립마다 건드리는 본 집합이 다르다 — 사망 연출은 파편 본을 멀리 날려보내는데
+// idle 에는 그 본들에 트랙이 없어서, 믹서를 새로 만들어도 아무도 되돌려주지 않는다.
+// 그러면 idle 로 돌아와도 파편이 날아간 자리에 박힌 채 남는다.
+function restorePose(list) {
+  if (!list) return;
+  for (const [o, p, q, sc] of list) { o.position.copy(p); o.quaternion.copy(q); o.scale.copy(sc); }
+}
+
+// start -> loop -> end/fire 로 이어지는 클립 묶음. 이름 규칙만으로 찾는다.
+//   groggy_start / groggy_loop / groggy_end
+//   skill_start_01 / skill_loop_01 / skill_fire_01
+const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_\d+)?$/i;
+
+function findSequences(clips) {
+  const groups = new Map();
+  clips.forEach((c, i) => {
+    const m = (c.name || '').match(SEQ_RE);
+    if (!m) return;
+    const key = m[1] + (m[3] || '');
+    if (!groups.has(key)) groups.set(key, {});
+    groups.get(key)[m[2].toLowerCase()] = { i, clip: c };
+  });
+  const out = [];
+  groups.forEach((g, key) => {
+    if (!g.start || !(g.loop || g.end || g.fire)) return;
+    const steps = [{ clip: g.start.clip, repeat: 1 }];
+    if (g.loop) steps.push({ clip: g.loop.clip, repeat: 2 });
+    if (g.fire) steps.push({ clip: g.fire.clip, repeat: 1 });
+    if (g.end) steps.push({ clip: g.end.clip, repeat: 1 });
+    out.push({ key, steps });
+  });
+  // 라벨은 보스 코드만 떼고 붙인다. 다만 한 파일에 페이즈가 여럿 들어 있는 보스
+  // (에고비스타는 1phase/2phase 세트가 통째로 다 들어 있다)는 페이즈 태그를 남겨야
+  // "groggy" 같은 이름이 두 개로 겹쳐 보이지 않는다.
+  const phases = new Set(out.map(o => clipPhase(o.steps[0].clip.name)).filter(Boolean));
+  const strip = phases.size > 1
+    ? /^[a-z]{2,4}\d{3}_/i
+    : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
+  out.forEach(o => { o.label = o.key.replace(strip, ''); });
+  return out;
+}
+
+// 클립 이름에 붙은 페이즈 번호. "xbg005_2phase_idle_01" -> "2"
+function clipPhase(name) {
+  const m = (name || '').match(/(?:^|_)(\d)phase_/i);
+  return m ? m[1] : null;
+}
+
+// 페이즈 전환 클립. 에고비스타는 페이즈가 파일로 갈리지 않고 한 모델 안에서
+// 깃털 본의 스케일로 갈린다 — phase_change 가 phase1_feather 를 1.0 -> 0.03 으로 줄이고
+// phase2_feather 를 0.08 -> 1.0 으로 키운다. idle 클립 자체에는 그 스케일이 없어서,
+// 포즈를 초기화한 상태에서 2페이즈 클립만 틀면 1페이즈 깃털이 그대로 남는다.
+// 그래서 다른 페이즈로 넘어갈 때는 이 클립을 먼저 한 번 재생한다.
+function findPhaseChangeClip(clips) {
+  return clips.find(c => /phase_?change/i.test(c.name || '')) || null;
+}
+
+// idle / loop 만 반복하고 나머지는 한 번만 재생한 뒤 idle 로 돌아간다.
+// 등장·사망 연출은 리그를 딴 곳에 놓고 시작해서, 반복시키면 끝나는 순간 순간이동한다.
+function isOneShot(name) {
+  return !/(^|_)(idle|loop)(_\d+)?$/i.test(name || '');
 }
 
 function disposeState(container) {
@@ -91,6 +215,11 @@ function disposeState(container) {
   if (phaseToggleEl) {
     phaseToggleEl.innerHTML = '';
     phaseToggleEl.classList.add('hidden');
+  }
+  const animToggleEl = document.getElementById('frames-anim-toggle');
+  if (animToggleEl) {
+    animToggleEl.innerHTML = '';
+    animToggleEl.classList.add('hidden');
   }
 
   if (state.renderer) {
@@ -178,6 +307,22 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
     const bossCode = detectBossCode(meshNamesForBossCode);
 
+    // 신형(카탈로그에서 직접 뽑은) 추출본은 기존 FBX 변환본과 규칙이 다르다.
+    //  - 루트 노드에 방향 회전이 이미 들어 있다 (공통 225도 보정을 주면 안 된다)
+    //  - 페이즈가 파일 단위로 나뉜다 (메쉬 이름으로 페이즈를 거르면 안 된다 —
+    //    애니힐리오 2페이즈 파일의 xba003_1phase_magiccarpet_skin 은 이름과 달리
+    //    root_phase2 아래에 달린 2페이즈 현역 파츠다)
+    //  - 등장·사망 클립이 리그를 통째로 딴 곳으로 옮긴다 (카메라가 따라가야 한다)
+    //
+    // 판별은 씬 루트에 "*_var" 래퍼 노드가 있는지로 한다. 신형은 모델 전체가 그 노드
+    // 하나에 담겨 나오고, 기존 변환본은 루트가 전부 "*_skin" 이라 겹치지 않는다.
+    // asset.generator 로 보면 안 된다 — Draco 압축을 한 번 태우면 그 값이 변환 도구
+    // 이름으로 덮어써져서(기존 모델도 전부 'glTF-Transform') 구분이 사라진다.
+    // 노드 이름은 압축을 거쳐도 그대로 남는다.
+    const isCatalogExport =
+      gltf.scene.children.some(o => /_var$/i.test(o.name || ''))
+      || /NikkeCatalogExplorer/i.test((gltf.asset && gltf.asset.generator) || '');
+
     // FBX 원본이 항상 정면 기준으로 돌아간 상태로 나온다 —
     // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준이 어긋나는 것으로
     // 보인다. 기본은 대부분 보스에 맞는 공통값(좌우 225도)이고, 안 맞는 보스는
@@ -193,7 +338,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     yawGroup.add(pitchGroup);
     scene.add(yawGroup);
 
-    const bossTransform = getBossTransform(bossCode);
+    const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
     yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg);
     pitchGroup.rotation.x = THREE.MathUtils.degToRad(pitchDeg);
@@ -216,6 +361,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     gltf.scene.traverse(obj => {
       if (!obj.isMesh) return;
       meshes.push(obj);
+      // 스킨드메쉬의 컬링용 바운딩 스피어는 바인드 포즈 기준으로 잡힌다. 애니메이션이
+      // 본을 멀리 옮기면 그 구는 원점 근처에 남아서, 카메라가 본을 따라간 순간
+      // three.js 가 "화면 밖"으로 판정해 메쉬를 통째로 안 그린다.
+      obj.frustumCulled = false;
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       mats.forEach(m => {
         m.side = THREE.DoubleSide;
@@ -231,7 +380,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         }
       });
 
-      const xform = MESH_TRANSFORM_OVERRIDES[obj.name];
+      // 메쉬별 보정도 구형 전용 — 신형은 트랜스폼이 파일에 제대로 들어 있다.
+      const xform = isCatalogExport ? null : MESH_TRANSFORM_OVERRIDES[obj.name];
       if (xform) {
         const root = obj.isSkinnedMesh && obj.skeleton && obj.skeleton.bones[0] ? obj.skeleton.bones[0] : obj;
         if (xform.offset) {
@@ -258,6 +408,29 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       meshes.forEach(m => { m.label = (m.name || '').replace(stripCode, ''); });
     }
 
+    // 파츠 토글은 이름을 키로 쓰는데, 이름이 겹치는 보스가 있다 — 앨트루이아는 메쉬 31개
+    // 중 이름이 20종뿐이라 helm_01~09 와 눈이 각각 두 개씩 같은 이름을 쓴다. 그대로 두면
+    // 하나를 끄면 짝까지 같이 꺼진다. 겹치는 것만 뒤에 번호를 붙여 구분한다.
+    {
+      const seen = new Map();
+      meshes.forEach(m => {
+        const base = m.name || 'mesh';
+        const n = (seen.get(base) || 0) + 1;
+        seen.set(base, n);
+        m.partKey = n > 1 ? base + '#' + n : base;
+      });
+      // 두 번 이상 나온 이름은 첫 번째에도 번호를 붙여줘야 목록에서 구분이 된다
+      const dup = new Set([...seen].filter(([, n]) => n > 1).map(([k]) => k));
+      const idx = new Map();
+      meshes.forEach(m => {
+        if (!dup.has(m.name)) return;
+        const n = (idx.get(m.name) || 0) + 1;
+        idx.set(m.name, n);
+        m.partKey = m.name + '#' + n;
+        m.label = (m.label || m.name) + ' ' + n;
+      });
+    }
+
     // 페이즈별로 파츠가 통째로 나뉜 보스들 (예: 1phase_body / 2phase_body, phase001_*/phase002_*)
     // 이 있다. 그런데 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적(교체)이지만,
     // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이름 패턴만
@@ -267,16 +440,60 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!m) return null;
       return String(parseInt(m[1] || m[2], 10));
     };
+    const basePose = capturePose(gltf.scene);
+    const focusMesh = pickFocusMesh(meshes);
+
+    // 페이즈가 파일이 아니라 본 스케일로 갈리는 보스가 있다(에고비스타). phase_change 가
+    // 날개깃(remiges) 12개를 1.0 -> 0.03 으로 줄이고 대검 깃털을 0.08 -> 1.0 으로 키운다.
+    // 그런데 2페이즈 클립들에는 그 날개깃 스케일 트랙이 아예 없어서, 클립만 틀면 아무도
+    // 깃털을 치워주지 않는다. 게다가 우리는 클립을 바꿀 때마다 포즈를 초기화하므로
+    // 전환 결과가 매번 지워진다.
+    //
+    // 그래서 전환이 끝난 시점의 자세를 미리 한 번 떠 두고, 2페이즈 클립을 재생할 때는
+    // 초기 자세 대신 그 자세로 되돌린다. 클립이 실제로 건드리는 본은 어차피 클립이
+    // 덮어쓰므로, 트랙이 없는 본(=깃털)만 전환 상태를 유지하게 된다.
+    const phaseChangeClip = isCatalogExport ? findPhaseChangeClip(gltf.animations || []) : null;
+    let phaseEndPose = null;
+    if (phaseChangeClip) {
+      const probe = new THREE.AnimationMixer(gltf.scene);
+      const probeAction = probe.clipAction(phaseChangeClip);
+      // 기본 반복 모드로 두면 정확히 duration 시점에서 처음으로 되감겨서 전환 "전" 자세를
+      // 뜨게 된다(날개깃이 0.02 가 아니라 1.0 으로 잡힌다). 한 번만 재생하고 끝에서
+      // 멈추도록 잠가야 한다.
+      probeAction.setLoop(THREE.LoopOnce, 1);
+      probeAction.clampWhenFinished = true;
+      probeAction.play();
+      probe.setTime(phaseChangeClip.duration);
+      phaseEndPose = capturePose(gltf.scene);
+      probe.stopAllAction();
+      probe.uncacheRoot(gltf.scene);
+      restorePose(basePose);
+    }
+
+    // 이 클립을 재생하기 전에 어떤 자세로 되돌려야 하는지.
+    function poseFor(clipName) {
+      const p = clipPhase(clipName);
+      return (phaseEndPose && p && p !== '1') ? phaseEndPose : basePose;
+    }
+
     const phaseConfig = getPhaseConfig(bossCode);
     const phaseGroups = {};
-    meshes.forEach(m => {
-      const p = meshPhase(m.name);
-      if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
-    });
+    // 신형 추출본은 파일 하나가 곧 페이즈 하나라 이름 기반 분류를 하지 않는다.
+    if (!isCatalogExport) {
+      meshes.forEach(m => {
+        const p = meshPhase(m.name);
+        if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
+      });
+    }
     const phaseKeys = Object.keys(phaseGroups).sort((a, b) => Number(a) - Number(b));
     const minPhase = phaseKeys.length > 0 ? phaseKeys[0] : null;
     // 모든 보스는 항상 1페이즈(가장 낮은 페이즈)로 시작 - 다른 페이즈는 직접 선택해야 보인다.
     let currentPhase = minPhase;
+    // 신형 추출본은 파일 하나가 곧 페이즈 하나라, 메쉬 이름의 phase 태그를 무시해야 한다.
+    // 이걸 빼먹으면 2페이즈 파일의 "2phase_" 파츠들이 currentPhase(null) 와 비교돼
+    // 전부 숨겨진다 — 실제로 11개 중 6개가 사라졌었다.
+    const phaseOf = (name) => (isCatalogExport ? null : meshPhase(name));
+
     const isPhaseVisible = (p, current) => {
       if (p === null) return true;
       if (phaseConfig.mode === 'exclusive') return p === current;
@@ -286,12 +503,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const enabledMeshes = new Set(
       meshes
-        .filter(m => !isSkillOnlyEffect(m.name) && isPhaseVisible(meshPhase(m.name), currentPhase))
-        .map(m => m.name)
+        .filter(m => !isSkillOnlyEffect(m.name) && isPhaseVisible(phaseOf(m.name), currentPhase))
+        .map(m => m.partKey)
     );
 
     function applyVisibility() {
-      meshes.forEach(m => { m.visible = enabledMeshes.has(m.name); });
+      meshes.forEach(m => { m.visible = enabledMeshes.has(m.partKey); });
     }
 
     function renderToggleUI() {
@@ -319,10 +536,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             // 프리셋 적용: 페이즈 태그가 있는 파츠만 보스별 모드(누적/배타)에 맞게 다시
             // 켜고/끄고, 페이즈 태그가 없는 공용 파츠는 건드리지 않는다.
             meshes.forEach(m => {
-              const p = meshPhase(m.name);
+              const p = phaseOf(m.name);
               if (p === null) return;
-              if (isPhaseVisible(p, currentPhase)) enabledMeshes.add(m.name);
-              else enabledMeshes.delete(m.name);
+              if (isPhaseVisible(p, currentPhase)) enabledMeshes.add(m.partKey);
+              else enabledMeshes.delete(m.partKey);
             });
             applyVisibility();
             renderToggleUI();
@@ -351,8 +568,60 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     controls.update();
 
+    // 스킨드메쉬의 지오메트리 바운딩박스는 바인드 포즈 기준이라, 재생 위치가 바인드와
+    // 멀리 떨어진 모델(신형 추출본이 그렇다)에서는 카메라가 빈 곳을 보게 된다.
+    // 기존 보스는 둘이 일치해서 이 보정이 아예 걸리지 않는다 — 어긋난 경우에만 고친다.
+    const probe = new THREE.Vector3();
+    if (focusMesh && rigCenter(focusMesh, probe) && !box.containsPoint(probe)) {
+      const boneBox = new THREE.Box3();
+      const bv = new THREE.Vector3();
+      meshes.forEach(m => {
+        if (!m.isSkinnedMesh || !m.skeleton) return;
+        m.skeleton.bones.forEach(b => {
+          if (DEBRIS_BONE_RE.test(b.name || '')) return;
+          boneBox.expandByPoint(b.getWorldPosition(bv));
+        });
+      });
+      if (!boneBox.isEmpty()) {
+        const bSize = boneBox.getSize(new THREE.Vector3());
+        const bCenter = boneBox.getCenter(new THREE.Vector3());
+        const bRadius = bSize.length() || 1;
+        camera.position.set(bCenter.x + bRadius * 0.8, bCenter.y + bRadius * 0.4, bCenter.z + bRadius * 0.8);
+        controls.target.copy(bCenter);
+        controls.minDistance = bRadius * 0.05;
+        controls.maxDistance = bRadius * 4;
+        camera.near = bRadius / 500;
+        camera.far = bRadius * 50;
+        camera.updateProjectionMatrix();
+        controls.update();
+      }
+    }
+
     initialCamPos = camera.position.clone();
     initialTarget = controls.target.clone();
+
+    // 카메라 추적 — 등장·사망 연출은 리그를 통째로 옮긴다. 게임에서도 카메라가 같이
+    // 움직여서 본체를 잡기 때문에 성립하는 연출이다.
+    // 중심의 "절대 위치" 가 아니라 "처음 대비 변위" 를 따라가므로, 제자리에서만 움직이는
+    // 기존 보스는 변위가 0 이라 아무 영향이 없다.
+    const followBase = new THREE.Vector3();
+    const followCur = new THREE.Vector3();
+    const followDelta = new THREE.Vector3();
+    const followWant = new THREE.Vector3();
+    let followReady = false;
+    if (focusMesh && rigCenter(focusMesh, followBase)) followReady = true;
+
+    function updateFollow(dt) {
+      if (!followReady || !focusMesh) return;
+      if (!rigCenter(focusMesh, followCur)) return;
+      // 목표 = 처음 타깃 + (현재 중심 - 처음 중심)
+      followWant.copy(initialTarget).add(followCur).sub(followBase);
+      followDelta.copy(followWant).sub(controls.target);
+      if (followDelta.lengthSq() < 1e-10) return;
+      followDelta.multiplyScalar(1 - Math.pow(1e-7, Math.min(dt, 0.1)));
+      controls.target.add(followDelta);
+      camera.position.add(followDelta);
+    }
 
     // 페이즈마다 idle 포즈가 다른 보스(예: 알트아이젠 - 런처 파츠가 1페이즈 idle에서는
     // 접힌 자세, 2페이즈 idle에서는 펼쳐진 자세)가 있다 - 파츠 표시만 바꾸고 애니메이션은
@@ -368,20 +637,94 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return gltf.animations.find(a => /idle|wait|stand/i.test(a.name || '')) || gltf.animations[0];
     }
 
+    // 클립 재생. 시퀀스(start->loop->end)를 위해 남은 단계를 큐로 들고 간다.
+    // markActiveClip 은 아래 UI 블록에서 함수 선언으로 정의된다(호이스팅됨).
+    let seqQueue = [];
+
+    function playClipObject(clip, opts) {
+      opts = opts || {};
+      // 앞 클립이 옮겨놓은 본을 원위치로. 믹서 교체만으로는 트랙 없는 본이 안 돌아온다.
+      restorePose(poseFor(clip.name));
+      // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
+      // 눈에 보이는 변화는 없이 내부 바인딩 상태만 꼬이는 경우가 있어 — 믹서를 아예
+      // 새로 만들어서 확실하게 교체한다.
+      mixer = new THREE.AnimationMixer(gltf.scene);
+      mixer.addEventListener('finished', onClipFinished);
+      const action = mixer.clipAction(clip);
+      if (opts.repeat) {
+        action.setLoop(opts.repeat === 1 ? THREE.LoopOnce : THREE.LoopRepeat, opts.repeat);
+        action.clampWhenFinished = true;
+      }
+      action.play();
+      // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
+      state.mixer = mixer;
+      state.currentClip = clip.name;
+      markActiveClip(opts.keepQueue ? null : clip.name);
+    }
+
+    function onClipFinished() {
+      if (seqQueue.length) {
+        const step = seqQueue.shift();
+        playClipObject(step.clip, { repeat: step.repeat, keepQueue: true });
+        return;
+      }
+      const idle = findIdleClipForPhase(currentPhase);
+      // 포즈를 초기화하면 1페이즈 모습으로 돌아가므로 상태도 같이 맞춘다.
+      shownPhase = null;
+      if (idle) playSingle(idle);
+    }
+
+    function playSequence(seq) {
+      const want = withPhaseChange(seq.steps[0].clip);
+      if (want) {
+        shownPhase = want;
+        seqQueue = seq.steps.slice();
+        playClipObject(phaseChangeClip, { repeat: 1, keepQueue: true });
+      } else {
+        shownPhase = clipPhase(seq.steps[0].clip.name) || shownPhase;
+        seqQueue = seq.steps.slice(1);
+        playClipObject(seq.steps[0].clip, { repeat: 1, keepQueue: true });
+      }
+      markActiveClip(seq.key);
+    }
+
+    // 지금 화면에 서 있는 페이즈.
+    let shownPhase = null;
+
+    // 목표 클립이 다음 페이즈면 전환 클립을 먼저 끼워 넣는다.
+    function withPhaseChange(clip) {
+      const want = clipPhase(clip.name);
+      if (!phaseChangeClip || want === null) return null;
+      const base = shownPhase === null ? '1' : shownPhase;
+      if (want === base) return null;
+      // 전환 클립은 1 -> 2 방향으로만 만들어져 있다. 되돌아갈 때 이걸 틀면 오히려
+      // 다시 2페이즈 모습으로 끝나버리므로, 앞으로 갈 때만 끼운다.
+      // 뒤로 갈 때는 poseFor() 가 알아서 초기 자세로 되돌려준다.
+      if (Number(want) <= Number(base)) return null;
+      return want;
+    }
+
+    function playSingle(clip) {
+      seqQueue = [];
+      const want = withPhaseChange(clip);
+      if (want) {
+        shownPhase = want;
+        seqQueue = [{ clip, repeat: isOneShot(clip.name) ? 1 : 0 }];
+        playClipObject(phaseChangeClip, { repeat: 1, keepQueue: true });
+        markActiveClip(clip.name);
+        return;
+      }
+      shownPhase = clipPhase(clip.name) || shownPhase;
+      playClipObject(clip, { repeat: isOneShot(clip.name) ? 1 : 0 });
+    }
+
     function updateAnimationForPhase() {
       const clip = findIdleClipForPhase(currentPhase);
-      if (!clip) return;
-      // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
-      // 눈에 보이는 변화는 없이 내부 바인딩 상태만 꼬이는 경우가 있어(같은 본을 다른
-      // 클립 두 개가 번갈아 참조할 때 재생 자체는 "isRunning: true"로 보이는데도 실제
-      // 포즈는 갱신이 안 되는 현상 확인됨) — 믹서를 아예 새로 만들어서 확실하게 교체한다.
-      mixer = new THREE.AnimationMixer(gltf.scene);
-      mixer.clipAction(clip).play();
+      if (clip) playSingle(clip);
     }
 
     if (gltf.animations && gltf.animations.length > 0) {
-      mixer = new THREE.AnimationMixer(gltf.scene);
-      mixer.clipAction(findIdleClipForPhase(currentPhase)).play();
+      playSingle(findIdleClipForPhase(currentPhase));
     }
 
     const resetBtn = document.getElementById('frames-spine-reset');
@@ -390,6 +733,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (container.__framesModel3D !== state) return;
         camera.position.copy(initialCamPos);
         controls.target.copy(initialTarget);
+        if (focusMesh) rigCenter(focusMesh, followBase);
         controls.update();
       };
     }
@@ -406,15 +750,73 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       };
     }
 
+    // 애니메이션 목록. 클립이 idle 하나뿐인 보스(기존 테두리 보스 대부분)에서는
+    // 아무것도 그리지 않고 숨긴 채로 둔다.
+    // 이 함수는 호이스팅되어 위쪽 playSingle() 에서 먼저 불린다. 그래서 컨테이너를
+    // 바깥 const 로 잡아두면 TDZ 에 걸린다 — 부를 때마다 직접 찾는다.
+    function markActiveClip(key) {
+      const el = document.getElementById('frames-anim-toggle');
+      if (!el) return;
+      el.querySelectorAll('.frames-anim-btn').forEach(b => {
+        b.classList.toggle('active', key !== null && b.dataset.key === key);
+      });
+    }
+
+    const animEl = document.getElementById('frames-anim-toggle');
+    if (animEl) {
+      const seqs = findSequences(gltf.animations || []);
+      const clips = gltf.animations || [];
+      // 문자열로 정규식을 만들 때는 역슬래시를 한 번 더 써야 한다 — JS 문자열에서
+      // '\d' 는 그냥 'd' 로 죽어서 '2phase_' 가 안 벗겨진다.
+      // 한 파일에 페이즈가 여럿이면 클립 라벨에서도 페이즈를 지우면 안 된다.
+      const multiPhase = new Set(clips.map(c => clipPhase(c.name)).filter(Boolean)).size > 1;
+      const stripCodeRe = bossCode
+        ? new RegExp(bossCode + (multiPhase ? '_' : '_(\\d?\\d?phase_)?'), 'ig')
+        : null;
+      const label = name => (stripCodeRe ? String(name).replace(stripCodeRe, '') : name);
+
+      // 구형 변환본은 클립이 idle(또는 페이즈별 idle) 뿐이고 그 전환은 페이즈 토글이
+      // 이미 담당한다. 거기에 애니메이션 목록까지 띄우면 역할이 겹치고, 클립만 바꾸면
+      // 파츠 표시와 어긋난다. 신형 추출본에서만 목록을 낸다.
+      if (isCatalogExport && clips.length > 1) {
+        animEl.classList.remove('hidden');
+        animEl.innerHTML =
+          seqs.map(sq => `<button type="button" class="filter-chip frames-anim-btn is-seq" data-key="${sq.key}">${label(sq.label)}</button>`).join('')
+          + clips.map(c => `<button type="button" class="filter-chip frames-anim-btn" data-key="${c.name}">${label(c.name)}</button>`).join('');
+
+        animEl.querySelectorAll('.frames-anim-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (container.__framesModel3D !== state) return;
+            const key = btn.dataset.key;
+            const sq = seqs.find(x => x.key === key);
+            if (sq) playSequence(sq);
+            else {
+              const clip = clips.find(c => c.name === key);
+              if (clip) playSingle(clip);
+            }
+          });
+        });
+        markActiveClip((findIdleClipForPhase(currentPhase) || {}).name || null);
+      } else {
+        animEl.classList.add('hidden');
+        animEl.innerHTML = '';
+      }
+    }
+
     if (onLoaded) onLoaded({ meshCount: meshes.length });
+
+    // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
+    state.step = (dt) => {
+      if (mixer && !state.paused) mixer.update(dt);
+      updateFollow(dt);
+      controls.update();
+      renderer.render(scene, camera);
+    };
 
     function animate() {
       if (container.__framesModel3D !== state) return; // dispose됨
       state.rafId = requestAnimationFrame(animate);
-      const dt = clock.getDelta();
-      if (mixer && !state.paused) mixer.update(dt);
-      controls.update();
-      renderer.render(scene, camera);
+      state.step(clock.getDelta());
     }
     animate();
   }, undefined, (err) => {

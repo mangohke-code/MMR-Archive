@@ -4898,7 +4898,38 @@
     padding-right: 56px;
   }
 
-  .frames-phase-toggle {
+  /* 3D 모델이 여러 파일로 나뉜 보스용 선택 줄 (애니힐리오는 1페이즈/2페이즈/구체가
+   각각 별도 glb 다). 파일 하나뿐인 보스에서는 JS 가 숨긴 채로 둔다. */
+.frames-model-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+/* 3D 뷰어 애니메이션 목록. 클립이 여러 개인 보스에서만 보인다 —
+   기존 테두리 보스는 idle 하나뿐이라 JS 쪽에서 숨긴 채로 둔다.
+   시퀀스(start->loop->end) 버튼은 왼쪽에 액센트 선을 둬서 개별 클립과 구분한다. */
+.frames-anim-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+.frames-anim-toggle .frames-anim-btn {
+  font-size: 12px;
+  padding: 4px 9px;
+}
+
+.frames-anim-toggle .frames-anim-btn.is-seq {
+  border-left: 3px solid var(--border-accent);
+  font-weight: 700;
+}
+
+.frames-phase-toggle {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;

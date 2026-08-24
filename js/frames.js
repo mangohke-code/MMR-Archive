@@ -256,18 +256,66 @@
     if (wrap) wrap.innerHTML = '';
     const toggle = document.getElementById('frames-parts-toggle');
     if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
+    const modelBox = document.getElementById('frames-model-toggle');
+    if (modelBox) { modelBox.innerHTML = ''; modelBox.classList.add('hidden'); }
+  }
+
+  // "model" 열은 한 줄에 하나씩 "이름,주소" 또는 "주소"만 적는다.
+  //
+  // 보스에 따라 3D 모델이 여러 파일로 나뉜다 — 애니힐리오는 1페이즈/2페이즈/구체가
+  // 각각 별도 glb 로 나온다(한 파일 = 한 페이즈). 이름을 안 적으면 파일명에서 뽑아 쓴다.
+  function parseBossModels(raw) {
+    if (!raw) return [];
+    return String(raw).split(NEWLINE_RE)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const i = line.indexOf(',');
+        if (i > 0 && !/^https?:\/\//i.test(line.slice(0, i).trim())) {
+          return { name: line.slice(0, i).trim(), url: line.slice(i + 1).trim() };
+        }
+        // 이름이 없으면 파일명에서 보스 코드를 뗀 부분을 쓴다
+        const file = decodeURIComponent(line.split('/').pop() || '').replace(/\.glb$/i, '');
+        return { name: file.replace(/^[a-z]{2,4}\d{3}_?/i, '') || file, url: line };
+      })
+      .filter(m => m.url);
+  }
+
+  function renderBossModelPicker(models, onPick) {
+    const box = document.getElementById('frames-model-toggle');
+    if (!box) return;
+    if (models.length < 2) {
+      box.innerHTML = '';
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    box.innerHTML = models.map((m, i) =>
+      `<button type="button" class="filter-chip frames-model-btn${i === 0 ? ' active' : ''}" data-i="${i}">${escapeHtml(m.name)}</button>`
+    ).join('');
+    box.querySelectorAll('.frames-model-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        box.querySelectorAll('.frames-model-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        onPick(models[+btn.dataset.i]);
+      });
+    });
   }
 
   function loadFramesSpine(item) {
     clearFramesSpine();
 
     const wrap = document.getElementById('frames-spine-player');
-    const modelUrl = item['model'];
+    const models = parseBossModels(item['model']);
+    const modelUrl = models.length ? models[0].url : null;
     const skelUrl = item['skel'];
     const atlasUrl = item['atlas'];
 
     // 3D 모델(glb)이 있으면 우선 사용 — Spine L2D보다 커버리지가 넓다
     if (modelUrl && window.loadFramesModel3D) {
+      renderBossModelPicker(models, m => {
+        window.loadFramesModel3D(wrap, m.url, { onError: err => console.error('[보스 3D] 로드 실패:', err) });
+      });
       window.loadFramesModel3D(wrap, modelUrl, {
         onError: () => {
           // 3D 로드 실패 시 L2D/이미지/이름 순으로 안전하게 대체

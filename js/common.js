@@ -106,9 +106,13 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
     return;
   }
 
+  // 3D 뷰어에는 이름이 겹치는 메쉬가 있는 보스가 있어서(앨트루이아 helm_01~09 등)
+  // 이름 대신 partKey 로 구분한다. Spine 쪽 호출부는 partKey 가 없으니 이름으로 떨어진다.
+  const keyOf = skin => skin.partKey || skin.name;
+
   container.classList.remove('hidden');
   container.innerHTML = skins.map(skin => `
-    <div class="toggle-switch-wrap part-toggle-item${enabledSet.has(skin.name) ? ' active' : ''}" data-skin="${skin.name}">
+    <div class="toggle-switch-wrap part-toggle-item${enabledSet.has(keyOf(skin)) ? ' active' : ''}" data-skin="${keyOf(skin)}">
       <div class="toggle-switch"></div>
       <span class="toggle-label">${skin.label || skin.name}</span>
     </div>
