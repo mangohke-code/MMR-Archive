@@ -5107,6 +5107,17 @@
 
   .f3d-col .anim-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* 종류별 구역 (기본 / 지상 / 공중 / 스킬 / 샷) */
+  .f3d-col .anim-group { display: flex; flex-direction: column; gap: 4px; }
+  .f3d-col .anim-group + .anim-group { margin-top: 10px; }
+
+  .f3d-col .anim-group-label {
+    font-size: 10px;
+    letter-spacing: .06em;
+    color: var(--text-faint);
+    padding-left: 2px;
+  }
+
   .f3d-col .anim-time {
     flex: none;
     font-size: 10px;

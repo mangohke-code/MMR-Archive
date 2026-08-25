@@ -830,7 +830,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const PAN_LIMIT = isCatalogExport ? 1.2 : radius * 0.6;
 
     function clampPan() {
-      if (!homeTarget) return;
+      // 추적이 켜져 있으면 시선을 모델 쪽으로 멀리 옮겨야 한다. 여기서 되돌리면
+      // 등장·사망처럼 리그가 멀리 가는 연출에서 카메라가 못 따라간다.
+      if (followEnabled || !homeTarget) return;
       const off = controls.target.clone().sub(homeTarget);
       const d = off.length();
       if (d <= PAN_LIMIT) return;
@@ -857,13 +859,22 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 그대로 두면, 2페이즈 전용 파츠가 1페이즈 포즈로 남아서 동떨어져 보인다.
     // 클립 이름에서 현재 페이즈에 해당하는 idle을 찾아 재생하고, 없으면(대부분의 보스는
     // idle 클립이 하나만 남아있음) 아무 idle이나 첫 클립으로 폴백한다.
+    // 순수 대기 동작만 고른다.
+    // 배열 순서로 아무 idle 이나 집으면 프로비던스처럼 2phase_air_idle_01 이 먼저
+    // 걸린다 — 그러면 페이즈 태그 때문에 전환 클립까지 딸려 재생된다.
+    const isPlainIdle = n => /(^|_)idle(_\d+)?$/i.test(n || '') && !/air|skill/i.test(n || '');
+
     function findIdleClipForPhase(phase) {
-      if (!gltf.animations || gltf.animations.length === 0) return null;
+      const list = gltf.animations || [];
+      if (!list.length) return null;
       if (phase !== null) {
-        const match = gltf.animations.find(a => meshPhase(a.name) === phase && /idle|wait|stand/i.test(a.name || ''));
-        if (match) return match;
+        const m = list.find(a => isPlainIdle(a.name) && meshPhase(a.name) === phase);
+        if (m) return m;
       }
-      return gltf.animations.find(a => /idle|wait|stand/i.test(a.name || '')) || gltf.animations[0];
+      return list.find(a => isPlainIdle(a.name) && !clipPhase(a.name))
+        || list.find(a => isPlainIdle(a.name))
+        || list.find(a => /idle|wait|stand/i.test(a.name || ''))
+        || list[0];
     }
 
     let currentAction = null;
@@ -1018,7 +1029,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 접두사가 다른 보스가 있어서(애니힐리오 1페이즈: 메쉬 xbga03_, 클립 xba003_)
       // 그 값으로 지우면 하나도 안 벗겨진다. 코드 자리를 패턴으로 잡는다.
       // 한 파일에 페이즈가 여럿이면 페이즈 태그는 남겨야 서로 구분이 된다.
-      const multiPhase = new Set(clips.map(c => clipPhase(c.name)).filter(Boolean)).size > 1;
+      // 태그가 붙은 클립과 안 붙은 클립이 섞여 있으면 태그를 남겨야 한다.
+      // (프로비던스: air_idle_01 과 2phase_air_idle_01 이 둘 다 "air_idle_01" 로 보였다)
+      const multiPhase = new Set(clips.map(c => clipPhase(c.name))).size > 1;
       const stripCodeRe = multiPhase
         ? /^[a-z]{2,4}\d{3}_/i
         : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
@@ -1050,25 +1063,48 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}" data-key="${key}">`
           + `<span class="anim-name">${text}</span><span class="anim-time">${time}</span></button>`;
 
-        const parts = [];
+        // 종류별로 나눈다 — 샷은 샷끼리, 스킬은 스킬끼리, 공중은 공중끼리, 지상은 지상끼리.
+        // 묶음(start/loop/fire)은 그 묶음 이름으로 분류하고 소속 클립을 바로 아래 붙인다.
+        const GROUPS = ['기본', '지상', '공중', '스킬', '샷'];
+        const groupOf = (name) => {
+          const n = String(name);
+          if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
+          if (/(^|_)skill(_|\d|$)/i.test(n)) return '스킬';
+          if (/(^|_)air/i.test(n)) return '공중';
+          if (isIdle({ name: n }) || isSolo({ name: n })) return '기본';
+          if (/^[a-z]{2,4}\d{3}_\d+phase$/i.test(n)) return '기본';
+          return '지상';
+        };
+
+        const bucket = {};
+        GROUPS.forEach(g => { bucket[g] = []; });
+        const push = (g, html) => { (bucket[g] || bucket['지상']).push(html); };
+
         // 1) 대기 동작
-        clips.filter(isIdle).forEach(c => parts.push(mkBtn(c.name, label(c.name), secs(c.duration))));
+        clips.filter(isIdle).forEach(c => push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration))));
         // 2) 묶음 + 소속 클립
         seqs.forEach(sq => {
           const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
-          parts.push(mkBtn(sq.key, label(sq.label), secs(total), 'is-seq'));
-          // 같은 클립이 두 번 들어가는 묶음(루프)이 있어서 이름 기준으로 한 번만 늘어놓는다
+          const g = groupOf(sq.key);
+          push(g, mkBtn(sq.key, label(sq.label), secs(total), 'is-seq'));
           const seen = new Set();
           sq.steps.forEach(st => {
             if (seen.has(st.clip.name)) return;
             seen.add(st.clip.name);
-            parts.push(mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child'));
+            push(g, mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child'));
           });
         });
-        // 3) 어느 묶음에도 안 들어간 나머지(단독 연출 + 그 외)
+        // 3) 나머지
         clips.forEach(c => {
           if (inSeq.has(c.name) || isIdle(c)) return;
-          parts.push(mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'));
+          push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'));
+        });
+
+        const parts = [];
+        GROUPS.forEach(g => {
+          if (!bucket[g].length) return;
+          // 구역이 하나뿐이면 제목을 달 필요가 없다
+          parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${bucket[g].join('')}</div>`);
         });
 
         animEl.innerHTML = parts.join('');
