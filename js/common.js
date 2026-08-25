@@ -31,6 +31,10 @@ function switchTab(tabName, pushHistory = true) {
   document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
   document.getElementById(`tab-${tabName}`).classList.add('active');
 
+  // 솔로 레이드는 3D 뷰어가 화면을 꽉 채우는 전용 배치를 쓴다. 헤더/푸터를 접고
+  // 탭 바만 얇게 남긴다. 다른 탭으로 나가면 원래 배치로 돌아온다.
+  document.body.classList.toggle('app-mode', tabName === 'frames');
+
   if (pushHistory) {
     history.pushState({ tab: tabName }, '');
   }
