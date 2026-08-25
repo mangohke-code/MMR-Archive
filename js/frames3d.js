@@ -48,6 +48,27 @@ const MESH_TRANSFORM_OVERRIDES = {
   xbg003_rp_skin: { offset: [0, 0.315, -0.001] },
 };
 
+// 파츠를 부위별로 묶는다. 좌우로 갈린 파츠(arm_l / arm_r)가 한 묶음에 들어간다.
+// 위에서부터 먼저 맞는 것을 쓴다 — 발광 껍데기는 부위보다 먼저 걸러야
+// head_skin_fx 가 "머리" 로 새지 않는다.
+const PART_GROUPS = [
+  ['발광', /_fx(_\d+)?$/i],
+  ['머리', /(^|_)(head|face|neck|eye|sdf)/i],
+  ['몸통', /(^|_)(body|torso|chest|core|spine|bust)/i],
+  ['어깨', /(^|_)(shoulder|pauldron|coverts)/i],
+  ['팔',   /(^|_)arm/i],
+  ['다리', /(^|_)(leg|foot|calf|thigh)/i],
+  ['날개', /(^|_)(wing|feather|remiges|carpet|halo|orbiter|rocket)/i],
+  ['무기', /(^|_)(weapon|gun|rifle|turret|shield|sword|magazine|missile|launcher|led)/i],
+  // parts_ul / parts_dr 처럼 방향만 붙은 부속 파츠
+  ['부속', /(^|_)parts?(_|\d|$)/i],
+];
+
+function partGroupLabel(name) {
+  for (const [label, re] of PART_GROUPS) if (re.test(name || '')) return label;
+  return '기타';
+}
+
 function detectBossCode(meshNames) {
   for (const name of meshNames) {
     const m = (name || '').match(/^([a-z]{2,4}\d{3})/i);
@@ -668,9 +689,67 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     }
 
     function renderToggleUI() {
-      if (window.renderPartsToggle && meshes.length > 0) {
-        window.renderPartsToggle('frames-parts-toggle', meshes, enabledMeshes, applyVisibility);
-      }
+      if (!meshes.length) return;
+      const box = document.getElementById('frames-parts-toggle');
+      if (!box) return;
+
+      // 부위별로 묶는다. 프로비던스처럼 팔·다리·어깨가 좌우로 나뉜 보스는
+      // 하나씩 끄기 번거로워서, 묶음 제목을 누르면 그 부위를 통째로 켜고 끈다.
+      const groups = [];
+      const findGroup = (label) => {
+        let g = groups.find(x => x.label === label);
+        if (!g) { g = { label, items: [] }; groups.push(g); }
+        return g;
+      };
+      meshes.forEach(m => findGroup(partGroupLabel(m.name)).items.push(m));
+
+      const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      box.classList.remove('hidden');
+      box.innerHTML = groups.map((g, gi) => {
+        const on = g.items.filter(m => enabledMeshes.has(m.partKey)).length;
+        const state = on === g.items.length ? ' active' : (on ? ' partial' : '');
+        const rows = g.items.map(m => `
+          <div class="toggle-switch-wrap part-toggle-item${enabledMeshes.has(m.partKey) ? ' active' : ''}" data-skin="${esc(m.partKey)}">
+            <div class="toggle-switch"></div>
+            <span class="toggle-label">${esc(m.label || m.name)}</span>
+          </div>`).join('');
+        return `
+          <div class="part-group">
+            <div class="part-group-head${state}" data-group="${gi}">
+              <div class="toggle-switch"></div>
+              <span class="toggle-label">${esc(g.label)}</span>
+              <em>${on}/${g.items.length}</em>
+            </div>
+            <div class="part-group-body">${rows}</div>
+          </div>`;
+      }).join('');
+
+      // 묶음 제목: 하나라도 꺼져 있으면 전부 켜고, 다 켜져 있으면 전부 끈다
+      box.querySelectorAll('.part-group-head').forEach(head => {
+        head.addEventListener('click', () => {
+          if (container.__framesModel3D !== state) return;
+          const items = groups[+head.dataset.group].items;
+          const allOn = items.every(m => enabledMeshes.has(m.partKey));
+          items.forEach(m => {
+            if (allOn) enabledMeshes.delete(m.partKey);
+            else enabledMeshes.add(m.partKey);
+          });
+          applyVisibility();
+          renderToggleUI();
+        });
+      });
+
+      box.querySelectorAll('.part-toggle-item').forEach(el => {
+        el.addEventListener('click', () => {
+          if (container.__framesModel3D !== state) return;
+          const key = el.dataset.skin;
+          if (enabledMeshes.has(key)) enabledMeshes.delete(key);
+          else enabledMeshes.add(key);
+          applyVisibility();
+          renderToggleUI();
+        });
+      });
     }
 
     applyVisibility();

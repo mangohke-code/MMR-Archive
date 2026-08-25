@@ -5235,7 +5235,65 @@
   #f3d-side #frames-parts-toggle {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 10px;
+  }
+
+  /* 부위 묶음 */
+  .part-group { display: flex; flex-direction: column; gap: 2px; }
+
+  .part-group-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    color: var(--text-body);
+    background: var(--bg-panel-alt);
+  }
+
+  .part-group-head:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+
+  .part-group-head em {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 10px;
+    opacity: .6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .part-group-head .toggle-switch {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+    background: transparent;
+  }
+
+  .part-group-head .toggle-switch::before,
+  .part-group-head .toggle-switch::after { display: none; }
+
+  .part-group-head.active .toggle-switch {
+    background: var(--border-accent);
+    border-color: var(--border-accent);
+  }
+
+  /* 일부만 켜진 상태 — 반쯤 찬 표시 */
+  .part-group-head.partial .toggle-switch {
+    border-color: var(--border-accent);
+    background: linear-gradient(to right, var(--border-accent) 50%, transparent 50%);
+  }
+
+  .part-group-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 10px;
   }
 
   #f3d-side .part-toggle-item {
