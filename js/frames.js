@@ -95,6 +95,10 @@
       ? framesAttrColumnsHtml(sorted)
       : sorted.map(framesItemHtml).join('');
 
+    // 오른쪽 서랍에도 같은 목록을 세로로 깔아 둔다(뷰어를 보면서 바로 고를 수 있게)
+    const drawerList = document.getElementById('f3d-drawer-selector');
+    if (drawerList) drawerList.innerHTML = sorted.map(framesItemHtml).join('');
+
     // 다시 그리면 고른 표시가 지워지니 되살린다(정렬만 바꿨을 때 선택이 풀리면 안 된다)
     if (currentFrame) {
       document.querySelectorAll('.frames-item').forEach(el => {
@@ -118,7 +122,8 @@
       'frames-drawer-info': 'f3d-drawer-info',
       'frames-drawer-tiers': 'f3d-drawer-tiers',
     };
-    let openId = 'frames-drawer-info';
+    // 기본은 전부 접힘 — 3D 가 화면을 최대한 넓게 쓴다
+    let openId = null;
 
     function render() {
       Object.entries(panes).forEach(([btnId, paneId]) => {
@@ -135,12 +140,14 @@
       const btn = document.getElementById(btnId);
       if (!btn) return;
       btn.addEventListener('click', () => {
-        // "보스 목록" 은 서랍이 아니라 바둑판 홈으로 되돌아간다
-        if (btnId === 'frames-drawer-list') { collapseFrame(); return; }
         openId = openId === btnId ? null : btnId;
         render();
       });
     });
+
+    const backBtn = document.getElementById('f3d-back-home');
+    if (backBtn) backBtn.addEventListener('click', collapseFrame);
+
     render();
   }
 
@@ -181,9 +188,7 @@
 
     
     // 상세가 열리면 보스 목록을 왼쪽 세로 열로 바꾼다(CSS 가 처리)
-    // 보스를 고르면 상세 정보 서랍으로 넘어간다
-    const infoBtn = document.getElementById('frames-drawer-info');
-    if (infoBtn && infoBtn.getAttribute('aria-expanded') === 'false') infoBtn.click();
+
     document.querySelectorAll('.frames-item').forEach(el => {
       el.classList.toggle('active', allFramesData[el.dataset.idx] === item);
     });

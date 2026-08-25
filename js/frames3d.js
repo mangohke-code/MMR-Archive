@@ -404,7 +404,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const gridHelper = new THREE.Group();
     gridHelper.add(new THREE.GridHelper(2, 20, 0x444450, 0x24242a));
     gridHelper.add(new THREE.AxesHelper(0.6));
-    gridHelper.visible = false;
+    gridHelper.visible = true;   // 바닥·정면 기준이 되니 기본으로 켜 둔다
     scene.add(gridHelper);
 
     // 표시 방식 토글. 파츠가 이상하게 보일 때 원인을 좁히는 데 쓴다.
@@ -1037,7 +1037,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     applyLookFlags();
     bindToggle('f3d-wire', () => optWire, v => { optWire = v; });
     bindToggle('f3d-alpha', () => optAlpha, v => { optAlpha = v; });
-    bindToggle('f3d-side', () => optSingle, v => { optSingle = v; });
+    bindToggle('f3d-single', () => optSingle, v => { optSingle = v; });
 
     const gridBtn = document.getElementById('f3d-grid');
     if (gridBtn) {

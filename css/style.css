@@ -4940,7 +4940,11 @@
     overflow: hidden;
   }
 
-  body.app-mode #tab-frames { height: 100%; }
+  /* .tab-content 의 padding: 2rem 때문에 사방에 여백이 남았다. 꽉 채운다. */
+  body.app-mode #tab-frames { height: 100%; padding: 0; }
+
+  /* 뷰어를 보는 동안은 페이지 스크롤 자체가 없어서 맨위/맨아래 버튼이 무의미하다 */
+  body.app-mode #scroll-btns { display: none; }
 
 
   /* 보스를 고르기 전 화면 — 예전처럼 바둑판으로 늘어놓는다 */
@@ -5023,6 +5027,31 @@
   }
 
   .f3d-col .f3d-btn { width: 100%; text-align: left; }
+
+  /* 모델·페이즈 버튼도 사이드바의 다른 버튼과 같은 크기로 (기존 .filter-chip 은
+     본문용이라 더 크다) */
+  #f3d-side .frames-model-btn,
+  #f3d-side .frames-phase-btn,
+  #f3d-side .frames-anim-btn {
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 9px;
+    line-height: 1.35;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-alt);
+    color: var(--text-body);
+    cursor: pointer;
+  }
+
+  #f3d-side .frames-model-btn.active,
+  #f3d-side .frames-phase-btn.active,
+  #f3d-side .frames-anim-btn.active {
+    background: var(--border-accent);
+    border-color: var(--border-accent);
+    color: var(--text-on-accent);
+    font-weight: 700;
+  }
   .f3d-col .f3d-btn.is-seq { border-left: 3px solid var(--border-accent); font-weight: 700; }
 
   .f3d-sl { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; }
@@ -5194,7 +5223,7 @@
 
   #f3d-drawer.hidden { display: none; }
 
-  #f3d-drawer #frames-selector {
+  #f3d-drawer-selector {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -5222,6 +5251,29 @@
   }
 
   #f3d-drawer #frames-info > *:not(.info-handle) { opacity: 1; transform: none; }
+
+  /* 진행 기간은 "2024-10-31 12:00 ~ 11-01 22:00" 처럼 길어서 한 줄에 안 들어간다.
+     라벨을 위에 놓고 값이 폭을 다 쓰게 세로로 쌓는다. */
+  #f3d-drawer .frames-info-row {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  #f3d-drawer .frames-info-label {
+    width: auto;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  #f3d-drawer #frames-date,
+  #f3d-drawer #frames-attr {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: keep-all;
+    line-height: 1.6;
+  }
   #f3d-drawer .info-handle { display: none; }
 
   #f3d-drawer-tiers.hidden { display: none; }

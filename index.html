@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=108">
+  <link rel="stylesheet" href="css/style.css?v=109">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -469,7 +469,7 @@
           <div class="f3d-row f3d-grid3" style="margin-top:5px">
             <button type="button" class="f3d-btn" id="f3d-wire">와이어프레임</button>
             <button type="button" class="f3d-btn" id="f3d-alpha">알파컷 켜기</button>
-            <button type="button" class="f3d-btn" id="f3d-side">단면 표시</button>
+            <button type="button" class="f3d-btn" id="f3d-single">단면 표시</button>
           </div>
           <textarea id="f3d-out" readonly></textarea>
 
@@ -506,7 +506,12 @@
         </div>
 
         <div id="f3d-drawer">
-          <div id="f3d-drawer-list"></div>
+          <div id="f3d-drawer-list" class="hidden">
+            <button type="button" class="f3d-btn" id="f3d-back-home" style="width:100%;margin-bottom:10px">
+              <i class="fas fa-table-cells"></i> 목록으로
+            </button>
+            <div id="f3d-drawer-selector"></div>
+          </div>
 
           <div id="f3d-drawer-info" class="hidden">
             <div id="frames-info">
@@ -616,8 +621,8 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=36"></script>
-  <script src="js/frames.js?v=20"></script>
+  <script type="module" src="js/frames3d.js?v=37"></script>
+  <script src="js/frames.js?v=21"></script>
   <script src="js/stage.js?v=7"></script>
 
 </body>
