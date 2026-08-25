@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=107">
+  <link rel="stylesheet" href="css/style.css?v=108">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -418,7 +418,18 @@
     <div id="tab-frames" class="tab-content">
       <!-- 테스트 뷰어(boss3d-test.html)와 같은 배치.
            왼쪽 사이드바 = 조작, 가운데 = 3D + 재생바, 오른쪽 = 보스 목록/상세 서랍. -->
-      <div id="f3d-app">
+      <!-- 보스를 고르기 전: 예전처럼 바둑판으로 보스만 늘어놓는다 -->
+      <div id="f3d-home">
+        <div class="section-title">역대 솔로 레이드</div>
+        <div id="frames-toolbar">
+          <button id="frames-sort-btn" type="button"
+                  data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
+        </div>
+        <div id="frames-selector"></div>
+        <p id="frames-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
+      </div>
+
+      <div id="f3d-app" class="hidden">
 
         <div id="f3d-side">
           <h2>모델</h2>
@@ -455,7 +466,7 @@
             <button type="button" class="f3d-btn active" id="f3d-follow">카메라 추적</button>
             <button type="button" class="f3d-btn" id="frames-spine-reset">시점 초기화</button>
           </div>
-          <div class="f3d-row" style="margin-top:5px">
+          <div class="f3d-row f3d-grid3" style="margin-top:5px">
             <button type="button" class="f3d-btn" id="f3d-wire">와이어프레임</button>
             <button type="button" class="f3d-btn" id="f3d-alpha">알파컷 켜기</button>
             <button type="button" class="f3d-btn" id="f3d-side">단면 표시</button>
@@ -489,17 +500,13 @@
           <button id="frames-drawer-info" type="button" aria-expanded="false">
             <i class="fas fa-circle-info"></i><span>상세 정보</span>
           </button>
+          <button id="frames-drawer-tiers" type="button" aria-expanded="false">
+            <i class="fas fa-award"></i><span>테두리</span>
+          </button>
         </div>
 
         <div id="f3d-drawer">
-          <div id="f3d-drawer-list">
-            <div id="frames-toolbar">
-              <button id="frames-sort-btn" type="button"
-                      data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
-            </div>
-            <div id="frames-selector"></div>
-            <p id="frames-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
-          </div>
+          <div id="f3d-drawer-list"></div>
 
           <div id="f3d-drawer-info" class="hidden">
             <div id="frames-info">
@@ -516,10 +523,10 @@
                 <div id="frames-attr"></div>
               </div>
             </div>
-            <button id="frames-tiers-toggle" class="hidden" type="button" aria-expanded="false">
-              <i class="fas fa-chevron-down"></i><span>테두리 보기</span>
-            </button>
-            <div id="frames-tiers" class="is-collapsed"></div>
+          </div>
+
+          <div id="f3d-drawer-tiers" class="hidden">
+            <div id="frames-tiers"></div>
           </div>
         </div>
 
@@ -609,8 +616,8 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=35"></script>
-  <script src="js/frames.js?v=19"></script>
+  <script type="module" src="js/frames3d.js?v=36"></script>
+  <script src="js/frames.js?v=20"></script>
   <script src="js/stage.js?v=7"></script>
 
 </body>

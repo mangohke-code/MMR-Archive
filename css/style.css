@@ -4942,6 +4942,22 @@
 
   body.app-mode #tab-frames { height: 100%; }
 
+
+  /* 보스를 고르기 전 화면 — 예전처럼 바둑판으로 늘어놓는다 */
+  #f3d-home {
+    height: 100%;
+    overflow-y: auto;
+    padding: 16px 20px 24px;
+  }
+
+  #f3d-home #frames-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  #f3d-home.hidden, #f3d-app.hidden { display: none; }
+
   /* ── 앱 뼈대: 사이드바 | 무대 | 서랍 ───────────────────────────── */
   #f3d-app {
     display: flex;
@@ -4969,6 +4985,21 @@
   #f3d-side h2:first-child { margin-top: 0; }
 
   .f3d-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* 보기 토글 3개는 글자 길이가 제각각이라 flex-wrap 으로는 2+1 로 어정쩡하게
+     갈린다("단면 표시"만 아래로 떨어졌다). 3등분 그리드로 고정한다. */
+  .f3d-row.f3d-grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .f3d-row.f3d-grid3 .f3d-btn {
+    padding: 5px 4px;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 11px;
+  }
   .f3d-col { display: flex; flex-direction: column; gap: 4px; }
 
   .f3d-btn {
@@ -5193,7 +5224,13 @@
   #f3d-drawer #frames-info > *:not(.info-handle) { opacity: 1; transform: none; }
   #f3d-drawer .info-handle { display: none; }
 
-  #frames-tiers.is-collapsed { display: none; }
+  #f3d-drawer-tiers.hidden { display: none; }
+
+  #f3d-drawer #frames-tiers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
 
   #frames-tiers-toggle {
     display: flex;

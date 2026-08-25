@@ -338,7 +338,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 안쪽 그룹에서 상하/롤 회전만 담당하게 분리해서 서로 영향을 주지 않게 한다.
     const yawGroup = new THREE.Group();
     const pitchGroup = new THREE.Group();
-    pitchGroup.add(gltf.scene);
+    // normGroup: 신형 추출본을 "원점 중심 · 발이 바닥(y=0) · 최대변 1" 로 맞춘다.
+    // 이렇게 해두면 보스마다 원본 단위가 제각각이어도 카메라를 똑같이 정면에 둘 수 있다.
+    const normGroup = new THREE.Group();
+    normGroup.add(gltf.scene);
+    pitchGroup.add(normGroup);
     yawGroup.add(pitchGroup);
     scene.add(yawGroup);
 
@@ -645,19 +649,62 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
     }
 
+    // 신형 추출본은 정규화 후 정면에서 본다.
+    //
+    // 예전에는 바운딩박스 중심에서 x·z 로 똑같이 물러난 자리에 카메라를 뒀는데, 그러면
+    // 항상 45도 대각선에서 보게 된다 — 테스트 뷰어는 정면(x=0, z=거리)이라 화면이
+    // 전혀 다르게 보였다. 좌우·상하가 다 틀어져 보인 원인이 이것이다.
+    let normHeight = 1;
+    if (isCatalogExport) {
+      normGroup.position.set(0, 0, 0);
+      normGroup.scale.setScalar(1);
+      normGroup.updateWorldMatrix(true, true);
+
+      const nb = new THREE.Box3();
+      const nv = new THREE.Vector3();
+      meshes.forEach(m => {
+        if (!m.isSkinnedMesh || !m.skeleton) return;
+        m.skeleton.bones.forEach(b => {
+          if (DEBRIS_BONE_RE.test(b.name || '')) return;
+          b.getWorldPosition(nv);
+          nb.expandByPoint(normGroup.worldToLocal(nv.clone()));
+        });
+      });
+      if (!nb.isEmpty()) {
+        const ns = nb.getSize(new THREE.Vector3());
+        const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
+        normGroup.scale.setScalar(k);
+        normGroup.position.set(0, -nb.min.y * k, 0);
+        normHeight = ns.y * k;
+      }
+    }
+
     const box = new THREE.Box3().setFromObject(gltf.scene);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const radius = size.length() || 1;
 
-    camera.position.set(center.x + radius * 0.8, center.y + radius * 0.5, center.z + radius * 0.8);
-    controls.target.copy(center);
+    if (isCatalogExport) {
+      camera.position.set(0, normHeight * 0.55, 2.3);
+      controls.target.set(0, normHeight * 0.5, 0);
+    } else {
+      camera.position.set(center.x + radius * 0.8, center.y + radius * 0.5, center.z + radius * 0.8);
+      controls.target.copy(center);
+    }
 
     // 보스마다 크기가 제각각이라 줌 한계도 모델 크기(radius) 기준 상대값으로 준다 —
     // 너무 가까이 가면 파츠를 뚫고 들어가 안 보이고, 너무 멀어지면 화면에서 안 보일 만큼
     // 작아지는 걸 막는다.
-    controls.minDistance = radius * 0.05;
-    controls.maxDistance = radius * 3;
+    if (isCatalogExport) {
+      controls.minDistance = 0.4;
+      controls.maxDistance = 12;
+      camera.near = 0.01;
+      camera.far = 100;
+      camera.updateProjectionMatrix();
+    } else {
+      controls.minDistance = radius * 0.05;
+      controls.maxDistance = radius * 3;
+    }
 
     controls.update();
 
@@ -665,7 +712,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 멀리 떨어진 모델(신형 추출본이 그렇다)에서는 카메라가 빈 곳을 보게 된다.
     // 기존 보스는 둘이 일치해서 이 보정이 아예 걸리지 않는다 — 어긋난 경우에만 고친다.
     const probe = new THREE.Vector3();
-    if (focusMesh && rigCenter(focusMesh, probe) && !box.containsPoint(probe)) {
+    if (!isCatalogExport && focusMesh && rigCenter(focusMesh, probe) && !box.containsPoint(probe)) {
       const boneBox = new THREE.Box3();
       const bv = new THREE.Vector3();
       meshes.forEach(m => {

@@ -116,8 +116,9 @@
     const panes = {
       'frames-drawer-list': 'f3d-drawer-list',
       'frames-drawer-info': 'f3d-drawer-info',
+      'frames-drawer-tiers': 'f3d-drawer-tiers',
     };
-    let openId = 'frames-drawer-list';
+    let openId = 'frames-drawer-info';
 
     function render() {
       Object.entries(panes).forEach(([btnId, paneId]) => {
@@ -134,6 +135,8 @@
       const btn = document.getElementById(btnId);
       if (!btn) return;
       btn.addEventListener('click', () => {
+        // "보스 목록" 은 서랍이 아니라 바둑판 홈으로 되돌아간다
+        if (btnId === 'frames-drawer-list') { collapseFrame(); return; }
         openId = openId === btnId ? null : btnId;
         render();
       });
@@ -150,17 +153,23 @@
   window.addEventListener('resize', syncFramesSelectorHeight);
 
   // 상세를 접고 목록을 원래(가로) 배치로 되돌린다
+  function showFramesHome(on) {
+    const home = document.getElementById('f3d-home');
+    const app = document.getElementById('f3d-app');
+    if (home) home.classList.toggle('hidden', !on);
+    if (app) app.classList.toggle('hidden', on);
+  }
+
   function collapseFrame() {
     currentFrame = null;
     clearFramesSpine();
+    showFramesHome(true);
     
     
     
     // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
     // 남아 있으면 무엇에 딸린 건지 알 수 없다.
     document.getElementById('frames-tiers').innerHTML = '';
-    const tb = document.getElementById('frames-tiers-toggle');
-    if (tb) tb.classList.add('hidden');
     document.querySelectorAll('.frames-item').forEach(el => el.classList.remove('active'));
   }
 
@@ -168,6 +177,7 @@
     // 이미 펼쳐진 보스를 다시 누르면 접는다
     if (currentFrame === item) { collapseFrame(); return; }
     currentFrame = item;
+    showFramesHome(false);
 
     
     // 상세가 열리면 보스 목록을 왼쪽 세로 열로 바꾼다(CSS 가 처리)
@@ -270,26 +280,11 @@
       </div>
     `).join('');
 
-    // 테두리 구역은 기본으로 접어 둔다 — 그만큼 3D 구역이 화면을 넓게 쓴다.
-    // 보스를 바꿔도 접힌 상태로 시작한다.
-    if (!tiersBtn) return;
-    if (!tiers.length) {
-      tiersBtn.classList.add('hidden');
-      container.classList.add('is-collapsed');
-      return;
-    }
-    tiersBtn.classList.remove('hidden');
-    container.classList.add('is-collapsed');
-    tiersBtn.setAttribute('aria-expanded', 'false');
-    tiersBtn.querySelector('span').textContent = `테두리 보기 (${tiers.length})`;
-    if (!tiersBtn.__wired) {
-      tiersBtn.__wired = true;
-      tiersBtn.addEventListener('click', () => {
-        const open = container.classList.toggle('is-collapsed') === false;
-        tiersBtn.setAttribute('aria-expanded', String(open));
-        tiersBtn.querySelector('span').textContent = open ? '테두리 접기' : '테두리 보기';
-        syncFramesSelectorHeight();
-      });
+    // 테두리는 오른쪽 서랍이 담당한다. 버튼 라벨에 개수만 알려 준다.
+    const tb = document.getElementById('frames-drawer-tiers');
+    if (tb) {
+      const label = tb.querySelector('span');
+      if (label) label.textContent = tiers.length ? `테두리 ${tiers.length}` : '테두리';
     }
   }
 
