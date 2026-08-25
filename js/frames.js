@@ -22,6 +22,7 @@
     collapseFrame();
     document.getElementById('frames-sort-btn').addEventListener('click', toggleFramesAttrSort);
     wireFramesDrawers();
+    wireFramesSearch();
   }
 
   // 보스의 약점 속성 아이콘. 니케 쪽에서 쓰는 우월코드 아이콘을 그대로 재사용한다
@@ -99,12 +100,48 @@
     const drawerList = document.getElementById('f3d-drawer-selector');
     if (drawerList) drawerList.innerHTML = sorted.map(framesItemHtml).join('');
 
+    applyFramesFilter();
+
     // 다시 그리면 고른 표시가 지워지니 되살린다(정렬만 바꿨을 때 선택이 풀리면 안 된다)
     if (currentFrame) {
       document.querySelectorAll('.frames-item').forEach(el => {
         el.classList.toggle('active', allFramesData[el.dataset.idx] === currentFrame);
       });
     }
+  }
+
+  // 보스 이름 · 시즌으로 걸러 낸다. 두 검색창(바둑판 홈 / 오른쪽 서랍)이 같이 움직인다.
+  let framesQuery = '';
+
+  function applyFramesFilter() {
+    const q = framesQuery.trim().toLowerCase();
+    document.querySelectorAll('#f3d-home .frames-item, #f3d-drawer-selector .frames-item').forEach(el => {
+      const name = (el.querySelector('.frames-item-boss') || {}).textContent || '';
+      const season = (el.querySelector('.frames-item-season') || {}).textContent || '';
+      const hit = !q || (name + ' ' + season).toLowerCase().includes(q);
+      el.classList.toggle('is-filtered-out', !hit);
+    });
+    // 속성별 정렬에서는 통째로 비는 열이 생긴다. 그 열도 같이 감춘다.
+    document.querySelectorAll('#f3d-home .frames-attr-col').forEach(col => {
+      const any = col.querySelector('.frames-item:not(.is-filtered-out)');
+      col.classList.toggle('is-filtered-out', !any);
+    });
+  }
+
+  function wireFramesSearch() {
+    ['frames-search', 'frames-search-drawer'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        framesQuery = el.value;
+        // 다른 쪽 검색창도 같은 값으로 맞춘다
+        ['frames-search', 'frames-search-drawer'].forEach(other => {
+          const o = document.getElementById(other);
+          if (o && o !== el) o.value = framesQuery;
+        });
+        applyFramesFilter();
+      });
+    });
   }
 
   function toggleFramesAttrSort() {

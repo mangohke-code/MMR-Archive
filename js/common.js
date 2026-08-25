@@ -563,6 +563,8 @@ function buildFramesData(rows) {
 // 실패해도 사이트 동작에는 영향이 없어야 하므로 전부 조용히 넘긴다.
 const VISIT_SESSION_KEY = 'mmr_visit_session';
 
+const OWNER_KEY = 'nikke-owner';
+
 function logVisit() {
   try {
     // 로컬 개발 중에는 기록하지 않는다
@@ -585,6 +587,17 @@ function logVisit() {
 
     // IP 없이 지역/언어를 가늠하기 위한 값. 브라우저가 알려주는 설정일 뿐이라
     // 개인을 식별하지 않는다. 못 읽으면 그냥 비워 둔다.
+    // 내가 들어온 기록은 따로 표시한다. 통계를 볼 때 내 방문이 섞이면 숫자가 흐려진다.
+    // 주소에 ?me=1 을 한 번 붙여 들어오면 이 브라우저에 표시가 남고, ?me=0 이면 지운다.
+    // 개인을 식별하는 값이 아니라 "이 브라우저는 주인 것" 이라는 표시일 뿐이다.
+    try {
+      const flag = new URLSearchParams(location.search).get('me');
+      if (flag === '1') localStorage.setItem(OWNER_KEY, '1');
+      else if (flag === '0') localStorage.removeItem(OWNER_KEY);
+    } catch (e) { /* 무시 */ }
+    let 본인 = false;
+    try { 본인 = localStorage.getItem(OWNER_KEY) === '1'; } catch (e) { /* 무시 */ }
+
     let 시간대 = null, 언어 = null;
     try { 시간대 = Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { /* 무시 */ }
     try { 언어 = navigator.language || null; } catch (e) { /* 무시 */ }
@@ -592,7 +605,7 @@ function logVisit() {
     // 응답을 기다리지 않는다 — 화면 표시를 막지 않도록.
     // 세션 표시는 기록에 성공했을 때만 남긴다. 먼저 표시해 두면 한 번 실패했을 때
     // 그 세션은 새로고침해도 영영 다시 시도하지 않아 통째로 누락된다.
-    supabaseClient.from('방문_기록').insert({ 세션, 유입, 시간대, 언어 }).then(
+    supabaseClient.from('방문_기록').insert({ 세션, 유입, 시간대, 언어, 본인 }).then(
       res => {
         if (res && res.error) return;
         try { sessionStorage.setItem(VISIT_SESSION_KEY, 세션); } catch (e) { /* 저장 실패는 무시 */ }

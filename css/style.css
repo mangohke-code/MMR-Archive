@@ -4953,6 +4953,30 @@
   body.app-mode #scroll-btns { display: none; }
 
 
+
+  /* 보스 검색 */
+  #frames-search, #frames-search-drawer {
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-alt);
+    color: var(--text-body);
+  }
+
+  #frames-search { width: 220px; }
+
+  #frames-search-drawer {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  #frames-search::placeholder, #frames-search-drawer::placeholder { color: var(--text-faint); }
+
+  .frames-item.is-filtered-out,
+  .frames-attr-col.is-filtered-out { display: none; }
+
   /* 보스를 고르기 전 화면 — 예전처럼 바둑판으로 늘어놓는다 */
   #f3d-home {
     height: 100%;
