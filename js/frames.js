@@ -145,6 +145,16 @@
       });
     });
 
+    const sideBtn = document.getElementById('f3d-side-toggle');
+    if (sideBtn) {
+      sideBtn.addEventListener('click', () => {
+        const app = document.getElementById('f3d-app');
+        const on = app.classList.toggle('side-collapsed');
+        sideBtn.setAttribute('aria-expanded', String(!on));
+        sideBtn.title = on ? '조작판 펼치기' : '조작판 접기';
+      });
+    }
+
     const backBtn = document.getElementById('f3d-back-home');
     if (backBtn) backBtn.addEventListener('click', collapseFrame);
 

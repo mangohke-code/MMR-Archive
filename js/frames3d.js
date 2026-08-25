@@ -201,6 +201,7 @@ function disposeState(container) {
   const state = container.__framesModel3D;
   if (!state) return;
   if (state.rafId) cancelAnimationFrame(state.rafId);
+  if (state.resizeObserver) state.resizeObserver.disconnect();
   if (state.controls) state.controls.dispose();
 
   // 다음 로드가 새로 연결하기 전까지, 이전(디스포즈된) 인스턴스를 가리키는
@@ -269,6 +270,21 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   const width = container.clientWidth || 300;
   const height = container.clientHeight || 300;
   renderer.setSize(width, height);
+
+  // 서랍을 여닫으면 무대 폭이 바뀌는데, 캔버스는 로드 시점 크기로 고정돼 있어서
+  // 옆 칸(사이드바·서랍)을 덮어버렸다. 컨테이너를 지켜보다 같이 줄이고 늘린다.
+  const resizeObserver = new ResizeObserver(() => {
+    const st = container.__framesModel3D;
+    if (!st || st.renderer !== renderer) return;
+    const w = container.clientWidth, h = container.clientHeight;
+    if (!w || !h) return;
+    // 세 번째 인자를 false 로 두면 CSS 크기를 안 고쳐서, 버퍼만 줄고 화면에서는
+    // 예전 폭 그대로 남아 옆 칸을 덮는다. 기본값(true)으로 둬야 한다.
+    renderer.setSize(w, h);
+    st.camera.aspect = w / h;
+    st.camera.updateProjectionMatrix();
+  });
+  resizeObserver.observe(container);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   container.appendChild(renderer.domElement);
 
@@ -293,7 +309,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
 
-  const state = { renderer, scene, camera, controls, rafId: null, paused: false };
+  const state = { renderer, scene, camera, controls, rafId: null, paused: false, resizeObserver };
   container.__framesModel3D = state;
 
   const loader = new GLTFLoader();
@@ -937,38 +953,32 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const ex0 = document.getElementById('frames-anim-extra');
         if (ex0) ex0.classList.remove('hidden');
 
-        // 주요 동작과 개별 클립을 구역으로 나눈다.
-        //  - 주요: idle(맨 앞) + 연결 재생 묶음 + death/appearance 같은 단발 연출
-        //  - 개별: 위 어디에도 안 들어간 나머지
-        // 연결 묶음에 이미 들어간 start/loop/fire 는 개별 목록에서 뺀다 — 그대로 두면
-        // 에고비스타처럼 클립이 49개인 보스에서 목록이 감당이 안 된다.
-        const inSeq = new Set();
-        seqs.forEach(sq => sq.steps.forEach(st => inSeq.add(st.clip.name)));
-
+        // 테스트 뷰어와 같은 나눔.
+        //  연결 재생 = idle(맨 앞) + start/loop/end 묶음 + death 같은 단발 연출
+        //  개별 클립 = 파일에 든 클립 전부 (묶음에 들어간 것도 낱개로 볼 수 있어야 한다)
         const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '');
         const isSolo = c => /(^|_)(death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
         const mainBtns = []
           .concat(clips.filter(isIdle).map(c => ({ key: c.name, text: label(c.name), seq: false })))
           .concat(seqs.map(sq => ({ key: sq.key, text: label(sq.label), seq: true })))
-          .concat(clips.filter(c => isSolo(c) && !inSeq.has(c.name)).map(c => ({ key: c.name, text: label(c.name), seq: false })));
+          .concat(clips.filter(isSolo).map(c => ({ key: c.name, text: label(c.name), seq: false })));
 
-        const mainKeys = new Set(mainBtns.map(b => b.key));
-        const restBtns = clips
-          .filter(c => !inSeq.has(c.name) && !mainKeys.has(c.name))
-          .map(c => ({ key: c.name, text: label(c.name), seq: false }));
+        const restBtns = clips.map(c => ({
+          key: c.name,
+          text: label(c.name) + '  ' + c.duration.toFixed(2) + 's',
+          seq: false,
+        }));
 
         const row = list => list.map(b =>
-          `<button type="button" class="filter-chip frames-anim-btn${b.seq ? ' is-seq' : ''}" data-key="${b.key}">${b.text}</button>`
+          `<button type="button" class="f3d-btn frames-anim-btn${b.seq ? ' is-seq' : ''}" data-key="${b.key}">${b.text}</button>`
         ).join('');
 
-        animEl.innerHTML =
-          `<div class="anim-group"><span class="anim-group-label">주요 동작</span><div class="anim-row">${row(mainBtns)}</div></div>`
-          + (restBtns.length
-              ? `<div class="anim-group"><span class="anim-group-label">개별 클립</span><div class="anim-row">${row(restBtns)}</div></div>`
-              : '');
+        animEl.innerHTML = row(mainBtns);
+        const extraEl = document.getElementById('frames-anim-extra');
+        if (extraEl) extraEl.innerHTML = row(restBtns);
 
-        animEl.querySelectorAll('.frames-anim-btn').forEach(btn => {
+        document.querySelectorAll('#frames-anim-toggle .frames-anim-btn, #frames-anim-extra .frames-anim-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             if (container.__framesModel3D !== state) return;
             const key = btn.dataset.key;

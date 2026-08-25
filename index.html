@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=109">
+  <link rel="stylesheet" href="css/style.css?v=110">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -431,6 +431,10 @@
 
       <div id="f3d-app" class="hidden">
 
+        <button type="button" id="f3d-side-toggle" aria-expanded="true" title="조작판 접기">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
         <div id="f3d-side">
           <h2>모델</h2>
           <div class="f3d-row" id="frames-model-toggle"></div>
@@ -446,10 +450,10 @@
 
           <h2>방향 · 위치</h2>
           <div class="f3d-row" style="margin-bottom:6px">
-            <button type="button" class="f3d-btn f3d-face" data-yaw="0">앞</button>
-            <button type="button" class="f3d-btn f3d-face" data-yaw="90">우</button>
-            <button type="button" class="f3d-btn f3d-face" data-yaw="180">뒤</button>
-            <button type="button" class="f3d-btn f3d-face" data-yaw="270">좌</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="180">앞</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="270">우</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="0">뒤</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="90">좌</button>
           </div>
           <label class="f3d-sl"><span>yaw</span><input type="range" id="f3d-yaw" min="0" max="360" step="1" value="180"><b id="f3d-yawv">180</b></label>
           <label class="f3d-sl"><span>pitch</span><input type="range" id="f3d-pitch" min="-90" max="90" step="1" value="0"><b id="f3d-pitchv">0</b></label>
@@ -621,8 +625,8 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=37"></script>
-  <script src="js/frames.js?v=21"></script>
+  <script type="module" src="js/frames3d.js?v=38"></script>
+  <script src="js/frames.js?v=22"></script>
   <script src="js/stage.js?v=7"></script>
 
 </body>

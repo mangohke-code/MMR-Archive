@@ -4967,8 +4967,35 @@
     display: flex;
     height: 100%;
     min-height: 0;
+    position: relative;
     background: var(--bg-page);
   }
+
+  /* 왼쪽 조작판 접기 */
+  #f3d-side-toggle {
+    position: absolute;
+    left: 300px;
+    top: 12px;
+    z-index: 15;
+    width: 22px;
+    height: 40px;
+    padding: 0;
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid var(--border-subtle);
+    border-left: none;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    background: var(--bg-panel);
+    color: var(--text-muted);
+    transition: left .18s ease;
+  }
+
+  #f3d-side-toggle:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
+  #f3d-side-toggle i { transition: transform .18s ease; }
+
+  #f3d-app.side-collapsed #f3d-side { display: none; }
+  #f3d-app.side-collapsed #f3d-side-toggle { left: 0; }
+  #f3d-app.side-collapsed #f3d-side-toggle i { transform: rotate(180deg); }
 
   #f3d-side {
     flex: none;
@@ -4987,6 +5014,14 @@
   }
 
   #f3d-side h2:first-child { margin-top: 0; }
+
+  /* 내용이 비면 라벨만 남아 허전하다. :has 로 빈 구역과 그 앞 제목을 같이 감춘다. */
+  #f3d-side h2:has(+ .f3d-row:empty),
+  #f3d-side h2:has(+ .f3d-col:empty),
+  #f3d-side h2:has(+ div:empty),
+  #f3d-side .f3d-row:empty,
+  #f3d-side .f3d-col:empty,
+  #f3d-side #frames-parts-toggle:empty { display: none; }
 
   .f3d-row { display: flex; flex-wrap: wrap; gap: 5px; }
 
@@ -5109,6 +5144,13 @@
 
   #f3d-view #frames-spine-player img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
+  /* 안전장치 — 리사이즈가 한 박자 늦어도 캔버스가 옆 칸을 덮지 않게 */
+  #f3d-view #frames-spine-player canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
   #f3d-hud {
     position: absolute;
     left: 12px;
@@ -5222,6 +5264,12 @@
   }
 
   #f3d-drawer.hidden { display: none; }
+
+  #f3d-drawer #f3d-back-home {
+    position: sticky;
+    top: -12px;
+    z-index: 5;
+  }
 
   #f3d-drawer-selector {
     display: flex;
