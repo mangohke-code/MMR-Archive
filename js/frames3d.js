@@ -292,6 +292,21 @@ function rigCenter(mesh, out, boneFilter) {
   return n ? out.divideScalar(n) : null;
 }
 
+// 추적 기준 본들이 퍼져 있는 정도. 리그가 한 점으로 접혔는지 보려고 쓴다.
+function rigSpread(mesh, center, boneFilter) {
+  if (!mesh || !mesh.skeleton) return 0;
+  const bones = (boneFilter && boneFilter !== 'all')
+    ? mesh.skeleton.bones.filter(b => boneFilter.test(b.name || ''))
+    : focusBonesOf(mesh);
+  const v = new THREE.Vector3();
+  let max = 0;
+  for (const b of bones) {
+    const d = b.getWorldPosition(v).distanceToSquared(center);
+    if (d > max) max = d;
+  }
+  return Math.sqrt(max);
+}
+
 // 로드 직후의 모든 노드 트랜스폼. 클립을 바꿀 때 여기로 되돌린다.
 function capturePose(root) {
   const list = [];
@@ -1119,8 +1134,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const followCur = new THREE.Vector3();
     const followDelta = new THREE.Vector3();
     const followWant = new THREE.Vector3();
+    const camOffset = new THREE.Vector3();
+    const camWant = new THREE.Vector3();
     let followReady = false;
-    if (focusMesh && rigCenter(focusMesh, followBase, focusBone)) followReady = true;
+    let followSpread = 0;
+    if (focusMesh && rigCenter(focusMesh, followBase, focusBone)) {
+      followReady = true;
+      followSpread = rigSpread(focusMesh, followBase, focusBone);
+    }
 
     // 우클릭 팬이 안 먹히던 원인 — 추적이 매 프레임 시점을 원래 자리로 끌어당겨서
     // 사용자가 옮긴 만큼을 즉시 되돌리고 있었다. 조작 중에는 멈추고, 손을 떼면
@@ -1153,16 +1174,35 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       controls.target.copy(fixed);
     }
 
-    function updateFollow(dt) {
+    // 추적이 켜져 있으면 매 프레임 시점을 처음 상태로 되돌린다 — 거리·각도까지
+    // 전부. 예전에는 목표까지 부드럽게 따라가기만 해서, 리그가 빠르게 움직이는
+    // 구간(애니힐리오 사망은 1 초에 2.2 내려간다)에서 화면이 뒤처지고, 그 오차가
+    // 클립이 끝날 때까지 남았다.
+    function updateFollow() {
       if (!followEnabled || userDragging || !followReady || !focusMesh) return;
       if (!rigCenter(focusMesh, followCur, focusBone)) return;
-      // 목표 = 처음 타깃 + (현재 중심 - 처음 중심)
+      // 리그 자체가 망가지는 구간이 있다. 거대 질량체가 두 경우를 다 보여준다 —
+      // appearance_f 는 main 리그(본 760개)를 스케일 0 으로 접어 21 유닛 밖에 세워두고,
+      // death 후반에는 반대로 본을 25 유닛 범위로 흩뿌린다(평소 퍼짐 0.4).
+      // 접힌 리그의 "위치" 도, 흩어진 본의 "평균" 도 의미가 없어서 그대로 따라가면
+      // 아무것도 없는 허공을 비춘다. 이럴 땐 마지막으로 멀쩡했던 시점을 유지한다.
+      if (followSpread > 0) {
+        const spread = rigSpread(focusMesh, followCur, focusBone);
+        if (spread < followSpread * 0.05 || spread > followSpread * 5) return;
+      }
+      // 목표 타깃 = 처음 타깃 + (현재 중심 - 처음 중심)
       followWant.copy(initialTarget).add(followCur).sub(followBase);
       followDelta.copy(followWant).sub(controls.target);
-      if (followDelta.lengthSq() < 1e-10) return;
-      followDelta.multiplyScalar(1 - Math.pow(1e-7, Math.min(dt, 0.1)));
-      controls.target.add(followDelta);
-      camera.position.add(followDelta);
+      if (followDelta.lengthSq() > 1e-12) {
+        controls.target.copy(followWant);
+        camera.position.add(followDelta);
+      }
+      // 휠로 당겼거나 이전 연출이 남긴 거리 차이도 같이 되돌린다
+      if (homeCamPos && homeTarget) {
+        camOffset.copy(homeCamPos).sub(homeTarget);
+        camWant.copy(controls.target).add(camOffset);
+        if (camWant.distanceToSquared(camera.position) > 1e-12) camera.position.copy(camWant);
+      }
     }
 
     // 페이즈마다 idle 포즈가 다른 보스(예: 알트아이젠 - 런처 파츠가 1페이즈 idle에서는
@@ -1706,7 +1746,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
       if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
-      updateFollow(dt);
+      updateFollow();
       clampPan();
       controls.update();
       if (composer) composer.render();
