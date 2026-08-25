@@ -447,7 +447,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyLookFlags() {
       meshes.forEach(m => [].concat(m.material).forEach(mt => {
         mt.wireframe = optWire;
-        if (!/^fx_/i.test(mt.name || '')) mt.alphaTest = optAlpha ? 0.5 : 0;
+        // 끈 상태에서도 완전 투명(0)만은 잘라낸다 — 아니면 LED 발광판의 투명
+        // 테두리가 빨간 네모로 통째로 보인다. 로드할 때 준 값과 같아야 한다.
+        if (!/^fx_/i.test(mt.name || '')) mt.alphaTest = optAlpha ? 0.5 : (isCatalogExport ? 0.05 : 0);
         mt.side = optSingle ? THREE.FrontSide : THREE.DoubleSide;
         mt.needsUpdate = true;
       }));
@@ -502,7 +504,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           // 중간중간 뚫려서 뚝뚝 끊긴 모습이 된다(테스트 뷰어에서 컷아웃을 끄면
           // 멀쩡하게 나오는 것으로 확인). 구형 변환본은 알파를 실제 구멍 모양으로
           // 쓰는 파츠가 있어서 기존 값을 유지한다.
-          m.alphaTest = isCatalogExport ? 0 : 0.5;
+          // 0 으로 완전히 끄면 LED 발광판처럼 텍스처 대부분이 투명한 파츠가
+          // 빨간 네모로 통째로 보인다. 아주 낮은 값으로 두면 완전 투명한 부분만
+          // 잘리고, 알파가 0.3~0.5 언저리라 끊겨 보이던 가는 파츠는 그대로 남는다.
+          m.alphaTest = isCatalogExport ? 0.05 : 0.5;
         }
       });
 
@@ -785,6 +790,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 사용자가 옮긴 만큼을 즉시 되돌리고 있었다. 조작 중에는 멈추고, 손을 떼면
     // 그 자리를 새 기준으로 잡는다.
     let followEnabled = true;
+    // 추적이 켜져 있으면 시선을 옮겨도 곧바로 되돌아와서 조작이 먹지 않는 것처럼
+    // 보인다. 아예 팬을 잠가서 왜 안 되는지 헷갈리지 않게 한다.
+    const syncPanLock = () => { controls.enablePan = !followEnabled; };
     let userDragging = false;
     controls.addEventListener('start', () => { userDragging = true; });
     controls.addEventListener('end', () => {
@@ -792,6 +800,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       initialTarget.copy(controls.target);
       if (focusMesh) rigCenter(focusMesh, followBase);
     });
+
+    // 팬으로 시선을 옮길 수 있는 범위. 너무 멀리 밀어내면 모델을 다시 찾기 어렵다.
+    const PAN_LIMIT = isCatalogExport ? 1.2 : radius * 0.6;
+
+    function clampPan() {
+      if (!homeTarget) return;
+      const off = controls.target.clone().sub(homeTarget);
+      const d = off.length();
+      if (d <= PAN_LIMIT) return;
+      off.multiplyScalar(PAN_LIMIT / d);
+      const fixed = homeTarget.clone().add(off);
+      camera.position.add(fixed.clone().sub(controls.target));
+      controls.target.copy(fixed);
+    }
 
     function updateFollow(dt) {
       if (!followEnabled || userDragging || !followReady || !focusMesh) return;
@@ -1113,8 +1135,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (container.__framesModel3D !== state) return;
         followEnabled = !followEnabled;
         followBtn.classList.toggle('active', followEnabled);
+        syncPanLock();
       };
     }
+    syncPanLock();
 
     const zeroBtn = document.getElementById('f3d-zero');
     if (zeroBtn) {
@@ -1169,6 +1193,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     state.step = (dt) => {
       if (mixer && !state.paused) mixer.update(dt);
       updateFollow(dt);
+      clampPan();
       controls.update();
       renderer.render(scene, camera);
       syncBar();
