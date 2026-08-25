@@ -120,6 +120,36 @@ const GLOW_PRESETS = [
   { key: 'yellow', label: '노랑',  rgb: [1, 0.500, 0], strength: 2.79, css: '#FFB000' },
 ];
 
+// 원본 셰이더의 프레넬 감쇠(_GlowPower)를 표준 재질에 얹는다.
+//
+// 발광 방식이 두 갈래다. 내보내기가 extras.unity 에 원본 값을 넣어 줘서 구분할 수 있다.
+//   _GlowPower 3.0~5.0  : 텍스처가 없고 프레넬 항으로 테두리를 만든다 (fresnel 계열)
+//   _GlowPower 0.01     : 사실상 감쇠 없음. 흑백 텍스처가 그라디언트를 만든다
+// pow(rim, 0.01) 은 거의 1 이라, 같은 식을 두 갈래에 그대로 써도 후자는 영향이 없다.
+function applyFresnelGlow(mat) {
+  const unity = (mat.userData && mat.userData.unity) || null;
+  const power = unity && typeof unity._GlowPower === 'number' ? unity._GlowPower : null;
+  if (power === null || power <= 0) return;
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uGlowPower = { value: power };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform float uGlowPower;\nvoid main() {')
+      // emissivemap_fragment 는 법선이 정해진 뒤에 온다. 여기서 발광량에 테두리 항을 곱한다.
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        {
+          float rim = 1.0 - abs(dot(normalize(vViewPosition), normal));
+          totalEmissiveRadiance *= pow(clamp(rim, 0.0, 1.0), uGlowPower);
+        }`
+      );
+  };
+  // 감쇠 지수가 다르면 셰이더도 달라야 한다
+  mat.customProgramCacheKey = () => 'glowpow:' + power;
+  mat.needsUpdate = true;
+}
+
 // 사망 연출에서 떨어져 나가는 파편 본. 화면 잡기·카메라 추적 기준에서 뺀다.
 const DEBRIS_BONE_RE = /twp/i;
 
@@ -570,6 +600,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           // 돌려서, 텍스처의 명암 그라디언트가 빛의 세기 분포가 되게 한다.
           if (m.color) m.color.setRGB(0, 0, 0);
           if (m.map && !m.emissiveMap) m.emissiveMap = m.map;
+          applyFresnelGlow(m);
         } else {
           m.transparent = false;
           m.depthWrite = true;

@@ -272,7 +272,25 @@ function load(url, label) {
         m.userData.origAlphaTest = m.alphaTest;
         if (/^fx_/i.test(m.name || '') || /_fx(_\d+)?$/i.test(o.name || '')) {
           m.transparent = true; m.depthWrite = false; m.alphaTest = 0;
+          m.blending = THREE.AdditiveBlending;
+          if (m.color) m.color.setRGB(0, 0, 0);
+          if (m.map && !m.emissiveMap) m.emissiveMap = m.map;
           m.userData.glow = true;
+          // 원본의 프레넬 감쇠(_GlowPower)를 얹는다
+          const u = m.userData && m.userData.unity;
+          const power = u && typeof u._GlowPower === 'number' ? u._GlowPower : null;
+          if (power !== null && power > 0) {
+            m.onBeforeCompile = (sh) => {
+              sh.uniforms.uGlowPower = { value: power };
+              sh.fragmentShader = sh.fragmentShader
+                .replace('void main() {', 'uniform float uGlowPower;\nvoid main() {')
+                .replace('#include <emissivemap_fragment>',
+                  '#include <emissivemap_fragment>\n{ float rim = 1.0 - abs(dot(normalize(vViewPosition), normal));'
+                  + ' totalEmissiveRadiance *= pow(clamp(rim, 0.0, 1.0), uGlowPower); }');
+            };
+            m.customProgramCacheKey = () => 'glowpow:' + power;
+            m.needsUpdate = true;
+          }
         }
       });
     });
