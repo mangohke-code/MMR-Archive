@@ -351,6 +351,88 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     yawGroup.position.set(...bossTransform.position);
     yawGroup.scale.setScalar(bossTransform.scale);
 
+    // ── 조작 패널(테스트 뷰어와 같은 항목) ─────────────────────────
+    // 슬라이더 기본값은 이 보스의 보정값으로 맞춰 둔다. 사용자가 만지면 그 값이 이긴다.
+    const SL = {};
+    ['yaw', 'pitch', 'roll', 'px', 'py', 'pz', 'sc'].forEach(k => {
+      SL[k] = document.getElementById('f3d-' + k);
+    });
+    if (SL.yaw) {
+      SL.yaw.value = yawDeg; SL.pitch.value = pitchDeg; SL.roll.value = rollDeg;
+      SL.px.value = bossTransform.position[0];
+      SL.py.value = bossTransform.position[1];
+      SL.pz.value = bossTransform.position[2];
+      SL.sc.value = bossTransform.scale;
+    }
+
+    function applySliders() {
+      if (!SL.yaw) return;
+      yawGroup.rotation.y = THREE.MathUtils.degToRad(+SL.yaw.value);
+      pitchGroup.rotation.x = THREE.MathUtils.degToRad(+SL.pitch.value);
+      pitchGroup.rotation.z = THREE.MathUtils.degToRad(+SL.roll.value);
+      yawGroup.position.set(+SL.px.value, +SL.py.value, +SL.pz.value);
+      yawGroup.scale.setScalar(+SL.sc.value);
+      Object.keys(SL).forEach(k => {
+        const b = document.getElementById('f3d-' + k + 'v');
+        if (b) b.textContent = SL[k].value;
+      });
+      const out = document.getElementById('f3d-out');
+      if (out) {
+        out.value = 'rotation: [' + SL.pitch.value + ', ' + SL.yaw.value + ', ' + SL.roll.value + '],\n'
+          + 'position: [' + SL.px.value + ', ' + SL.py.value + ', ' + SL.pz.value + '],\n'
+          + 'scale: ' + SL.sc.value;
+      }
+    }
+
+    Object.values(SL).forEach(el => {
+      if (!el) return;
+      el.oninput = () => { if (container.__framesModel3D === state) applySliders(); };
+    });
+
+    document.querySelectorAll('.f3d-face').forEach(btn => {
+      btn.onclick = () => {
+        if (container.__framesModel3D !== state || !SL.yaw) return;
+        SL.yaw.value = btn.dataset.yaw;
+        applySliders();
+      };
+    });
+
+    // 격자/축 — 바닥과 정면을 눈으로 잡을 때
+    const gridHelper = new THREE.Group();
+    gridHelper.add(new THREE.GridHelper(2, 20, 0x444450, 0x24242a));
+    gridHelper.add(new THREE.AxesHelper(0.6));
+    gridHelper.visible = false;
+    scene.add(gridHelper);
+
+    // 표시 방식 토글. 파츠가 이상하게 보일 때 원인을 좁히는 데 쓴다.
+    //  - 와이어프레임: 지오메트리 자체가 뚫렸는지
+    //  - 알파컷: 텍스처 알파 때문인지 (신형은 기본 꺼짐)
+    //  - 단면: 양면 렌더링의 깊이 정렬 문제인지
+    let optWire = false;
+    let optAlpha = !isCatalogExport;
+    let optSingle = false;
+
+    function applyLookFlags() {
+      meshes.forEach(m => [].concat(m.material).forEach(mt => {
+        mt.wireframe = optWire;
+        if (!/^fx_/i.test(mt.name || '')) mt.alphaTest = optAlpha ? 0.5 : 0;
+        mt.side = optSingle ? THREE.FrontSide : THREE.DoubleSide;
+        mt.needsUpdate = true;
+      }));
+    }
+
+    function bindToggle(id, get, set) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('active', get());
+      el.onclick = () => {
+        if (container.__framesModel3D !== state) return;
+        set(!get());
+        el.classList.toggle('active', get());
+        applyLookFlags();
+      };
+    }
+
     // FBX -> glTF 변환 과정에서 원래 불투명해야 할 몸체/무기 재질까지 alpha blend로
     // 나오는 경우가 있다 — 그러면 뒤쪽 파츠가 비쳐 보이는 정렬 문제가 생긴다.
     // 그렇다고 무조건 알파를 무시하고 완전 불투명 처리하면, 미사일/소켓처럼 텍스처의
@@ -626,6 +708,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 우클릭 팬이 안 먹히던 원인 — 추적이 매 프레임 시점을 원래 자리로 끌어당겨서
     // 사용자가 옮긴 만큼을 즉시 되돌리고 있었다. 조작 중에는 멈추고, 손을 떼면
     // 그 자리를 새 기준으로 잡는다.
+    let followEnabled = true;
     let userDragging = false;
     controls.addEventListener('start', () => { userDragging = true; });
     controls.addEventListener('end', () => {
@@ -635,7 +718,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     });
 
     function updateFollow(dt) {
-      if (userDragging || !followReady || !focusMesh) return;
+      if (!followEnabled || userDragging || !followReady || !focusMesh) return;
       if (!rigCenter(focusMesh, followCur)) return;
       // 목표 = 처음 타깃 + (현재 중심 - 처음 중심)
       followWant.copy(initialTarget).add(followCur).sub(followBase);
@@ -902,6 +985,61 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       lineEl.addEventListener('pointercancel', stop);
     }
     state.seekToRatio = seekToRatio;
+
+    // 조작 패널 토글 연결
+    applySliders();
+    applyLookFlags();
+    bindToggle('f3d-wire', () => optWire, v => { optWire = v; });
+    bindToggle('f3d-alpha', () => optAlpha, v => { optAlpha = v; });
+    bindToggle('f3d-side', () => optSingle, v => { optSingle = v; });
+
+    const gridBtn = document.getElementById('f3d-grid');
+    if (gridBtn) {
+      gridBtn.classList.toggle('active', gridHelper.visible);
+      gridBtn.onclick = () => {
+        if (container.__framesModel3D !== state) return;
+        gridHelper.visible = !gridHelper.visible;
+        gridBtn.classList.toggle('active', gridHelper.visible);
+      };
+    }
+
+    const followBtn = document.getElementById('f3d-follow');
+    if (followBtn) {
+      followBtn.classList.toggle('active', followEnabled);
+      followBtn.onclick = () => {
+        if (container.__framesModel3D !== state) return;
+        followEnabled = !followEnabled;
+        followBtn.classList.toggle('active', followEnabled);
+      };
+    }
+
+    const zeroBtn = document.getElementById('f3d-zero');
+    if (zeroBtn) {
+      zeroBtn.onclick = () => {
+        if (container.__framesModel3D !== state || !SL.yaw) return;
+        const t = getBossTransform(bossCode, isCatalogExport);
+        SL.yaw.value = t.rotation[1]; SL.pitch.value = t.rotation[0]; SL.roll.value = t.rotation[2];
+        SL.px.value = t.position[0]; SL.py.value = t.position[1]; SL.pz.value = t.position[2];
+        SL.sc.value = t.scale;
+        applySliders();
+      };
+    }
+
+    // 프레임 단위 이동 — 잠깐 나왔다 사라지는 파츠를 멈춰서 볼 때 쓴다
+    function stepFrames(delta) {
+      if (!currentAction) return;
+      const dur = currentAction.getClip().duration || 0;
+      currentAction.time = Math.max(0, Math.min(dur, currentAction.time + delta));
+      state.paused = true;
+      const pb = document.getElementById('frames-spine-pause');
+      if (pb) pb.innerHTML = '<i class="fas fa-play"></i>';
+      if (mixer) mixer.update(0);
+      syncBar();
+    }
+    const backBtn = document.getElementById('frames-step-back');
+    if (backBtn) backBtn.onclick = () => { if (container.__framesModel3D === state) stepFrames(-1 / 30); };
+    const fwdBtn = document.getElementById('frames-step-fwd');
+    if (fwdBtn) fwdBtn.onclick = () => { if (container.__framesModel3D === state) stepFrames(1 / 30); };
 
     const restartBtn = document.getElementById('frames-spine-restart');
     if (restartBtn) {

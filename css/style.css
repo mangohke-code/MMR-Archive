@@ -5027,6 +5027,51 @@
   }
 
 
+
+  /* ── 테스트 뷰어와 같은 조작 UI ──────────────────────────────── */
+  .frames-face-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  .f3d-sl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 5px 0;
+    font-size: 11px;
+  }
+
+  .f3d-sl span:first-child { width: 44px; flex: none; color: var(--text-muted); }
+  .f3d-sl input { flex: 1; min-width: 0; accent-color: var(--border-accent); }
+
+  .f3d-sl b {
+    width: 42px;
+    flex: none;
+    text-align: right;
+    color: var(--text-heading);
+    font-variant-numeric: tabular-nums;
+  }
+
+  #f3d-out {
+    margin-top: 8px;
+    width: 100%;
+    height: 64px;
+    resize: vertical;
+    padding: 7px;
+    font-size: 11px;
+    line-height: 1.5;
+    font-family: ui-monospace, Consolas, monospace;
+    color: var(--border-accent);
+    background: var(--bg-page);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+  }
+
+  #frames-step-back, #frames-step-fwd {
+    width: auto !important;
+    min-width: 30px;
+    border-radius: var(--radius-md) !important;
+    font-size: 11px;
+  }
+
   /* ── 오른쪽 서랍 ────────────────────────────────────────────────
      보스 목록과 상세 정보를 평소에는 접어 두고, 오른쪽 세로 버튼으로 연다.
      그만큼 3D 구역이 화면을 넓게 쓴다. */

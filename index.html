@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=101">
+  <link rel="stylesheet" href="css/style.css?v=102">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -450,6 +450,38 @@
               <div class="frames-ctl-label">애니메이션</div>
               <div id="frames-anim-toggle" class="frames-anim-toggle hidden"></div>
             </div>
+            <div class="frames-ctl-group" id="frames-view-group">
+              <div class="frames-ctl-label">방향 · 위치</div>
+              <div class="frames-face-row">
+                <button type="button" class="filter-chip f3d-face" data-yaw="0">앞</button>
+                <button type="button" class="filter-chip f3d-face" data-yaw="90">우</button>
+                <button type="button" class="filter-chip f3d-face" data-yaw="180">뒤</button>
+                <button type="button" class="filter-chip f3d-face" data-yaw="270">좌</button>
+              </div>
+              <label class="f3d-sl"><span>yaw</span><input type="range" id="f3d-yaw" min="0" max="360" step="1" value="180"><b id="f3d-yawv">180</b></label>
+              <label class="f3d-sl"><span>pitch</span><input type="range" id="f3d-pitch" min="-90" max="90" step="1" value="0"><b id="f3d-pitchv">0</b></label>
+              <label class="f3d-sl"><span>roll</span><input type="range" id="f3d-roll" min="-180" max="180" step="1" value="0"><b id="f3d-rollv">0</b></label>
+              <label class="f3d-sl"><span>X</span><input type="range" id="f3d-px" min="-1" max="1" step="0.005" value="0"><b id="f3d-pxv">0</b></label>
+              <label class="f3d-sl"><span>Y</span><input type="range" id="f3d-py" min="-1" max="1" step="0.005" value="0"><b id="f3d-pyv">0</b></label>
+              <label class="f3d-sl"><span>Z</span><input type="range" id="f3d-pz" min="-1" max="1" step="0.005" value="0"><b id="f3d-pzv">0</b></label>
+              <label class="f3d-sl"><span>배율</span><input type="range" id="f3d-sc" min="0.2" max="3" step="0.01" value="1"><b id="f3d-scv">1</b></label>
+            </div>
+
+            <div class="frames-ctl-group" id="frames-look-group">
+              <div class="frames-ctl-label">보기</div>
+              <div class="frames-face-row">
+                <button type="button" class="filter-chip" id="f3d-zero">값 초기화</button>
+                <button type="button" class="filter-chip" id="f3d-grid">격자</button>
+                <button type="button" class="filter-chip active" id="f3d-follow">카메라 추적</button>
+              </div>
+              <div class="frames-face-row" style="margin-top:5px">
+                <button type="button" class="filter-chip" id="f3d-wire">와이어프레임</button>
+                <button type="button" class="filter-chip" id="f3d-alpha">알파컷 켜기</button>
+                <button type="button" class="filter-chip" id="f3d-side">단면 표시</button>
+              </div>
+              <textarea id="f3d-out" readonly></textarea>
+            </div>
+
             <div class="frames-ctl-group" id="frames-parts-group">
               <div class="frames-ctl-label">파츠</div>
               <div id="frames-parts-toggle" class="parts-toggle hidden"></div>
@@ -467,6 +499,8 @@
               <button id="frames-spine-pause" type="button" aria-label="일시정지" title="일시정지"><i class="fas fa-pause"></i></button>
               <div id="frames-timeline"><div id="frames-timeline-fill"></div></div>
               <span id="frames-timecode">0.00 / 0.00</span>
+              <button id="frames-step-back" type="button" title="한 프레임 뒤로">◀</button>
+              <button id="frames-step-fwd" type="button" title="한 프레임 앞으로">▶</button>
             </div>
           </div>
 
@@ -596,7 +630,7 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=33"></script>
+  <script type="module" src="js/frames3d.js?v=34"></script>
   <script src="js/frames.js?v=18"></script>
   <script src="js/stage.js?v=7"></script>
 
