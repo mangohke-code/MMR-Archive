@@ -807,6 +807,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     let currentAction = null;
 
+    // 위쪽(연결 재생)은 지금 고른 항목을, 아래쪽(개별 클립)은 실제로 도는 클립을 켠다.
+    // 묶음을 재생하면 start -> loop -> end 순서로 아래쪽에 차례로 불이 들어온다.
+    // markActiveClip 이 호이스팅돼서 먼저 불리므로 선언은 여기 위쪽에 둔다.
+    let activeMainKey = null;
+
     // 클립 재생. 시퀀스(start->loop->end)를 위해 남은 단계를 큐로 들고 간다.
     // markActiveClip 은 아래 UI 블록에서 함수 선언으로 정의된다(호이스팅됨).
     let seqQueue = [];
@@ -830,7 +835,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
       state.mixer = mixer;
       state.currentClip = clip.name;
-      markActiveClip(opts.keepQueue ? null : clip.name);
+      markActiveClip(opts.keepQueue ? undefined : clip.name);
+      markPlayingClip(clip.name);
     }
 
     function onClipFinished() {
@@ -926,9 +932,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 이 함수는 호이스팅되어 위쪽 playSingle() 에서 먼저 불린다. 그래서 컨테이너를
     // 바깥 const 로 잡아두면 TDZ 에 걸린다 — 부를 때마다 직접 찾는다.
     function markActiveClip(key) {
-      // 연결 재생과 개별 클립이 서로 다른 구역에 있어서 둘 다 훑는다
-      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn, #frames-anim-extra .frames-anim-btn')
-        .forEach(b => b.classList.toggle('active', key !== null && b.dataset.key === key));
+      if (key !== undefined) activeMainKey = key;
+      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn')
+        .forEach(b => b.classList.toggle('active', activeMainKey !== null && b.dataset.key === activeMainKey));
+    }
+
+    function markPlayingClip(name) {
+      document.querySelectorAll('#frames-anim-extra .frames-anim-btn')
+        .forEach(b => b.classList.toggle('active', b.dataset.key === name));
     }
 
     const animEl = document.getElementById('frames-anim-toggle');
@@ -956,22 +967,29 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 테스트 뷰어와 같은 나눔.
         //  연결 재생 = idle(맨 앞) + start/loop/end 묶음 + death 같은 단발 연출
         //  개별 클립 = 파일에 든 클립 전부 (묶음에 들어간 것도 낱개로 볼 수 있어야 한다)
-        const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '');
+        // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니다. 개별 클립에만 둔다.
+        const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '') && !/skill/i.test(c.name || '');
         const isSolo = c => /(^|_)(death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
+        const secs = n => n.toFixed(2) + 's';
+
         const mainBtns = []
-          .concat(clips.filter(isIdle).map(c => ({ key: c.name, text: label(c.name), seq: false })))
-          .concat(seqs.map(sq => ({ key: sq.key, text: label(sq.label), seq: true })))
-          .concat(clips.filter(isSolo).map(c => ({ key: c.name, text: label(c.name), seq: false })));
+          .concat(clips.filter(isIdle).map(c => ({ key: c.name, text: label(c.name), time: secs(c.duration) })))
+          .concat(seqs.map(sq => ({
+            key: sq.key,
+            text: label(sq.label),
+            // 묶음은 각 단계 길이의 합(루프는 반복 횟수만큼)
+            time: secs(sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0)),
+            seq: true,
+          })))
+          .concat(clips.filter(isSolo).map(c => ({ key: c.name, text: label(c.name), time: secs(c.duration) })));
 
-        const restBtns = clips.map(c => ({
-          key: c.name,
-          text: label(c.name) + '  ' + c.duration.toFixed(2) + 's',
-          seq: false,
-        }));
+        const restBtns = clips.map(c => ({ key: c.name, text: label(c.name), time: secs(c.duration) }));
 
+        // 이름과 시간을 한 덩어리로 두면 길이가 제각각이라 지저분하다. 시간은 오른쪽으로 민다.
         const row = list => list.map(b =>
-          `<button type="button" class="f3d-btn frames-anim-btn${b.seq ? ' is-seq' : ''}" data-key="${b.key}">${b.text}</button>`
+          `<button type="button" class="f3d-btn frames-anim-btn${b.seq ? ' is-seq' : ''}" data-key="${b.key}">`
+          + `<span class="anim-name">${b.text}</span><span class="anim-time">${b.time}</span></button>`
         ).join('');
 
         animEl.innerHTML = row(mainBtns);

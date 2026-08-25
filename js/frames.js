@@ -295,12 +295,7 @@
       </div>
     `).join('');
 
-    // 테두리는 오른쪽 서랍이 담당한다. 버튼 라벨에 개수만 알려 준다.
-    const tb = document.getElementById('frames-drawer-tiers');
-    if (tb) {
-      const label = tb.querySelector('span');
-      if (label) label.textContent = tiers.length ? `테두리 ${tiers.length}` : '테두리';
-    }
+    // 프레임은 오른쪽 서랍이 담당한다.
   }
 
   // 표에 적힌 줄바꿈(CRLF/LF)을 <br> 로 바꿀 때 쓴다

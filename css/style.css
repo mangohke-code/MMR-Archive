@@ -5061,7 +5061,23 @@
     font-weight: 700;
   }
 
-  .f3d-col .f3d-btn { width: 100%; text-align: left; }
+  .f3d-col .f3d-btn {
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .f3d-col .anim-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .f3d-col .anim-time {
+    flex: none;
+    font-size: 10px;
+    opacity: .65;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* 모델·페이즈 버튼도 사이드바의 다른 버튼과 같은 크기로 (기존 .filter-chip 은
      본문용이라 더 크다) */
@@ -5116,10 +5132,60 @@
     border-radius: var(--radius-md);
   }
 
+  /* 파츠는 다른 사이드바 항목과 같은 크기·모양으로 맞춘다 (기본 토글 스위치는
+     본문용이라 크고 혼자 튀어 보인다) */
+  #f3d-side #frames-parts-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
   #f3d-side .part-toggle-item {
-    padding: 3px 6px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 4px 8px;
     font-size: 12px;
-    border-radius: 5px;
+    line-height: 1.35;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    color: var(--text-muted);
+  }
+
+  #f3d-side .part-toggle-item:hover { background: var(--bg-panel-alt); }
+
+  #f3d-side .part-toggle-item.active {
+    color: var(--text-body);
+    border-color: var(--border-subtle);
+    background: var(--bg-panel-alt);
+  }
+
+  /* 스위치를 작은 점으로 — 켜지면 강조색이 들어온다 */
+  #f3d-side .part-toggle-item .toggle-switch {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+    background: transparent;
+  }
+
+  #f3d-side .part-toggle-item .toggle-switch::before,
+  #f3d-side .part-toggle-item .toggle-switch::after { display: none; }
+
+  #f3d-side .part-toggle-item.active .toggle-switch {
+    background: var(--border-accent);
+    border-color: var(--border-accent);
+  }
+
+  #f3d-side .part-toggle-item .toggle-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* ── 무대 ───────────────────────────────────────────────────────── */
@@ -5285,7 +5351,20 @@
     padding: 6px 8px;
   }
 
-  #f3d-drawer .frames-item-img { width: 96px; flex: none; }
+  #f3d-drawer .frames-item-img {
+    width: 64px;
+    height: 64px;
+    flex: none;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+  }
+
+  #f3d-drawer .frames-item-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
   #f3d-drawer #frames-toolbar { margin: 0 0 10px; padding: 0; }
 
