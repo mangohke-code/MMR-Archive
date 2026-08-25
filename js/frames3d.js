@@ -1159,6 +1159,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camWant = new THREE.Vector3();
     let followReady = false;
     let followSpread = 0;
+    // start 클립을 재생하는 동안 시점을 붙들어 둘 자리.
+    // 바로 뒤에 오는 loop 의 첫 프레임 중심을 미리 재서 여기에 넣는다.
+    let followPin = null;
     if (focusMesh && rigCenter(focusMesh, followBase, focusBone)) {
       followReady = true;
       followSpread = rigSpread(focusMesh, followBase, focusBone);
@@ -1201,6 +1204,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 클립이 끝날 때까지 남았다.
     function updateFollow() {
       if (!followEnabled || userDragging || !followReady || !focusMesh) return;
+      if (followPin) {
+        // start 구간은 loop 가 시작될 자리에 시점을 고정한다. 이렇게 해야
+        // start -> loop 로 넘어갈 때 화면이 튀지 않는다.
+        followCur.copy(followPin);
+      } else {
       if (!rigCenter(focusMesh, followCur, focusBone)) return;
       // 리그 자체가 망가지는 구간이 있다. 거대 질량체가 두 경우를 다 보여준다 —
       // appearance_f 는 main 리그(본 760개)를 스케일 0 으로 접어 21 유닛 밖에 세워두고,
@@ -1210,6 +1218,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (followSpread > 0) {
         const spread = rigSpread(focusMesh, followCur, focusBone);
         if (spread < followSpread * 0.05 || spread > followSpread * 5) return;
+      }
       }
       // 목표 타깃 = 처음 타깃 + (현재 중심 - 처음 중심)
       followWant.copy(initialTarget).add(followCur).sub(followBase);
@@ -1303,6 +1312,46 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // markActiveClip 은 아래 UI 블록에서 함수 선언으로 정의된다(호이스팅됨).
     let seqQueue = [];
 
+    // 어떤 클립의 첫 프레임에서 추적 중심이 어디인지 미리 재둔다.
+    // 실제로 그 클립을 한 프레임 적용해 보고 자세를 되돌리는 방식이라, 재생 중인
+    // 화면에는 영향이 없다. 클립당 한 번만 재고 캐시한다.
+    const startCenterCache = new Map();
+    function centerAtClipStart(clip) {
+      if (!focusMesh) return null;
+      if (startCenterCache.has(clip.name)) return startCenterCache.get(clip.name);
+      const saved = capturePose(gltf.scene);
+      let result = null;
+      try {
+        const probeMixer = new THREE.AnimationMixer(gltf.scene);
+        restorePose(poseFor(clip.name));
+        probeMixer.clipAction(clip).play();
+        probeMixer.update(0);
+        gltf.scene.updateMatrixWorld(true);
+        const v = new THREE.Vector3();
+        if (rigCenter(focusMesh, v, focusBone)) result = v;
+        probeMixer.stopAllAction();
+        probeMixer.uncacheRoot(gltf.scene);
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+      startCenterCache.set(clip.name, result);
+      return result;
+    }
+
+    // start 클립에 이어서 재생될 loop(없으면 fire/end) 클립.
+    function nextStepClip(clip) {
+      const m = (clip.name || '').match(SEQ_RE);
+      if (!m || m[2].toLowerCase() !== 'start') return null;
+      const prefix = m[1], suffix = m[3] || '';
+      const list = gltf.animations || [];
+      for (const kind of ['loop', 'fire', 'end']) {
+        const found = list.find(c => c.name === prefix + '_' + kind + suffix);
+        if (found) return found;
+      }
+      return null;
+    }
+
     function playClipObject(clip, opts) {
       opts = opts || {};
       // 세 머리 재생이 아니면 옆 머리는 치운다
@@ -1321,6 +1370,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       action.play();
       currentAction = action;
+      // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
+      // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
+      // 정작 loop 로 넘어갈 때 화면이 한 번 크게 튄다.
+      const nextClip = nextStepClip(clip);
+      followPin = nextClip ? centerAtClipStart(nextClip) : null;
+      // 자세 측정 때문에 흐트러졌을 수 있으니 이 클립 첫 프레임을 다시 얹는다
+      if (nextClip) mixer.update(0);
       // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
       state.mixer = mixer;
       state.currentClip = clip.name;
