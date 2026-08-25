@@ -224,6 +224,8 @@ function disposeState(container) {
   }
   const barEl = document.getElementById('frames-playbar');
   if (barEl) barEl.classList.add('hidden');
+  const restartBtn = document.getElementById('frames-spine-restart');
+  if (restartBtn) restartBtn.onclick = null;
 
   if (state.renderer) {
     state.renderer.dispose();
@@ -379,7 +381,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (!/^fx_/i.test(m.name || '')) {
           m.transparent = false;
           m.depthWrite = true;
-          m.alphaTest = 0.5;
+          // 신형 추출본은 알파 컷아웃을 끈다.
+          //
+          // 이 파일들은 재질이 alphaMode=MASK / cutoff=0.5 로 나오는데, 미사일·총구·
+          // 지네관절 같은 가늘고 긴 파츠는 텍스처 알파가 0.5 언저리라 그대로 두면
+          // 중간중간 뚫려서 뚝뚝 끊긴 모습이 된다(테스트 뷰어에서 컷아웃을 끄면
+          // 멀쩡하게 나오는 것으로 확인). 구형 변환본은 알파를 실제 구멍 모양으로
+          // 쓰는 파츠가 있어서 기존 값을 유지한다.
+          m.alphaTest = isCatalogExport ? 0 : 0.5;
         }
       });
 
@@ -893,6 +902,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       lineEl.addEventListener('pointercancel', stop);
     }
     state.seekToRatio = seekToRatio;
+
+    const restartBtn = document.getElementById('frames-spine-restart');
+    if (restartBtn) {
+      restartBtn.onclick = () => {
+        if (container.__framesModel3D !== state) return;
+        seekToRatio(0);
+      };
+    }
 
     function syncBar() {
       if (!fillEl || !currentAction) return;

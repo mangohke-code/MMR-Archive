@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보스 3D 테스트 뷰어</title>
+<style>
+  :root {
+    --bg:#0a0a0b; --panel:#141416; --alt:#1c1c1f; --active:#242428;
+    --line:#2a2a2e; --head:#fafafa; --body:#d4d4d8; --muted:#78787f; --accent:#6d8cff;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--body); display:flex; height:100vh;
+         overflow:hidden; font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif; }
+  #side { width:300px; flex:none; overflow-y:auto; padding:14px; background:var(--panel);
+          border-right:1px solid var(--line); }
+  #stage { flex:1; position:relative; min-width:0; display:flex; flex-direction:column; }
+  #view { flex:1; position:relative; min-height:0; }
+  h2 { font-size:12px; margin:16px 0 7px; color:var(--muted); letter-spacing:.05em; }
+  h2:first-child { margin-top:0; }
+  button { font:inherit; font-size:12px; cursor:pointer; border-radius:6px;
+           border:1px solid var(--line); background:var(--alt); color:var(--body); padding:5px 9px; }
+  button:hover { background:var(--active); color:var(--head); }
+  button.active { background:var(--accent); border-color:var(--accent); color:#0a0a0b; font-weight:700; }
+  .row { display:flex; flex-wrap:wrap; gap:5px; }
+  .wide { width:100%; text-align:left; }
+  .seq { border-left:3px solid var(--accent); font-weight:700; }
+  .part { display:flex; align-items:center; gap:7px; font-size:12px; padding:3px 6px;
+          border-radius:5px; cursor:pointer; }
+  .part:hover { background:var(--alt); }
+  .part input { accent-color:var(--accent); }
+  .sl { display:flex; align-items:center; gap:8px; margin:5px 0; font-size:11px; }
+  .sl span:first-child { width:56px; color:var(--muted); flex:none; }
+  .sl input { flex:1; min-width:0; accent-color:var(--accent); }
+  .sl b { width:44px; text-align:right; flex:none; color:var(--head); font-variant-numeric:tabular-nums; }
+  #out { margin-top:8px; width:100%; height:76px; background:var(--bg); color:var(--accent);
+         font-size:11px; font-family:ui-monospace,Consolas,monospace; border:1px solid var(--line);
+         border-radius:6px; padding:7px; }
+  #bar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--panel);
+         border-top:1px solid var(--line); flex:none; }
+  #bar button { width:32px; height:32px; border-radius:50%; }
+  #line { flex:1; min-width:0; height:9px; border-radius:5px; background:var(--active);
+          position:relative; cursor:pointer; }
+  #fill { position:absolute; inset:0 auto 0 0; width:0; border-radius:5px; background:var(--accent);
+          pointer-events:none; }
+  #code { flex:none; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  #hud { position:absolute; left:12px; top:12px; font-size:12px; color:var(--muted);
+         background:rgba(10,10,11,.75); padding:7px 10px; border-radius:6px; line-height:1.6;
+         white-space:pre; pointer-events:none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="side">
+  <h2>모델 (원본)</h2>
+  <div class="row" id="models"></div>
+  <h2>모델 (압축본)</h2>
+  <div class="row" id="models-min"></div>
+
+  <h2>연결 재생</h2>
+  <div class="row" id="seqs"></div>
+  <h2>개별 클립</h2>
+  <div class="row" id="clips"></div>
+
+  <h2>방향 · 위치</h2>
+  <div class="row" style="margin-bottom:6px">
+    <button class="face" data-yaw="0">앞</button>
+    <button class="face" data-yaw="90">우</button>
+    <button class="face" data-yaw="180">뒤</button>
+    <button class="face" data-yaw="270">좌</button>
+  </div>
+  <label class="sl"><span>yaw</span><input type="range" id="yaw" min="0" max="360" step="1" value="180"><b id="yawv">180</b></label>
+  <label class="sl"><span>pitch</span><input type="range" id="pitch" min="-90" max="90" step="1" value="0"><b id="pitchv">0</b></label>
+  <label class="sl"><span>roll</span><input type="range" id="roll" min="-180" max="180" step="1" value="0"><b id="rollv">0</b></label>
+  <label class="sl"><span>X</span><input type="range" id="px" min="-1" max="1" step="0.005" value="0"><b id="pxv">0</b></label>
+  <label class="sl"><span>Y</span><input type="range" id="py" min="-1" max="1" step="0.005" value="0"><b id="pyv">0</b></label>
+  <label class="sl"><span>Z</span><input type="range" id="pz" min="-1" max="1" step="0.005" value="0"><b id="pzv">0</b></label>
+  <label class="sl"><span>배율</span><input type="range" id="sc" min="0.2" max="3" step="0.01" value="1"><b id="scv">1</b></label>
+
+  <h2>보기</h2>
+  <div class="row">
+    <button id="zero">값 초기화</button>
+    <button id="grid">격자</button>
+    <button id="follow" class="active">카메라 추적</button>
+    <button id="reset">시점 초기화</button>
+  </div>
+  <div class="row" style="margin-top:5px">
+    <button id="wire">와이어프레임</button>
+    <button id="noalpha">알파컷 끄기</button>
+    <button id="single">단면 표시</button>
+  </div>
+  <textarea id="out" readonly></textarea>
+
+  <h2>파츠</h2>
+  <div id="parts"></div>
+</div>
+
+<div id="stage">
+  <div id="view"><div id="hud">로딩 중…</div></div>
+  <div id="bar">
+    <button id="play"><span id="playicon">❚❚</span></button>
+    <div id="line"><div id="fill"></div></div>
+    <span id="code">0.00 / 0.00</span>
+    <button id="stepb" title="한 프레임 뒤로" style="width:auto;border-radius:6px">◀</button>
+    <button id="stepf" title="한 프레임 앞으로" style="width:auto;border-radius:6px">▶</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const ORIG = [
+  { label:'1페이즈', url:'img/boss/xba003_1phase.glb' },
+  { label:'2페이즈', url:'img/boss/xba003_2phase.glb' },
+  { label:'구체',    url:'img/boss/xba003_sphere.glb' },
+];
+const MIN = [
+  { label:'1페이즈', url:'img/boss/xba003_1phase_min.glb' },
+  { label:'2페이즈', url:'img/boss/xba003_2phase_min.glb' },
+  { label:'구체',    url:'img/boss/xba003_sphere_min.glb' },
+];
+
+const view = document.getElementById('view');
+const hud = document.getElementById('hud');
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+view.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const d1 = new THREE.DirectionalLight(0xffffff, 4.0); d1.position.set(1,2,1); scene.add(d1);
+const d2 = new THREE.DirectionalLight(0xffffff, 1.6); d2.position.set(-1,.5,-1); scene.add(d2);
+
+const helper = new THREE.Group();
+helper.add(new THREE.GridHelper(2, 20, 0x444450, 0x24242a));
+helper.add(new THREE.AxesHelper(0.6));
+helper.visible = false;
+scene.add(helper);
+
+// yaw / pitch / 정규화를 각각 다른 그룹이 맡는다. 한 오브젝트에 몰면 오일러 순서 때문에
+// 좌우를 돌려놓은 상태에서 상하를 만질 때 대각선으로 도는 것처럼 보인다.
+const yawG = new THREE.Group(), pitchG = new THREE.Group(), normG = new THREE.Group();
+pitchG.add(normG); yawG.add(pitchG); scene.add(yawG);
+
+const DEBRIS = /twp/i;
+const CORE = /(^|_)(bip\d*|pelvis|spine|neck|bust|head|body|root)/i;
+
+const clock = new THREE.Clock();
+let cur = null, mixer = null, action = null, paused = false, normInfo = null;
+let follow = true, dragging = false, seqQueue = [];
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+
+// ── 측정 / 정규화 ───────────────────────────────────────────────────
+function measure() {
+  const box = new THREE.Box3(), v = new THREE.Vector3();
+  normG.updateWorldMatrix(true, false);
+  cur.meshes.forEach(m => {
+    if (!m.isSkinnedMesh || !m.skeleton) return;
+    m.skeleton.bones.forEach(b => {
+      if (DEBRIS.test(b.name || '')) return;
+      b.getWorldPosition(v);
+      box.expandByPoint(normG.worldToLocal(v.clone()));
+    });
+  });
+  return box.isEmpty() ? null : box;
+}
+
+function normalize() {
+  normG.position.set(0,0,0); normG.scale.setScalar(1); normG.updateWorldMatrix(true,true);
+  const box = measure();
+  if (!box) return null;
+  const size = box.getSize(new THREE.Vector3());
+  const s = 1 / (Math.max(size.x, size.y, size.z) || 1);
+  normG.scale.setScalar(s);
+  normG.position.set(0, -box.min.y * s, 0);
+  normInfo = { size, scale:s, height:size.y*s };
+  return normInfo;
+}
+
+function homeCamera() {
+  const h = normInfo ? normInfo.height : 1;
+  camera.position.set(0, h*0.55, 2.3);
+  controls.target.set(0, h*0.5, 0);
+  camera.near = 0.01; camera.far = 100; camera.updateProjectionMatrix();
+  controls.minDistance = 0.4; controls.maxDistance = 12;
+  controls.update();
+  followInit = false;
+}
+
+// ── 카메라 추적 ─────────────────────────────────────────────────────
+const fv = new THREE.Vector3(), fd = new THREE.Vector3();
+let followInit = false;
+function rigCenter(out) {
+  if (!cur || !cur.focus) return null;
+  const bones = cur.focus.skeleton.bones, v = new THREE.Vector3();
+  const gather = useCore => {
+    let n = 0; out.set(0,0,0);
+    for (const b of bones) {
+      const nm = b.name || '';
+      if (DEBRIS.test(nm)) continue;
+      if (useCore && !CORE.test(nm)) continue;
+      b.getWorldPosition(v); out.add(v); n++;
+    }
+    return n;
+  };
+  let n = gather(true);
+  if (n < 3) n = gather(false);
+  return n ? out.divideScalar(n) : null;
+}
+controls.addEventListener('start', () => { dragging = true; });
+controls.addEventListener('end', () => { dragging = false; followInit = false; });
+
+function updateFollow(dt) {
+  if (!follow || dragging || !cur) return;
+  const c = rigCenter(fv);
+  if (!c) return;
+  if (!followInit) { controls.target.copy(c); followInit = true; return; }
+  fd.copy(c).sub(controls.target).multiplyScalar(1 - Math.pow(1e-7, Math.min(dt, 0.1)));
+  controls.target.add(fd);
+  camera.position.add(fd);
+}
+
+// ── 로드 ────────────────────────────────────────────────────────────
+function clearModel() {
+  if (!cur) return;
+  normG.remove(cur.root);
+  cur.root.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) [].concat(o.material).forEach(m => {
+      Object.keys(m).forEach(k => { if (m[k] && m[k].isTexture) m[k].dispose(); });
+      m.dispose();
+    });
+  });
+  mixer = null; action = null; cur = null;
+}
+
+function load(url, label) {
+  clearModel();
+  hud.textContent = label + ' 로딩 중…';
+  new GLTFLoader().load(url, gltf => {
+    const meshes = [];
+    gltf.scene.traverse(o => {
+      if (!o.isMesh) return;
+      meshes.push(o);
+      o.frustumCulled = false;   // 본이 멀리 가면 통째로 안 그려지는 것 방지
+      [].concat(o.material).forEach(m => {
+        m.side = THREE.DoubleSide;
+        if (m.emissive) m.emissive.setRGB(0,0,0);
+        m.userData.origAlphaTest = m.alphaTest;
+      });
+    });
+    normG.add(gltf.scene);
+    cur = {
+      root: gltf.scene, meshes, clips: gltf.animations || [],
+      base: capturePose(gltf.scene), focus: pickFocus(meshes),
+    };
+    buildAnimUI(); buildParts();
+    if (cur.clips.length) { playClip(idleClip()); mixer.update(0.001); }
+    const n = normalize();
+    homeCamera(); writeOut(); resize();
+    hud.textContent = label + '\n메쉬 ' + meshes.length + ' · 클립 ' + cur.clips.length
+      + (n ? '\n원본 크기 ' + n.size.x.toFixed(1) + ' x ' + n.size.y.toFixed(1) + ' x ' + n.size.z.toFixed(1) : '')
+      + (cur.focus ? '\n추적 ' + cur.focus.name : '');
+    applyRenderFlags();
+  }, xhr => {
+    if (xhr.total) hud.textContent = label + ' ' + (xhr.loaded/xhr.total*100).toFixed(0) + '%';
+  }, err => { hud.textContent = '로드 실패: ' + err; console.error(err); });
+}
+
+function capturePose(root) {
+  const l = [];
+  root.traverse(o => l.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]));
+  return l;
+}
+function restorePose() {
+  if (!cur) return;
+  cur.base.forEach(([o,p,q,s]) => { o.position.copy(p); o.quaternion.copy(q); o.scale.copy(s); });
+}
+function pickFocus(meshes) {
+  let best = null, bn = -1;
+  for (const m of meshes) {
+    if (!m.isSkinnedMesh || !m.skeleton) continue;
+    let n = 0;
+    for (const b of m.skeleton.bones) if (!DEBRIS.test(b.name||'')) n++;
+    if (n > bn) { bn = n; best = m; }
+  }
+  return best;
+}
+
+// ── 애니메이션 ──────────────────────────────────────────────────────
+const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_\d+)?$/i;
+function findSeqs(clips) {
+  const g = new Map();
+  clips.forEach(c => {
+    const m = (c.name||'').match(SEQ_RE);
+    if (!m) return;
+    const k = m[1] + (m[3]||'');
+    if (!g.has(k)) g.set(k, {});
+    g.get(k)[m[2].toLowerCase()] = c;
+  });
+  const out = [];
+  g.forEach((v,k) => {
+    if (!v.start || !(v.loop || v.end || v.fire)) return;
+    const steps = [{clip:v.start, repeat:1}];
+    if (v.loop) steps.push({clip:v.loop, repeat:2});
+    if (v.fire) steps.push({clip:v.fire, repeat:1});
+    if (v.end)  steps.push({clip:v.end,  repeat:1});
+    out.push({ key:k, label:k.replace(/^[a-z]{2,4}\d{3}_/i,''), steps });
+  });
+  return out;
+}
+const strip = n => String(n).replace(/^[a-z]{2,4}\d{3}_/i,'');
+const isOneShot = n => !/(^|_)(idle|loop)(_\d+)?$/i.test(n||'');
+function idleClip() {
+  const c = cur.clips;
+  return c.find(x => /(^|_)idle$/i.test(x.name) && !/skill/i.test(x.name))
+      || c.find(x => /idle|wait|stand/i.test(x.name)) || c[0];
+}
+
+function playClip(clip, opts) {
+  opts = opts || {};
+  restorePose();
+  mixer = new THREE.AnimationMixer(cur.root);
+  mixer.addEventListener('finished', onFinished);
+  action = mixer.clipAction(clip);
+  if (opts.repeat) {
+    action.setLoop(opts.repeat === 1 ? THREE.LoopOnce : THREE.LoopRepeat, opts.repeat);
+    action.clampWhenFinished = true;
+  }
+  action.play();
+  applyRenderFlags();
+  document.querySelectorAll('#clips button, #seqs button').forEach(b =>
+    b.classList.toggle('active', !opts.keepQueue && b.dataset.key === clip.name));
+}
+function onFinished() {
+  if (seqQueue.length) { const s = seqQueue.shift(); playClip(s.clip, {repeat:s.repeat, keepQueue:true}); return; }
+  playClip(idleClip(), {});
+}
+function playSingle(clip) { seqQueue = []; playClip(clip, {repeat: isOneShot(clip.name) ? 1 : 0}); }
+function playSeq(sq) {
+  seqQueue = sq.steps.slice(1);
+  playClip(sq.steps[0].clip, {repeat:1, keepQueue:true});
+  document.querySelectorAll('#seqs button').forEach(b => b.classList.toggle('active', b.dataset.key === sq.key));
+}
+
+function buildAnimUI() {
+  const seqs = findSeqs(cur.clips);
+  document.getElementById('seqs').innerHTML = seqs.map(s =>
+    `<button class="wide seq" data-key="${s.key}">${s.label} <span style="color:var(--muted)">${s.steps.map(x=>x.clip.name.match(SEQ_RE)[2]).join('→')}</span></button>`
+  ).join('') || '<span style="font-size:12px;color:var(--muted)">없음</span>';
+  document.querySelectorAll('#seqs button').forEach(b =>
+    b.addEventListener('click', () => playSeq(seqs.find(s => s.key === b.dataset.key))));
+
+  document.getElementById('clips').innerHTML = cur.clips.map(c =>
+    `<button class="wide" data-key="${c.name}">${strip(c.name)} <span style="color:var(--muted)">${c.duration.toFixed(2)}s</span></button>`
+  ).join('');
+  document.querySelectorAll('#clips button').forEach(b =>
+    b.addEventListener('click', () => playSingle(cur.clips.find(c => c.name === b.dataset.key))));
+}
+
+function buildParts() {
+  document.getElementById('parts').innerHTML = cur.meshes.map((m,i) =>
+    `<label class="part"><input type="checkbox" data-i="${i}" checked>${strip(m.name).replace(/_\d+$/,'')}</label>`
+  ).join('');
+  document.querySelectorAll('#parts input').forEach(cb =>
+    cb.addEventListener('change', () => { cur.meshes[+cb.dataset.i].visible = cb.checked; }));
+}
+
+// ── 표시 옵션 (끊긴 파츠 원인 좁히기용) ──────────────────────────────
+let wire = false, noAlpha = false, singleSide = false;
+function applyRenderFlags() {
+  if (!cur) return;
+  cur.meshes.forEach(m => [].concat(m.material).forEach(mt => {
+    mt.wireframe = wire;
+    mt.alphaTest = noAlpha ? 0 : (mt.userData.origAlphaTest || 0);
+    mt.side = singleSide ? THREE.FrontSide : THREE.DoubleSide;
+    mt.needsUpdate = true;
+  }));
+}
+
+// ── 컨트롤 ──────────────────────────────────────────────────────────
+const S = {};
+['yaw','pitch','roll','px','py','pz','sc'].forEach(id => {
+  S[id] = document.getElementById(id);
+  S[id].addEventListener('input', apply);
+});
+function apply() {
+  yawG.rotation.y = THREE.MathUtils.degToRad(+S.yaw.value);
+  pitchG.rotation.x = THREE.MathUtils.degToRad(+S.pitch.value);
+  pitchG.rotation.z = THREE.MathUtils.degToRad(+S.roll.value);
+  yawG.position.set(+S.px.value, +S.py.value, +S.pz.value);
+  yawG.scale.setScalar(+S.sc.value);
+  ['yaw','pitch','roll','px','py','pz','sc'].forEach(id =>
+    document.getElementById(id+'v').textContent = S[id].value);
+  writeOut();
+}
+function writeOut() {
+  document.getElementById('out').value =
+    'rotation: [' + S.pitch.value + ', ' + S.yaw.value + ', ' + S.roll.value + '],\n' +
+    'position: [' + S.px.value + ', ' + S.py.value + ', ' + S.pz.value + '],\n' +
+    'scale: ' + S.sc.value +
+    (normInfo ? '\n// 정규화 배율 ' + normInfo.scale.toFixed(5) : '');
+}
+
+function fillList(el, list, tag) {
+  document.getElementById(el).innerHTML = list.map((m,i) =>
+    `<button data-i="${i}" data-tag="${tag}">${m.label}</button>`).join('');
+}
+fillList('models', ORIG, 'o');
+fillList('models-min', MIN, 'm');
+document.querySelectorAll('#models button, #models-min button').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#models button, #models-min button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const src = b.dataset.tag === 'o' ? ORIG : MIN;
+    const m = src[+b.dataset.i];
+    load(m.url, m.label + (b.dataset.tag === 'o' ? ' (원본)' : ' (압축본)'));
+  }));
+
+document.querySelectorAll('.face').forEach(b =>
+  b.addEventListener('click', () => { S.yaw.value = b.dataset.yaw; apply(); }));
+document.getElementById('zero').addEventListener('click', () => {
+  S.yaw.value = 180; S.pitch.value = 0; S.roll.value = 0;
+  S.px.value = 0; S.py.value = 0; S.pz.value = 0; S.sc.value = 1; apply();
+});
+document.getElementById('grid').addEventListener('click', e => {
+  helper.visible = !helper.visible; e.target.classList.toggle('active', helper.visible);
+});
+document.getElementById('follow').addEventListener('click', e => {
+  follow = !follow; followInit = false; e.target.classList.toggle('active', follow);
+});
+document.getElementById('reset').addEventListener('click', homeCamera);
+document.getElementById('wire').addEventListener('click', e => {
+  wire = !wire; e.target.classList.toggle('active', wire); applyRenderFlags();
+});
+document.getElementById('noalpha').addEventListener('click', e => {
+  noAlpha = !noAlpha; e.target.classList.toggle('active', noAlpha); applyRenderFlags();
+});
+document.getElementById('single').addEventListener('click', e => {
+  singleSide = !singleSide; e.target.classList.toggle('active', singleSide); applyRenderFlags();
+});
+
+// ── 재생바 ──────────────────────────────────────────────────────────
+const lineEl = document.getElementById('line');
+const fillEl = document.getElementById('fill');
+const codeEl = document.getElementById('code');
+document.getElementById('play').addEventListener('click', () => {
+  paused = !paused;
+  document.getElementById('playicon').textContent = paused ? '▶' : '❚❚';
+});
+function seekRatio(r) {
+  if (!action) return;
+  const d = action.getClip().duration || 0;
+  action.time = Math.max(0, Math.min(d, d * r));
+  if (mixer) mixer.update(0);
+  syncBar();
+}
+let scrub = false;
+const ratioAt = ev => { const b = lineEl.getBoundingClientRect(); return b.width ? (ev.clientX-b.left)/b.width : 0; };
+lineEl.addEventListener('pointerdown', ev => { scrub = true; lineEl.setPointerCapture(ev.pointerId); seekRatio(ratioAt(ev)); });
+lineEl.addEventListener('pointermove', ev => { if (scrub) seekRatio(ratioAt(ev)); });
+lineEl.addEventListener('pointerup', () => { scrub = false; });
+lineEl.addEventListener('pointercancel', () => { scrub = false; });
+// 프레임 단위로 멈춰서 보기 — 미사일처럼 잠깐 나오는 파츠를 확인할 때 쓴다
+const stepBy = dt => {
+  if (!action) return;
+  const d = action.getClip().duration || 0;
+  action.time = Math.max(0, Math.min(d, action.time + dt));
+  if (mixer) mixer.update(0);
+  syncBar();
+};
+document.getElementById('stepb').addEventListener('click', () => { paused = true; document.getElementById('playicon').textContent='▶'; stepBy(-1/30); });
+document.getElementById('stepf').addEventListener('click', () => { paused = true; document.getElementById('playicon').textContent='▶'; stepBy(1/30); });
+
+function syncBar() {
+  if (!action) return;
+  const d = action.getClip().duration || 0;
+  const t = d ? (action.time % d) : 0;
+  fillEl.style.width = (d ? t/d*100 : 0) + '%';
+  codeEl.textContent = t.toFixed(2) + ' / ' + d.toFixed(2);
+}
+
+function frame(dt) {
+  if (mixer && !paused) mixer.update(dt);
+  updateFollow(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  syncBar();
+}
+(function tick(){ requestAnimationFrame(tick); frame(clock.getDelta()); })();
+
+// 백그라운드 탭에서 rAF 가 멈출 때 밖에서 프레임을 밀어 넣기 위한 디버그 훅
+window.__dbg = { THREE, step: dt => frame(dt || 1/30), get cur(){return cur;}, get action(){return action;}, camera, controls };
+
+resize(); apply();
+document.querySelector('#models button').classList.add('active');
+load(ORIG[0].url, ORIG[0].label + ' (원본)');
+</script>
+</body>
+</html>

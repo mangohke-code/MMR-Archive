@@ -21,6 +21,7 @@
     // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
     collapseFrame();
     document.getElementById('frames-sort-btn').addEventListener('click', toggleFramesAttrSort);
+    wireFramesDrawers();
   }
 
   // 보스의 약점 속성 아이콘. 니케 쪽에서 쓰는 우월코드 아이콘을 그대로 재사용한다
@@ -108,6 +109,29 @@
     renderFramesSelector(allFramesData);
   }
 
+  // 보스 목록과 상세 정보는 평소에 접어 두고 오른쪽 세로 버튼으로 연다.
+  // 둘 다 열면 3D 구역이 너무 좁아져서 한 번에 하나만 열리게 한다.
+  function wireFramesDrawers() {
+    const layout = document.getElementById('frames-layout');
+    const pairs = [
+      ['frames-drawer-list', 'list-open'],
+      ['frames-drawer-info', 'info-open'],
+    ];
+    pairs.forEach(([id, cls]) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const open = !layout.classList.contains(cls);
+        pairs.forEach(([id2, cls2]) => {
+          layout.classList.toggle(cls2, cls2 === cls ? open : false);
+          const b2 = document.getElementById(id2);
+          if (b2) b2.setAttribute('aria-expanded', String(cls2 === cls ? open : false));
+        });
+        syncFramesSelectorHeight();
+      });
+    });
+  }
+
   // 세로 목록은 오른쪽(모델+테두리) 높이에 맞춰 늘어나는데, 테두리가 적은 보스는 그
   // 높이가 화면 중간에서 끝나 버린다. 최소한 화면 아래까지는 닿게 해서 한 번에 보이는
   // 보스 수를 늘린다. 창 크기가 바뀌면 다시 잰다.
@@ -143,7 +167,12 @@
 
     document.getElementById('frames-top').classList.remove('hidden');
     // 상세가 열리면 보스 목록을 왼쪽 세로 열로 바꾼다(CSS 가 처리)
-    document.getElementById('frames-layout').classList.add('is-detail-open');
+    const layoutEl = document.getElementById('frames-layout');
+    layoutEl.classList.add('is-detail-open');
+    // 고른 직후에는 목록을 접어서 3D 를 바로 크게 보여 준다
+    layoutEl.classList.remove('list-open');
+    const listBtn = document.getElementById('frames-drawer-list');
+    if (listBtn) listBtn.setAttribute('aria-expanded', 'false');
     document.querySelectorAll('.frames-item').forEach(el => {
       el.classList.toggle('active', allFramesData[el.dataset.idx] === item);
     });
