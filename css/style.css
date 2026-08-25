@@ -4965,6 +4965,9 @@
   #f3d-home.hidden, #f3d-app.hidden { display: none; }
 
   /* ── 앱 뼈대: 사이드바 | 무대 | 서랍 ───────────────────────────── */
+  /* 재생 진행 채움 — 강조색을 옅게. 라이트/다크 어디서도 글자가 묻히지 않을 정도로만. */
+  #f3d-app { --anim-fill: rgba(109, 140, 255, 0.30); }
+
   #f3d-app {
     display: flex;
     height: 100%;
@@ -5095,6 +5098,33 @@
     background: var(--bg-panel-alt);
     color: var(--text-body);
     cursor: pointer;
+  }
+
+  /* 묶음 강조선은 #f3d-side .frames-anim-btn 의 border 단축 속성에 덮인다.
+     같은 id 수준으로 다시 지정해야 살아난다. */
+  #f3d-side .frames-anim-btn.is-seq {
+    border-left: 3px solid var(--border-accent);
+    font-weight: 700;
+  }
+
+  #f3d-side .frames-anim-btn.is-child {
+    margin-left: 12px;
+    width: calc(100% - 12px);
+    font-size: 11px;
+    color: var(--text-muted);
+    border-left: 2px solid var(--border-subtle);
+  }
+
+  /* 지금 도는 클립은 재생바처럼 왼쪽부터 색이 차오른다.
+     --anim-progress 는 매 프레임 JS 가 넣어 준다. */
+  #f3d-side .frames-anim-btn.playing {
+    background-image: linear-gradient(
+      to right,
+      var(--anim-fill) var(--anim-progress, 0%),
+      transparent var(--anim-progress, 0%)
+    );
+    border-color: var(--border-accent);
+    color: var(--text-heading);
   }
 
   #f3d-side .frames-model-btn.active,

@@ -317,7 +317,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
   let mixer = null;
   const clock = new THREE.Clock();
-  let initialCamPos = null;
+  // 홈(시점 초기화로 돌아갈 자리)과 추적 기준을 따로 둔다.
+  // 예전에는 하나로 썼는데, 팬을 할 때마다 추적 기준을 새로 잡느라 홈까지 같이
+  // 옮겨져서 "시점 초기화" 가 팬한 자리로 돌아왔다.
+  let homeCamPos = null;
+  let homeTarget = null;
   let initialTarget = null;
 
   loader.load(modelUrl, (gltf) => {
@@ -395,6 +399,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const b = document.getElementById('f3d-' + k + 'v');
         if (b) b.textContent = SL[k].value;
       });
+      markFaceButtons();
       const out = document.getElementById('f3d-out');
       if (out) {
         out.value = 'rotation: [' + SL.pitch.value + ', ' + SL.yaw.value + ', ' + SL.roll.value + '],\n'
@@ -415,6 +420,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         applySliders();
       };
     });
+
+    // 지금 yaw 와 맞는 방향 버튼에 불을 켠다. 슬라이더를 직접 돌려 어긋나면 다 꺼진다.
+    function markFaceButtons() {
+      const cur = SL.yaw ? Number(SL.yaw.value) : null;
+      document.querySelectorAll('.f3d-face').forEach(b => {
+        b.classList.toggle('active', cur !== null && Number(b.dataset.yaw) === cur);
+      });
+    }
 
     // 격자/축 — 바닥과 정면을 눈으로 잡을 때
     const gridHelper = new THREE.Group();
@@ -753,7 +766,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
     }
 
-    initialCamPos = camera.position.clone();
+    homeCamPos = camera.position.clone();
+    homeTarget = controls.target.clone();
     initialTarget = controls.target.clone();
 
     // 카메라 추적 — 등장·사망 연출은 리그를 통째로 옮긴다. 게임에서도 카메라가 같이
@@ -908,8 +922,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     if (resetBtn) {
       resetBtn.onclick = () => {
         if (container.__framesModel3D !== state) return;
-        camera.position.copy(initialCamPos);
-        controls.target.copy(initialTarget);
+        camera.position.copy(homeCamPos);
+        controls.target.copy(homeTarget);
+        // 팬으로 옮겨둔 추적 기준도 홈으로 되돌린다
+        initialTarget.copy(homeTarget);
         if (focusMesh) rigCenter(focusMesh, followBase);
         controls.update();
       };
@@ -940,8 +956,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 지금 실제로 도는 클립. 묶음을 재생하면 소속 클립에 차례로 불이 들어온다.
     function markPlayingClip(name) {
-      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn')
-        .forEach(b => b.classList.toggle('playing', b.dataset.key === name));
+      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(b => {
+        const on = b.dataset.key === name;
+        b.classList.toggle('playing', on);
+        if (!on) b.style.removeProperty('--anim-progress');
+      });
     }
 
     const animEl = document.getElementById('frames-anim-toggle');
@@ -1134,11 +1153,16 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     }
 
     function syncBar() {
-      if (!fillEl || !currentAction) return;
+      if (!currentAction) return;
       const dur = currentAction.getClip().duration || 0;
       const t = dur ? (currentAction.time % dur) : 0;
-      fillEl.style.width = (dur ? (t / dur) * 100 : 0) + '%';
+      const pct = dur ? (t / dur) * 100 : 0;
+      if (fillEl) fillEl.style.width = pct + '%';
       if (codeEl) codeEl.textContent = t.toFixed(2) + ' / ' + dur.toFixed(2);
+
+      // 지금 도는 클립 버튼도 재생바처럼 색이 차오른다. 글자색만으로는 눈에 안 띈다.
+      const pb = document.querySelector('#frames-anim-toggle .frames-anim-btn.playing');
+      if (pb) pb.style.setProperty('--anim-progress', pct.toFixed(1) + '%');
     }
 
     // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
