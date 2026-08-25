@@ -1182,16 +1182,30 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       markPlayingClip(clip.name);
     }
 
+    // finished 는 mixer.update() 안에서 터진다. 그 자리에서 곧바로 다음 클립으로
+    // 갈아타면, 포즈를 되돌린 직후 아직 돌고 있던 옛 믹서가 마지막 자세를 다시
+    // 덮어쓴다(clampWhenFinished 로 끝 자세를 붙들고 있어서 더 그렇다).
+    // 그러면 새 클립이 건드리지 않는 본은 앞 클립 자세로 굳는다 —
+    // 검은 뱀은 등장 연출 뒤 몸집이 5배로 남았다(0.94 -> 4.81).
+    // 그래서 여기서는 예약만 하고, 실제 교체는 다음 프레임 첫머리에서 한다.
+    let pendingNext = null;
+
     function onClipFinished() {
       if (seqQueue.length) {
         const step = seqQueue.shift();
-        playClipObject(step.clip, { repeat: step.repeat, keepQueue: true });
+        pendingNext = () => playClipObject(step.clip, { repeat: step.repeat, keepQueue: true });
         return;
       }
       const idle = findIdleClipForPhase(currentPhase);
-      // 포즈를 초기화하면 1페이즈 모습으로 돌아가므로 상태도 같이 맞춘다.
       shownPhase = null;
-      if (idle) playSingle(idle);
+      if (idle) pendingNext = () => playSingle(idle);
+    }
+
+    function runPendingNext() {
+      if (!pendingNext) return;
+      const fn = pendingNext;
+      pendingNext = null;
+      fn();
     }
 
     function playSequence(seq) {
@@ -1603,6 +1617,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
     state.step = (dt) => {
+      // 예약된 클립 교체를 먼저 처리한다(옛 믹서가 이미 멈춘 뒤라 안전하다)
+      runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
       if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
       updateFollow(dt);
