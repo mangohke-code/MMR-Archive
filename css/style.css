@@ -5238,6 +5238,21 @@
     gap: 10px;
   }
 
+  /* 발광색 고르기 */
+  #frames-glow-toggle .f3d-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  #frames-glow-toggle .f3d-btn i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 4px currentColor;
+  }
+
   /* 부위 묶음 */
   .part-group { display: flex; flex-direction: column; gap: 2px; }
 

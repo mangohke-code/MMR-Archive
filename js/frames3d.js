@@ -106,6 +106,20 @@ function getBossTransform(bossCode, isCatalogExport) {
   };
 }
 
+// 보스 패턴에 따라 바뀌는 발광색.
+// 원본 셰이더의 _GlowColor 는 HDR 이라 최대 성분이 1 을 넘는다. 내보내기가 그 최대값을
+// 강도(KHR_materials_emissive_strength)로 빼내고 색을 정규화하므로 여기서도 같은 형식으로 적는다.
+//   파랑   (0,      0.8376, 2.7922)
+//   보라   (0.7495, 0,      2.7922)
+//   노랑   (2.7922, 1.3961, 0)
+const GLOW_PRESETS = [
+  { key: 'off',    label: '없음' },
+  { key: 'file',   label: '원본' },
+  { key: 'blue',   label: '파랑',  rgb: [0, 0.300, 1], strength: 2.79, css: '#00A8FF' },
+  { key: 'purple', label: '보라',  rgb: [0.268, 0, 1], strength: 2.79, css: '#8E00FF' },
+  { key: 'yellow', label: '노랑',  rgb: [1, 0.500, 0], strength: 2.79, css: '#FFB000' },
+];
+
 // 사망 연출에서 떨어져 나가는 파편 본. 화면 잡기·카메라 추적 기준에서 뺀다.
 const DEBRIS_BONE_RE = /twp/i;
 
@@ -532,9 +546,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 이게 실제 조명/텍스처 명암과 무관하게 표면 전체에 균일한 회색을 더해버려서
         // 어두운 톤의 보스가 반투명한 것처럼 뿌옇게 보이는 원인이었다 - 원본 FBX 뷰어에는
         // 없는 값이라 강제로 꺼둔다.
-        // 신형 추출본은 발광색을 제대로 넣어 준다(_GlowColor -> emissiveFactor).
-        // 지우면 빛나야 할 파츠가 죽으므로 구형에만 적용한다.
-        if (!isCatalogExport && m.emissive) m.emissive.setRGB(0, 0, 0);
+        // 구형은 FBX2glTF 가 박아 넣은 회색 emissive 를 지운다.
+        // 신형은 실제 발광색이라 보존하되, 원본 값을 따로 기억해 둔다 —
+        // 화면에는 기본으로 끄고 사용자가 고를 때 되살린다.
+        if (!isCatalogExport) {
+          if (m.emissive) m.emissive.setRGB(0, 0, 0);
+        } else if (m.emissive && (m.emissive.r || m.emissive.g || m.emissive.b)) {
+          m.userData.glowColor = m.emissive.clone();
+          m.userData.glowStrength = m.emissiveIntensity;
+        }
         // 재질 이름이 fx_ 로 시작하거나 메쉬 이름이 _fx 로 끝나면 발광·이펙트용이다.
         // 불투명으로 강제하면 빛나야 할 파츠가 판때기로 보인다.
         const isGlow = /^fx_/i.test(m.name || '') || /_fx(_\d+)?$/i.test(obj.name || '');
@@ -1253,6 +1273,61 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       lineEl.addEventListener('pointercancel', stop);
     }
     state.seekToRatio = seekToRatio;
+
+    // ── 발광색 ─────────────────────────────────────────────────────
+    // 기본은 꺼둔다. 파츠 자체는 그대로 보이고 빛만 안 낸다.
+    // "원본" 은 파일에 든 값, 나머지는 패턴별 색으로 바꿔 칠한다.
+    const glowMats = [];
+    meshes.forEach(m => [].concat(m.material).forEach(mt => {
+      if (mt.userData && mt.userData.glowColor && !glowMats.includes(mt)) glowMats.push(mt);
+    }));
+
+    // 패턴에 따라 색이 바뀌는 건 fresnel 계열이다. 그런 재질이 없으면 전부에 칠한다.
+    const patternMats = glowMats.filter(mt => /fresnel/i.test(mt.name || ''));
+    const paintTargets = patternMats.length ? patternMats : glowMats;
+
+    let glowMode = 'off';
+
+    function applyGlow() {
+      glowMats.forEach(mt => {
+        const orig = mt.userData.glowColor;
+        if (glowMode === 'off') {
+          mt.emissive.setRGB(0, 0, 0);
+        } else if (glowMode === 'file' || !paintTargets.includes(mt)) {
+          mt.emissive.copy(orig);
+          mt.emissiveIntensity = mt.userData.glowStrength;
+        } else {
+          const p = GLOW_PRESETS.find(x => x.key === glowMode);
+          if (p && p.rgb) {
+            mt.emissive.setRGB(p.rgb[0], p.rgb[1], p.rgb[2]);
+            mt.emissiveIntensity = p.strength;
+          }
+        }
+        mt.needsUpdate = true;
+      });
+      document.querySelectorAll('#frames-glow-toggle .f3d-btn')
+        .forEach(b => b.classList.toggle('active', b.dataset.glow === glowMode));
+    }
+
+    const glowEl = document.getElementById('frames-glow-toggle');
+    if (glowEl) {
+      if (!glowMats.length) {
+        glowEl.innerHTML = '';
+      } else {
+        glowEl.innerHTML = GLOW_PRESETS.map(p =>
+          `<button type="button" class="f3d-btn f3d-glow-btn${p.key === 'off' ? ' active' : ''}" data-glow="${p.key}">`
+          + (p.css ? `<i style="background:${p.css}"></i>` : '') + p.label + '</button>'
+        ).join('');
+        glowEl.querySelectorAll('.f3d-btn').forEach(b => {
+          b.addEventListener('click', () => {
+            if (container.__framesModel3D !== state) return;
+            glowMode = b.dataset.glow;
+            applyGlow();
+          });
+        });
+      }
+      applyGlow();
+    }
 
     // 조작 패널 토글 연결
     applySliders();
