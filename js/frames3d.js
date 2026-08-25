@@ -113,11 +113,11 @@ function getBossTransform(bossCode, isCatalogExport) {
 //   보라   (0.7495, 0,      2.7922)
 //   노랑   (2.7922, 1.3961, 0)
 const GLOW_PRESETS = [
-  { key: 'off',    label: '없음' },
-  { key: 'file',   label: '원본' },
-  { key: 'blue',   label: '파랑',  rgb: [0, 0.300, 1], strength: 2.79, css: '#00A8FF' },
-  { key: 'purple', label: '보라',  rgb: [0.268, 0, 1], strength: 2.79, css: '#8E00FF' },
-  { key: 'yellow', label: '노랑',  rgb: [1, 0.500, 0], strength: 2.79, css: '#FFB000' },
+  // 평소 모습이 기본이다. 파랑·보라·노랑은 보스 패턴 중에만 켜지는 색.
+  { key: 'off',    label: '원본' },
+  { key: 'blue',   label: '파랑',  rgb: [0, 0.300, 1], css: '#00A8FF' },
+  { key: 'purple', label: '보라',  rgb: [0.268, 0, 1], css: '#8E00FF' },
+  { key: 'yellow', label: '노랑',  rgb: [1, 0.500, 0], css: '#FFB000' },
 ];
 
 // 원본 셰이더의 프레넬 감쇠(_GlowPower)를 표준 재질에 얹는다.
@@ -375,13 +375,23 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   // 그래서 ambient는 낮게 유지한 채(검정을 검정으로 두려고) 방향광만 크게 올린다.
   // 이 값에서 백빙룡 71 → 109, 검은 뱀 29 → 47 로 올라가고, 흰색이 날아가는 픽셀은
   // 1% 미만이라 하이라이트도 뭉개지지 않는다.
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  // 조명은 모델을 읽은 뒤 종류에 맞게 세운다(setupLights).
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
   const dirLight = new THREE.DirectionalLight(0xffffff, 4.0);
   dirLight.position.set(1, 2, 1);
-  scene.add(dirLight);
   const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.6);
   dirLight2.position.set(-1, 0.5, -1);
-  scene.add(dirLight2);
+  scene.add(ambientLight, dirLight, dirLight2);
+
+  // 위 숫자들은 구형(FBX 변환) 모델을 눈으로 맞춰 가며 올린 값이다 — 그 모델들은
+  // 재질이 뿌옇게 나와서 방향광을 세게 줘야 형태가 보였다. 신형은 텍스처와 발광이
+  // 제대로 들어오므로 그 보정이 오히려 과하다. 중립적인 값으로 되돌린다.
+  function setupLights(isCatalogExport) {
+    if (!isCatalogExport) return;
+    ambientLight.intensity = 1.0;
+    dirLight.intensity = 1.4;
+    dirLight2.intensity = 0.6;
+  }
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -442,6 +452,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     pitchGroup.add(normGroup);
     yawGroup.add(pitchGroup);
     scene.add(yawGroup);
+
+    setupLights(isCatalogExport);
 
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
@@ -582,8 +594,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (!isCatalogExport) {
           if (m.emissive) m.emissive.setRGB(0, 0, 0);
         } else if (m.emissive && (m.emissive.r || m.emissive.g || m.emissive.b)) {
-          m.userData.glowColor = m.emissive.clone();
-          m.userData.glowStrength = m.emissiveIntensity;
+          // 재질 하나를 여러 메쉬가 나눠 쓰기 때문에 이 블록이 재질마다 여러 번 돈다.
+          // 나눗셈을 그때마다 하면 밝기가 계속 깎인다(5.584 -> 0.087 까지 내려갔었다).
+          if (!m.userData.glowColor) {
+            // 내보내기는 강도에 _BloomIntensity 를 곱해서 준다. 그건 Unity 의 블룸
+            // 후처리를 전제한 값이라, 후처리가 없는 이 뷰어에서 그대로 쓰면 하얗게 뜬다.
+            // 도로 나눠서 셰이더의 HDR 최대값만 남긴다.
+            const bloom = (m.userData.unity && m.userData.unity._BloomIntensity) || 1;
+            m.emissiveIntensity = m.emissiveIntensity / bloom;
+            m.userData.glowColor = m.emissive.clone();
+            m.userData.glowStrength = m.emissiveIntensity;
+          }
         }
         // 재질 이름이 fx_ 로 시작하거나 메쉬 이름이 _fx 로 끝나면 발광·이펙트용이다.
         // 불투명으로 강제하면 빛나야 할 파츠가 판때기로 보인다.
@@ -1330,16 +1351,16 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyGlow() {
       glowMats.forEach(mt => {
         const orig = mt.userData.glowColor;
-        if (glowMode === 'off') {
-          mt.emissive.setRGB(0, 0, 0);
-        } else if (glowMode === 'file' || !paintTargets.includes(mt)) {
+        if (glowMode === 'off' || !paintTargets.includes(mt)) {
+          // 평소 모습 — 파일에 든 색 그대로
           mt.emissive.copy(orig);
           mt.emissiveIntensity = mt.userData.glowStrength;
         } else {
           const p = GLOW_PRESETS.find(x => x.key === glowMode);
           if (p && p.rgb) {
+            // 색만 바꾸고 세기는 그 재질의 원래 값을 쓴다
             mt.emissive.setRGB(p.rgb[0], p.rgb[1], p.rgb[2]);
-            mt.emissiveIntensity = p.strength;
+            mt.emissiveIntensity = mt.userData.glowStrength;
           }
         }
         mt.needsUpdate = true;
