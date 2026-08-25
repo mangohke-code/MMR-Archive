@@ -114,17 +114,22 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// 압축본(KHR_draco_mesh_compression)을 읽으려면 필요하다
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 
 const ORIG = [
   { label:'1페이즈', url:'img/boss/xba003_1phase.glb' },
   { label:'2페이즈', url:'img/boss/xba003_2phase.glb' },
-  { label:'구체',    url:'img/boss/xba003_sphere.glb' },
+  { label:'프로비던스', url:'img/boss/xbg002.glb' },
 ];
 const MIN = [
   { label:'1페이즈', url:'img/boss/xba003_1phase_min.glb' },
   { label:'2페이즈', url:'img/boss/xba003_2phase_min.glb' },
-  { label:'구체',    url:'img/boss/xba003_sphere_min.glb' },
+  { label:'프로비던스', url:'img/boss/xbg002_min.glb' },
 ];
 
 const view = document.getElementById('view');
@@ -253,7 +258,9 @@ function clearModel() {
 function load(url, label) {
   clearModel();
   hud.textContent = label + ' 로딩 중…';
-  new GLTFLoader().load(url, gltf => {
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+  loader.load(url, gltf => {
     const meshes = [];
     gltf.scene.traverse(o => {
       if (!o.isMesh) return;
