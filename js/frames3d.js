@@ -559,9 +559,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 불투명으로 강제하면 빛나야 할 파츠가 판때기로 보인다.
         const isGlow = /^fx_/i.test(m.name || '') || /_fx(_\d+)?$/i.test(obj.name || '');
         if (isGlow) {
+          // 원본은 프레넬(테두리) 발광 셰이더다. 표준 재질로 그대로 그리면 회색 껍데기가
+          // 몸체를 통째로 덮어서 "그래픽 깨진 것처럼" 보인다.
+          // 가산 합성으로 바꿔서 빛을 더하기만 하게 한다 — 발광을 끄면 아무것도 안 보인다.
           m.transparent = true;
           m.depthWrite = false;
           m.alphaTest = 0;
+          m.blending = THREE.AdditiveBlending;
+          // 바탕색은 빼고(가산이라 그대로 두면 회색이 더해진다) 흑백 텍스처를 발광 마스크로
+          // 돌려서, 텍스처의 명암 그라디언트가 빛의 세기 분포가 되게 한다.
+          if (m.color) m.color.setRGB(0, 0, 0);
+          if (m.map && !m.emissiveMap) m.emissiveMap = m.map;
         } else {
           m.transparent = false;
           m.depthWrite = true;
