@@ -218,7 +218,7 @@ function disposeState(container) {
     phaseToggleEl.innerHTML = '';
     phaseToggleEl.classList.add('hidden');
   }
-  ['frames-anim-toggle', 'frames-anim-extra'].forEach(id => {
+  ['frames-anim-toggle'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
   });
@@ -933,13 +933,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 바깥 const 로 잡아두면 TDZ 에 걸린다 — 부를 때마다 직접 찾는다.
     function markActiveClip(key) {
       if (key !== undefined) activeMainKey = key;
-      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn')
-        .forEach(b => b.classList.toggle('active', activeMainKey !== null && b.dataset.key === activeMainKey));
+      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(b => {
+        b.classList.toggle('active', activeMainKey !== null && b.dataset.key === activeMainKey);
+      });
     }
 
+    // 지금 실제로 도는 클립. 묶음을 재생하면 소속 클립에 차례로 불이 들어온다.
     function markPlayingClip(name) {
-      document.querySelectorAll('#frames-anim-extra .frames-anim-btn')
-        .forEach(b => b.classList.toggle('active', b.dataset.key === name));
+      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn')
+        .forEach(b => b.classList.toggle('playing', b.dataset.key === name));
     }
 
     const animEl = document.getElementById('frames-anim-toggle');
@@ -961,42 +963,50 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 파츠 표시와 어긋난다. 신형 추출본에서만 목록을 낸다.
       if (isCatalogExport && clips.length > 1) {
         animEl.classList.remove('hidden');
-        const ex0 = document.getElementById('frames-anim-extra');
-        if (ex0) ex0.classList.remove('hidden');
 
-        // 테스트 뷰어와 같은 나눔.
-        //  연결 재생 = idle(맨 앞) + start/loop/end 묶음 + death 같은 단발 연출
-        //  개별 클립 = 파일에 든 클립 전부 (묶음에 들어간 것도 낱개로 볼 수 있어야 한다)
-        // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니다. 개별 클립에만 둔다.
+        // 묶음과 그 구성 클립을 한 목록에 계층으로 편다.
+        //   idle                 <- 단독
+        //   groggy               <- 묶음(왼쪽 세로 강조선)
+        //     groggy_start       <- 그 묶음에 속한 클립, 들여쓰기
+        //     groggy_loop
+        //     groggy_end
+        //   death                <- 단독
+        // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니라 단독 클립이다.
         const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '') && !/skill/i.test(c.name || '');
         const isSolo = c => /(^|_)(death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
         const secs = n => n.toFixed(2) + 's';
+        const inSeq = new Set();
+        seqs.forEach(sq => sq.steps.forEach(st => inSeq.add(st.clip.name)));
 
-        const mainBtns = []
-          .concat(clips.filter(isIdle).map(c => ({ key: c.name, text: label(c.name), time: secs(c.duration) })))
-          .concat(seqs.map(sq => ({
-            key: sq.key,
-            text: label(sq.label),
-            // 묶음은 각 단계 길이의 합(루프는 반복 횟수만큼)
-            time: secs(sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0)),
-            seq: true,
-          })))
-          .concat(clips.filter(isSolo).map(c => ({ key: c.name, text: label(c.name), time: secs(c.duration) })));
+        const mkBtn = (key, text, time, cls) =>
+          `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}" data-key="${key}">`
+          + `<span class="anim-name">${text}</span><span class="anim-time">${time}</span></button>`;
 
-        const restBtns = clips.map(c => ({ key: c.name, text: label(c.name), time: secs(c.duration) }));
+        const parts = [];
+        // 1) 대기 동작
+        clips.filter(isIdle).forEach(c => parts.push(mkBtn(c.name, label(c.name), secs(c.duration))));
+        // 2) 묶음 + 소속 클립
+        seqs.forEach(sq => {
+          const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
+          parts.push(mkBtn(sq.key, label(sq.label), secs(total), 'is-seq'));
+          // 같은 클립이 두 번 들어가는 묶음(루프)이 있어서 이름 기준으로 한 번만 늘어놓는다
+          const seen = new Set();
+          sq.steps.forEach(st => {
+            if (seen.has(st.clip.name)) return;
+            seen.add(st.clip.name);
+            parts.push(mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child'));
+          });
+        });
+        // 3) 어느 묶음에도 안 들어간 나머지(단독 연출 + 그 외)
+        clips.forEach(c => {
+          if (inSeq.has(c.name) || isIdle(c)) return;
+          parts.push(mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'));
+        });
 
-        // 이름과 시간을 한 덩어리로 두면 길이가 제각각이라 지저분하다. 시간은 오른쪽으로 민다.
-        const row = list => list.map(b =>
-          `<button type="button" class="f3d-btn frames-anim-btn${b.seq ? ' is-seq' : ''}" data-key="${b.key}">`
-          + `<span class="anim-name">${b.text}</span><span class="anim-time">${b.time}</span></button>`
-        ).join('');
+        animEl.innerHTML = parts.join('');
 
-        animEl.innerHTML = row(mainBtns);
-        const extraEl = document.getElementById('frames-anim-extra');
-        if (extraEl) extraEl.innerHTML = row(restBtns);
-
-        document.querySelectorAll('#frames-anim-toggle .frames-anim-btn, #frames-anim-extra .frames-anim-btn').forEach(btn => {
+        document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             if (container.__framesModel3D !== state) return;
             const key = btn.dataset.key;

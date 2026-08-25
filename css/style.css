@@ -4954,7 +4954,9 @@
     padding: 16px 20px 24px;
   }
 
-  #f3d-home #frames-selector {
+  /* 속성별 정렬은 자기 규칙(5열 그리드)을 쓰므로 건드리지 않는다.
+     이 flex 를 무조건 걸어두면 열이 무너진다. */
+  #f3d-home #frames-selector:not(.is-attr-sorted) {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
@@ -5103,7 +5105,30 @@
     color: var(--text-on-accent);
     font-weight: 700;
   }
-  .f3d-col .f3d-btn.is-seq { border-left: 3px solid var(--border-accent); font-weight: 700; }
+  /* 묶음은 왼쪽에 세로 강조선 */
+  .f3d-col .f3d-btn.is-seq {
+    border-left: 3px solid var(--border-accent);
+    font-weight: 700;
+  }
+
+  /* 묶음에 속한 클립은 한 칸 들여쓴다 */
+  .f3d-col .f3d-btn.is-child {
+    margin-left: 12px;
+    width: calc(100% - 12px);
+    font-size: 11px;
+    color: var(--text-muted);
+    border-left: 2px solid var(--border-subtle);
+  }
+
+  .f3d-col .f3d-btn.is-extra { color: var(--text-muted); }
+
+  /* 지금 실제로 도는 클립 — 고른 항목(active)과 구분해서 옅게 칠한다 */
+  .f3d-col .f3d-btn.playing:not(.active) {
+    border-color: var(--border-accent);
+    color: var(--text-heading);
+  }
+
+  .f3d-col .f3d-btn.playing:not(.active) .anim-time { opacity: 1; color: var(--border-accent); }
 
   .f3d-sl { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; }
   .f3d-sl span:first-child { width: 44px; flex: none; color: var(--text-muted); }
@@ -5343,18 +5368,24 @@
     gap: 6px;
   }
 
+  #f3d-drawer-selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
   #f3d-drawer .frames-item {
     width: 100%;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px;
   }
 
+  #f3d-drawer .frames-item-text { text-align: center; }
+  #f3d-drawer .frames-item-season { font-size: 10px; }
+  #f3d-drawer .frames-item-boss { font-size: 12px; }
+
   #f3d-drawer .frames-item-img {
-    width: 64px;
-    height: 64px;
-    flex: none;
+    width: 100%;
+    height: auto;
     aspect-ratio: 1 / 1;
     overflow: hidden;
     border-radius: var(--radius-md);
