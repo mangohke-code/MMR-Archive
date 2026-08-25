@@ -401,7 +401,8 @@ function findTrios(clips) {
 
 // 클립 이름에 붙은 페이즈 번호. "xbg005_2phase_idle_01" -> "2"
 function clipPhase(name) {
-  const m = (name || '').match(/(?:^|_)(\d)phase_/i);
+  // 페이즈 태그가 이름 끝에 오는 보스가 있다 — 온리 원은 idle_1phase / idle_2phase 다.
+  const m = (name || '').match(/(?:^|_)(\d)phase(?:_|$)/i);
   return m ? m[1] : null;
 }
 
@@ -917,14 +918,24 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 이 클립을 재생하기 전에 어떤 자세로 되돌려야 하는지.
     function poseFor(clipName) {
+      // 전환 클립 자신은 전환 "전" 자세에서 시작해야 한다. 이름에 2phase 가 들어 있어서
+      // (프로비던스 xbg002_2phase, 온리 원 xbg003_2phase_change) 그냥 두면 자기 끝
+      // 자세에서 시작하게 된다.
+      if (phaseChangeClip && clipName === phaseChangeClip.name) return basePose;
       const p = clipPhase(clipName);
       return (phaseEndPose && p && p !== '1') ? phaseEndPose : basePose;
     }
 
     const phaseConfig = getPhaseConfig(bossCode);
+    // 신형 추출본은 보통 파일 하나가 곧 페이즈 하나다. 그런데 온리 원처럼 한 파일에
+    // 1·2 페이즈가 다 든 보스가 있다. 메쉬 이름만으로는 구분이 안 된다 —
+    // 애니힐리오 2페이즈 파일에도 1phase_magiccarpet 메쉬가 들어 있는데 그건 2페이즈에서
+    // 쓰는 파츠다. 클립 쪽을 보면 정확하다: 그 파일은 2페이즈 클립만 갖고 있고,
+    // 온리 원은 1·2 페이즈 클립을 둘 다 갖고 있다.
+    const clipPhaseKeys = new Set((gltf.animations || []).map(c => clipPhase(c.name)).filter(Boolean));
+    const singleFilePhases = clipPhaseKeys.size > 1;
     const phaseGroups = {};
-    // 신형 추출본은 파일 하나가 곧 페이즈 하나라 이름 기반 분류를 하지 않는다.
-    if (!isCatalogExport) {
+    if (!isCatalogExport || singleFilePhases) {
       meshes.forEach(m => {
         const p = meshPhase(m.name);
         if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
@@ -937,7 +948,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 신형 추출본은 파일 하나가 곧 페이즈 하나라, 메쉬 이름의 phase 태그를 무시해야 한다.
     // 이걸 빼먹으면 2페이즈 파일의 "2phase_" 파츠들이 currentPhase(null) 와 비교돼
     // 전부 숨겨진다 — 실제로 11개 중 6개가 사라졌었다.
-    const phaseOf = (name) => (isCatalogExport ? null : meshPhase(name));
+    const phaseOf = (name) => ((isCatalogExport && !singleFilePhases) ? null : meshPhase(name));
 
     const isPhaseVisible = (p, current) => {
       if (p === null) return true;
