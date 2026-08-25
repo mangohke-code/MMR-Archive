@@ -532,7 +532,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 이게 실제 조명/텍스처 명암과 무관하게 표면 전체에 균일한 회색을 더해버려서
         // 어두운 톤의 보스가 반투명한 것처럼 뿌옇게 보이는 원인이었다 - 원본 FBX 뷰어에는
         // 없는 값이라 강제로 꺼둔다.
-        if (m.emissive) m.emissive.setRGB(0, 0, 0);
+        // 신형 추출본은 발광색을 제대로 넣어 준다(_GlowColor -> emissiveFactor).
+        // 지우면 빛나야 할 파츠가 죽으므로 구형에만 적용한다.
+        if (!isCatalogExport && m.emissive) m.emissive.setRGB(0, 0, 0);
         // 재질 이름이 fx_ 로 시작하거나 메쉬 이름이 _fx 로 끝나면 발광·이펙트용이다.
         // 불투명으로 강제하면 빛나야 할 파츠가 판때기로 보인다.
         const isGlow = /^fx_/i.test(m.name || '') || /_fx(_\d+)?$/i.test(obj.name || '');

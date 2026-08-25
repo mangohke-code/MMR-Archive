@@ -268,8 +268,12 @@ function load(url, label) {
       o.frustumCulled = false;   // 본이 멀리 가면 통째로 안 그려지는 것 방지
       [].concat(o.material).forEach(m => {
         m.side = THREE.DoubleSide;
-        if (m.emissive) m.emissive.setRGB(0,0,0);
+        // 신형 추출본은 발광색(_GlowColor)이 emissiveFactor 로 들어온다. 지우면 안 된다.
         m.userData.origAlphaTest = m.alphaTest;
+        if (/^fx_/i.test(m.name || '') || /_fx(_\d+)?$/i.test(o.name || '')) {
+          m.transparent = true; m.depthWrite = false; m.alphaTest = 0;
+          m.userData.glow = true;
+        }
       });
     });
     normG.add(gltf.scene);
@@ -395,7 +399,7 @@ function applyRenderFlags() {
   if (!cur) return;
   cur.meshes.forEach(m => [].concat(m.material).forEach(mt => {
     mt.wireframe = wire;
-    mt.alphaTest = noAlpha ? 0 : (mt.userData.origAlphaTest || 0);
+    if (!mt.userData.glow) mt.alphaTest = noAlpha ? 0 : (mt.userData.origAlphaTest || 0);
     mt.side = singleSide ? THREE.FrontSide : THREE.DoubleSide;
     mt.needsUpdate = true;
   }));
