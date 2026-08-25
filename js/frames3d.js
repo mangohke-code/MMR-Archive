@@ -9,6 +9,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
@@ -258,6 +259,27 @@ function findSequences(clips) {
     ? /^[a-z]{2,4}\d{3}_/i
     : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
   out.forEach(o => { o.label = o.key.replace(strip, ''); });
+  return out;
+}
+
+// 좌우 머리가 따로 있는 보스가 있다. 검은 뱀은 특정 패턴에서 양옆에 머리가 하나씩
+// 더 생겨 셋이 동시에 움직인다.
+//
+// 그 연출이 클립 세 벌로 들어 있다 — 가운데(이름 그대로), _left_, _right_.
+// 좌우 위치가 애니메이션 자체에 들어 있어서(Helper_Chain_Root 이동이 최대 147 만큼
+// 다르다) 모델을 셋 세워 각자 제 클립을 틀면 배치까지 그대로 재현된다.
+function findTrios(clips) {
+  const byName = new Map(clips.map(c => [c.name, c]));
+  const out = [];
+  clips.forEach(c => {
+    // "..._left_take2" 와 "..._leftfire_02" 두 꼴이 다 있다.
+    // 가운데 짝은 left 를 뺀 이름(appearance_take2 / skill_fire_02)이다.
+    const m = (c.name || '').match(/^(.*)_left(_?)(.*)$/i);
+    if (!m) return;
+    const center = byName.get(m[1] + '_' + m[3]);
+    const right = byName.get(m[1] + '_right' + m[2] + m[3]);
+    if (center && right) out.push({ center, left: c, right });
+  });
   return out;
 }
 
@@ -1083,6 +1105,49 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     let currentAction = null;
 
+    // 옆 머리(좌·우)를 그릴 복제본. 쓸 일이 있을 때 한 번만 만든다.
+    // 스킨드메쉬는 그냥 clone() 하면 뼈대가 원본을 가리켜서 같이 움직인다.
+    // SkeletonUtils.clone 이 뼈대까지 복제해 준다.
+    const sideRigs = [];
+
+    function ensureSideRigs() {
+      if (sideRigs.length) return sideRigs;
+      for (let i = 0; i < 2; i++) {
+        const root = cloneSkinned(gltf.scene);
+        root.visible = false;
+        normGroup.add(root);
+        sideRigs.push({ root, base: capturePose(root), mixer: null });
+      }
+      return sideRigs;
+    }
+
+    function hideSideRigs() {
+      sideRigs.forEach(r => {
+        r.root.visible = false;
+        if (r.mixer) { r.mixer.stopAllAction(); r.mixer = null; }
+        restorePose(r.base);
+      });
+    }
+
+    // 세 머리를 동시에 재생한다. 가운데는 본체가, 좌·우는 복제본이 맡는다.
+    function playTrio(trio) {
+      seqQueue = [];
+      const rigs = ensureSideRigs();
+      playClipObject(trio.center, { repeat: 1, keepQueue: true, keepSides: true });
+      [trio.left, trio.right].forEach((clip, i) => {
+        const r = rigs[i];
+        restorePose(r.base);
+        r.root.visible = true;
+        r.mixer = new THREE.AnimationMixer(r.root);
+        const act = r.mixer.clipAction(clip);
+        act.setLoop(THREE.LoopOnce, 1);
+        act.clampWhenFinished = true;
+        act.play();
+      });
+      markActiveClip(trio.center.name + '#trio');
+      markPlayingClip(trio.center.name);
+    }
+
     // 위쪽(연결 재생)은 지금 고른 항목을, 아래쪽(개별 클립)은 실제로 도는 클립을 켠다.
     // 묶음을 재생하면 start -> loop -> end 순서로 아래쪽에 차례로 불이 들어온다.
     // markActiveClip 이 호이스팅돼서 먼저 불리므로 선언은 여기 위쪽에 둔다.
@@ -1094,6 +1159,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function playClipObject(clip, opts) {
       opts = opts || {};
+      // 세 머리 재생이 아니면 옆 머리는 치운다
+      if (!opts.keepSides) hideSideRigs();
       // 앞 클립이 옮겨놓은 본을 원위치로. 믹서 교체만으로는 트랙 없는 본이 안 돌아온다.
       restorePose(poseFor(clip.name));
       // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
@@ -1280,6 +1347,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           return '지상';
         };
 
+        // 좌우 머리가 함께 나오는 연출은 하나로 묶는다. 낱개 좌·우 클립은 목록에서 뺀다
+        // — 혼자 틀어봐야 옆 머리 하나만 허공에서 움직인다.
+        const trios = findTrios(clips);
+        const trioSide = new Set();
+        trios.forEach(t => { trioSide.add(t.left.name); trioSide.add(t.right.name); });
+        const trioByCenter = new Map(trios.map(t => [t.center.name, t]));
+
         const bucket = {};
         GROUPS.forEach(g => { bucket[g] = []; });
         const push = (g, html) => { (bucket[g] || bucket['지상']).push(html); };
@@ -1300,7 +1374,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         });
         // 3) 나머지
         clips.forEach(c => {
-          if (inSeq.has(c.name) || isIdle(c)) return;
+          if (inSeq.has(c.name) || isIdle(c) || trioSide.has(c.name)) return;
+          const trio = trioByCenter.get(c.name);
+          if (trio) {
+            // 머리 셋이 동시에 나오는 연출
+            push(groupOf(c.name),
+              mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(c.duration), 'is-seq'));
+            return;
+          }
           push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'));
         });
 
@@ -1317,6 +1398,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           btn.addEventListener('click', () => {
             if (container.__framesModel3D !== state) return;
             const key = btn.dataset.key;
+            if (key.endsWith('#trio')) {
+              const t = trioByCenter.get(key.slice(0, -5));
+              if (t) playTrio(t);
+              return;
+            }
             const sq = seqs.find(x => x.key === key);
             if (sq) playSequence(sq);
             else {
@@ -1518,6 +1604,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
     state.step = (dt) => {
       if (mixer && !state.paused) mixer.update(dt);
+      if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
       updateFollow(dt);
       clampPan();
       controls.update();
