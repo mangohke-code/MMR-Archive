@@ -244,7 +244,8 @@ function findSequences(clips) {
   groups.forEach((g, key) => {
     if (!g.start || !(g.loop || g.end || g.fire)) return;
     const steps = [{ clip: g.start.clip, repeat: 1 }];
-    if (g.loop) steps.push({ clip: g.loop.clip, repeat: 2 });
+    // 루프를 몇 번 도는지는 파일에 없다(행동트리 영역). 스킬은 한 번, 그 외는 두 번.
+    if (g.loop) steps.push({ clip: g.loop.clip, repeat: /skill/i.test(key) ? 1 : 2 });
     if (g.fire) steps.push({ clip: g.fire.clip, repeat: 1 });
     if (g.end) steps.push({ clip: g.end.clip, repeat: 1 });
     out.push({ key, steps });
@@ -1393,10 +1394,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyGlow() {
       glowMats.forEach(mt => {
         const orig = mt.userData.glowColor;
-        if (glowMode === 'off' || !paintTargets.includes(mt)) {
-          // 평소 모습 — 파일에 든 색 그대로
+        if (!paintTargets.includes(mt)) {
+          // 패턴과 무관한 상시 발광(몸체 띠 등)은 늘 파일 값 그대로
           mt.emissive.copy(orig);
           mt.emissiveIntensity = mt.userData.glowStrength;
+        } else if (glowMode === 'off') {
+          // 평소 모습 — 패턴 색 파츠는 빛나지 않는다. 파일에 보라가 들어 있는 건
+          // 패턴 중 한 색일 뿐이라, 그걸 상시로 켜두면 늘 보라로 빛나 보인다.
+          // 꺼두면 아래 몸체가 그대로 비쳐서 head·weapon 과 같은 검은 금속이 된다.
+          mt.emissive.setRGB(0, 0, 0);
         } else {
           const p = GLOW_PRESETS.find(x => x.key === glowMode);
           if (p && p.rgb) {
