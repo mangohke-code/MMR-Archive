@@ -187,8 +187,14 @@ const FOCUS_NAME_RE = /(^|_)(body|head|torso|chest)(\d*)(_|$)/i;
 //  - 애니힐리오는 사망 연출에서 머리가 동체보다 2.3 위로 떠오른다. 동체(skin_2)를 잡아야 한다.
 //  - 검은 뱀은 동체가 몸 전체(209본)라 평균이 몸통 한가운데로 가고, 머리를 놓친다.
 // mesh: 추적 기준 메쉬 이름 / bone: 그 메쉬 안에서도 이 본들만 평균낸다.
+// 사람 몸통 골격(3ds Max Biped) + 이 보스가 따로 쓰는 가슴·목 본.
+// 팔다리에 매달린 무기·날개는 뺀다.
+const TORSO_BONE_RE = /(^|_)(bip\d*_(pelvis|spine\d*|neck\d*|head)|bust\d*|neckspi)/i;
+
 const FOCUS_OVERRIDES = [
-  { boss: /^xba003/i, mesh: /2phase_body_skin_2$/i },
+  // 애니힐리오: 사망 연출에서 무기 본(mwp/bwp 45개)이 떨어져 나가는데,
+  // 동체 메쉬의 본 93개를 그냥 평균내면 그쪽으로 끌려간다. 사람 몸통만 잡는다.
+  { boss: /^xba003/i, mesh: /2phase_body_skin_2$/i, bone: TORSO_BONE_RE },
   { boss: /^bbg008/i, bone: HEAD_BONE_RE },
 ];
 
@@ -262,16 +268,19 @@ function rigCenter(mesh, out, boneFilter) {
     return n;
   };
 
-  // 보스별로 본을 콕 집었으면 그게 곧 정답이다. 개수가 적다고 전체 평균으로
-  // 물러나면 안 된다 — 검은 뱀은 머리·턱 본 7개가 전부라, 예전에 "3개 미만이면
-  // 전체" 규칙에 걸려 몸통 한가운데로 끌려갔다.
-  // 기준 메쉬가 쓰는 본으로 좁히지 않는 것도 같은 이유다(그 메쉬는 턱 본을 2개만 쓴다).
+  const bones = focusBonesOf(mesh);
+
+  // 보스별로 본을 콕 집었으면 그게 곧 정답이다. 기준 메쉬 안에서 먼저 찾고,
+  // 하나도 없을 때만 스켈레톤 전체로 넓힌다.
+  // 개수가 적다고 전체 평균으로 물러나면 안 된다 — 검은 뱀은 머리·턱 본이 전부
+  // 7개(기준 메쉬 기준 2개)라, 예전에 "3개 미만이면 전체" 규칙에 걸려 몸통
+  // 한가운데로 끌려갔다.
   if (boneFilter && boneFilter !== 'all') {
-    const n = gather(mesh.skeleton.bones, boneFilter);
+    let n = gather(bones, boneFilter);
+    if (!n) n = gather(mesh.skeleton.bones, boneFilter);
     if (n) return out.divideScalar(n);
   }
 
-  const bones = focusBonesOf(mesh);
   // 메쉬를 이름으로 지정했으면 그 메쉬 전체가 기준이다. 여기서 중심축으로 한 번 더
   // 좁히면 애니힐리오는 Bip001 상체 체인만 남아 결국 머리를 따라간다.
   if (boneFilter === 'all') {
@@ -838,7 +847,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const basePose = capturePose(gltf.scene);
     const focusOverride = focusOverrideFor(bossCode);
     const focusMesh = pickFocusMesh(meshes, focusOverride);
-    // 메쉬만 지정한 보스는 그 메쉬 전체가 기준이라는 뜻이다
+    // 본 패턴이 있으면 그게 우선. 메쉬만 지정했으면 그 메쉬 전체가 기준이라는 뜻이다.
     const focusBone = focusOverride
       ? (focusOverride.bone || (focusOverride.mesh && focusMesh ? 'all' : null))
       : null;
