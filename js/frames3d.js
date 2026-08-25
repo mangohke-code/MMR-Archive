@@ -167,7 +167,13 @@ const DEBRIS_BONE_RE = /twp/i;
 
 // 몸통 중심축 본. 3ds Max Biped 표준 이름 + body/bust/neck 계열.
 // 파츠가 떨어져 나가는 연출에서 파츠까지 평균 내면 본체와 파편 사이 빈 공간을 잡는다.
-const CORE_BONE_RE = /(^|_)(bip\d*|pelvis|spine|neck|bust|head|body|root)/i;
+// 머리 본. 사망 연출처럼 몸이 흩어질 때 여기에 화면을 맞춘다.
+const HEAD_BONE_RE = /(^|_)(head|skull|face|jaw)/i;
+const CORE_BONE_RE = /(^|_)(bip\d*|pelvis|spine|neck|bust|head|body)/i;
+
+// 원점에 붙박이로 남는 앵커. 리그가 멀리 가도 이 본들은 그대로라, 평균에 넣으면
+// 중심을 자꾸 원점 쪽으로 끌어당긴다(검은 뱀: 머리가 2.12 인데 타깃은 1.15 였다).
+const ANCHOR_BONE_RE = /^(root\d*|Helper_|Control_)/i;
 
 // 카메라가 따라갈 본체 메쉬 — 파편을 뺀 본이 가장 많은 스킨드메쉬.
 // 보스마다 이름이 달라서(body_skin / 1phase_skin) 이름으로 찍지 않는다.
@@ -195,20 +201,26 @@ function rigCenter(mesh, out) {
   if (!mesh || !mesh.skeleton) return null;
   const bones = mesh.skeleton.bones;
   const v = new THREE.Vector3();
-  const gather = (useCore) => {
+  const gather = (re) => {
     let n = 0;
     out.set(0, 0, 0);
     for (const b of bones) {
       const name = b.name || '';
-      if (DEBRIS_BONE_RE.test(name)) continue;
-      if (useCore && !CORE_BONE_RE.test(name)) continue;
+      if (DEBRIS_BONE_RE.test(name) || ANCHOR_BONE_RE.test(name)) continue;
+      if (re && !re.test(name)) continue;
       b.getWorldPosition(v);
       out.add(v); n++;
     }
     return n;
   };
-  let n = gather(true);
-  if (n < 3) n = gather(false);
+  // 머리 -> 몸통 중심축 -> 전체 순으로 물러난다.
+  // 검은 뱀은 목뼈 세 개가 머리를 한참 뒤에서 따라와서, 중심축 평균을 쓰면
+  // 사망 연출에서 화면이 부서지는 부품 쪽으로 끌려간다. 머리만 잡으면 오차가
+  // 1.58 에서 0.5 아래로 떨어지고, 애니힐리오는 머리와 중심축이 거의 같은
+  // 자리(간격 0.1 안팎)라 영향이 없다.
+  let n = gather(HEAD_BONE_RE);
+  if (n < 1) n = gather(CORE_BONE_RE);
+  if (n < 3) n = gather(null);
   return n ? out.divideScalar(n) : null;
 }
 
