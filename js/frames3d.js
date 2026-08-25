@@ -255,18 +255,25 @@ function focusBonesOf(mesh) {
 function rigCenter(mesh, out, boneFilter) {
   if (!mesh || !mesh.skeleton) return null;
   const v = new THREE.Vector3();
-  const gather = (bones, re) => {
+  const gather = (bones, re, liveOnly) => {
     let n = 0;
     out.set(0, 0, 0);
     for (const b of bones) {
       const name = b.name || '';
       if (DEBRIS_BONE_RE.test(name) || ANCHOR_BONE_RE.test(name)) continue;
       if (re && !re.test(name)) continue;
+      if (liveOnly && !isBoneVisible(b)) continue;
       b.getWorldPosition(v);
+      // 원본 데이터에 NaN 이 섞여 있다 — 거대 질량체 skill_start_08 은
+      // eba004_main_dr_173 의 위치 키 51 개 중 72 개 값이 NaN 이다. 그 본은 스케일이
+      // 0 이라 게임에서는 안 보이지만, 평균에 한 개만 들어가도 중심 전체가 NaN 이 된다.
+      if (!isFinite(v.x) || !isFinite(v.y) || !isFinite(v.z)) continue;
       out.add(v); n++;
     }
     return n;
   };
+  // 보이는 본만 세고, 하나도 없으면 어쩔 수 없이 전부 센다.
+  const live = (bones, re) => gather(bones, re, true) || gather(bones, re, false);
 
   const bones = focusBonesOf(mesh);
 
@@ -276,20 +283,32 @@ function rigCenter(mesh, out, boneFilter) {
   // 7개(기준 메쉬 기준 2개)라, 예전에 "3개 미만이면 전체" 규칙에 걸려 몸통
   // 한가운데로 끌려갔다.
   if (boneFilter && boneFilter !== 'all') {
-    let n = gather(bones, boneFilter);
-    if (!n) n = gather(mesh.skeleton.bones, boneFilter);
+    let n = live(bones, boneFilter);
+    if (!n) n = live(mesh.skeleton.bones, boneFilter);
     if (n) return out.divideScalar(n);
   }
 
   // 메쉬를 이름으로 지정했으면 그 메쉬 전체가 기준이다. 여기서 중심축으로 한 번 더
   // 좁히면 애니힐리오는 Bip001 상체 체인만 남아 결국 머리를 따라간다.
   if (boneFilter === 'all') {
-    const n = gather(bones, null);
+    const n = live(bones, null);
     return n ? out.divideScalar(n) : null;
   }
-  let n = gather(bones, CORE_BONE_RE);
-  if (n < 3) n = gather(bones, null);
+  let n = live(bones, CORE_BONE_RE);
+  if (n < 3) n = live(bones, null);
   return n ? out.divideScalar(n) : null;
+}
+
+// 스케일 0 으로 꺼둔 본인지. 게임은 파츠를 지우는 대신 크기를 0 으로 만든다 —
+// 거대 질량체 skill_start_08 에서는 동체 메쉬의 본 759 개 중 755 개가 이 상태다.
+// 안 보이는 본을 평균에 넣으면 화면에 없는 곳으로 시점이 끌려간다.
+function isBoneVisible(bone) {
+  const e = bone.matrixWorld.elements;
+  const s2 = Math.max(
+    e[0] * e[0] + e[1] * e[1] + e[2] * e[2],
+    e[4] * e[4] + e[5] * e[5] + e[6] * e[6],
+    e[8] * e[8] + e[9] * e[9] + e[10] * e[10]);
+  return s2 > 1e-8;
 }
 
 // 추적 기준 본들이 퍼져 있는 정도. 리그가 한 점으로 접혔는지 보려고 쓴다.
@@ -301,8 +320,10 @@ function rigSpread(mesh, center, boneFilter) {
   const v = new THREE.Vector3();
   let max = 0;
   for (const b of bones) {
+    if (!isBoneVisible(b)) continue;
     const d = b.getWorldPosition(v).distanceToSquared(center);
-    if (d > max) max = d;
+    // NaN 은 어떤 비교에도 false 라, 걸러내지 않으면 퍼짐 방어가 통째로 무력화된다
+    if (isFinite(d) && d > max) max = d;
   }
   return Math.sqrt(max);
 }
