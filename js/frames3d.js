@@ -5,6 +5,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
@@ -119,6 +123,13 @@ const GLOW_PRESETS = [
   { key: 'purple', label: '보라',  rgb: [0.268, 0, 1], css: '#8E00FF' },
   { key: 'yellow', label: '노랑',  rgb: [1, 0.500, 0], css: '#FFB000' },
 ];
+
+// 발광 후처리.
+//
+// 게임은 블룸 threshold 를 1.0~1.05 로 쓴다(캐시에서 확인된 40개 표본 중 33개가 이 범위).
+// 뷰어에 threshold 가 없으면 HDR 1.7 짜리 발광이 그대로 화면에 꽂혀서 하얗게 뜬다.
+// 임계를 넘는 부분만 번지게 해야 "검은 몸체에 전류가 흐르는" 느낌이 난다.
+const BLOOM = { threshold: 1.0, strength: 0.55, radius: 0.5 };
 
 // 원본 셰이더의 프레넬 감쇠(_GlowPower)를 표준 재질에 얹는다.
 //
@@ -358,6 +369,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 세 번째 인자를 false 로 두면 CSS 크기를 안 고쳐서, 버퍼만 줄고 화면에서는
     // 예전 폭 그대로 남아 옆 칸을 덮는다. 기본값(true)으로 둬야 한다.
     renderer.setSize(w, h);
+    if (composer) composer.setSize(w, h);
+    if (bloomPass) bloomPass.setSize(w, h);
     st.camera.aspect = w / h;
     st.camera.updateProjectionMatrix();
   });
@@ -395,6 +408,34 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+
+  // 후처리 사슬. 신형 추출본에서만 쓴다 — 구형은 발광이 없어서 걸어봐야 손해다.
+  let composer = null;
+  let bloomPass = null;
+
+  function setupPostFx(enable) {
+    if (!enable) return;
+    // 톤매핑 없이 그대로 그리면 밝은 값이 255 에서 잘려 색이 날아간다.
+    // ACES 는 중간톤을 눌러서 그냥 켜면 어두워진다 — 노출로 되돌린다.
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 2.0;
+
+    // 후처리를 태우면 알파가 사라져 캔버스가 불투명해진다. 투명 배경을 유지하려고
+    // 애쓰는 것보다, 뷰어 판 색을 그대로 칠하는 편이 낫다(테마도 따라간다).
+    const panel = getComputedStyle(document.body).getPropertyValue('--bg-panel').trim();
+    if (panel) {
+      try { scene.background = new THREE.Color(panel); } catch (e) { /* 색 파싱 실패는 무시 */ }
+    }
+
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(container.clientWidth || 300, container.clientHeight || 300),
+      BLOOM.strength, BLOOM.radius, BLOOM.threshold
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+  }
 
   const state = { renderer, scene, camera, controls, rafId: null, paused: false, resizeObserver };
   container.__framesModel3D = state;
@@ -454,6 +495,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     scene.add(yawGroup);
 
     setupLights(isCatalogExport);
+    setupPostFx(isCatalogExport);
 
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
@@ -1473,7 +1515,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       updateFollow(dt);
       clampPan();
       controls.update();
-      renderer.render(scene, camera);
+      if (composer) composer.render();
+      else renderer.render(scene, camera);
       syncBar();
     };
 
