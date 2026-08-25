@@ -167,7 +167,7 @@ const DEBRIS_BONE_RE = /twp/i;
 
 // 몸통 중심축 본. 3ds Max Biped 표준 이름 + body/bust/neck 계열.
 // 파츠가 떨어져 나가는 연출에서 파츠까지 평균 내면 본체와 파편 사이 빈 공간을 잡는다.
-// 머리 본. 사망 연출처럼 몸이 흩어질 때 여기에 화면을 맞춘다.
+// 머리 본. 몸통이 흩어져도 머리를 잡아야 하는 보스에서 쓴다(검은 뱀).
 const HEAD_BONE_RE = /(^|_)(head|skull|face|jaw)/i;
 const CORE_BONE_RE = /(^|_)(bip\d*|pelvis|spine|neck|bust|head|body)/i;
 
@@ -182,7 +182,26 @@ const ANCHOR_BONE_RE = /^(root\d*|Helper_|Control_)/i;
 // 몸통·머리로 보이는 이름에 큰 가산점을 줘서 그쪽이 먼저 잡히게 한다.
 const FOCUS_NAME_RE = /(^|_)(body|head|torso|chest)(\d*)(_|$)/i;
 
-function pickFocusMesh(meshes) {
+// 보스별로 화면 중심을 어디에 둘지 직접 지정한다.
+// 자동 판정으로는 두 보스를 동시에 만족시킬 수 없다 —
+//  - 애니힐리오는 사망 연출에서 머리가 동체보다 2.3 위로 떠오른다. 동체(skin_2)를 잡아야 한다.
+//  - 검은 뱀은 동체가 몸 전체(209본)라 평균이 몸통 한가운데로 가고, 머리를 놓친다.
+// mesh: 추적 기준 메쉬 이름 / bone: 그 메쉬 안에서도 이 본들만 평균낸다.
+const FOCUS_OVERRIDES = [
+  { boss: /^xba003/i, mesh: /2phase_body_skin_2$/i },
+  { boss: /^bbg008/i, bone: HEAD_BONE_RE },
+];
+
+function focusOverrideFor(bossCode) {
+  if (!bossCode) return null;
+  return FOCUS_OVERRIDES.find(o => o.boss.test(bossCode)) || null;
+}
+
+function pickFocusMesh(meshes, override) {
+  if (override && override.mesh) {
+    const named = meshes.find(m => m.isSkinnedMesh && m.skeleton && override.mesh.test(m.name || ''));
+    if (named) return named;
+  }
   let best = null, bestScore = -1;
   for (const m of meshes) {
     if (!m.isSkinnedMesh || !m.skeleton) continue;
@@ -196,12 +215,41 @@ function pickFocusMesh(meshes) {
   return best;
 }
 
-// 본체 본의 평균 위치. 코어 본이 잡히면 그것만, 아니면 파편 뺀 전체.
-function rigCenter(mesh, out) {
-  if (!mesh || !mesh.skeleton) return null;
+// 이 메쉬의 정점이 실제로 매달려 있는 본만 추린다.
+// 한 파일의 메쉬들이 스켈레톤 하나를 공유하는 경우가 많아서(애니힐리오 2페이즈는
+// body_skin_2 / _3 가 같은 225본 스켈레톤을 쓴다) skeleton.bones 를 그대로 평균내면
+// 어느 메쉬를 고르든 결과가 똑같아진다. skinIndex 로 걸러야 메쉬 지정이 의미를 갖는다.
+function focusBonesOf(mesh) {
+  if (mesh.userData.__focusBones) return mesh.userData.__focusBones;
   const bones = mesh.skeleton.bones;
+  const idx = mesh.geometry && mesh.geometry.attributes.skinIndex;
+  const wgt = mesh.geometry && mesh.geometry.attributes.skinWeight;
+  let picked = null;
+  if (idx && wgt) {
+    const used = new Set();
+    for (let i = 0; i < idx.count; i++) {
+      for (let k = 0; k < 4; k++) {
+        if (wgt.getComponent(i, k) > 0.001) used.add(idx.getComponent(i, k));
+      }
+    }
+    if (used.size) picked = [...used].map(i => bones[i]).filter(Boolean);
+  }
+  const list = (picked || bones).filter(b => {
+    const name = b.name || '';
+    return !DEBRIS_BONE_RE.test(name) && !ANCHOR_BONE_RE.test(name);
+  });
+  mesh.userData.__focusBones = list.length ? list : bones.slice();
+  return mesh.userData.__focusBones;
+}
+
+// 추적 기준점.
+//  - boneFilter 가 정규식이면: 스켈레톤 전체에서 그 본들만 평균낸다(보스별 지정).
+//  - 'all' 이면: 기준 메쉬에 매달린 본 전부(메쉬를 이름으로 지정한 경우).
+//  - 없으면: 기준 메쉬의 본 중 중심축 -> 전체 순으로 물러난다.
+function rigCenter(mesh, out, boneFilter) {
+  if (!mesh || !mesh.skeleton) return null;
   const v = new THREE.Vector3();
-  const gather = (re) => {
+  const gather = (bones, re) => {
     let n = 0;
     out.set(0, 0, 0);
     for (const b of bones) {
@@ -213,14 +261,25 @@ function rigCenter(mesh, out) {
     }
     return n;
   };
-  // 머리 -> 몸통 중심축 -> 전체 순으로 물러난다.
-  // 검은 뱀은 목뼈 세 개가 머리를 한참 뒤에서 따라와서, 중심축 평균을 쓰면
-  // 사망 연출에서 화면이 부서지는 부품 쪽으로 끌려간다. 머리만 잡으면 오차가
-  // 1.58 에서 0.5 아래로 떨어지고, 애니힐리오는 머리와 중심축이 거의 같은
-  // 자리(간격 0.1 안팎)라 영향이 없다.
-  let n = gather(HEAD_BONE_RE);
-  if (n < 1) n = gather(CORE_BONE_RE);
-  if (n < 3) n = gather(null);
+
+  // 보스별로 본을 콕 집었으면 그게 곧 정답이다. 개수가 적다고 전체 평균으로
+  // 물러나면 안 된다 — 검은 뱀은 머리·턱 본 7개가 전부라, 예전에 "3개 미만이면
+  // 전체" 규칙에 걸려 몸통 한가운데로 끌려갔다.
+  // 기준 메쉬가 쓰는 본으로 좁히지 않는 것도 같은 이유다(그 메쉬는 턱 본을 2개만 쓴다).
+  if (boneFilter && boneFilter !== 'all') {
+    const n = gather(mesh.skeleton.bones, boneFilter);
+    if (n) return out.divideScalar(n);
+  }
+
+  const bones = focusBonesOf(mesh);
+  // 메쉬를 이름으로 지정했으면 그 메쉬 전체가 기준이다. 여기서 중심축으로 한 번 더
+  // 좁히면 애니힐리오는 Bip001 상체 체인만 남아 결국 머리를 따라간다.
+  if (boneFilter === 'all') {
+    const n = gather(bones, null);
+    return n ? out.divideScalar(n) : null;
+  }
+  let n = gather(bones, CORE_BONE_RE);
+  if (n < 3) n = gather(bones, null);
   return n ? out.divideScalar(n) : null;
 }
 
@@ -777,7 +836,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return String(parseInt(m[1] || m[2], 10));
     };
     const basePose = capturePose(gltf.scene);
-    const focusMesh = pickFocusMesh(meshes);
+    const focusOverride = focusOverrideFor(bossCode);
+    const focusMesh = pickFocusMesh(meshes, focusOverride);
+    // 메쉬만 지정한 보스는 그 메쉬 전체가 기준이라는 뜻이다
+    const focusBone = focusOverride
+      ? (focusOverride.bone || (focusOverride.mesh && focusMesh ? 'all' : null))
+      : null;
 
     // 페이즈가 파일이 아니라 본 스케일로 갈리는 보스가 있다(에고비스타). phase_change 가
     // 날개깃(remiges) 12개를 1.0 -> 0.03 으로 줄이고 대검 깃털을 0.08 -> 1.0 으로 키운다.
@@ -1009,7 +1073,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 멀리 떨어진 모델(신형 추출본이 그렇다)에서는 카메라가 빈 곳을 보게 된다.
     // 기존 보스는 둘이 일치해서 이 보정이 아예 걸리지 않는다 — 어긋난 경우에만 고친다.
     const probe = new THREE.Vector3();
-    if (!isCatalogExport && focusMesh && rigCenter(focusMesh, probe) && !box.containsPoint(probe)) {
+    if (!isCatalogExport && focusMesh && rigCenter(focusMesh, probe, focusBone) && !box.containsPoint(probe)) {
       const boneBox = new THREE.Box3();
       const bv = new THREE.Vector3();
       meshes.forEach(m => {
@@ -1047,7 +1111,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const followDelta = new THREE.Vector3();
     const followWant = new THREE.Vector3();
     let followReady = false;
-    if (focusMesh && rigCenter(focusMesh, followBase)) followReady = true;
+    if (focusMesh && rigCenter(focusMesh, followBase, focusBone)) followReady = true;
 
     // 우클릭 팬이 안 먹히던 원인 — 추적이 매 프레임 시점을 원래 자리로 끌어당겨서
     // 사용자가 옮긴 만큼을 즉시 되돌리고 있었다. 조작 중에는 멈추고, 손을 떼면
@@ -1061,7 +1125,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     controls.addEventListener('end', () => {
       userDragging = false;
       initialTarget.copy(controls.target);
-      if (focusMesh) rigCenter(focusMesh, followBase);
+      if (focusMesh) rigCenter(focusMesh, followBase, focusBone);
     });
 
     // 팬으로 시선을 옮길 수 있는 범위. 너무 멀리 밀어내면 모델을 다시 찾기 어렵다.
@@ -1082,7 +1146,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function updateFollow(dt) {
       if (!followEnabled || userDragging || !followReady || !focusMesh) return;
-      if (!rigCenter(focusMesh, followCur)) return;
+      if (!rigCenter(focusMesh, followCur, focusBone)) return;
       // 목표 = 처음 타깃 + (현재 중심 - 처음 중심)
       followWant.copy(initialTarget).add(followCur).sub(followBase);
       followDelta.copy(followWant).sub(controls.target);
@@ -1281,7 +1345,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         controls.target.copy(homeTarget);
         // 팬으로 옮겨둔 추적 기준도 홈으로 되돌린다
         initialTarget.copy(homeTarget);
-        if (focusMesh) rigCenter(focusMesh, followBase);
+        if (focusMesh) rigCenter(focusMesh, followBase, focusBone);
         controls.update();
       };
     }
