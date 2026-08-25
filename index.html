@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=106">
+  <link rel="stylesheet" href="css/style.css?v=107">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -416,136 +416,115 @@
     </div>
 
     <div id="tab-frames" class="tab-content">
-      <div id="frames-container">
+      <!-- 테스트 뷰어(boss3d-test.html)와 같은 배치.
+           왼쪽 사이드바 = 조작, 가운데 = 3D + 재생바, 오른쪽 = 보스 목록/상세 서랍. -->
+      <div id="f3d-app">
 
-        <div class="section-title">역대 솔로 레이드</div>
+        <div id="f3d-side">
+          <h2>모델</h2>
+          <div class="f3d-row" id="frames-model-toggle"></div>
 
-        <div id="frames-toolbar">
-          <button id="frames-sort-btn" type="button"
-                  data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
+          <h2>페이즈</h2>
+          <div class="f3d-row" id="frames-phase-toggle"></div>
+
+          <h2>연결 재생</h2>
+          <div class="f3d-col" id="frames-anim-toggle"></div>
+
+          <h2>개별 클립</h2>
+          <div class="f3d-col" id="frames-anim-extra"></div>
+
+          <h2>방향 · 위치</h2>
+          <div class="f3d-row" style="margin-bottom:6px">
+            <button type="button" class="f3d-btn f3d-face" data-yaw="0">앞</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="90">우</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="180">뒤</button>
+            <button type="button" class="f3d-btn f3d-face" data-yaw="270">좌</button>
+          </div>
+          <label class="f3d-sl"><span>yaw</span><input type="range" id="f3d-yaw" min="0" max="360" step="1" value="180"><b id="f3d-yawv">180</b></label>
+          <label class="f3d-sl"><span>pitch</span><input type="range" id="f3d-pitch" min="-90" max="90" step="1" value="0"><b id="f3d-pitchv">0</b></label>
+          <label class="f3d-sl"><span>roll</span><input type="range" id="f3d-roll" min="-180" max="180" step="1" value="0"><b id="f3d-rollv">0</b></label>
+          <label class="f3d-sl"><span>X</span><input type="range" id="f3d-px" min="-1" max="1" step="0.005" value="0"><b id="f3d-pxv">0</b></label>
+          <label class="f3d-sl"><span>Y</span><input type="range" id="f3d-py" min="-1" max="1" step="0.005" value="0"><b id="f3d-pyv">0</b></label>
+          <label class="f3d-sl"><span>Z</span><input type="range" id="f3d-pz" min="-1" max="1" step="0.005" value="0"><b id="f3d-pzv">0</b></label>
+          <label class="f3d-sl"><span>배율</span><input type="range" id="f3d-sc" min="0.2" max="3" step="0.01" value="1"><b id="f3d-scv">1</b></label>
+
+          <h2>보기</h2>
+          <div class="f3d-row">
+            <button type="button" class="f3d-btn" id="f3d-zero">값 초기화</button>
+            <button type="button" class="f3d-btn" id="f3d-grid">격자</button>
+            <button type="button" class="f3d-btn active" id="f3d-follow">카메라 추적</button>
+            <button type="button" class="f3d-btn" id="frames-spine-reset">시점 초기화</button>
+          </div>
+          <div class="f3d-row" style="margin-top:5px">
+            <button type="button" class="f3d-btn" id="f3d-wire">와이어프레임</button>
+            <button type="button" class="f3d-btn" id="f3d-alpha">알파컷 켜기</button>
+            <button type="button" class="f3d-btn" id="f3d-side">단면 표시</button>
+          </div>
+          <textarea id="f3d-out" readonly></textarea>
+
+          <h2>파츠</h2>
+          <div id="frames-parts-toggle"></div>
         </div>
 
-        <!-- 시즌 선택 목록 -->
-        <div id="frames-layout">
-        <div id="frames-selector-col"><div id="frames-selector"></div></div>
-
-        <!-- 상세 + 테두리. 테두리를 이 안에 두면 왼쪽 끝이 모델 구역과 맞고,
-             왼쪽 보스 목록은 그만큼 아래까지 이어진다. -->
-        <div id="frames-main">
-
-        <!-- 상세 -->
-        <div id="frames-top" class="hidden">
-          <!-- 왼쪽 조작 패널. 모델/페이즈/애니메이션/파츠를 세로로 모아서
-               가운데 3D 구역이 화면을 최대한 넓게 쓰도록 한다. -->
-          <div id="frames-controls">
-            <div class="frames-ctl-group" id="frames-model-group">
-              <div class="frames-ctl-label">모델</div>
-              <div id="frames-model-toggle" class="frames-model-toggle hidden"></div>
-            </div>
-            <div class="frames-ctl-group" id="frames-phase-group">
-              <div class="frames-ctl-label">페이즈</div>
-              <div id="frames-phase-toggle" class="frames-phase-toggle hidden"></div>
-            </div>
-            <div class="frames-ctl-group" id="frames-anim-group">
-              <div class="frames-ctl-label">애니메이션</div>
-              <div id="frames-anim-toggle" class="frames-anim-toggle hidden"></div>
-            </div>
-            <div class="frames-ctl-group" id="frames-view-group">
-              <div class="frames-ctl-label">방향 · 위치</div>
-              <div class="frames-face-row">
-                <button type="button" class="filter-chip f3d-face" data-yaw="0">앞</button>
-                <button type="button" class="filter-chip f3d-face" data-yaw="90">우</button>
-                <button type="button" class="filter-chip f3d-face" data-yaw="180">뒤</button>
-                <button type="button" class="filter-chip f3d-face" data-yaw="270">좌</button>
-              </div>
-              <label class="f3d-sl"><span>yaw</span><input type="range" id="f3d-yaw" min="0" max="360" step="1" value="180"><b id="f3d-yawv">180</b></label>
-              <label class="f3d-sl"><span>pitch</span><input type="range" id="f3d-pitch" min="-90" max="90" step="1" value="0"><b id="f3d-pitchv">0</b></label>
-              <label class="f3d-sl"><span>roll</span><input type="range" id="f3d-roll" min="-180" max="180" step="1" value="0"><b id="f3d-rollv">0</b></label>
-              <label class="f3d-sl"><span>X</span><input type="range" id="f3d-px" min="-1" max="1" step="0.005" value="0"><b id="f3d-pxv">0</b></label>
-              <label class="f3d-sl"><span>Y</span><input type="range" id="f3d-py" min="-1" max="1" step="0.005" value="0"><b id="f3d-pyv">0</b></label>
-              <label class="f3d-sl"><span>Z</span><input type="range" id="f3d-pz" min="-1" max="1" step="0.005" value="0"><b id="f3d-pzv">0</b></label>
-              <label class="f3d-sl"><span>배율</span><input type="range" id="f3d-sc" min="0.2" max="3" step="0.01" value="1"><b id="f3d-scv">1</b></label>
-            </div>
-
-            <div class="frames-ctl-group" id="frames-look-group">
-              <div class="frames-ctl-label">보기</div>
-              <div class="frames-face-row">
-                <button type="button" class="filter-chip" id="f3d-zero">값 초기화</button>
-                <button type="button" class="filter-chip" id="f3d-grid">격자</button>
-                <button type="button" class="filter-chip active" id="f3d-follow">카메라 추적</button>
-              </div>
-              <div class="frames-face-row" style="margin-top:5px">
-                <button type="button" class="filter-chip" id="f3d-wire">와이어프레임</button>
-                <button type="button" class="filter-chip" id="f3d-alpha">알파컷 켜기</button>
-                <button type="button" class="filter-chip" id="f3d-side">단면 표시</button>
-              </div>
-              <textarea id="f3d-out" readonly></textarea>
-            </div>
-
-            <div class="frames-ctl-group" id="frames-parts-group">
-              <div class="frames-ctl-label">파츠</div>
-              <div id="frames-parts-toggle" class="parts-toggle hidden"></div>
-            </div>
+        <div id="f3d-stage">
+          <div id="f3d-view">
+            <div id="frames-spine-player"></div>
+            <div id="f3d-hud" class="hidden"></div>
           </div>
-
-          <div class="frames-spine-col">
-            <div id="frames-spine-wrap">
-              <div id="frames-spine-player"></div>
-              <button id="frames-spine-reset" class="spine-reset-btn" type="button" aria-label="화면 초기화" title="화면 초기화"><i class="fas fa-rotate-right"></i></button>
-            </div>
-            <!-- 재생바. 오른쪽 끝은 테두리 접기 버튼과 겹치지 않게 여백을 둔다. -->
-            <div id="frames-playbar" class="hidden">
-              <button id="frames-spine-restart" type="button" aria-label="처음부터" title="처음부터"><i class="fas fa-rotate-left"></i></button>
-              <button id="frames-spine-pause" type="button" aria-label="일시정지" title="일시정지"><i class="fas fa-pause"></i></button>
-              <div id="frames-timeline"><div id="frames-timeline-fill"></div></div>
-              <span id="frames-timecode">0.00 / 0.00</span>
-              <button id="frames-step-back" type="button" title="한 프레임 뒤로">◀</button>
-              <button id="frames-step-fwd" type="button" title="한 프레임 앞으로">▶</button>
-            </div>
-          </div>
-
-          <div id="frames-drawer-rail">
-            <button id="frames-drawer-list" type="button" aria-expanded="false">
-              <i class="fas fa-list"></i><span>보스 목록</span>
-            </button>
-            <button id="frames-drawer-info" type="button" aria-expanded="false">
-              <i class="fas fa-circle-info"></i><span>상세 정보</span>
-            </button>
-          </div>
-
-          <div id="frames-info">
-            <div class="info-handle"><i class="fas fa-circle-info"></i></div>
-            <div id="frames-info-header">
-              <div id="frames-boss-name"></div>
-              <div id="frames-season-label"></div>
-            </div>
-
-            <div class="frames-info-row">
-              <div class="frames-info-label">진행 기간</div>
-              <div id="frames-date"></div>
-            </div>
-
-            <div class="frames-info-row">
-              <div class="frames-info-label">약점 속성</div>
-              <div id="frames-attr"></div>
-            </div>
-
+          <div id="f3d-bar">
+            <button id="frames-spine-restart" type="button" title="처음부터"><i class="fas fa-rotate-left"></i></button>
+            <button id="frames-spine-pause" type="button" title="일시정지"><i class="fas fa-pause"></i></button>
+            <div id="frames-timeline"><div id="frames-timeline-fill"></div></div>
+            <span id="frames-timecode">0.00 / 0.00</span>
+            <button id="frames-step-back" type="button" title="한 프레임 뒤로">◀</button>
+            <button id="frames-step-fwd" type="button" title="한 프레임 앞으로">▶</button>
           </div>
         </div>
 
-        <button id="frames-tiers-toggle" class="hidden" type="button" aria-expanded="false">
-          <i class="fas fa-chevron-down"></i><span>테두리 보기</span>
-        </button>
-        <div id="frames-tiers" class="is-collapsed"></div>
+        <!-- 오른쪽: 보스 목록 / 상세 정보 서랍 -->
+        <div id="f3d-rail">
+          <button id="frames-drawer-list" type="button" aria-expanded="true">
+            <i class="fas fa-list"></i><span>보스 목록</span>
+          </button>
+          <button id="frames-drawer-info" type="button" aria-expanded="false">
+            <i class="fas fa-circle-info"></i><span>상세 정보</span>
+          </button>
+        </div>
 
-        </div><!-- /frames-main -->
-        </div><!-- /frames-layout -->
+        <div id="f3d-drawer">
+          <div id="f3d-drawer-list">
+            <div id="frames-toolbar">
+              <button id="frames-sort-btn" type="button"
+                      data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
+            </div>
+            <div id="frames-selector"></div>
+            <p id="frames-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
+          </div>
 
-        <p id="frames-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
+          <div id="f3d-drawer-info" class="hidden">
+            <div id="frames-info">
+              <div id="frames-info-header">
+                <div id="frames-boss-name"></div>
+                <div id="frames-season-label"></div>
+              </div>
+              <div class="frames-info-row">
+                <div class="frames-info-label">진행 기간</div>
+                <div id="frames-date"></div>
+              </div>
+              <div class="frames-info-row">
+                <div class="frames-info-label">약점 속성</div>
+                <div id="frames-attr"></div>
+              </div>
+            </div>
+            <button id="frames-tiers-toggle" class="hidden" type="button" aria-expanded="false">
+              <i class="fas fa-chevron-down"></i><span>테두리 보기</span>
+            </button>
+            <div id="frames-tiers" class="is-collapsed"></div>
+          </div>
+        </div>
 
       </div>
     </div>
-
     <div id="tab-stage" class="tab-content">
       <div id="stage-container">
 
@@ -630,8 +609,8 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=34"></script>
-  <script src="js/frames.js?v=18"></script>
+  <script type="module" src="js/frames3d.js?v=35"></script>
+  <script src="js/frames.js?v=19"></script>
   <script src="js/stage.js?v=7"></script>
 
 </body>

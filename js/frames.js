@@ -112,36 +112,40 @@
   // 보스 목록과 상세 정보는 평소에 접어 두고 오른쪽 세로 버튼으로 연다.
   // 둘 다 열면 3D 구역이 너무 좁아져서 한 번에 하나만 열리게 한다.
   function wireFramesDrawers() {
-    const layout = document.getElementById('frames-layout');
-    const pairs = [
-      ['frames-drawer-list', 'list-open'],
-      ['frames-drawer-info', 'info-open'],
-    ];
-    pairs.forEach(([id, cls]) => {
-      const btn = document.getElementById(id);
+    const drawer = document.getElementById('f3d-drawer');
+    const panes = {
+      'frames-drawer-list': 'f3d-drawer-list',
+      'frames-drawer-info': 'f3d-drawer-info',
+    };
+    let openId = 'frames-drawer-list';
+
+    function render() {
+      Object.entries(panes).forEach(([btnId, paneId]) => {
+        const on = btnId === openId;
+        const btn = document.getElementById(btnId);
+        const pane = document.getElementById(paneId);
+        if (btn) btn.setAttribute('aria-expanded', String(on));
+        if (pane) pane.classList.toggle('hidden', !on);
+      });
+      if (drawer) drawer.classList.toggle('hidden', !openId);
+    }
+
+    Object.keys(panes).forEach(btnId => {
+      const btn = document.getElementById(btnId);
       if (!btn) return;
       btn.addEventListener('click', () => {
-        const open = !layout.classList.contains(cls);
-        pairs.forEach(([id2, cls2]) => {
-          layout.classList.toggle(cls2, cls2 === cls ? open : false);
-          const b2 = document.getElementById(id2);
-          if (b2) b2.setAttribute('aria-expanded', String(cls2 === cls ? open : false));
-        });
-        syncFramesSelectorHeight();
+        openId = openId === btnId ? null : btnId;
+        render();
       });
     });
+    render();
   }
 
   // 세로 목록은 오른쪽(모델+테두리) 높이에 맞춰 늘어나는데, 테두리가 적은 보스는 그
   // 높이가 화면 중간에서 끝나 버린다. 최소한 화면 아래까지는 닿게 해서 한 번에 보이는
   // 보스 수를 늘린다. 창 크기가 바뀌면 다시 잰다.
-  function syncFramesSelectorHeight() {
-    const col = document.getElementById('frames-selector-col');
-    if (!col || !document.getElementById('frames-layout').classList.contains('is-detail-open')) return;
-    col.style.minHeight = '';
-    const docTop = col.getBoundingClientRect().top + window.scrollY;
-    col.style.minHeight = Math.max(420, window.innerHeight - docTop - 16) + 'px';
-  }
+  // 새 배치에서는 서랍이 제 높이를 알아서 채운다. 호출부가 여럿이라 빈 함수로 남긴다.
+  function syncFramesSelectorHeight() {}
 
   window.addEventListener('resize', syncFramesSelectorHeight);
 
@@ -149,9 +153,9 @@
   function collapseFrame() {
     currentFrame = null;
     clearFramesSpine();
-    document.getElementById('frames-top').classList.add('hidden');
-    document.getElementById('frames-selector-col').style.minHeight = '';
-    document.getElementById('frames-layout').classList.remove('is-detail-open');
+    
+    
+    
     // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
     // 남아 있으면 무엇에 딸린 건지 알 수 없다.
     document.getElementById('frames-tiers').innerHTML = '';
@@ -165,14 +169,11 @@
     if (currentFrame === item) { collapseFrame(); return; }
     currentFrame = item;
 
-    document.getElementById('frames-top').classList.remove('hidden');
+    
     // 상세가 열리면 보스 목록을 왼쪽 세로 열로 바꾼다(CSS 가 처리)
-    const layoutEl = document.getElementById('frames-layout');
-    layoutEl.classList.add('is-detail-open');
-    // 고른 직후에는 목록을 접어서 3D 를 바로 크게 보여 준다
-    layoutEl.classList.remove('list-open');
-    const listBtn = document.getElementById('frames-drawer-list');
-    if (listBtn) listBtn.setAttribute('aria-expanded', 'false');
+    // 보스를 고르면 상세 정보 서랍으로 넘어간다
+    const infoBtn = document.getElementById('frames-drawer-info');
+    if (infoBtn && infoBtn.getAttribute('aria-expanded') === 'false') infoBtn.click();
     document.querySelectorAll('.frames-item').forEach(el => {
       el.classList.toggle('active', allFramesData[el.dataset.idx] === item);
     });

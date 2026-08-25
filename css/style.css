@@ -4901,165 +4901,33 @@
     padding-right: 56px;
   }
 
-  /* ── 3D 뷰어 조작 패널 ────────────────────────────────────────────
-     모델/페이즈/애니메이션/파츠를 왼쪽 세로 패널에 모은다. 가로 줄로 늘어놓으면
-     보스마다 버튼 수가 제각각(에고비스타는 61개)이라 3D 구역을 계속 밀어냈다. */
-  #frames-controls {
-    flex: 0 0 auto;
-    width: 226px;
-    align-self: stretch;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    overflow-y: auto;
-    max-height: calc(100vh - 150px);
-    padding: 12px;
-    margin-right: 12px;
-    border-radius: var(--radius-lg);
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-  }
-
-  .frames-ctl-group.is-empty { display: none; }
-
-  .frames-ctl-label {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-  }
-
-  .frames-model-toggle,
-  .frames-phase-toggle,
-  .frames-anim-toggle,
-  #frames-controls .parts-toggle {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
-  #frames-controls .parts-toggle { flex-direction: column; gap: 2px; }
-
-  .frames-anim-toggle { flex-direction: column; gap: 10px; }
-
-  .frames-anim-toggle .anim-group-label {
-    display: block;
-    font-size: 10px;
-    color: var(--text-faint);
-    margin-bottom: 4px;
-  }
-
-  .frames-anim-toggle .anim-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .frames-anim-toggle .frames-anim-btn {
-    font-size: 12px;
-    padding: 5px 9px;
-    width: 100%;
-    text-align: left;
-  }
-
-  #frames-controls .part-toggle-item {
-    padding: 3px 6px;
-    font-size: 12px;
-    border-radius: 5px;
-  }
-
-  .frames-anim-toggle .frames-anim-btn.is-seq {
-    border-left: 3px solid var(--border-accent);
-    font-weight: 700;
-  }
-
-  /* ── 재생바 ───────────────────────────────────────────────────────
-     오른쪽 끝에 여백을 둬서 테두리 접기 버튼과 겹치지 않게 한다. */
-  #frames-playbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 8px;
-    padding: 6px 150px 6px 10px;
-    border-radius: var(--radius-md);
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-  }
-
-  #frames-playbar button {
-    flex: none;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-panel-alt);
-    color: var(--text-body);
-    cursor: pointer;
-  }
-
-  #frames-playbar button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
-
-  #frames-timeline {
-    flex: 1 1 auto;
-    min-width: 0;
-    height: 8px;
-    border-radius: 4px;
-    background: var(--bg-panel-active);
-    cursor: pointer;
-    position: relative;
-  }
-
-  #frames-timeline-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 0;
-    border-radius: 4px;
-    background: var(--border-accent);
-    pointer-events: none;
-  }
-
-  #frames-timecode {
-    flex: none;
-    font-size: 11px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-
-
-
-  /* ══ 솔로 레이드 전체화면 모드 ══════════════════════════════════
-     3D 뷰어가 한 화면을 꽉 채우도록 헤더·푸터·여백을 걷어내고 탭 바만 얇게 남긴다.
-     body.app-mode 는 switchTab 이 붙였다 뗀다. */
   /* 높이를 빼서 계산하면 탭 바 높이가 바뀔 때마다 어긋난다. 세로 flex 로 나눠서
      탭 바가 제 높이를 갖고 남는 만큼을 본문이 전부 가져가게 한다. */
+  /* ══ 솔로 레이드 = 3D 뷰어 전용 화면 ═════════════════════════════
+     boss3d-test.html 의 배치를 그대로 옮겼다. 색만 사이트 테마 토큰을 쓴다.
+     헤더·푸터를 접고 탭 바만 얇게 남겨 한 화면을 꽉 채운다.
+     body.app-mode 는 switchTab 이 붙였다 뗀다. */
   body.app-mode {
     overflow: hidden;
     height: 100vh;
     display: flex;
     flex-direction: column;
   }
+
   body.app-mode header,
   body.app-mode #site-footer { display: none; }
 
+  /* .tab-btn 을 겨냥한 규칙이 !important 를 붙여도 안 먹어서(런타임 주입도 동일)
+     확실히 먹는 nav 단위 속성으로 통째로 줄인다. */
   body.app-mode #tab-nav {
     flex: none;
-    z-index: 20;
+    zoom: 0.72;
     margin: 0;
     padding: 5px 10px;
     gap: 4px;
     border-bottom: 1px solid var(--border-subtle);
     background: var(--bg-panel);
   }
-
-  /* 탭 버튼을 하나씩 줄이려 했는데 .tab-btn 을 겨냥한 규칙이 이 프로젝트에서는
-     !important 를 붙여도 안 먹는다(런타임 주입으로도 동일). 원인을 파는 대신
-     확실히 먹는 nav 단위 속성으로 통째로 축소한다. */
-  body.app-mode #tab-nav { zoom: 0.72; }
-
-  /* 섹션 제목은 전체화면에서 자리만 차지한다 */
-  body.app-mode #frames-container > .section-title { display: none; }
 
   body.app-mode main {
     flex: 1 1 auto;
@@ -5072,108 +4940,61 @@
     overflow: hidden;
   }
 
-  body.app-mode #tab-frames,
-  body.app-mode #frames-container {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
+  body.app-mode #tab-frames { height: 100%; }
+
+  /* ── 앱 뼈대: 사이드바 | 무대 | 서랍 ───────────────────────────── */
+  #f3d-app {
     display: flex;
-    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    background: var(--bg-page);
   }
 
-  /* 정렬 툴바는 한 줄로 얇게 */
-  body.app-mode #frames-toolbar {
+  #f3d-side {
     flex: none;
-    margin: 0;
-    padding: 6px 10px;
-  }
-
-  body.app-mode #frames-layout {
-    flex: 1 1 auto;
-    min-height: 0;
-    margin: 0;
-    padding: 8px;
-    gap: 0;
-    overflow: hidden;
-  }
-
-  body.app-mode #frames-main {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    height: 100%;
-  }
-
-  body.app-mode #frames-top {
-    flex: 1 1 auto;
-    min-height: 0;
-    margin: 0;
-  }
-
-  body.app-mode .frames-spine-col {
-    padding-right: 0;
-    min-height: 0;
-    gap: 8px;
-  }
-
-  /* 뷰어는 남는 세로를 전부 먹는다 */
-  body.app-mode #frames-spine-wrap {
-    flex: 1 1 auto;
-    height: auto;
-    min-height: 0;
-  }
-
-  body.app-mode #frames-controls {
-    max-height: none;
-    height: 100%;
-    margin-right: 10px;
-  }
-
-  body.app-mode #frames-selector-col,
-  body.app-mode.info-open #frames-info { height: 100%; }
-
-  body.app-mode #frames-layout.is-detail-open #frames-selector-col {
+    width: 300px;
+    padding: 14px;
     overflow-y: auto;
-    min-height: 0;
-  }
-
-  /* 테두리는 접힌 상태를 기본으로 두고, 펼치면 아래에 겹쳐 뜬다 */
-  body.app-mode #frames-tiers-toggle {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    z-index: 12;
-    margin: 0;
-  }
-
-  body.app-mode #frames-tiers:not(.is-collapsed) {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 56px;
-    z-index: 11;
-    max-height: 46vh;
-    overflow-y: auto;
-    padding: 12px;
-    border-radius: var(--radius-lg);
     background: var(--bg-panel);
-    box-shadow: var(--shadow-card-hover);
+    border-right: 1px solid var(--border-subtle);
   }
 
-  body.app-mode #frames-main { position: relative; }
-
-  /* ── 테스트 뷰어와 같은 조작 UI ──────────────────────────────── */
-  .frames-face-row { display: flex; flex-wrap: wrap; gap: 5px; }
-
-  .f3d-sl {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 5px 0;
-    font-size: 11px;
+  #f3d-side h2 {
+    font-size: 12px;
+    margin: 16px 0 7px;
+    letter-spacing: .05em;
+    color: var(--text-muted);
   }
 
+  #f3d-side h2:first-child { margin-top: 0; }
+
+  .f3d-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .f3d-col { display: flex; flex-direction: column; gap: 4px; }
+
+  .f3d-btn {
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 5px 9px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-alt);
+    color: var(--text-body);
+  }
+
+  .f3d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+
+  .f3d-btn.active {
+    background: var(--border-accent);
+    border-color: var(--border-accent);
+    color: var(--text-on-accent);
+    font-weight: 700;
+  }
+
+  .f3d-col .f3d-btn { width: 100%; text-align: left; }
+  .f3d-col .f3d-btn.is-seq { border-left: 3px solid var(--border-accent); font-weight: 700; }
+
+  .f3d-sl { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; }
   .f3d-sl span:first-child { width: 44px; flex: none; color: var(--text-muted); }
   .f3d-sl input { flex: 1; min-width: 0; accent-color: var(--border-accent); }
 
@@ -5200,49 +5021,198 @@
     border-radius: var(--radius-md);
   }
 
-  #frames-step-back, #frames-step-fwd {
-    width: auto !important;
-    min-width: 30px;
-    border-radius: var(--radius-md) !important;
-    font-size: 11px;
+  #f3d-side .part-toggle-item {
+    padding: 3px 6px;
+    font-size: 12px;
+    border-radius: 5px;
   }
 
-  /* ── 오른쪽 서랍 ────────────────────────────────────────────────
-     보스 목록과 상세 정보를 평소에는 접어 두고, 오른쪽 세로 버튼으로 연다.
-     그만큼 3D 구역이 화면을 넓게 쓴다. */
-  #frames-drawer-rail {
-    flex: 0 0 auto;
+  /* ── 무대 ───────────────────────────────────────────────────────── */
+  #f3d-stage {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #f3d-view { flex: 1 1 auto; position: relative; min-height: 0; }
+
+  #f3d-view #frames-spine-player {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 15px;
+  }
+
+  #f3d-view #frames-spine-player img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+  #f3d-hud {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    padding: 7px 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre;
+    pointer-events: none;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+  }
+
+  #f3d-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  #f3d-bar button {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-alt);
+    color: var(--text-body);
+  }
+
+  #f3d-bar button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+  #frames-step-back, #frames-step-fwd { border-radius: var(--radius-md); }
+
+  #frames-timeline {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 9px;
+    position: relative;
+    border-radius: 5px;
+    background: var(--bg-panel-active);
+    cursor: pointer;
+  }
+
+  #frames-timeline-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    border-radius: 5px;
+    background: var(--border-accent);
+    pointer-events: none;
+  }
+
+  #frames-timecode {
+    flex: none;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 오른쪽 서랍 ────────────────────────────────────────────────── */
+  #f3d-rail {
+    flex: none;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-left: 10px;
+    padding: 10px 8px;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border-subtle);
   }
 
-  #frames-drawer-rail button {
+  #f3d-rail button {
     writing-mode: vertical-rl;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 14px 8px;
+    padding: 14px 7px;
     font: inherit;
     font-size: 13px;
     font-weight: 700;
-    color: var(--text-body);
-    background: var(--bg-panel);
+    cursor: pointer;
     border: none;
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    cursor: pointer;
+    color: var(--text-body);
+    background: var(--bg-panel-alt);
   }
 
-  #frames-drawer-rail button:hover { background: var(--bg-panel-alt); color: var(--text-heading); }
+  #f3d-rail button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
-  #frames-drawer-rail button[aria-expanded="true"] {
+  #f3d-rail button[aria-expanded="true"] {
     background: var(--border-accent);
-    color: #0a0a0b;
+    color: var(--text-on-accent);
   }
 
-  #frames-drawer-rail button i { writing-mode: horizontal-tb; }
+  #f3d-rail button i { writing-mode: horizontal-tb; }
+
+  #f3d-drawer {
+    flex: none;
+    width: 320px;
+    padding: 12px;
+    overflow-y: auto;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  #f3d-drawer.hidden { display: none; }
+
+  #f3d-drawer #frames-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #f3d-drawer .frames-item {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+  }
+
+  #f3d-drawer .frames-item-img { width: 96px; flex: none; }
+
+  #f3d-drawer #frames-toolbar { margin: 0 0 10px; padding: 0; }
+
+  #f3d-drawer #frames-info {
+    position: static;
+    width: auto;
+    display: block;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  #f3d-drawer #frames-info > *:not(.info-handle) { opacity: 1; transform: none; }
+  #f3d-drawer .info-handle { display: none; }
+
+  #frames-tiers.is-collapsed { display: none; }
+
+  #frames-tiers-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 7px 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--text-body);
+    background: var(--bg-panel-alt);
+    border: none;
+    border-radius: var(--radius-md);
+  }
+
+  #frames-tiers-toggle i { transition: transform .2s ease; }
+  #frames-tiers-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
 
   /* 상세 정보 — 평소엔 숨기고 버튼으로 연다 */
   #frames-layout:not(.info-open) #frames-info { display: none; }
@@ -5262,70 +5232,6 @@
   }
 
   #frames-layout.is-detail-open:not(.list-open) #frames-selector-col { display: none; }
-
-  /* ── 테두리 접기 ──────────────────────────────────────────────── */
-  #frames-tiers-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 10px 0 0;
-    padding: 7px 14px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-body);
-    background: var(--bg-panel);
-    border: none;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    cursor: pointer;
-  }
-
-  #frames-tiers-toggle:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
-  #frames-tiers-toggle i { transition: transform 0.2s ease; }
-  #frames-tiers-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
-
-  #frames-tiers.is-collapsed { display: none; }
-
-  #frames-spine-wrap {
-    /* 조작 UI 를 왼쪽 패널로 빼고 테두리를 접었으니 그만큼 높이를 가져간다 */
-    height: calc(100vh - 190px);
-    min-height: 520px;
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 15px;
-    color: var(--text-faint);
-  }
-
-  #frames-spine-wrap .spine-player {
-    background-color: transparent !important;
-  }
-
-  #frames-spine-wrap img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-  }
-
-  #frames-spine-player {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  #frames-spine-player canvas {
-    display: block;
-    max-width: 100%;
-    max-height: 100%;
-  }
 
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널
      (유니크 코스튬/미실장 캐릭터 탭과 동일한 패턴) */

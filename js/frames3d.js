@@ -217,11 +217,10 @@ function disposeState(container) {
     phaseToggleEl.innerHTML = '';
     phaseToggleEl.classList.add('hidden');
   }
-  const animToggleEl = document.getElementById('frames-anim-toggle');
-  if (animToggleEl) {
-    animToggleEl.innerHTML = '';
-    animToggleEl.classList.add('hidden');
-  }
+  ['frames-anim-toggle', 'frames-anim-extra'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
+  });
   const barEl = document.getElementById('frames-playbar');
   if (barEl) barEl.classList.add('hidden');
   const restartBtn = document.getElementById('frames-spine-restart');
@@ -864,11 +863,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 이 함수는 호이스팅되어 위쪽 playSingle() 에서 먼저 불린다. 그래서 컨테이너를
     // 바깥 const 로 잡아두면 TDZ 에 걸린다 — 부를 때마다 직접 찾는다.
     function markActiveClip(key) {
-      const el = document.getElementById('frames-anim-toggle');
-      if (!el) return;
-      el.querySelectorAll('.frames-anim-btn').forEach(b => {
-        b.classList.toggle('active', key !== null && b.dataset.key === key);
-      });
+      // 연결 재생과 개별 클립이 서로 다른 구역에 있어서 둘 다 훑는다
+      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn, #frames-anim-extra .frames-anim-btn')
+        .forEach(b => b.classList.toggle('active', key !== null && b.dataset.key === key));
     }
 
     const animEl = document.getElementById('frames-anim-toggle');
@@ -890,6 +887,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 파츠 표시와 어긋난다. 신형 추출본에서만 목록을 낸다.
       if (isCatalogExport && clips.length > 1) {
         animEl.classList.remove('hidden');
+        const ex0 = document.getElementById('frames-anim-extra');
+        if (ex0) ex0.classList.remove('hidden');
 
         // 주요 동작과 개별 클립을 구역으로 나눈다.
         //  - 주요: idle(맨 앞) + 연결 재생 묶음 + death/appearance 같은 단발 연출
