@@ -94,13 +94,21 @@ const CORE_BONE_RE = /(^|_)(bip\d*|pelvis|spine|neck|bust|head|body|root)/i;
 
 // 카메라가 따라갈 본체 메쉬 — 파편을 뺀 본이 가장 많은 스킨드메쉬.
 // 보스마다 이름이 달라서(body_skin / 1phase_skin) 이름으로 찍지 않는다.
+// 본 수만으로 고르면 팔처럼 관절 많은 파츠가 이기는 보스가 있다.
+// (프로비던스: arm_l 35본 vs head 34본 — 한 개 차이로 팔이 뽑혔다)
+// 몸통·머리로 보이는 이름에 큰 가산점을 줘서 그쪽이 먼저 잡히게 한다.
+const FOCUS_NAME_RE = /(^|_)(body|head|torso|chest)(\d*)(_|$)/i;
+
 function pickFocusMesh(meshes) {
-  let best = null, bestN = -1;
+  let best = null, bestScore = -1;
   for (const m of meshes) {
     if (!m.isSkinnedMesh || !m.skeleton) continue;
+    // 발광용 겹쳐 그리는 껍데기(_fx)는 본체가 아니다
+    if (/_fx(_\d+)?$/i.test(m.name || '')) continue;
     let n = 0;
     for (const b of m.skeleton.bones) if (!DEBRIS_BONE_RE.test(b.name || '')) n++;
-    if (n > bestN) { bestN = n; best = m; }
+    const score = n + (FOCUS_NAME_RE.test(m.name || '') ? 100000 : 0);
+    if (score > bestScore) { bestScore = score; best = m; }
   }
   return best;
 }
@@ -188,7 +196,11 @@ function clipPhase(name) {
 // 포즈를 초기화한 상태에서 2페이즈 클립만 틀면 1페이즈 깃털이 그대로 남는다.
 // 그래서 다른 페이즈로 넘어갈 때는 이 클립을 먼저 한 번 재생한다.
 function findPhaseChangeClip(clips) {
-  return clips.find(c => /phase_?change/i.test(c.name || '')) || null;
+  return clips.find(c => /phase_?change/i.test(c.name || ''))
+    // 프로비던스처럼 클립 이름이 그냥 "xbg002_2phase" 인 보스도 있다.
+    // 뒤에 아무것도 안 붙은 페이즈 이름은 그 페이즈로 넘어가는 연출로 본다.
+    || clips.find(c => /^[a-z]{2,4}\d{3}_\d+phase$/i.test(c.name || ''))
+    || null;
 }
 
 // idle / loop 만 반복하고 나머지는 한 번만 재생한 뒤 idle 로 돌아간다.
@@ -445,14 +457,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     let optSingle = false;
 
     function applyLookFlags() {
-      meshes.forEach(m => [].concat(m.material).forEach(mt => {
-        mt.wireframe = optWire;
-        // 끈 상태에서도 완전 투명(0)만은 잘라낸다 — 아니면 LED 발광판의 투명
-        // 테두리가 빨간 네모로 통째로 보인다. 로드할 때 준 값과 같아야 한다.
-        if (!/^fx_/i.test(mt.name || '')) mt.alphaTest = optAlpha ? 0.5 : (isCatalogExport ? 0.05 : 0);
-        mt.side = optSingle ? THREE.FrontSide : THREE.DoubleSide;
-        mt.needsUpdate = true;
-      }));
+      meshes.forEach(m => {
+        const glow = /_fx(_\d+)?$/i.test(m.name || '');
+        [].concat(m.material).forEach(mt => {
+          mt.wireframe = optWire;
+          // 발광 파츠는 알파 블렌딩을 유지한다. 컷아웃을 걸면 판때기로 보인다.
+          if (!glow && !/^fx_/i.test(mt.name || '')) {
+            // 끈 상태에서도 완전 투명(0)만은 잘라낸다 — 아니면 LED 발광판의 투명
+            // 테두리가 네모로 통째로 보인다. 로드할 때 준 값과 같아야 한다.
+            mt.alphaTest = optAlpha ? 0.5 : (isCatalogExport ? 0.05 : 0);
+          }
+          mt.side = optSingle ? THREE.FrontSide : THREE.DoubleSide;
+          mt.needsUpdate = true;
+        });
+      });
     }
 
     function bindToggle(id, get, set) {
@@ -494,7 +512,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 어두운 톤의 보스가 반투명한 것처럼 뿌옇게 보이는 원인이었다 - 원본 FBX 뷰어에는
         // 없는 값이라 강제로 꺼둔다.
         if (m.emissive) m.emissive.setRGB(0, 0, 0);
-        if (!/^fx_/i.test(m.name || '')) {
+        // 재질 이름이 fx_ 로 시작하거나 메쉬 이름이 _fx 로 끝나면 발광·이펙트용이다.
+        // 불투명으로 강제하면 빛나야 할 파츠가 판때기로 보인다.
+        const isGlow = /^fx_/i.test(m.name || '') || /_fx(_\d+)?$/i.test(obj.name || '');
+        if (isGlow) {
+          m.transparent = true;
+          m.depthWrite = false;
+          m.alphaTest = 0;
+        } else {
           m.transparent = false;
           m.depthWrite = true;
           // 신형 추출본은 알파 컷아웃을 끈다.
@@ -1014,7 +1039,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         //   death                <- 단독
         // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니라 단독 클립이다.
         const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '') && !/skill/i.test(c.name || '');
-        const isSolo = c => /(^|_)(death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
+        // dead / death 표기가 보스마다 다르다
+        const isSolo = c => /(^|_)(dead|death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
         const secs = n => n.toFixed(2) + 's';
         const inSeq = new Set();
