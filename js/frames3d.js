@@ -74,7 +74,8 @@ function getBossTransform(bossCode, isCatalogExport) {
   // GLTFLoader 가 그걸 적용한다. 보스별 보정값은 구형 파이프라인이 어긋나게 뽑아준 걸
   // 손으로 맞춘 값이라, 신형에 얹으면 회전이 두 번 걸려 오히려 망가진다.
   // 같은 보스를 신형으로 다시 올리면 이 함수가 알아서 보정을 건너뛴다.
-  if (isCatalogExport) return { rotation: [0, 0, 0], position: [0, 0, 0], scale: 1 };
+  // 좌우 180도가 이 보스들의 정면이다(테스트 뷰어에서 확인).
+  if (isCatalogExport) return { rotation: [0, 180, 0], position: [0, 0, 0], scale: 1 };
 
   const raw = BOSS_TRANSFORM_OVERRIDES[bossCode] || {};
   return {
@@ -221,6 +222,8 @@ function disposeState(container) {
     animToggleEl.innerHTML = '';
     animToggleEl.classList.add('hidden');
   }
+  const barEl = document.getElementById('frames-playbar');
+  if (barEl) barEl.classList.add('hidden');
 
   if (state.renderer) {
     state.renderer.dispose();
@@ -611,8 +614,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     let followReady = false;
     if (focusMesh && rigCenter(focusMesh, followBase)) followReady = true;
 
+    // 우클릭 팬이 안 먹히던 원인 — 추적이 매 프레임 시점을 원래 자리로 끌어당겨서
+    // 사용자가 옮긴 만큼을 즉시 되돌리고 있었다. 조작 중에는 멈추고, 손을 떼면
+    // 그 자리를 새 기준으로 잡는다.
+    let userDragging = false;
+    controls.addEventListener('start', () => { userDragging = true; });
+    controls.addEventListener('end', () => {
+      userDragging = false;
+      initialTarget.copy(controls.target);
+      if (focusMesh) rigCenter(focusMesh, followBase);
+    });
+
     function updateFollow(dt) {
-      if (!followReady || !focusMesh) return;
+      if (userDragging || !followReady || !focusMesh) return;
       if (!rigCenter(focusMesh, followCur)) return;
       // 목표 = 처음 타깃 + (현재 중심 - 처음 중심)
       followWant.copy(initialTarget).add(followCur).sub(followBase);
@@ -637,6 +651,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return gltf.animations.find(a => /idle|wait|stand/i.test(a.name || '')) || gltf.animations[0];
     }
 
+    let currentAction = null;
+
     // 클립 재생. 시퀀스(start->loop->end)를 위해 남은 단계를 큐로 들고 간다.
     // markActiveClip 은 아래 UI 블록에서 함수 선언으로 정의된다(호이스팅됨).
     let seqQueue = [];
@@ -656,6 +672,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         action.clampWhenFinished = true;
       }
       action.play();
+      currentAction = action;
       // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
       state.mixer = mixer;
       state.currentClip = clip.name;
@@ -766,23 +783,52 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     if (animEl) {
       const seqs = findSequences(gltf.animations || []);
       const clips = gltf.animations || [];
-      // 문자열로 정규식을 만들 때는 역슬래시를 한 번 더 써야 한다 — JS 문자열에서
-      // '\d' 는 그냥 'd' 로 죽어서 '2phase_' 가 안 벗겨진다.
-      // 한 파일에 페이즈가 여럿이면 클립 라벨에서도 페이즈를 지우면 안 된다.
+      // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
+      // 접두사가 다른 보스가 있어서(애니힐리오 1페이즈: 메쉬 xbga03_, 클립 xba003_)
+      // 그 값으로 지우면 하나도 안 벗겨진다. 코드 자리를 패턴으로 잡는다.
+      // 한 파일에 페이즈가 여럿이면 페이즈 태그는 남겨야 서로 구분이 된다.
       const multiPhase = new Set(clips.map(c => clipPhase(c.name)).filter(Boolean)).size > 1;
-      const stripCodeRe = bossCode
-        ? new RegExp(bossCode + (multiPhase ? '_' : '_(\\d?\\d?phase_)?'), 'ig')
-        : null;
-      const label = name => (stripCodeRe ? String(name).replace(stripCodeRe, '') : name);
+      const stripCodeRe = multiPhase
+        ? /^[a-z]{2,4}\d{3}_/i
+        : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
+      const label = name => String(name).replace(stripCodeRe, '');
 
       // 구형 변환본은 클립이 idle(또는 페이즈별 idle) 뿐이고 그 전환은 페이즈 토글이
       // 이미 담당한다. 거기에 애니메이션 목록까지 띄우면 역할이 겹치고, 클립만 바꾸면
       // 파츠 표시와 어긋난다. 신형 추출본에서만 목록을 낸다.
       if (isCatalogExport && clips.length > 1) {
         animEl.classList.remove('hidden');
+
+        // 주요 동작과 개별 클립을 구역으로 나눈다.
+        //  - 주요: idle(맨 앞) + 연결 재생 묶음 + death/appearance 같은 단발 연출
+        //  - 개별: 위 어디에도 안 들어간 나머지
+        // 연결 묶음에 이미 들어간 start/loop/fire 는 개별 목록에서 뺀다 — 그대로 두면
+        // 에고비스타처럼 클립이 49개인 보스에서 목록이 감당이 안 된다.
+        const inSeq = new Set();
+        seqs.forEach(sq => sq.steps.forEach(st => inSeq.add(st.clip.name)));
+
+        const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '');
+        const isSolo = c => /(^|_)(death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
+
+        const mainBtns = []
+          .concat(clips.filter(isIdle).map(c => ({ key: c.name, text: label(c.name), seq: false })))
+          .concat(seqs.map(sq => ({ key: sq.key, text: label(sq.label), seq: true })))
+          .concat(clips.filter(c => isSolo(c) && !inSeq.has(c.name)).map(c => ({ key: c.name, text: label(c.name), seq: false })));
+
+        const mainKeys = new Set(mainBtns.map(b => b.key));
+        const restBtns = clips
+          .filter(c => !inSeq.has(c.name) && !mainKeys.has(c.name))
+          .map(c => ({ key: c.name, text: label(c.name), seq: false }));
+
+        const row = list => list.map(b =>
+          `<button type="button" class="filter-chip frames-anim-btn${b.seq ? ' is-seq' : ''}" data-key="${b.key}">${b.text}</button>`
+        ).join('');
+
         animEl.innerHTML =
-          seqs.map(sq => `<button type="button" class="filter-chip frames-anim-btn is-seq" data-key="${sq.key}">${label(sq.label)}</button>`).join('')
-          + clips.map(c => `<button type="button" class="filter-chip frames-anim-btn" data-key="${c.name}">${label(c.name)}</button>`).join('');
+          `<div class="anim-group"><span class="anim-group-label">주요 동작</span><div class="anim-row">${row(mainBtns)}</div></div>`
+          + (restBtns.length
+              ? `<div class="anim-group"><span class="anim-group-label">개별 클립</span><div class="anim-row">${row(restBtns)}</div></div>`
+              : '');
 
         animEl.querySelectorAll('.frames-anim-btn').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -803,7 +849,58 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
     }
 
+    // 조작 패널에서 비어 있는 그룹(라벨만 남은 줄)을 감춘다
+    if (window.syncFramesCtlGroups) window.syncFramesCtlGroups();
+
     if (onLoaded) onLoaded({ meshCount: meshes.length });
+
+    // ── 재생바 ────────────────────────────────────────────────────
+    const barEl = document.getElementById('frames-playbar');
+    const lineEl = document.getElementById('frames-timeline');
+    const fillEl = document.getElementById('frames-timeline-fill');
+    const codeEl = document.getElementById('frames-timecode');
+
+    if (barEl) barEl.classList.toggle('hidden', !(gltf.animations && gltf.animations.length));
+
+    function seekToRatio(ratio) {
+      if (!currentAction) return;
+      const dur = currentAction.getClip().duration || 0;
+      currentAction.time = Math.max(0, Math.min(dur, dur * ratio));
+      if (mixer) mixer.update(0);
+      syncBar();
+    }
+
+    if (lineEl && !lineEl.__wired) {
+      lineEl.__wired = true;
+      const ratioAt = ev => {
+        const r = lineEl.getBoundingClientRect();
+        return r.width ? (ev.clientX - r.left) / r.width : 0;
+      };
+      let scrubbing = false;
+      lineEl.addEventListener('pointerdown', ev => {
+        scrubbing = true;
+        lineEl.setPointerCapture(ev.pointerId);
+        const st = container.__framesModel3D;
+        if (st && st.seekToRatio) st.seekToRatio(ratioAt(ev));
+      });
+      lineEl.addEventListener('pointermove', ev => {
+        if (!scrubbing) return;
+        const st = container.__framesModel3D;
+        if (st && st.seekToRatio) st.seekToRatio(ratioAt(ev));
+      });
+      const stop = () => { scrubbing = false; };
+      lineEl.addEventListener('pointerup', stop);
+      lineEl.addEventListener('pointercancel', stop);
+    }
+    state.seekToRatio = seekToRatio;
+
+    function syncBar() {
+      if (!fillEl || !currentAction) return;
+      const dur = currentAction.getClip().duration || 0;
+      const t = dur ? (currentAction.time % dur) : 0;
+      fillEl.style.width = (dur ? (t / dur) * 100 : 0) + '%';
+      if (codeEl) codeEl.textContent = t.toFixed(2) + ' / ' + dur.toFixed(2);
+    }
 
     // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
     state.step = (dt) => {
@@ -811,6 +908,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       updateFollow(dt);
       controls.update();
       renderer.render(scene, camera);
+      syncBar();
     };
 
     function animate() {

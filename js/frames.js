@@ -131,6 +131,8 @@
     // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
     // 남아 있으면 무엇에 딸린 건지 알 수 없다.
     document.getElementById('frames-tiers').innerHTML = '';
+    const tb = document.getElementById('frames-tiers-toggle');
+    if (tb) tb.classList.add('hidden');
     document.querySelectorAll('.frames-item').forEach(el => el.classList.remove('active'));
   }
 
@@ -214,6 +216,7 @@
   }
 
   function renderFrameTiers(item) {
+    const tiersBtn = document.getElementById('frames-tiers-toggle');
     const container = document.getElementById('frames-tiers');
     const tiers = [1, 2, 3]
       .map(n => ({
@@ -236,6 +239,28 @@
         ${t.desc ? `<div class="frames-tier-desc">${escapeHtml(t.desc).split(NEWLINE_RE).join('<br>')}</div>` : ''}
       </div>
     `).join('');
+
+    // 테두리 구역은 기본으로 접어 둔다 — 그만큼 3D 구역이 화면을 넓게 쓴다.
+    // 보스를 바꿔도 접힌 상태로 시작한다.
+    if (!tiersBtn) return;
+    if (!tiers.length) {
+      tiersBtn.classList.add('hidden');
+      container.classList.add('is-collapsed');
+      return;
+    }
+    tiersBtn.classList.remove('hidden');
+    container.classList.add('is-collapsed');
+    tiersBtn.setAttribute('aria-expanded', 'false');
+    tiersBtn.querySelector('span').textContent = `테두리 보기 (${tiers.length})`;
+    if (!tiersBtn.__wired) {
+      tiersBtn.__wired = true;
+      tiersBtn.addEventListener('click', () => {
+        const open = container.classList.toggle('is-collapsed') === false;
+        tiersBtn.setAttribute('aria-expanded', String(open));
+        tiersBtn.querySelector('span').textContent = open ? '테두리 접기' : '테두리 보기';
+        syncFramesSelectorHeight();
+      });
+    }
   }
 
   // 표에 적힌 줄바꿈(CRLF/LF)을 <br> 로 바꿀 때 쓴다
@@ -281,6 +306,25 @@
       .filter(m => m.url);
   }
 
+  // 페이즈 번호 순으로 세운다 — DB 에 어떤 순서로 적혀 있든 1페이즈가 먼저 오게.
+  // 번호가 없는 항목(구체 등)은 뒤로 보낸다.
+  function sortBossModels(models) {
+    const num = m => {
+      const hit = String(m.name).match(/(\d+)\s*페이즈/) || String(m.url).match(/_(\d+)phase/i);
+      return hit ? Number(hit[1]) : 99;
+    };
+    return models.slice().sort((a, b) => num(a) - num(b));
+  }
+
+  // 조작 패널의 각 그룹은 안에 버튼이 있을 때만 보인다.
+  function syncCtlGroups() {
+    document.querySelectorAll('#frames-controls .frames-ctl-group').forEach(g => {
+      const box = g.querySelector('div:last-child');
+      g.classList.toggle('is-empty', !box || box.classList.contains('hidden') || !box.children.length);
+    });
+  }
+  window.syncFramesCtlGroups = syncCtlGroups;
+
   function renderBossModelPicker(models, onPick) {
     const box = document.getElementById('frames-model-toggle');
     if (!box) return;
@@ -306,13 +350,15 @@
     clearFramesSpine();
 
     const wrap = document.getElementById('frames-spine-player');
-    const models = parseBossModels(item['model']);
+    const models = sortBossModels(parseBossModels(item['model']));
     const modelUrl = models.length ? models[0].url : null;
     const skelUrl = item['skel'];
     const atlasUrl = item['atlas'];
 
     // 3D 모델(glb)이 있으면 우선 사용 — Spine L2D보다 커버리지가 넓다
     if (modelUrl && window.loadFramesModel3D) {
+      // 내용이 없는 조작 그룹은 라벨만 남아 허전해 보인다. 자식이 비면 통째로 감춘다.
+      requestAnimationFrame(syncCtlGroups);
       renderBossModelPicker(models, m => {
         window.loadFramesModel3D(wrap, m.url, { onError: err => console.error('[보스 3D] 로드 실패:', err) });
       });

@@ -4719,7 +4719,11 @@
   #frames-main {
     flex: 1 1 auto;
     min-width: 0;
+    order: 1;   /* 보스 목록보다 앞 = 왼쪽 */
   }
+
+  /* 보스 목록은 오른쪽 기둥으로 보낸다 */
+  #frames-layout.is-detail-open #frames-selector-col { order: 2; }
 
   /* 보스를 안 골랐으면 오른쪽 기둥은 아예 자리를 차지하지 않는다(목록이 폭을 다 쓴다) */
   #frames-layout:not(.is-detail-open) #frames-main {
@@ -4893,51 +4897,152 @@
     flex-direction: column;
     gap: 0.75rem;
     min-width: 0;
-    /* 오른쪽 정보란(#frames-info)이 접혀있어도 56px 폭을 항상 차지하므로,
-       페이즈/파츠 토글 줄이 그 밑으로 들어가 가려지지 않게 미리 여백을 둔다. */
+    /* 오른쪽 정보란(#frames-info)이 접혀있어도 56px 폭을 항상 차지한다 */
     padding-right: 56px;
   }
 
-  /* 3D 모델이 여러 파일로 나뉜 보스용 선택 줄 (애니힐리오는 1페이즈/2페이즈/구체가
-   각각 별도 glb 다). 파일 하나뿐인 보스에서는 JS 가 숨긴 채로 둔다. */
-.frames-model-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 8px;
-}
-
-/* 3D 뷰어 애니메이션 목록. 클립이 여러 개인 보스에서만 보인다 —
-   기존 테두리 보스는 idle 하나뿐이라 JS 쪽에서 숨긴 채로 둔다.
-   시퀀스(start->loop->end) 버튼은 왼쪽에 액센트 선을 둬서 개별 클립과 구분한다. */
-.frames-anim-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 8px;
-  max-height: 132px;
-  overflow-y: auto;
-}
-
-.frames-anim-toggle .frames-anim-btn {
-  font-size: 12px;
-  padding: 4px 9px;
-}
-
-.frames-anim-toggle .frames-anim-btn.is-seq {
-  border-left: 3px solid var(--border-accent);
-  font-weight: 700;
-}
-
-.frames-phase-toggle {
+  /* ── 3D 뷰어 조작 패널 ────────────────────────────────────────────
+     모델/페이즈/애니메이션/파츠를 왼쪽 세로 패널에 모은다. 가로 줄로 늘어놓으면
+     보스마다 버튼 수가 제각각(에고비스타는 61개)이라 3D 구역을 계속 밀어냈다. */
+  #frames-controls {
+    flex: 0 0 auto;
+    width: 226px;
+    align-self: stretch;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    max-height: calc(100vh - 150px);
+    padding: 12px;
+    margin-right: 12px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
   }
 
+  .frames-ctl-group.is-empty { display: none; }
+
+  .frames-ctl-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .frames-model-toggle,
+  .frames-phase-toggle,
+  .frames-anim-toggle,
+  #frames-controls .parts-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  #frames-controls .parts-toggle { flex-direction: column; gap: 2px; }
+
+  .frames-anim-toggle { flex-direction: column; gap: 10px; }
+
+  .frames-anim-toggle .anim-group-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-bottom: 4px;
+  }
+
+  .frames-anim-toggle .anim-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .frames-anim-toggle .frames-anim-btn { font-size: 12px; padding: 4px 8px; }
+
+  .frames-anim-toggle .frames-anim-btn.is-seq {
+    border-left: 3px solid var(--border-accent);
+    font-weight: 700;
+  }
+
+  /* ── 재생바 ───────────────────────────────────────────────────────
+     오른쪽 끝에 여백을 둬서 테두리 접기 버튼과 겹치지 않게 한다. */
+  #frames-playbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 6px 150px 6px 10px;
+    border-radius: var(--radius-md);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+  }
+
+  #frames-playbar button {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-alt);
+    color: var(--text-body);
+    cursor: pointer;
+  }
+
+  #frames-playbar button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+
+  #frames-timeline {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--bg-panel-active);
+    cursor: pointer;
+    position: relative;
+  }
+
+  #frames-timeline-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    border-radius: 4px;
+    background: var(--border-accent);
+    pointer-events: none;
+  }
+
+  #frames-timecode {
+    flex: none;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 테두리 접기 ──────────────────────────────────────────────── */
+  #frames-tiers-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0;
+    padding: 7px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-body);
+    background: var(--bg-panel);
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+  }
+
+  #frames-tiers-toggle:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
+  #frames-tiers-toggle i { transition: transform 0.2s ease; }
+  #frames-tiers-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
+
+  #frames-tiers.is-collapsed { display: none; }
+
   #frames-spine-wrap {
-    height: calc(100vh - 320px);
-    min-height: 420px;
+    /* 조작 UI 를 왼쪽 패널로 빼고 테두리를 접었으니 그만큼 높이를 가져간다 */
+    height: calc(100vh - 190px);
+    min-height: 520px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);

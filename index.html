@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=99">
+  <link rel="stylesheet" href="css/style.css?v=100">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -435,16 +435,38 @@
 
         <!-- 상세 -->
         <div id="frames-top" class="hidden">
+          <!-- 왼쪽 조작 패널. 모델/페이즈/애니메이션/파츠를 세로로 모아서
+               가운데 3D 구역이 화면을 최대한 넓게 쓰도록 한다. -->
+          <div id="frames-controls">
+            <div class="frames-ctl-group" id="frames-model-group">
+              <div class="frames-ctl-label">모델</div>
+              <div id="frames-model-toggle" class="frames-model-toggle hidden"></div>
+            </div>
+            <div class="frames-ctl-group" id="frames-phase-group">
+              <div class="frames-ctl-label">페이즈</div>
+              <div id="frames-phase-toggle" class="frames-phase-toggle hidden"></div>
+            </div>
+            <div class="frames-ctl-group" id="frames-anim-group">
+              <div class="frames-ctl-label">애니메이션</div>
+              <div id="frames-anim-toggle" class="frames-anim-toggle hidden"></div>
+            </div>
+            <div class="frames-ctl-group" id="frames-parts-group">
+              <div class="frames-ctl-label">파츠</div>
+              <div id="frames-parts-toggle" class="parts-toggle hidden"></div>
+            </div>
+          </div>
+
           <div class="frames-spine-col">
             <div id="frames-spine-wrap">
               <div id="frames-spine-player"></div>
               <button id="frames-spine-reset" class="spine-reset-btn" type="button" aria-label="화면 초기화" title="화면 초기화"><i class="fas fa-rotate-right"></i></button>
-              <button id="frames-spine-pause" class="spine-reset-btn spine-pause-btn" type="button" aria-label="일시정지" title="일시정지"><i class="fas fa-pause"></i></button>
             </div>
-            <div id="frames-model-toggle" class="frames-model-toggle hidden"></div>
-            <div id="frames-phase-toggle" class="frames-phase-toggle hidden"></div>
-            <div id="frames-anim-toggle" class="frames-anim-toggle hidden"></div>
-            <div id="frames-parts-toggle" class="parts-toggle hidden"></div>
+            <!-- 재생바. 오른쪽 끝은 테두리 접기 버튼과 겹치지 않게 여백을 둔다. -->
+            <div id="frames-playbar" class="hidden">
+              <button id="frames-spine-pause" type="button" aria-label="일시정지" title="일시정지"><i class="fas fa-pause"></i></button>
+              <div id="frames-timeline"><div id="frames-timeline-fill"></div></div>
+              <span id="frames-timecode">0.00 / 0.00</span>
+            </div>
           </div>
 
           <div id="frames-info">
@@ -467,7 +489,10 @@
           </div>
         </div>
 
-        <div id="frames-tiers"></div>
+        <button id="frames-tiers-toggle" class="hidden" type="button" aria-expanded="false">
+          <i class="fas fa-chevron-down"></i><span>테두리 보기</span>
+        </button>
+        <div id="frames-tiers" class="is-collapsed"></div>
 
         </div><!-- /frames-main -->
         </div><!-- /frames-layout -->
@@ -561,8 +586,8 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=31"></script>
-  <script src="js/frames.js?v=16"></script>
+  <script type="module" src="js/frames3d.js?v=32"></script>
+  <script src="js/frames.js?v=17"></script>
   <script src="js/stage.js?v=7"></script>
 
 </body>
