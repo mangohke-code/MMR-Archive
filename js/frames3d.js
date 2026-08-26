@@ -387,6 +387,52 @@ const SYNTHETIC_SEQUENCES = [
   },
 ];
 
+// 내보내기가 인게임 카메라를 같이 넣어 준다 — 카메라 노드 하나에 등장·사망용
+// 카메라 클립이 붙는다. 클립이 자기 트랜스폼을 직접 움직이므로 커브 값이 곧 카메라
+// 위치·회전이고, 노드가 모델과 같은 그룹 안에 있어 좌표계도 저절로 맞는다.
+function findCameraNode(root) {
+  let found = null;
+  root.traverse(o => { if (!found && o.isCamera) found = o; });
+  return found;
+}
+
+// 이 클립이 카메라 노드만 건드리는가
+function isCameraClip(clip, camName) {
+  if (!camName) return false;
+  const prefix = camName + '.';
+  return clip.tracks.length > 0 && clip.tracks.every(t => String(t.name).startsWith(prefix));
+}
+
+// 카메라 클립 <-> 모델 클립 짝짓기.
+//   eba004_appearance_camera        -> eba004_appearance_f
+//   eba004_death_camera             -> eba004_death
+//   bbg008_appearance_camera_take1  -> bbg008_appearance_take1
+function pairCameraClips(clips, camName) {
+  const cams = clips.filter(c => isCameraClip(c, camName));
+  const models = clips.filter(c => !isCameraClip(c, camName));
+  const byModel = new Map();
+  cams.forEach(cam => {
+    const m = (cam.name || '').match(/^(.*?)_camera\d*(_take\d+)?$/i);
+    if (!m) return;
+    const base = m[1] + (m[2] || '');
+    // 정확히 같은 이름 -> 그 이름으로 시작 -> 그 이름이 나를 포함, 순으로 찾는다.
+    // take 꼬리표가 붙은 카메라는 같은 꼬리표를 가진 클립하고만 짝짓는다.
+    const take = m[2] || '';
+    const cand = models.filter(c => !take || String(c.name).endsWith(take));
+    let best = null, bestLen = -1;
+    for (const c of cand) {
+      const n = String(c.name);
+      let len = -1;
+      if (n === base) len = 1000;
+      else if (n.startsWith(base)) len = base.length;
+      else if (base.startsWith(n)) len = n.length;
+      if (len > bestLen) { bestLen = len; best = c; }
+    }
+    if (best && bestLen >= 8) byModel.set(best.name, cam);
+  });
+  return { cams, byModel };
+}
+
 function findSequences(clips) {
   const groups = new Map();
   clips.forEach((c, i) => {
@@ -921,6 +967,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return String(parseInt(m[1] || m[2], 10));
     };
     const basePose = capturePose(gltf.scene);
+
+    // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.
+    const camNode = findCameraNode(gltf.scene);
+    const camPairs = camNode
+      ? pairCameraClips(gltf.animations || [], camNode.name)
+      : { cams: [], byModel: new Map() };
+    const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
+    // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
+    let cinematic = null;
     const focusOverride = focusOverrideFor(bossCode);
     const focusMesh = pickFocusMesh(meshes, focusOverride);
     // 본 패턴이 있으면 그게 우선. 메쉬만 지정했으면 그 메쉬 전체가 기준이라는 뜻이다.
@@ -1306,9 +1361,43 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       controls.target.copy(fixed);
     }
 
+    // 인게임 카메라가 도는 동안에는 시점 계산을 하지 않는다 — 카메라 노드의 월드
+    // 트랜스폼을 그대로 옮겨 쓴다. 그 노드가 모델과 같은 그룹(yaw/pitch/norm) 안에
+    // 있어서 방향 보정과 정규화 배율이 저절로 함께 걸린다.
+    const camWorldPos = new THREE.Vector3();
+    const camWorldQuat = new THREE.Quaternion();
+    const camWorldScl = new THREE.Vector3();
+    const camFwd = new THREE.Vector3();
+    let savedFov = null;
+
+    function applyCinematicCamera() {
+      if (!cinematic || !camNode || !followEnabled) {
+        if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
+        return false;
+      }
+      camNode.updateWorldMatrix(true, false);
+      camNode.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
+      camera.position.copy(camWorldPos);
+      camera.quaternion.copy(camWorldQuat);
+      // 게임 카메라의 화각(yfov)을 따른다. 클립이 끝나면 원래 값으로 돌려놓는다.
+      if (camNode.isPerspectiveCamera) {
+        if (savedFov === null) savedFov = camera.fov;
+        if (Math.abs(camera.fov - camNode.fov) > 1e-4) {
+          camera.fov = camNode.fov;
+          camera.updateProjectionMatrix();
+        }
+      }
+      // 궤도 조작의 기준점도 시선 앞으로 옮겨 둔다 — 연출이 끝난 뒤 조작이 어색하지 않게.
+      camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+      controls.target.copy(camera.position).addScaledVector(camFwd, 2);
+      return true;
+    }
+
     // 시점을 처음 자리로. 추적이 꺼져 있으면 사용자가 맞춰둔 시점이므로 건드리지 않는다.
     function resetViewToHome() {
+      if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
       if (!followEnabled || !homeCamPos || !homeTarget) return;
+      camera.quaternion.identity();
       camOffset.copy(homeCamPos).sub(homeTarget);
       controls.target.copy(initialTarget);
       camera.position.copy(initialTarget).add(camOffset);
@@ -1496,6 +1585,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 다음 클립까지 넘어가면 시점이 (5.1, 1.4, -0.6) 에 얼어붙어서, 그 뒤로 뭘
       // 재생하든 화면이 통째로 빈다.
       resetViewToHome();
+
+      // 이 클립에 인게임 카메라가 붙어 있으면 같이 재생하고, 그동안 시점을 그쪽에 맡긴다.
+      const camClip = camPairs.byModel.get(clip.name);
+      cinematic = null;
+      if (camClip && camNode) {
+        const camAct = mixer.clipAction(camClip);
+        camAct.setLoop(THREE.LoopOnce, 1);
+        camAct.clampWhenFinished = true;
+        camAct.play();
+        cinematic = { action: camAct, clip: camClip };
+      }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
       // 정작 loop 로 넘어갈 때 화면이 한 번 크게 튄다.
@@ -1638,7 +1738,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     if (animEl) {
       const seqs = findSequences(gltf.animations || []);
       buildSyntheticSequences(seqs);
-      const clips = gltf.animations || [];
+      // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
+      const clips = (gltf.animations || []).filter(c => !cameraClipNames.has(c.name));
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
       // 접두사가 다른 보스가 있어서(애니힐리오 1페이즈: 메쉬 xbga03_, 클립 xba003_)
       // 그 값으로 지우면 하나도 안 벗겨진다. 코드 자리를 패턴으로 잡는다.
@@ -1973,9 +2074,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
       if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
-      updateFollow();
-      clampPan();
-      controls.update();
+      if (!applyCinematicCamera()) {
+        updateFollow();
+        clampPan();
+        controls.update();
+      }
       if (composer) composer.render();
       else renderer.render(scene, camera);
       syncBar();
