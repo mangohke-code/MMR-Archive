@@ -1306,36 +1306,48 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       controls.target.copy(fixed);
     }
 
+    // 시점을 처음 자리로. 추적이 꺼져 있으면 사용자가 맞춰둔 시점이므로 건드리지 않는다.
+    function resetViewToHome() {
+      if (!followEnabled || !homeCamPos || !homeTarget) return;
+      camOffset.copy(homeCamPos).sub(homeTarget);
+      controls.target.copy(initialTarget);
+      camera.position.copy(initialTarget).add(camOffset);
+    }
+
     // 추적이 켜져 있으면 매 프레임 시점을 처음 상태로 되돌린다 — 거리·각도까지
     // 전부. 예전에는 목표까지 부드럽게 따라가기만 해서, 리그가 빠르게 움직이는
     // 구간(애니힐리오 사망은 1 초에 2.2 내려간다)에서 화면이 뒤처지고, 그 오차가
     // 클립이 끝날 때까지 남았다.
     function updateFollow() {
       if (!followEnabled || userDragging || !followReady || !focusMesh) return;
+      let ok = true;
       if (followPin) {
         // start 구간은 loop 가 시작될 자리에 시점을 고정한다. 이렇게 해야
         // start -> loop 로 넘어갈 때 화면이 튀지 않는다.
         followCur.copy(followPin);
       } else {
-      if (!rigCenter(focusMesh, followCur, focusBone)) return;
+      if (!rigCenter(focusMesh, followCur, focusBone)) ok = false;
       // 리그 자체가 망가지는 구간이 있다. 거대 질량체가 두 경우를 다 보여준다 —
       // appearance_f 는 main 리그(본 760개)를 스케일 0 으로 접어 21 유닛 밖에 세워두고,
       // death 후반에는 반대로 본을 25 유닛 범위로 흩뿌린다(평소 퍼짐 0.4).
       // 접힌 리그의 "위치" 도, 흩어진 본의 "평균" 도 의미가 없어서 그대로 따라가면
       // 아무것도 없는 허공을 비춘다. 이럴 땐 마지막으로 멀쩡했던 시점을 유지한다.
-      if (followSpread > 0) {
+      if (ok && followSpread > 0) {
         const spread = rigSpread(focusMesh, followCur, focusBone);
-        if (spread < followSpread * 0.05 || spread > followSpread * 5) return;
+        if (spread < followSpread * 0.05 || spread > followSpread * 5) ok = false;
       }
       }
-      // 목표 타깃 = 처음 타깃 + (현재 중심 - 처음 중심)
-      followWant.copy(initialTarget).add(followCur).sub(followBase);
-      followDelta.copy(followWant).sub(controls.target);
-      if (followDelta.lengthSq() > 1e-12) {
-        controls.target.copy(followWant);
-        camera.position.add(followDelta);
+      if (ok) {
+        // 목표 타깃 = 처음 타깃 + (현재 중심 - 처음 중심)
+        followWant.copy(initialTarget).add(followCur).sub(followBase);
+        followDelta.copy(followWant).sub(controls.target);
+        if (followDelta.lengthSq() > 1e-12) {
+          controls.target.copy(followWant);
+          camera.position.add(followDelta);
+        }
       }
-      // 휠로 당겼거나 이전 연출이 남긴 거리 차이도 같이 되돌린다
+      // 추적이 걸리든 안 걸리든 카메라 거리·각도는 항상 처음 상태로 되돌린다.
+      // 여기서 일찍 빠져나가면 휠로 당긴 거리나 앞 프레임이 남긴 어긋남이 그대로 남는다.
       if (homeCamPos && homeTarget) {
         camOffset.copy(homeCamPos).sub(homeTarget);
         camWant.copy(controls.target).add(camOffset);
@@ -1478,6 +1490,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       action.play();
       currentAction = action;
+      // 새 클립을 시작할 때는 시점을 홈으로 되돌린다.
+      // 리그가 망가진 채 끝나는 클립이 있다 — 거대 질량체 death 는 본을 25 유닛
+      // 흩뿌리고, 그러면 추적이 마지막 성한 자리에 시점을 붙들어 둔다. 그 상태가
+      // 다음 클립까지 넘어가면 시점이 (5.1, 1.4, -0.6) 에 얼어붙어서, 그 뒤로 뭘
+      // 재생하든 화면이 통째로 빈다.
+      resetViewToHome();
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
       // 정작 loop 로 넘어갈 때 화면이 한 번 크게 튄다.
@@ -1679,9 +1697,21 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         trios.forEach(t => { trioSide.add(t.left.name); trioSide.add(t.right.name); });
         const trioByCenter = new Map(trios.map(t => [t.center.name, t]));
 
+        // 이름 끝의 번호. 같은 구역 안에서 번호 순으로 세우는 데 쓴다 —
+        // 묶음이 없는 낱개 클립(거대 질량체 skill_fire_09 는 start/loop 이 없다)이
+        // 파일 순서대로 맨 뒤에 붙어서 10 번 뒤에 서 있었다.
+        const seqNo = (name) => {
+          const m = String(name).match(/_(\d+)$/);
+          return m ? Number(m[1]) : Infinity;
+        };
+
         const bucket = {};
         GROUPS.forEach(g => { bucket[g] = []; });
-        const push = (g, html) => { (bucket[g] || bucket['지상']).push(html); };
+        // 묶음은 하위 버튼까지 한 덩어리로 넣는다. 안 그러면 번호로 다시 세울 때
+        // 자식이 부모에게서 떨어진다.
+        const push = (g, html, order) => {
+          (bucket[g] || bucket['지상']).push({ html, order: order === undefined ? Infinity : order });
+        };
 
         // 1) 대기 동작
         clips.filter(isIdle).forEach(c => push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration))));
@@ -1689,16 +1719,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         seqs.forEach(sq => {
           const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
           const g = groupOf(sq.key);
-          push(g, mkBtn(sq.key, label(sq.label), secs(total), 'is-seq'));
+          let html = mkBtn(sq.key, label(sq.label), secs(total), 'is-seq');
           // 합성 묶음(파일에 없는 스킬을 원본 클립을 잘라 만든 것)은 하위 버튼을 내지
           // 않는다 — 재료 클립 버튼과 키가 겹치고, 잘라낸 클립은 clips 목록에 없다.
-          if (sq.synthetic) return;
-          const seen = new Set();
-          sq.steps.forEach(st => {
-            if (seen.has(st.clip.name)) return;
-            seen.add(st.clip.name);
-            push(g, mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child'));
-          });
+          if (!sq.synthetic) {
+            const seen = new Set();
+            sq.steps.forEach(st => {
+              if (seen.has(st.clip.name)) return;
+              seen.add(st.clip.name);
+              html += mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child');
+            });
+          }
+          push(g, html, seqNo(sq.key));
         });
         // 3) 나머지
         clips.forEach(c => {
@@ -1710,14 +1742,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(c.duration), 'is-seq'));
             return;
           }
-          push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'));
+          push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'),
+            seqNo(c.name));
         });
 
         const parts = [];
         GROUPS.forEach(g => {
           if (!bucket[g].length) return;
-          // 구역이 하나뿐이면 제목을 달 필요가 없다
-          parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${bucket[g].join('')}</div>`);
+          // 번호가 있는 것끼리 번호 순으로. 번호가 없으면 원래 자리를 지킨다.
+          const items = bucket[g]
+            .map((it, i) => ({ ...it, i }))
+            .sort((a, b) => (a.order - b.order) || (a.i - b.i))
+            .map(it => it.html)
+            .join('');
+          parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${items}</div>`);
         });
 
         animEl.innerHTML = parts.join('');
