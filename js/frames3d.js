@@ -390,6 +390,16 @@ const SYNTHETIC_SEQUENCES = [
 // 내보내기가 인게임 카메라를 같이 넣어 준다 — 카메라 노드 하나에 등장·사망용
 // 카메라 클립이 붙는다. 클립이 자기 트랜스폼을 직접 움직이므로 커브 값이 곧 카메라
 // 위치·회전이고, 노드가 모델과 같은 그룹 안에 있어 좌표계도 저절로 맞는다.
+// 게임 카메라가 보스를 너무 멀리서 잡는 보스. 카메라 "움직임" 은 그대로 두고
+// 모델 쪽으로 당기기만 한다.
+// 애니힐리오·거대 질량체·검은 뱀은 원본 거리가 맞아서 건드리지 않는다 —
+// 자동 판정으로 걸면 그쪽 프레이밍까지 바뀐다(검은 뱀 등장이 42% 에서 57% 로 커졌다).
+const CAMERA_TOO_FAR = [/^xbg002/i, /^xbg003/i];
+
+function cameraNeedsPull(bossCode) {
+  return CAMERA_TOO_FAR.some(re => re.test(bossCode || ''));
+}
+
 function findCameraNode(root) {
   let found = null;
   root.traverse(o => { if (!found && o.isCamera) found = o; });
@@ -1055,6 +1065,56 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const CAM_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
     let cameraFlip = false;
 
+    // 게임 카메라가 보스를 너무 멀리서 잡는 클립이 있다(프로비던스·온리 원의 등장·사망은
+    // 모델이 화면 높이의 20% 아래로 떨어진다). 화면비가 게임(세로)과 뷰어(가로)가 달라서
+    // 같은 화각이라도 훨씬 작아 보인다.
+    // 카메라의 "움직임" 은 그대로 두고 모델 쪽으로 당기기만 한다 — 시선 방향과 궤적 모양은
+    // 유지되고 거리만 줄어든다. 클립마다 한 번 재서 상수로 쓰므로 프레임마다 흔들리지 않는다.
+    const CAM_FILL = 0.62; // 모델이 화면 높이에서 차지하길 바라는 비율
+    const camZoom = new Map();
+
+    function measureCameraZoom() {
+      if (!camNode || !focusMesh || !camPairs.byModel.size) return;
+      if (!cameraNeedsPull(bossCode)) return;
+      const saved = capturePose(gltf.scene);
+      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      const fovRad = THREE.MathUtils.degToRad(camNode.isPerspectiveCamera ? camNode.fov : 60);
+      const wantHalf = Math.tan(fovRad * CAM_FILL / 2);
+      try {
+        camPairs.byModel.forEach((camClip, modelName) => {
+          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
+          if (!modelClip) return;
+          const dur = Math.min(camClip.duration, modelClip.duration);
+          const ratios = [];
+          for (const frac of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+            restorePose(poseFor(modelName));
+            const probe = new THREE.AnimationMixer(gltf.scene);
+            probe.clipAction(modelClip).play();
+            probe.clipAction(camClip).play();
+            probe.setTime(dur * frac);
+            gltf.scene.updateMatrixWorld(true);
+            if (rigCenter(focusMesh, center, focusBone)) {
+              const r = rigSpread(focusMesh, center, focusBone);
+              camNode.matrixWorld.decompose(pos, quat, scl);
+              const d = center.distanceTo(pos);
+              if (r > 1e-6 && d > 1e-6) ratios.push((r / wantHalf) / d);
+            }
+            probe.stopAllAction();
+            probe.uncacheRoot(gltf.scene);
+          }
+          if (!ratios.length) return;
+          ratios.sort((a, b) => a - b);
+          const k = ratios[Math.floor(ratios.length / 2)];
+          // 멀 때만 당긴다. 이미 알맞거나 가까우면 건드리지 않는다.
+          if (k < 0.98) camZoom.set(modelName, Math.max(0.12, k));
+        });
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+    }
+
     function measureCameraFlip() {
       if (!camNode || !focusMesh || !camPairs.byModel.size) return;
       const saved = capturePose(gltf.scene);
@@ -1419,6 +1479,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camWorldQuat = new THREE.Quaternion();
     const camWorldScl = new THREE.Vector3();
     const camFwd = new THREE.Vector3();
+    const camPull = new THREE.Vector3();
     let savedFov = null;
 
     function applyCinematicCamera() {
@@ -1431,6 +1492,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
+      // 너무 멀리서 잡는 클립은 같은 선 위에서 모델 쪽으로 당긴다.
+      // 시선 방향은 그대로라 화면 구도는 유지되고 크기만 커진다.
+      if (cinematic.zoom < 1 && rigCenter(focusMesh, camPull, focusBone)) {
+        camera.position.sub(camPull).multiplyScalar(cinematic.zoom).add(camPull);
+      }
       // 게임 카메라의 화각(yfov)을 따른다. 클립이 끝나면 원래 값으로 돌려놓는다.
       if (camNode.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
@@ -1646,7 +1712,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.setLoop(THREE.LoopOnce, 1);
         camAct.clampWhenFinished = true;
         camAct.play();
-        cinematic = { action: camAct, clip: camClip };
+        cinematic = { action: camAct, clip: camClip, zoom: camZoom.get(clip.name) || 1 };
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
@@ -1791,6 +1857,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       const seqs = findSequences(gltf.animations || []);
       buildSyntheticSequences(seqs);
       measureCameraFlip();
+      measureCameraZoom();
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
       const clips = (gltf.animations || []).filter(c => !cameraClipNames.has(c.name));
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
