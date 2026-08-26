@@ -67,7 +67,32 @@ const PART_GROUPS = [
   ['무기', /(^|_)(weapon|gun|rifle|turret|shield|sword|magazine|missile|launcher|led)/i],
   // parts_ul / parts_dr 처럼 방향만 붙은 부속 파츠
   ['부속', /(^|_)parts?(_|\d|$)/i],
+  // 거대 질량체(eba004) — main 이 몸체 전부고, 나머지 넷은 부위가 아니라
+  // 등장·사망·특정 스킬에서만 펼쳐지는 연출/투사체 덩어리다.
+  // idle 에서는 (0, 17.4, 8.8) 한 점에 접혀 있어서 크기가 0.1 유닛뿐이고,
+  // death 에서 F_skin 이 1329, appearance 에서 C_skin 이 674 까지 펼쳐진다.
+  // 온리 원(xbg003)
+  ['촉수', /(^|_)tentacle/i],
+  ['가시', /(^|_)thorn/i],
+  // rp = rapture. 척추·목·머리·머리카락 18개·눈을 가진 인간형이고 상시 노출된다.
+  ['인간형', /(^|_)(rp_skin|rap_)/i],
+  // 프리팹에서 꺼진 채 시작하는 소환수 3종
+  ['소환수', /(^|_)(ziz|beha?moth|leviathan)/i],
+  ['본체', /(^|_)main(_\d+)?$/i],
+  ['연출', /(^|_)([a-z])?[FCP]_skin(_\d+)?$/],
 ];
+
+// 프리팹에서 m_IsActive=false 로 꺼진 채 시작하는 메쉬. 화면에 늘 떠 있으면 안 되고,
+// 런타임 코드(행동트리)가 필요할 때만 켠다. 애니메이션·머티리얼에는 흔적이 없어서
+// 파일만 봐서는 알 수 없다.
+const DEFAULT_OFF_MESHES = [
+  // 온리 원 소환수 3종 — 각자 자기 스킬 클립에서만 나온다
+  { boss: /^xbg003/i, re: /(^|_)(ziz|behamoth|leviathan)_skin/i },
+];
+
+function isDefaultOffMesh(bossCode, name) {
+  return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossCode || '') && o.re.test(name || ''));
+}
 
 function partGroupLabel(name) {
   for (const [label, re] of PART_GROUPS) if (re.test(name || '')) return label;
@@ -347,6 +372,20 @@ function restorePose(list) {
 //   groggy_start / groggy_loop / groggy_end
 //   skill_start_01 / skill_loop_01 / skill_fire_01
 const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_\d+)?$/i;
+
+// 게임에는 있는데 전용 클립이 없는 스킬. 거대 질량체 05 번은 04 번 클립을 잘라 쓴다 —
+// 타임라인이 skill_loop_04 를 1.17 초 지점부터, 이어서 skill_fire_04 를 통째로 얹는다.
+// 그래서 파일에 *_05 라는 이름의 AnimationClip 이 아예 없다.
+const SYNTHETIC_SEQUENCES = [
+  {
+    boss: /^eba004/i,
+    key: 'skill_05',
+    steps: [
+      { re: /_skill_loop_04$/i, from: 1.17 },
+      { re: /_skill_fire_04$/i },
+    ],
+  },
+];
 
 function findSequences(clips) {
   const groups = new Map();
@@ -917,13 +956,69 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     }
 
     // 이 클립을 재생하기 전에 어떤 자세로 되돌려야 하는지.
+    // 합성 클립은 잘라낸 지점의 자세에서 시작해야 한다. 원본 클립을 그 시점에
+    // 얹어 떠 둔다 — 안 그러면 1.17 초 이후에 키가 없는 뼈가 기본 자세로 튄다.
+    const syntheticPoses = new Map();
+
     function poseFor(clipName) {
+      if (syntheticPoses.has(clipName)) return syntheticPoses.get(clipName);
       // 전환 클립 자신은 전환 "전" 자세에서 시작해야 한다. 이름에 2phase 가 들어 있어서
       // (프로비던스 xbg002_2phase, 온리 원 xbg003_2phase_change) 그냥 두면 자기 끝
       // 자세에서 시작하게 된다.
       if (phaseChangeClip && clipName === phaseChangeClip.name) return basePose;
       const p = clipPhase(clipName);
       return (phaseEndPose && p && p !== '1') ? phaseEndPose : basePose;
+    }
+
+    // 원본 클립을 특정 시점에 얹은 자세를 떠 온다. 화면에는 영향이 없다.
+    function poseAtClipTime(clip, time) {
+      const saved = capturePose(gltf.scene);
+      let taken = null;
+      try {
+        const probe = new THREE.AnimationMixer(gltf.scene);
+        restorePose(basePose);
+        const act = probe.clipAction(clip);
+        act.setLoop(THREE.LoopOnce, 1);
+        act.clampWhenFinished = true;
+        act.play();
+        probe.setTime(time);
+        taken = capturePose(gltf.scene);
+        probe.stopAllAction();
+        probe.uncacheRoot(gltf.scene);
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+      return taken;
+    }
+
+    // 파일에 없는 스킬을 원본 클립을 잘라 만들어 목록에 끼워 넣는다.
+    function buildSyntheticSequences(seqs) {
+      const list = gltf.animations || [];
+      SYNTHETIC_SEQUENCES.forEach(def => {
+        if (!def.boss.test(bossCode || '')) return;
+        // 이미 진짜 클립이 있으면 손대지 않는다
+        if (seqs.some(sq => sq.key.endsWith(def.key))) return;
+        const steps = [];
+        for (const st of def.steps) {
+          const src = list.find(c => st.re.test(c.name || ''));
+          if (!src) return; // 재료가 하나라도 없으면 만들지 않는다
+          if (!st.from) { steps.push({ clip: src, repeat: 1 }); continue; }
+          // fps 를 1000 으로 두고 밀리초 단위로 자른다
+          const cut = THREE.AnimationUtils.subclip(
+            src, src.name.replace(/_04$/, '_05'), Math.round(st.from * 1000), 1e9, 1000);
+          if (!cut.tracks.length) return;
+          syntheticPoses.set(cut.name, poseAtClipTime(src, st.from));
+          steps.push({ clip: cut, repeat: 1 });
+        }
+        if (!steps.length) return;
+        const entry = { key: def.key, label: def.key, steps, synthetic: true };
+        // 번호 순서대로 보이도록 바로 앞 번호 묶음 뒤에 끼워 넣는다
+        const prev = def.key.replace(/(\d+)$/, (n) => String(Number(n) - 1).padStart(n.length, '0'));
+        const at = seqs.findIndex(sq => sq.key.endsWith(prev));
+        if (at >= 0) seqs.splice(at + 1, 0, entry);
+        else seqs.push(entry);
+      });
     }
 
     const phaseConfig = getPhaseConfig(bossCode);
@@ -959,7 +1054,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const enabledMeshes = new Set(
       meshes
-        .filter(m => !isSkillOnlyEffect(m.name) && isPhaseVisible(phaseOf(m.name), currentPhase))
+        .filter(m => !isSkillOnlyEffect(m.name)
+          && !isDefaultOffMesh(bossCode, m.name)
+          && isPhaseVisible(phaseOf(m.name), currentPhase))
         .map(m => m.partKey)
     );
 
@@ -1522,6 +1619,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const animEl = document.getElementById('frames-anim-toggle');
     if (animEl) {
       const seqs = findSequences(gltf.animations || []);
+      buildSyntheticSequences(seqs);
       const clips = gltf.animations || [];
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
       // 접두사가 다른 보스가 있어서(애니힐리오 1페이즈: 메쉬 xbga03_, 클립 xba003_)
@@ -1555,7 +1653,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
         const secs = n => n.toFixed(2) + 's';
         const inSeq = new Set();
-        seqs.forEach(sq => sq.steps.forEach(st => inSeq.add(st.clip.name)));
+        seqs.forEach(sq => { if (!sq.synthetic) sq.steps.forEach(st => inSeq.add(st.clip.name)); });
 
         const mkBtn = (key, text, time, cls) =>
           `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}" data-key="${key}">`
@@ -1592,6 +1690,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
           const g = groupOf(sq.key);
           push(g, mkBtn(sq.key, label(sq.label), secs(total), 'is-seq'));
+          // 합성 묶음(파일에 없는 스킬을 원본 클립을 잘라 만든 것)은 하위 버튼을 내지
+          // 않는다 — 재료 클립 버튼과 키가 겹치고, 잘라낸 클립은 clips 목록에 없다.
+          if (sq.synthetic) return;
           const seen = new Set();
           sq.steps.forEach(st => {
             if (seen.has(st.clip.name)) return;
