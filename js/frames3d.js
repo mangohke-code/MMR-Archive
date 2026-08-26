@@ -1047,6 +1047,57 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return taken;
     }
 
+    // Unity 카메라는 +Z 를 보고 glTF/three 카메라는 -Z 를 본다. 내보내기가 이 차이를
+    // 보정하지 않으면 시선이 정확히 180 도 뒤집혀서, 본체를 등지고 반대편 허공을 찍는다.
+    // (거대 질량체 death 는 본체가 시선에서 149~179 도 벗어나 있었다.)
+    // 내보내기가 나중에 고쳐질 수도 있으니 값을 박아두지 않고, 로드할 때 실제로 재서
+    // 본체가 화면 앞에 오는 쪽을 고른다.
+    const CAM_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    let cameraFlip = false;
+
+    function measureCameraFlip() {
+      if (!camNode || !focusMesh || !camPairs.byModel.size) return;
+      const saved = capturePose(gltf.scene);
+      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
+      const center = new THREE.Vector3(), toModel = new THREE.Vector3();
+      const fwd = new THREE.Vector3();
+      let plain = 0, flipped = 0, n = 0;
+      try {
+        camPairs.byModel.forEach((camClip, modelName) => {
+          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
+          if (!modelClip) return;
+          const dur = Math.min(camClip.duration, modelClip.duration);
+          for (const frac of [0.2, 0.4, 0.6, 0.8]) {
+            restorePose(poseFor(modelName));
+            const probe = new THREE.AnimationMixer(gltf.scene);
+            probe.clipAction(modelClip).play();
+            probe.clipAction(camClip).play();
+            probe.setTime(dur * frac);
+            gltf.scene.updateMatrixWorld(true);
+            if (rigCenter(focusMesh, center, focusBone)) {
+              camNode.matrixWorld.decompose(pos, quat, scl);
+              toModel.copy(center).sub(pos);
+              if (toModel.lengthSq() > 1e-8) {
+                toModel.normalize();
+                fwd.set(0, 0, -1).applyQuaternion(quat);
+                plain += fwd.dot(toModel);
+                fwd.set(0, 0, -1).applyQuaternion(quat.clone().multiply(CAM_FLIP));
+                flipped += fwd.dot(toModel);
+                n++;
+              }
+            }
+            probe.stopAllAction();
+            probe.uncacheRoot(gltf.scene);
+          }
+        });
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+      // 내적이 클수록 본체를 정면으로 본다는 뜻
+      if (n) cameraFlip = flipped > plain;
+    }
+
     // 파일에 없는 스킬을 원본 클립을 잘라 만들어 목록에 끼워 넣는다.
     function buildSyntheticSequences(seqs) {
       const list = gltf.animations || [];
@@ -1379,6 +1430,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camNode.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
+      if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
       // 게임 카메라의 화각(yfov)을 따른다. 클립이 끝나면 원래 값으로 돌려놓는다.
       if (camNode.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
@@ -1738,6 +1790,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     if (animEl) {
       const seqs = findSequences(gltf.animations || []);
       buildSyntheticSequences(seqs);
+      measureCameraFlip();
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
       const clips = (gltf.animations || []).filter(c => !cameraClipNames.has(c.name));
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
