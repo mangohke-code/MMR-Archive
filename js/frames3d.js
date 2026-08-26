@@ -394,32 +394,40 @@ const SYNTHETIC_SEQUENCES = [
 // 모델 쪽으로 당기기만 한다.
 // 애니힐리오·거대 질량체·검은 뱀은 원본 거리가 맞아서 건드리지 않는다 —
 // 자동 판정으로 걸면 그쪽 프레이밍까지 바뀐다(검은 뱀 등장이 42% 에서 57% 로 커졌다).
-const CAMERA_TOO_FAR = [/^xbg002/i, /^xbg003/i];
+// 온리 원은 아직 화각이 60 도로 하드코딩된 파일이라 멀게 잡힌다.
+// 프로비던스는 연출별 화각(등장 40.5도 / 사망 45도)이 들어오면서 필요 없어졌다.
+const CAMERA_TOO_FAR = [/^xbg003/i];
 
 function cameraNeedsPull(bossCode) {
   return CAMERA_TOO_FAR.some(re => re.test(bossCode || ''));
 }
 
-function findCameraNode(root) {
-  let found = null;
-  root.traverse(o => { if (!found && o.isCamera) found = o; });
-  return found;
+// 내보내기가 연출마다 카메라를 따로 넣어 준다 — 화각이 연출별로 다르기 때문이다
+// (프로비던스는 등장 40.5도, 사망 45도). 그래서 노드를 전부 모은다.
+function findCameraNodes(root) {
+  const out = [];
+  root.traverse(o => { if (o.isCamera) out.push(o); });
+  return out;
 }
 
-// 이 클립이 카메라 노드만 건드리는가
-function isCameraClip(clip, camName) {
-  if (!camName) return false;
-  const prefix = camName + '.';
-  return clip.tracks.length > 0 && clip.tracks.every(t => String(t.name).startsWith(prefix));
+// 이 클립이 어떤 카메라 노드를 움직이는가. 아니면 null.
+function cameraClipTarget(clip, camNodes) {
+  for (const node of camNodes) {
+    const prefix = node.name + '.';
+    if (clip.tracks.length > 0 && clip.tracks.every(t => String(t.name).startsWith(prefix))) return node;
+  }
+  return null;
 }
 
 // 카메라 클립 <-> 모델 클립 짝짓기.
 //   eba004_appearance_camera        -> eba004_appearance_f
 //   eba004_death_camera             -> eba004_death
 //   bbg008_appearance_camera_take1  -> bbg008_appearance_take1
-function pairCameraClips(clips, camName) {
-  const cams = clips.filter(c => isCameraClip(c, camName));
-  const models = clips.filter(c => !isCameraClip(c, camName));
+function pairCameraClips(clips, camNodes) {
+  const nodeOf = new Map();
+  clips.forEach(c => { const n = cameraClipTarget(c, camNodes); if (n) nodeOf.set(c.name, n); });
+  const cams = clips.filter(c => nodeOf.has(c.name));
+  const models = clips.filter(c => !nodeOf.has(c.name));
   const byModel = new Map();
   cams.forEach(cam => {
     const m = (cam.name || '').match(/^(.*?)_camera\d*(_take\d+)?$/i);
@@ -438,7 +446,7 @@ function pairCameraClips(clips, camName) {
       else if (base.startsWith(n)) len = n.length;
       if (len > bestLen) { bestLen = len; best = c; }
     }
-    if (best && bestLen >= 8) byModel.set(best.name, cam);
+    if (best && bestLen >= 8) byModel.set(best.name, { clip: cam, node: nodeOf.get(cam.name) });
   });
   return { cams, byModel };
 }
@@ -979,9 +987,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const basePose = capturePose(gltf.scene);
 
     // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.
-    const camNode = findCameraNode(gltf.scene);
-    const camPairs = camNode
-      ? pairCameraClips(gltf.animations || [], camNode.name)
+    const camNodes = findCameraNodes(gltf.scene);
+    const camPairs = camNodes.length
+      ? pairCameraClips(gltf.animations || [], camNodes)
       : { cams: [], byModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
@@ -1074,15 +1082,16 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camZoom = new Map();
 
     function measureCameraZoom() {
-      if (!camNode || !focusMesh || !camPairs.byModel.size) return;
+      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
       if (!cameraNeedsPull(bossCode)) return;
       const saved = capturePose(gltf.scene);
       const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
       const center = new THREE.Vector3();
-      const fovRad = THREE.MathUtils.degToRad(camNode.isPerspectiveCamera ? camNode.fov : 60);
-      const wantHalf = Math.tan(fovRad * CAM_FILL / 2);
       try {
-        camPairs.byModel.forEach((camClip, modelName) => {
+        camPairs.byModel.forEach((pair, modelName) => {
+          const camClip = pair.clip, node = pair.node;
+          const fovRad = THREE.MathUtils.degToRad(node.isPerspectiveCamera ? node.fov : 60);
+          const wantHalf = Math.tan(fovRad * CAM_FILL / 2);
           const modelClip = (gltf.animations || []).find(c => c.name === modelName);
           if (!modelClip) return;
           const dur = Math.min(camClip.duration, modelClip.duration);
@@ -1096,7 +1105,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             gltf.scene.updateMatrixWorld(true);
             if (rigCenter(focusMesh, center, focusBone)) {
               const r = rigSpread(focusMesh, center, focusBone);
-              camNode.matrixWorld.decompose(pos, quat, scl);
+              node.matrixWorld.decompose(pos, quat, scl);
               const d = center.distanceTo(pos);
               if (r > 1e-6 && d > 1e-6) ratios.push((r / wantHalf) / d);
             }
@@ -1116,14 +1125,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     }
 
     function measureCameraFlip() {
-      if (!camNode || !focusMesh || !camPairs.byModel.size) return;
+      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
       const saved = capturePose(gltf.scene);
       const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
       const center = new THREE.Vector3(), toModel = new THREE.Vector3();
       const fwd = new THREE.Vector3();
       let plain = 0, flipped = 0, n = 0;
       try {
-        camPairs.byModel.forEach((camClip, modelName) => {
+        camPairs.byModel.forEach((pair, modelName) => {
+          const camClip = pair.clip, node = pair.node;
           const modelClip = (gltf.animations || []).find(c => c.name === modelName);
           if (!modelClip) return;
           const dur = Math.min(camClip.duration, modelClip.duration);
@@ -1135,7 +1145,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             probe.setTime(dur * frac);
             gltf.scene.updateMatrixWorld(true);
             if (rigCenter(focusMesh, center, focusBone)) {
-              camNode.matrixWorld.decompose(pos, quat, scl);
+              node.matrixWorld.decompose(pos, quat, scl);
               toModel.copy(center).sub(pos);
               if (toModel.lengthSq() > 1e-8) {
                 toModel.normalize();
@@ -1483,12 +1493,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     let savedFov = null;
 
     function applyCinematicCamera() {
-      if (!cinematic || !camNode || !followEnabled) {
+      if (!cinematic || !cinematic.node || !followEnabled) {
         if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
         return false;
       }
-      camNode.updateWorldMatrix(true, false);
-      camNode.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
+      const node = cinematic.node;
+      node.updateWorldMatrix(true, false);
+      node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
@@ -1498,10 +1509,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camera.position.sub(camPull).multiplyScalar(cinematic.zoom).add(camPull);
       }
       // 게임 카메라의 화각(yfov)을 따른다. 클립이 끝나면 원래 값으로 돌려놓는다.
-      if (camNode.isPerspectiveCamera) {
+      if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        if (Math.abs(camera.fov - camNode.fov) > 1e-4) {
-          camera.fov = camNode.fov;
+        if (Math.abs(camera.fov - node.fov) > 1e-4) {
+          camera.fov = node.fov;
           camera.updateProjectionMatrix();
         }
       }
@@ -1705,14 +1716,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       resetViewToHome();
 
       // 이 클립에 인게임 카메라가 붙어 있으면 같이 재생하고, 그동안 시점을 그쪽에 맡긴다.
-      const camClip = camPairs.byModel.get(clip.name);
+      const camPair = camPairs.byModel.get(clip.name);
       cinematic = null;
-      if (camClip && camNode) {
-        const camAct = mixer.clipAction(camClip);
+      if (camPair) {
+        const camAct = mixer.clipAction(camPair.clip);
         camAct.setLoop(THREE.LoopOnce, 1);
         camAct.clampWhenFinished = true;
         camAct.play();
-        cinematic = { action: camAct, clip: camClip, zoom: camZoom.get(clip.name) || 1 };
+        cinematic = { action: camAct, clip: camPair.clip, node: camPair.node, zoom: camZoom.get(clip.name) || 1 };
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
