@@ -421,7 +421,6 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  { boss: /^xbg003/i, pull: true },
 ];
 
 function cameraFixFor(bossCode) {
