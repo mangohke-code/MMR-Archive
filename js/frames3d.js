@@ -143,8 +143,9 @@ const BOSS_TRANSFORM_OVERRIDES = {
 // 신형 추출본의 기본 배율·높이 보정. 시점 초기화도 이 값으로 돌아간다.
 //   온리 원 - 소환수(ziz/behamoth/leviathan)가 본체에서 떨어져 있어서 정규화가
 //   그만큼 작게 잡는다. 화면에 맞게 1.3 배, 0.3 아래로.
+//   camY - 카메라 눈높이. 카메라와 시선을 같은 값만큼 올려서 각도는 그대로 둔다.
 const CATALOG_FIT_OVERRIDES = {
-  xbg003: { scale: 1.3, position: [0, -0.3, 0] },
+  xbg003: { scale: 1.3, position: [0, -0.3, 0], camY: 0.15 },
 };
 
 function getBossTransform(bossCode, isCatalogExport) {
@@ -1572,8 +1573,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const radius = size.length() || 1;
 
     if (isCatalogExport) {
-      camera.position.set(0, normHeight * 0.55, 2.3);
-      controls.target.set(0, normHeight * 0.5, 0);
+      // 카메라와 시선을 같은 값만큼 올린다 — 각도는 그대로 두고 눈높이만 바꾼다.
+      const camLift = (CATALOG_FIT_OVERRIDES[bossCode] || {}).camY || 0;
+      camera.position.set(0, normHeight * 0.55 + camLift, 2.3);
+      controls.target.set(0, normHeight * 0.5 + camLift, 0);
     } else {
       camera.position.set(center.x + radius * 0.8, center.y + radius * 0.5, center.z + radius * 0.8);
       controls.target.copy(center);
