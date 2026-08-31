@@ -140,13 +140,29 @@ const BOSS_TRANSFORM_OVERRIDES = {
   mbg001: { position: [-0.1, -0.1, 0], scale: 1 }, // 알트아이젠 - 확정 (회전은 기본값)
 };
 
+// 신형 추출본의 기본 배율·높이 보정. 시점 초기화도 이 값으로 돌아간다.
+//   온리 원 - 소환수(ziz/behamoth/leviathan)가 본체에서 떨어져 있어서 정규화가
+//   그만큼 작게 잡는다. 화면에 맞게 1.3 배, 0.3 아래로.
+const CATALOG_FIT_OVERRIDES = {
+  xbg003: { scale: 1.3, position: [0, -0.3, 0] },
+};
+
 function getBossTransform(bossCode, isCatalogExport) {
   // 신형 추출본은 루트 노드에 방향 회전이 이미 들어 있고(쿼터니언 [0,-1,0,0] = yaw 180도)
   // GLTFLoader 가 그걸 적용한다. 보스별 보정값은 구형 파이프라인이 어긋나게 뽑아준 걸
   // 손으로 맞춘 값이라, 신형에 얹으면 회전이 두 번 걸려 오히려 망가진다.
   // 같은 보스를 신형으로 다시 올리면 이 함수가 알아서 보정을 건너뛴다.
   // 좌우 180도가 이 보스들의 정면이다(테스트 뷰어에서 확인).
-  if (isCatalogExport) return { rotation: [0, 180, 0], position: [0, 0, 0], scale: 1 };
+  // 정규화가 전체 바운딩 기준이라, 화면에서 벗어난 파츠까지 세면 보스가 작게 잡히는
+  // 보스가 있다. 그런 보스만 기본 배율·높이를 손으로 맞춰 둔다.
+  if (isCatalogExport) {
+    const fit = CATALOG_FIT_OVERRIDES[bossCode];
+    return {
+      rotation: [0, 180, 0],
+      position: fit && fit.position ? fit.position.slice() : [0, 0, 0],
+      scale: fit && fit.scale ? fit.scale : 1,
+    };
+  }
 
   const raw = BOSS_TRANSFORM_OVERRIDES[bossCode] || {};
   return {
