@@ -421,6 +421,10 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
+  // 온리 원: 등장 4초 이후와 사망에서 카메라가 모델을 지나칠 만큼 붙는다.
+  // 좌우로도 조금 치우쳐 있는데, 상하까지 돌리면 파츠가 위로 펼쳐지는 구간에서
+  // 오히려 화면을 벗어나므로 좌우만 잡는다.
+  { boss: /^xbg003/i, aimX: true, near: true, fit: true },
 ];
 
 function cameraFixFor(bossCode) {
@@ -1209,7 +1213,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function measureCameraAim() {
       if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      if (!cameraFixFor(bossCode).aim) return;
+      const fix = cameraFixFor(bossCode);
+      if (!fix.aim && !fix.aimX) return;
       const saved = capturePose(gltf.scene);
       const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
       const center = new THREE.Vector3(), dir = new THREE.Vector3();
@@ -1246,6 +1251,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           acc.divideScalar(n);
           if (acc.lengthSq() < 1e-8) return;
           acc.normalize();
+          // aimX 는 좌우만 돌린다 — 위아래 성분을 지우고 다시 정규화한다
+          if (fix.aimX) {
+            acc.y = 0;
+            if (acc.lengthSq() < 1e-8) return;
+            acc.normalize();
+          }
           const off = Math.acos(Math.max(-1, Math.min(1, acc.dot(FWD)))) * 180 / Math.PI;
           // 이미 잘 맞으면 건드리지 않는다
           if (off < 3) return;
