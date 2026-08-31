@@ -5271,6 +5271,15 @@
 
   .part-group-head:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
+  /* 맨 위 전체 켜기/끄기 — 부위 묶음과 구분되게 아래에 선을 둔다 */
+  .part-group-head.part-all {
+    color: var(--text-heading);
+    margin-bottom: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-soft, rgba(128, 128, 128, 0.25));
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
   .part-group-head em {
     margin-left: auto;
     font-style: normal;

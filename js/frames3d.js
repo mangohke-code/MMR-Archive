@@ -94,20 +94,24 @@ function isDefaultOffMesh(bossCode, name) {
   return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossCode || '') && o.re.test(name || ''));
 }
 
-// 파츠 목록 정렬 키. 이름 규칙이 제각각이라 그냥 문자열로 세우면 좌우가 흩어지고
-// 번호도 뒤섞인다 — 프로비던스는 shoulder_l_skin / shoulder_r_skin_1 /
-// shoulder_l_skin001 / shoulder_r_skin001_fx 가 한 그룹에 같이 있다.
-// 좌우 표시를 빼서 같은 부위끼리 붙이고, 왼쪽을 먼저, 번호는 자릿수를 맞춰 자연 순서로 세운다.
+// 파츠 목록 정렬 키. 좌우 파츠가 바로 붙어 나오도록 세운다 — 왼쪽 다음 오른쪽.
+// 이름에서 좌우 표시만 빼면 같은 부위의 좌우가 같은 키가 되고, 그 다음 l -> r 순으로
+// 갈린다. 프로비던스 어깨는 shoulder_l_skin / shoulder_r_skin_1 / shoulder_l_skin001
+// 처럼 좌우 이름 규칙조차 달라서 이렇게 해야 짝이 맞는다.
+// 숫자는 자릿수를 맞춰 자연 순서로 둔다(2 가 10 보다 앞).
 function partSortKey(name) {
   const n = String(name).toLowerCase();
   let side = 2; // 좌우 표시가 없으면 뒤로
-  const stripped = n.replace(/(^|_)([lr])(?=_|\d|$)/g, (m, pre, s) => {
+  const noSide = n.replace(/(^|_)([lr])(?=_|\d|$)/g, (m, pre, s) => {
     if (side === 2) side = (s === 'l') ? 0 : 1;
     return pre;
   });
-  // 구분자는 어떤 글자보다도 앞에 오는 값을 쓴다. '|' 같은 걸 쓰면
-  // "skin" 과 "skin_fx" 를 비교할 때 '_' 가 구분자보다 앞서서 순서가 뒤집힌다.
-  return stripped.replace(/\d+/g, d => d.padStart(6, '0')) + '\u0000' + side;
+  return [noSide.replace(/\d+/g, d => d.padStart(6, '0')), side];
+}
+
+function comparePartKeys(a, b) {
+  if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
+  return a[1] - b[1];
 }
 
 function partGroupLabel(name) {
@@ -1340,15 +1344,27 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       groups.forEach(g => {
         g.items.forEach((m, i) => { m.__order = i; });
         g.items.sort((a, b) => {
-          const ka = partSortKey(a.label || a.name), kb = partSortKey(b.label || b.name);
-          return ka < kb ? -1 : ka > kb ? 1 : a.__order - b.__order;
+          const c = comparePartKeys(partSortKey(a.label || a.name), partSortKey(b.label || b.name));
+          return c || (a.__order - b.__order);
         });
       });
 
       const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
       box.classList.remove('hidden');
-      box.innerHTML = groups.map((g, gi) => {
+      // 맨 위에 전체 켜기/끄기. 파츠가 많은 보스(프로비던스는 39개)에서
+      // 하나씩 누르지 않고 한 번에 비우고 필요한 것만 켤 수 있게 한다.
+      const totalOn = meshes.filter(m => enabledMeshes.has(m.partKey)).length;
+      const allState = totalOn === meshes.length ? ' active' : (totalOn ? ' partial' : '');
+      const allHtml = `
+          <div class="part-group">
+            <div class="part-group-head part-all${allState}">
+              <div class="toggle-switch"></div>
+              <span class="toggle-label">전체 파츠</span>
+              <em>${totalOn}/${meshes.length}</em>
+            </div>
+          </div>`;
+      box.innerHTML = allHtml + groups.map((g, gi) => {
         const on = g.items.filter(m => enabledMeshes.has(m.partKey)).length;
         const state = on === g.items.length ? ' active' : (on ? ' partial' : '');
         const rows = g.items.map(m => `
@@ -1367,8 +1383,23 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           </div>`;
       }).join('');
 
+      // 전체 파츠: 하나라도 꺼져 있으면 전부 켜고, 다 켜져 있으면 전부 끈다
+      const allHead = box.querySelector('.part-all');
+      if (allHead) {
+        allHead.addEventListener('click', () => {
+          if (container.__framesModel3D !== state) return;
+          const allOn = meshes.every(m => enabledMeshes.has(m.partKey));
+          meshes.forEach(m => {
+            if (allOn) enabledMeshes.delete(m.partKey);
+            else enabledMeshes.add(m.partKey);
+          });
+          applyVisibility();
+          renderToggleUI();
+        });
+      }
+
       // 묶음 제목: 하나라도 꺼져 있으면 전부 켜고, 다 켜져 있으면 전부 끈다
-      box.querySelectorAll('.part-group-head').forEach(head => {
+      box.querySelectorAll('.part-group-head[data-group]').forEach(head => {
         head.addEventListener('click', () => {
           if (container.__framesModel3D !== state) return;
           const items = groups[+head.dataset.group].items;
