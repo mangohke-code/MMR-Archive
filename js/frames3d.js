@@ -421,6 +421,7 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
+  { boss: /^xbg003/i, aim: true, near: true },
 ];
 
 function cameraFixFor(bossCode) {
@@ -1159,6 +1160,50 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 그 평균을 한 번만 적용한다 — 매 프레임 다시 겨누면 원래 카메라 워크가 사라진다.
     const camAim = new Map();
 
+    // 연출 중간에 카메라가 모델 안으로 파고드는 구간이 있다
+    // (온리 원 등장 5초에 거리 0.14 — 화면에 보이는 정점이 1% 뿐이다).
+    // 클립 전체 거리의 중앙값을 재서 그보다 가까워지지 않게만 막는다.
+    // 나머지 구간은 원래 거리 그대로라 카메라 워크는 유지된다.
+    const camNear = new Map();
+
+    function measureCameraNear() {
+      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
+      if (!cameraFixFor(bossCode).near) return;
+      const saved = capturePose(gltf.scene);
+      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      try {
+        camPairs.byModel.forEach((pair, modelName) => {
+          const camClip = pair.clip, node = pair.node;
+          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
+          if (!modelClip) return;
+          const dur = Math.min(camClip.duration, modelClip.duration);
+          const ds = [];
+          for (let i = 1; i <= 12; i++) {
+            restorePose(poseFor(modelName));
+            const probe = new THREE.AnimationMixer(gltf.scene);
+            probe.clipAction(modelClip).play();
+            probe.clipAction(camClip).play();
+            probe.setTime(dur * (i / 13));
+            gltf.scene.updateMatrixWorld(true);
+            if (rigCenter(focusMesh, center, focusBone)) {
+              node.matrixWorld.decompose(pos, quat, scl);
+              ds.push(center.distanceTo(pos));
+            }
+            probe.stopAllAction();
+            probe.uncacheRoot(gltf.scene);
+          }
+          if (ds.length < 4) return;
+          ds.sort((a, b) => a - b);
+          const mid = ds[Math.floor(ds.length / 2)];
+          if (mid > 1e-4 && ds[0] < mid * 0.85) camNear.set(modelName, mid * 0.85);
+        });
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+    }
+
     function measureCameraAim() {
       if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
       if (!cameraFixFor(bossCode).aim) return;
@@ -1630,6 +1675,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (cinematic.zoom < 1 && rigCenter(focusMesh, camPull, focusBone)) {
         camera.position.sub(camPull).multiplyScalar(cinematic.zoom).add(camPull);
       }
+      // 모델 안으로 파고드는 구간만 뒤로 물린다. 방향은 그대로.
+      if (cinematic.near > 0 && rigCenter(focusMesh, camPull, focusBone)) {
+        const d = camera.position.distanceTo(camPull);
+        if (d > 1e-5 && d < cinematic.near) {
+          camera.position.sub(camPull).multiplyScalar(cinematic.near / d).add(camPull);
+        }
+      }
       // 게임 카메라의 화각(yfov)을 따른다. 클립이 끝나면 원래 값으로 돌려놓는다.
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
@@ -1846,7 +1898,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.clampWhenFinished = true;
         camAct.play();
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
-          zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null };
+          zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
+          near: camNear.get(clip.name) || 0 };
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
@@ -1993,6 +2046,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       measureCameraFlip();
       measureCameraZoom();
       measureCameraAim();
+      measureCameraNear();
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
       const clips = (gltf.animations || []).filter(c => !cameraClipNames.has(c.name));
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
