@@ -421,7 +421,9 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  { boss: /^xbg003/i, aim: true, near: true },
+  // 온리 원은 카메라 무빙이 정확하다. 거리만 가까워서 뒤로 물린다 —
+  // 겨냥을 돌리면 파츠가 위로 펼쳐지는 구간에서 오히려 화면을 벗어난다.
+  { boss: /^xbg003/i, fit: true, near: true },
 ];
 
 function cameraFixFor(bossCode) {
@@ -429,7 +431,8 @@ function cameraFixFor(bossCode) {
 }
 
 function cameraNeedsPull(bossCode) {
-  return !!cameraFixFor(bossCode).pull;
+  const f = cameraFixFor(bossCode);
+  return !!(f.pull || f.fit);
 }
 
 // 내보내기가 연출마다 카메라를 따로 넣어 준다 — 화각이 연출별로 다르기 때문이다
@@ -1145,8 +1148,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           if (!ratios.length) return;
           ratios.sort((a, b) => a - b);
           const k = ratios[Math.floor(ratios.length / 2)];
-          // 멀 때만 당긴다. 이미 알맞거나 가까우면 건드리지 않는다.
-          if (k < 0.98) camZoom.set(modelName, Math.max(0.12, k));
+          // pull 은 멀 때만 당긴다. fit 은 가까울 때 뒤로도 물린다.
+          const twoWay = !!cameraFixFor(bossCode).fit;
+          if (k < 0.98 || (twoWay && k > 1.02)) {
+            camZoom.set(modelName, Math.max(0.12, Math.min(6, k)));
+          }
         });
       } finally {
         restorePose(saved);
@@ -1672,7 +1678,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
       // 너무 멀리서 잡는 클립은 같은 선 위에서 모델 쪽으로 당긴다.
       // 시선 방향은 그대로라 화면 구도는 유지되고 크기만 커진다.
-      if (cinematic.zoom < 1 && rigCenter(focusMesh, camPull, focusBone)) {
+      if (cinematic.zoom !== 1 && rigCenter(focusMesh, camPull, focusBone)) {
         camera.position.sub(camPull).multiplyScalar(cinematic.zoom).add(camPull);
       }
       // 모델 안으로 파고드는 구간만 뒤로 물린다. 방향은 그대로.
