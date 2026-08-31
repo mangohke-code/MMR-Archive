@@ -421,6 +421,10 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
+  // 온리 원: 등장 5 초에 카메라가 모델을 관통하고, 사망 1.5 초 뒤엔 보스가
+  // 카메라 뒤로 넘어가 화면이 빈다. 게임 값을 바꾸지 않고, 화면에 보스가
+  // 안 잡히는 프레임에서만 그만큼 되돌린다.
+  { boss: /^xbg003/i, rescue: true },
 ];
 
 function cameraFixFor(bossCode) {
@@ -1667,7 +1671,77 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camPull = new THREE.Vector3();
     let savedFov = null;
 
-    function applyCinematicCamera() {
+    // 연출 카메라가 보스를 못 담는 프레임만 되돌린다.
+    // 잘 잡히는 프레임에서는 보정량이 0 이라 게임 값 그대로다.
+    const RESCUE_GOOD = 0.5;   // 이 이상 담기면 손대지 않는다
+    const RESCUE_BAD = 0.15;   // 이 아래로 떨어지면 최대한 되돌린다
+    const RESCUE_EASE = 0.15;  // 보정이 들어가고 빠지는 데 걸리는 시간(초)
+    let rescueW = 0;
+    const rsCenter = new THREE.Vector3();
+    const rsV = new THREE.Vector3();
+    const rsFwd = new THREE.Vector3();
+    const rsUp = new THREE.Vector3(0, 1, 0);
+    const rsMat = new THREE.Matrix4();
+    const rsQuat = new THREE.Quaternion();
+
+    // 화면에 들어오는 기준 본의 비율
+    function framedRatio() {
+      if (!focusMesh) return 1;
+      const bones = focusBonesOf(focusMesh);
+      const step = Math.max(1, Math.floor(bones.length / 40));
+      let seen = 0, inside = 0;
+      for (let i = 0; i < bones.length; i += step) {
+        const b = bones[i];
+        if (!isBoneVisible(b)) continue;
+        b.getWorldPosition(rsV);
+        if (!isFinite(rsV.x)) continue;
+        seen++;
+        rsV.project(camera);
+        if (rsV.z > -1 && rsV.z < 1 && Math.abs(rsV.x) <= 1 && Math.abs(rsV.y) <= 1) inside++;
+      }
+      return seen ? inside / seen : 1;
+    }
+
+    function applyShotRescue(dt) {
+      if (!focusMesh || !rigCenter(focusMesh, rsCenter, focusBone)) return;
+      const ratio = framedRatio();
+      // 화면에 얼마나 안 담기는가
+      let want = 0;
+      if (ratio < RESCUE_GOOD) {
+        want = Math.min(1, (RESCUE_GOOD - ratio) / (RESCUE_GOOD - RESCUE_BAD));
+      }
+      // 얼마나 파고들었는가. 기준 본만 보면 몸통이 화면축 근처에 남아 있어서
+      // 실제보다 멀쩡해 보인다 — 카메라가 모델 안에 있으면 그쪽을 따른다.
+      const spread = rigSpread(focusMesh, rsCenter, focusBone);
+      const half = THREE.MathUtils.degToRad(camera.fov) / 2;
+      const wantDist = spread > 1e-5 ? spread / Math.tan(half * 0.9) : 0;
+      const dist = camera.position.distanceTo(rsCenter);
+      if (wantDist > 1e-5 && dist < wantDist) {
+        want = Math.max(want, Math.min(1, 1 - dist / wantDist));
+      }
+      // 툭 튀지 않게 서서히 들어가고 빠진다
+      const k = 1 - Math.pow(0.01, Math.min(dt, 0.1) / RESCUE_EASE);
+      rescueW += (want - rescueW) * k;
+      // 검증용 — 바깥에서 보정이 얼마나 걸렸는지 들여다본다
+      state.rescue = { ratio, want, w: rescueW };
+      if (rescueW < 0.002) { rescueW = 0; return; }
+
+      // 시선을 보스 쪽으로
+      rsMat.lookAt(camera.position, rsCenter, rsUp);
+      rsQuat.setFromRotationMatrix(rsMat);
+      camera.quaternion.slerp(rsQuat, rescueW);
+
+      // 모델 안으로 파고들었으면 시선축을 따라 뒤로만 물린다
+      if (wantDist > 1e-5) {
+        const d = camera.position.distanceTo(rsCenter);
+        if (d < wantDist) {
+          rsFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+          camera.position.addScaledVector(rsFwd, -(wantDist - d) * rescueW);
+        }
+      }
+    }
+
+    function applyCinematicCamera(dt) {
       if (!cinematic || !cinematic.node || !followEnabled) {
         if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
         return false;
@@ -1680,6 +1754,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
       // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
+      if (cinematic.rescue) applyShotRescue(dt || 1 / 60);
       // 너무 멀리서 잡는 클립은 같은 선 위에서 모델 쪽으로 당긴다.
       // 시선 방향은 그대로라 화면 구도는 유지되고 크기만 커진다.
       if (cinematic.zoom !== 1 && rigCenter(focusMesh, camPull, focusBone)) {
@@ -1909,7 +1984,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.play();
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
-          near: camNear.get(clip.name) || 0 };
+          near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue };
+        rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
@@ -2393,7 +2469,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
       if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
-      if (!applyCinematicCamera()) {
+      if (!applyCinematicCamera(dt)) {
         updateFollow();
         clampPan();
         controls.update();
