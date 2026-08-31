@@ -145,7 +145,7 @@ const BOSS_TRANSFORM_OVERRIDES = {
 //   그만큼 작게 잡는다. 화면에 맞게 1.3 배, 0.3 아래로.
 //   camY - 카메라 눈높이. 카메라와 시선을 같은 값만큼 올려서 각도는 그대로 둔다.
 const CATALOG_FIT_OVERRIDES = {
-  xbg003: { scale: 1.3, position: [0, -0.3, 0], camY: 0.2 },
+  xbg003: { scale: 1.3, position: [0, -0.3, 0], camY: 0.05 },
 };
 
 function getBossTransform(bossCode, isCatalogExport) {
