@@ -421,10 +421,6 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 온리 원: 등장 4초 이후와 사망에서 카메라가 모델을 지나칠 만큼 붙는다.
-  // 좌우로도 조금 치우쳐 있는데, 상하까지 돌리면 파츠가 위로 펼쳐지는 구간에서
-  // 오히려 화면을 벗어나므로 좌우만 잡는다.
-  { boss: /^xbg003/i, aimX: true, near: true, fit: true },
 ];
 
 function cameraFixFor(bossCode) {
