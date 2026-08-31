@@ -421,9 +421,6 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 온리 원은 카메라 무빙이 정확하다. 거리만 가까워서 뒤로 물린다 —
-  // 겨냥을 돌리면 파츠가 위로 펼쳐지는 구간에서 오히려 화면을 벗어난다.
-  { boss: /^xbg003/i, fit: true, near: true },
 ];
 
 function cameraFixFor(bossCode) {
