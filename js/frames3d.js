@@ -421,10 +421,10 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 온리 원: 등장 5 초에 카메라가 모델을 관통하고, 사망 1.5 초 뒤엔 보스가
-  // 카메라 뒤로 넘어가 화면이 빈다. 게임 값을 바꾸지 않고, 화면에 보스가
-  // 안 잡히는 프레임에서만 그만큼 되돌린다.
-  { boss: /^xbg003/i, rescue: true },
+  // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
+  // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
+  // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
+  { boss: /^xbg003/i, noCamera: true },
 ];
 
 function cameraFixFor(bossCode) {
@@ -1026,6 +1026,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       ? pairCameraClips(gltf.animations || [], camNodes)
       : { cams: [], byModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
+    // 목록에서 감추는 건 그대로 두고 재생만 막는다
+    if (cameraFixFor(bossCode).noCamera) camPairs.byModel = new Map();
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
     let cinematic = null;
     const focusOverride = focusOverrideFor(bossCode);
