@@ -495,6 +495,10 @@ const CAMERA_FIX = [
 // clip 을 적지 않으면 그 보스의 연출 카메라 전부에 걸린다.
 const CAMERA_LOOK_AT = [
   { boss: /^xba001/i, bone: /^[a-z]{2,4}\d{3}_head$/i },
+  // 베히모스 1페이즈 등장 앞컷은 크레인이 주인공인데, 본체(y -2.09)와 크레인
+  // (y -1.04)이 1 만큼 떨어져 있어서 본체를 중심에 두면 크레인이 화면 위끝
+  // (화면 y +0.88)에 걸린다. 크레인 본 뭉치를 겨눈다.
+  { boss: /^mbg003/i, clip: /_1phase_take1$/i, bone: /_exc_head_/i },
 ];
 
 function cameraLookAtFor(bossCode, clipName) {
@@ -511,7 +515,11 @@ const CLIP_CAMERA_FIX = [
   { boss: /^mbg003/i, clip: /_dead$/i, dist: 2 },
   // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
   // 거리는 게임 값에서 당긴다.
-  { boss: /^mbg003/i, clip: /_1phase_take[12]$/i, idleAngle: true, dist: 0.7 },
+  { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
+  // take1 은 크레인이 본체와 따로 논다 — 정점 절반은 본체(y -1.9)에, 절반은
+  // 격자 높이(y 0.1~0.36)에 떠 있다. 겨냥 높이를 격자(y 0)로 고정해 크레인 쪽을
+  // 잡고, 흩어진 부품이 다 들어오게 거리를 물린다.
+  { boss: /^mbg003/i, clip: /_1phase_take1$/i, idleAngle: true, dist: 0.9, aimY: 0 },
 ];
 
 function cameraFixFor(bossCode, clipName) {
@@ -1996,6 +2004,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 트랜스폼을 그대로 옮겨 쓴다. 그 노드가 모델과 같은 그룹(yaw/pitch/norm) 안에
     // 있어서 방향 보정과 정규화 배율이 저절로 함께 걸린다.
     const camIdleDir = new THREE.Vector3();
+    const camAimTmp = new THREE.Vector3();
     const camWorldPos = new THREE.Vector3();
     const camWorldQuat = new THREE.Quaternion();
     const camWorldScl = new THREE.Vector3();
@@ -2087,11 +2096,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
       let hasAim = false;
       if (cinematic.lookAt) {
-        cinematic.lookAt.getWorldPosition(camPull);
+        camPull.set(0, 0, 0);
+        cinematic.lookAt.forEach(b => camPull.add(b.getWorldPosition(camAimTmp)));
+        camPull.divideScalar(cinematic.lookAt.length);
         hasAim = true;
       } else if ((cinematic.lookAtFocus || cinematic.idleAngle) && focusMesh) {
         hasAim = rigCenter(focusMesh, camPull, focusBone);
       }
+      // 겨냥 높이를 못 박아야 하는 연출이 있다(베히모스 take1 은 격자 높이).
+      if (hasAim && cinematic.aimY !== null) camPull.y = cinematic.aimY;
       // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
       if (cinematic.idleAngle && hasAim && homeCamPos && homeTarget) {
         camIdleDir.copy(homeCamPos).sub(homeTarget);
@@ -2340,11 +2353,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.setLoop(THREE.LoopOnce, 1);
         camAct.clampWhenFinished = true;
         camAct.play();
-        let lookAtBone = null;
+        // 겨냥 대상 본. 여러 개가 걸리면 그 뭉치의 한가운데를 본다 —
+        // 베히모스 크레인은 본이 139개로 쪼개져 있어서 하나만 집으면 흔들린다.
+        const lookAtBones = [];
         const la = cameraLookAtFor(bossCode, clip.name);
         if (la) {
           gltf.scene.traverse(o => {
-            if (!lookAtBone && o.isBone && la.bone.test(o.name || '')) lookAtBone = o;
+            if (o.isBone && la.bone.test(o.name || '')) lookAtBones.push(o);
           });
         }
         const fix = cameraFixFor(bossCode, clip.name);
@@ -2353,8 +2368,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
-          lookAt: lookAtBone, idleAngle: !!fix.idleAngle,
-          dist: fix.dist || 1 };
+          lookAt: lookAtBones.length ? lookAtBones : null, idleAngle: !!fix.idleAngle,
+          dist: fix.dist || 1,
+          aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
