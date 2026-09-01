@@ -461,6 +461,11 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
+  // 미러 컨테이너: 연출 카메라가 보스 뒤편에 선다. 뼈대 루트(*_var)에 걸린 좌우
+  // 180도가 뼈대의 "방향" 에만 걸리고 카메라에는 안 걸려서, 보스만 홀로 뒤돌아
+  // 있는 꼴이다. 카메라를 그 자리에서 보스 반대편으로 옮겨 되돌린다 —
+  // 거리·높이는 그대로라 게임의 카메라 워크는 남는다.
+  { boss: /^xba001/i, orbitFlip: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -1882,6 +1887,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
+      // 보스를 사이에 두고 반대편으로 옮긴다. 높이와 거리는 그대로 둔다.
+      if (cinematic.orbitFlip && cinematic.lookAt) {
+        cinematic.lookAt.getWorldPosition(camPull);
+        camera.position.x = 2 * camPull.x - camera.position.x;
+        camera.position.z = 2 * camPull.z - camera.position.z;
+      }
       // 겨냥 대상이 지정된 연출은 매 프레임 그 본을 향하게 다시 잡는다.
       // 위치와 화각은 건드리지 않으므로 게임의 카메라 워크는 그대로 남는다.
       if (cinematic.lookAt) {
@@ -2131,7 +2142,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue,
-          lookAt: lookAtBone };
+          lookAt: lookAtBone, orbitFlip: !!cameraFixFor(bossCode).orbitFlip };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
