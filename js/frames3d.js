@@ -150,7 +150,7 @@ const CATALOG_FIT_OVERRIDES = {
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
 const CLIP_CAM_LIFT = [
-  { boss: /^xbg003/i, re: /_take01$/i, y: 0.2 }, // 온리 원 take01
+  { boss: /^xbg003/i, re: /_take01$/i, y: 0.4 }, // 온리 원 take01
 ];
 
 function getBossTransform(bossCode, isCatalogExport) {
@@ -558,6 +558,26 @@ function findTrios(clips) {
   return out;
 }
 
+// 이름 끝에 붙은 페이즈 태그를 뗀다. "xbg003_idle_1phase" -> "xbg003_idle"
+// 대기 동작인지, 반복하는 클립인지 같은 판정은 이 꼬리표를 떼고 봐야 맞는다.
+function stripPhaseTail(name) {
+  return String(name || '').replace(/_\d+phase$/i, '');
+}
+
+// 이름에 페이즈 태그가 없는데도 한쪽 페이즈에서만 나오는 연출.
+// 온리 원은 1페이즈로 등장해서 2페이즈에서 죽는다.
+// 목록에 낼지 말지만 여기서 가른다 — 자세·카메라 계산은 건드리지 않는다.
+const CLIP_PHASE_OVERRIDES = [
+  { re: /^[a-z]{2,4}\d{3}_appearance$/i, boss: /^xbg003/i, phase: '1' },
+  { re: /^[a-z]{2,4}\d{3}_death$/i, boss: /^xbg003/i, phase: '2' },
+];
+
+function clipPhaseOverride(bossCode, name) {
+  const o = CLIP_PHASE_OVERRIDES.find(
+    x => x.boss.test(bossCode || '') && x.re.test(name || ''));
+  return o ? o.phase : null;
+}
+
 // 클립 이름에 붙은 페이즈 번호. "xbg005_2phase_idle_01" -> "2"
 function clipPhase(name) {
   // 페이즈 태그가 이름 끝에 오는 보스가 있다 — 온리 원은 idle_1phase / idle_2phase 다.
@@ -597,7 +617,7 @@ function isPhaseSwitchClip(name) {
 // idle / loop 만 반복하고 나머지는 한 번만 재생한 뒤 idle 로 돌아간다.
 // 등장·사망 연출은 리그를 딴 곳에 놓고 시작해서, 반복시키면 끝나는 순간 순간이동한다.
 function isOneShot(name) {
-  return !/(^|_)(idle|loop)(_\d+)?$/i.test(name || '');
+  return !/(^|_)(idle|loop)(_\d+)?$/i.test(stripPhaseTail(name));
 }
 
 function disposeState(container) {
@@ -1903,7 +1923,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 순수 대기 동작만 고른다.
     // 배열 순서로 아무 idle 이나 집으면 프로비던스처럼 2phase_air_idle_01 이 먼저
     // 걸린다 — 그러면 페이즈 태그 때문에 전환 클립까지 딸려 재생된다.
-    const isPlainIdle = n => /(^|_)idle(_\d+)?$/i.test(n || '') && !/air|skill/i.test(n || '');
+    // 온리 원은 idle_1phase / idle_2phase 처럼 페이즈 태그가 이름 끝에 온다.
+    // 그대로 보면 대기 동작으로 안 잡혀서, 페이즈를 바꿔도 1페이즈 idle 이 계속 돌았다.
+    const isPlainIdle = n => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(n))
+      && !/air|skill/i.test(n || '');
 
     function findIdleClipForPhase(phase) {
       const list = gltf.animations || [];
@@ -2197,7 +2220,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         //     groggy_end
         //   death                <- 단독
         // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니라 단독 클립이다.
-        const isIdle = c => /(^|_)idle(_\d+)?$/i.test(c.name || '') && !/skill/i.test(c.name || '');
+        const isIdle = c => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(c.name))
+          && !/skill/i.test(c.name || '');
         // dead / death 표기가 보스마다 다르다
         const isSolo = c => /(^|_)(dead|death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
@@ -2257,7 +2281,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const phaseFiltered = singleFilePhases && phaseKeys.length > 1;
         const inCurrentPhase = (name) => {
           if (!phaseFiltered) return true;
-          const p = clipPhase(name);
+          const p = clipPhaseOverride(bossCode, name) || clipPhase(name);
           return !p || p === currentPhase;
         };
 
