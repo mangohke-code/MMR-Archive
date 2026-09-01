@@ -85,9 +85,23 @@ const PART_GROUPS = [
 // 좌우 이름이 어긋난 메쉬를 맞바꾼다. 원본 이름이 그대로면 목록에서 짝이 안 맞아
 // 보인다 — 프로비던스 어깨는 늘 보이는 쪽이 shoulder_l_skin / shoulder_r_skin_1,
 // 발광 파츠가 shoulder_r_skin / shoulder_l_skin_1 로 좌우가 엇갈려 있다.
+// 팔은 한 메쉬의 프리미티브 넷이 _2.._5 로 나와서 다른 부위(어깨·다리)와 번호가
+// 따로 논다. 어깨와 같은 꼴로 다시 매긴다 — 본체는 꼬리표 없이, 발광은 _1.
+//   _4 (5664정점, xbg002_arm)          본체       -> arm_?_skin
+//   _2 (2503정점, fresnel_purple)      패턴 발광  -> arm_?_skin_1
+//   _3 ( 126정점, 재질 없음)                       -> arm_?_skin_2
+//   _5 ( 126정점, xbg002_shoulder)                 -> arm_?_skin_3
 const MESH_RENAME = [
   { boss: /^xbg002/i, from: 'xbg002_shoulder_r_skin', to: 'xbg002_shoulder_r_skin_1' },
   { boss: /^xbg002/i, from: 'xbg002_shoulder_r_skin_1', to: 'xbg002_shoulder_r_skin' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_4', to: 'xbg002_arm_l_skin' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_2', to: 'xbg002_arm_l_skin_1' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_3', to: 'xbg002_arm_l_skin_2' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_5', to: 'xbg002_arm_l_skin_3' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_4', to: 'xbg002_arm_r_skin' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_2', to: 'xbg002_arm_r_skin_1' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_3', to: 'xbg002_arm_r_skin_2' },
+  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_5', to: 'xbg002_arm_r_skin_3' },
 ];
 
 // 맞바꾸기라 한꺼번에 정해야 한다. 하나씩 바꾸면 앞에서 바꾼 이름을 뒤에서 또 집는다.
@@ -109,7 +123,7 @@ function renameMeshes(bossCode, meshes) {
 const DEFAULT_OFF_MESHES = [
   // 프로비던스 - 패턴 중에만 빛나는 파츠(fx_xbg002_part_fresnel_purple 재질).
   // 평소에는 꺼져 있고 아래 CLIP_GLOW_PARTS 가 해당 스킬에서만 잠깐 켠다.
-  { boss: /^xbg002/i, re: /_(arm_[lr]_skin_2|legs_[lr]_skin001|shoulder_[lr]_skin_1)$/i },
+  { boss: /^xbg002/i, re: /_(arm_[lr]_skin_1|legs_[lr]_skin001|shoulder_[lr]_skin_1)$/i },
 ];
 
 function isDefaultOffMesh(bossCode, name) {
@@ -813,11 +827,11 @@ const CLIP_SOLO_PARTS = [
 //               04 는 팔·다리·어깨 중 두 세트 보라.
 const CLIP_GLOW_PARTS = [
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_01$/i, color: 'yellow', count: 1,
-    sets: [/_arm_r_skin_2$/i] },
+    sets: [/_arm_r_skin_1$/i] },
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_03$/i, color: 'blue', count: 1,
-    sets: [/_arm_[lr]_skin_2$/i, /_legs_[lr]_skin001$/i] },
+    sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001$/i] },
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_04$/i, color: 'purple', count: 2,
-    sets: [/_arm_[lr]_skin_2$/i, /_legs_[lr]_skin001$/i, /_shoulder_[lr]_skin_1$/i] },
+    sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001$/i, /_shoulder_[lr]_skin_1$/i] },
 ];
 
 function clipGlowRuleFor(bossCode, name) {
