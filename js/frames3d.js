@@ -31,6 +31,7 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 //   지울 필요는 없다. 코드가 알아서 무시한다.
 const PHASE_MODE_OVERRIDES = {
   mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
+  xba001: { mode: 'exclusive' },  // 미러 컨테이너 - 2페이즈에서 1phase 파츠는 전부 사라진다
 };
 
 function getPhaseConfig(bossCode) {
@@ -460,15 +461,28 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 미러 컨테이너: 사망 카메라가 보스보다 29도 위를 겨눠서 화면이 통째로 빈다.
-  // 위치·화각은 게임 값 그대로 두고 겨누는 방향만 되돌린다.
-  // 등장 카메라는 이미 잘 맞아서(3도 미만) 손대지 않는다.
-  { boss: /^xba001/i, aim: true, rescue: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
   { boss: /^xbg003/i, noCamera: true },
 ];
+
+// 인게임 카메라가 바라보는 대상. Cinemachine 은 위치(Body)와 겨냥(Aim)을 따로
+// 계산하는데, 내보내기에 겨냥 결과가 안 실려 오는 연출이 있다 — 미러 컨테이너
+// 사망 카메라는 위치가 대상 주위를 정확히 돈다(거리 6.5~7.4 로 일정). 각도만
+// 10~60 도씩 어긋난다. 그래서 위치·화각은 게임 값 그대로 쓰고, 겨냥만 이 본으로
+// 매 프레임 다시 잡는다.
+//   미러 컨테이너는 등장·사망 카메라가 전부 그렇다. 몸통 한가운데서 계속 도는
+//   사각 부품(xba001_head)이 그 카메라들이 따라다니는 대상이다.
+// clip 을 적지 않으면 그 보스의 연출 카메라 전부에 걸린다.
+const CAMERA_LOOK_AT = [
+  { boss: /^xba001/i, bone: /^[a-z]{2,4}\d{3}_head$/i },
+];
+
+function cameraLookAtFor(bossCode, clipName) {
+  return CAMERA_LOOK_AT.find(
+    o => o.boss.test(bossCode || '') && (!o.clip || o.clip.test(clipName || ''))) || null;
+}
 
 function cameraFixFor(bossCode) {
   return CAMERA_FIX.find(o => o.boss.test(bossCode || '')) || {};
@@ -500,6 +514,7 @@ function cameraClipTarget(clip, camNodes) {
 //   eba004_appearance_camera        -> eba004_appearance_f
 //   eba004_death_camera             -> eba004_death
 //   bbg008_appearance_camera_take1  -> bbg008_appearance_take1
+//   xba001_appearance_camera_01     -> xba001_appearance_take1
 function pairCameraClips(clips, camNodes) {
   const nodeOf = new Map();
   clips.forEach(c => { const n = cameraClipTarget(c, camNodes); if (n) nodeOf.set(c.name, n); });
@@ -507,12 +522,20 @@ function pairCameraClips(clips, camNodes) {
   const models = clips.filter(c => !nodeOf.has(c.name));
   const byModel = new Map();
   cams.forEach(cam => {
-    const m = (cam.name || '').match(/^(.*?)_camera\d*(_take\d+)?$/i);
+    // _camera / _camera1 / _camera_01 / _camera_take1 을 모두 받는다.
+    const m = (cam.name || '').match(/^(.*?)_camera(?:_?(\d+))?(_take\d+)?$/i);
     if (!m) return;
-    const base = m[1] + (m[2] || '');
-    // 정확히 같은 이름 -> 그 이름으로 시작 -> 그 이름이 나를 포함, 순으로 찾는다.
     // take 꼬리표가 붙은 카메라는 같은 꼬리표를 가진 클립하고만 짝짓는다.
-    const take = m[2] || '';
+    let take = m[3] || '';
+    // 카메라 이름 끝 번호가 곧 take 번호인 보스가 있다 — 미러 컨테이너는
+    // appearance_camera_01 / _02 가 appearance_take1 / take2 짝이다.
+    // 그 번호의 take 클립이 실제로 있을 때만 그렇게 본다.
+    if (!take && m[2]) {
+      const t = '_take' + Number(m[2]);
+      if (models.some(c => String(c.name).endsWith(t))) take = t;
+    }
+    const base = m[1] + take;
+    // 정확히 같은 이름 -> 그 이름으로 시작 -> 그 이름이 나를 포함, 순으로 찾는다.
     const cand = models.filter(c => !take || String(c.name).endsWith(take));
     let best = null, bestLen = -1;
     for (const c of cand) {
@@ -1859,6 +1882,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
+      // 겨냥 대상이 지정된 연출은 매 프레임 그 본을 향하게 다시 잡는다.
+      // 위치와 화각은 건드리지 않으므로 게임의 카메라 워크는 그대로 남는다.
+      if (cinematic.lookAt) {
+        cinematic.lookAt.getWorldPosition(camPull);
+        camera.lookAt(camPull);
+      }
       // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
       if (cinematic.rescue) applyShotRescue(dt || 1 / 60);
@@ -2092,9 +2121,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.setLoop(THREE.LoopOnce, 1);
         camAct.clampWhenFinished = true;
         camAct.play();
+        let lookAtBone = null;
+        const la = cameraLookAtFor(bossCode, clip.name);
+        if (la) {
+          gltf.scene.traverse(o => {
+            if (!lookAtBone && o.isBone && la.bone.test(o.name || '')) lookAtBone = o;
+          });
+        }
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
-          near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue };
+          near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue,
+          lookAt: lookAtBone };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
