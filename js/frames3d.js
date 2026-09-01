@@ -472,6 +472,9 @@ const CAMERA_FIX = [
   // 따른다 — 다가오고 물러나는 카메라 워크는 그대로 남는다.
   // idleDist - 대상까지의 거리에 곱하는 값. 게임 값보다 조금 당겨 본다.
   { boss: /^xba001/i, idleAngle: true, idleDist: 0.85 },
+  // 베히모스: 카메라 위치·화각은 게임 값이 맞는데 겨냥이 어긋난다(미러 컨테이너와
+  // 같은 증상). 겨냥만 매 프레임 본체 중심으로 다시 잡는다.
+  { boss: /^mbg003/i, lookAtFocus: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -542,8 +545,12 @@ function pairCameraClips(clips, camNodes) {
     // appearance_camera_01 / _02 가 appearance_take1 / take2 짝이다.
     // 그 번호의 take 클립이 실제로 있을 때만 그렇게 본다.
     if (!take && m[2]) {
-      const t = '_take' + Number(m[2]);
-      if (models.some(c => String(c.name).endsWith(t))) take = t;
+      const n = Number(m[2]);
+      // 번호를 그대로 뒤에 붙이는 보스가 먼저다 — 베히모스 dead_camera2 는 dead_2 짝인데,
+      // take 쪽을 먼저 보면 엉뚱한 2phase_take2 로 끌려간다.
+      const t = '_take' + n;
+      if (models.some(c => c.name === m[1] + '_' + n)) take = '_' + n;
+      else if (models.some(c => String(c.name).endsWith(t))) take = t;
     }
     const base = m[1] + take;
     // 정확히 같은 이름 -> 그 이름으로 시작 -> 그 이름이 나를 포함, 순으로 찾는다.
@@ -1285,6 +1292,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const CAM_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
     let cameraFlip = false;
 
+    // 연출마다 따로 재 둔 좌우 뒤집기. 한 보스 안에서도 카메라마다 다른 파일이 있다
+    // (베히모스 dead_camera 만 다른 축이다). 파일에 적힌 viewAxis 는 그대로 쓰면
+    // 오히려 어긋나서, 실제로 어느 쪽이 본체를 향하는지 재서 정한다.
+    const camFlipByClip = new Map();
+    const camNeedsFlip = (modelName) =>
+      camFlipByClip.has(modelName) ? camFlipByClip.get(modelName) : cameraFlip;
+
     // 게임 카메라가 보스를 너무 멀리서 잡는 클립이 있다(프로비던스·온리 원의 등장·사망은
     // 모델이 화면 높이의 20% 아래로 떨어진다). 화면비가 게임(세로)과 뷰어(가로)가 달라서
     // 같은 화각이라도 훨씬 작아 보인다.
@@ -1418,7 +1432,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               if (dir.lengthSq() > 1e-8) {
                 // 카메라 기준 좌표로 옮겨서 방향만 모은다
                 dir.normalize().applyQuaternion(quat.clone().invert());
-                if (cameraFlip) dir.applyQuaternion(CAM_FLIP.clone().invert());
+                if (camNeedsFlip(modelName)) dir.applyQuaternion(CAM_FLIP.clone().invert());
                 acc.add(dir); n++;
               }
             }
@@ -1458,6 +1472,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const camClip = pair.clip, node = pair.node;
           const modelClip = (gltf.animations || []).find(c => c.name === modelName);
           if (!modelClip) return;
+          // 연출별로 따로 센다. 전체 표만 보면 축이 다른 한 대가 묻힌다.
+          let cPlain = 0, cFlip = 0, cN = 0;
           const dur = Math.min(camClip.duration, modelClip.duration);
           for (const frac of [0.2, 0.4, 0.6, 0.8]) {
             restorePose(poseFor(modelName));
@@ -1472,15 +1488,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               if (toModel.lengthSq() > 1e-8) {
                 toModel.normalize();
                 fwd.set(0, 0, -1).applyQuaternion(quat);
-                plain += fwd.dot(toModel);
+                const dPlain = fwd.dot(toModel);
                 fwd.set(0, 0, -1).applyQuaternion(quat.clone().multiply(CAM_FLIP));
-                flipped += fwd.dot(toModel);
-                n++;
+                const dFlip = fwd.dot(toModel);
+                plain += dPlain; flipped += dFlip; n++;
+                cPlain += dPlain; cFlip += dFlip; cN++;
               }
             }
             probe.stopAllAction();
             probe.uncacheRoot(gltf.scene);
           }
+          if (cN) camFlipByClip.set(modelName, cFlip > cPlain);
         });
       } finally {
         restorePose(saved);
@@ -1963,7 +1981,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
-      if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
+      if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
       // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
       if (cinematic.idleAngle && cinematic.lookAt && homeCamPos && homeTarget) {
         cinematic.lookAt.getWorldPosition(camPull);
@@ -1973,6 +1991,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const d = camera.position.distanceTo(camPull) * cinematic.idleDist;
           camera.position.copy(camPull).addScaledVector(camIdleDir, d);
         }
+      }
+      // 대상 본을 따로 안 정한 보스는 본체 중심을 겨눈다.
+      if (cinematic.lookAtFocus && focusMesh && rigCenter(focusMesh, camPull, focusBone)) {
+        camera.lookAt(camPull);
       }
       // 겨냥 대상이 지정된 연출은 매 프레임 그 본을 향하게 다시 잡는다.
       // 위치와 화각은 건드리지 않으므로 게임의 카메라 워크는 그대로 남는다.
@@ -2223,6 +2245,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue,
+          flip: camNeedsFlip(clip.name),
+          lookAtFocus: !!cameraFixFor(bossCode).lookAtFocus,
           lookAt: lookAtBone, idleAngle: !!cameraFixFor(bossCode).idleAngle,
           idleDist: cameraFixFor(bossCode).idleDist || 1 };
         rescueW = 0;
