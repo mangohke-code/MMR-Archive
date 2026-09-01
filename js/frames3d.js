@@ -823,6 +823,15 @@ function isAppearanceClip(name) {
   return APPEARANCE_CLIPS.some(re => re.test(name || ''));
 }
 
+// 페이즈 전환 연출이 끝나면 다음 페이즈 모델로 넘어가서 그쪽 전환 연출을 이어 트는
+// 기능. 이렇게 이어지는 보스가 드물어서 대상을 지정한 보스에만 켠다.
+//   베히모스: 1페이즈 2phase_b1_take1_a -> 2페이즈 2phase_take2+3 -> 3페이즈 3phase_intro
+const AUTO_PHASE_CHAIN_BOSS = /^mbg003/i;
+// 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
+let autoPhaseChain = false;
+// 다음 모델을 불러오면 그쪽 전환 연출을 바로 틀라는 표시.
+let autoPhasePending = false;
+
 function isPhaseSwitchClip(name) {
   return PHASE_SWITCH_CLIPS.some(re => re.test(name || ''));
 }
@@ -2415,8 +2424,25 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         pendingNext = () => playClipObject(step.clip, { repeat: step.repeat, keepQueue: true });
         return;
       }
+      // 전환 연출이 끝났고 자동 넘김이 켜져 있으면 다음 페이즈 모델로 간다.
+      if (autoPhaseChain && AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')
+          && isPhaseSwitchClip(state.currentClip) && goToNextPhaseModel()) {
+        return;
+      }
       const idle = findIdleClipForPhase(currentPhase);
       if (idle) pendingNext = () => playSingle(idle);
+    }
+
+    // 모델 고르는 칩을 다음 것으로 넘긴다. 칩의 클릭 처리를 그대로 쓰므로
+    // 불러오기·목록 다시 그리기가 알아서 따라온다.
+    function goToNextPhaseModel() {
+      const btns = [].slice.call(
+        document.querySelectorAll('#frames-model-toggle .frames-model-btn'));
+      const at = btns.findIndex(b => b.classList.contains('active'));
+      if (at < 0 || at + 1 >= btns.length) return false;
+      autoPhasePending = true;
+      btns[at + 1].click();
+      return true;
     }
 
     function runPendingNext() {
@@ -2671,10 +2697,26 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               if (i > 0 && it.lane !== items[i - 1].lane) html += '<span class="anim-lane-split"></span>';
               html += it.html;
             });
+            // 페이즈 전환 구역 맨 위에 자동 넘김 켬/끔을 둔다(해당 보스만).
+            if (g === '페이즈 전환' && AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')) {
+              html = `<button type="button" class="filter-chip frames-auto-phase`
+                + `${autoPhaseChain ? ' active' : ''}">자동 페이즈 전환 `
+                + `${autoPhaseChain ? '켬' : '끔'}</button>` + html;
+            }
             parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${html}</div>`);
           });
 
           animEl.innerHTML = parts.join('');
+
+          const autoBtn = animEl.querySelector('.frames-auto-phase');
+          if (autoBtn) {
+            autoBtn.addEventListener('click', () => {
+              if (container.__framesModel3D !== state) return;
+              autoPhaseChain = !autoPhaseChain;
+              autoBtn.classList.toggle('active', autoPhaseChain);
+              autoBtn.textContent = '자동 페이즈 전환 ' + (autoPhaseChain ? '켬' : '끔');
+            });
+          }
 
           document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -2697,6 +2739,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
         renderAnimList();
         markActiveClip((findIdleClipForPhase(currentPhase) || {}).name || null);
+
+        // 앞 페이즈의 전환 연출이 끝나서 넘어온 참이면 이쪽 전환 연출을 바로 튼다.
+        if (autoPhasePending) {
+          autoPhasePending = false;
+          const sw = seqs.find(sq => isPhaseSwitchClip(sq.key) && inCurrentPhase(sq.steps[0].clip.name))
+            || null;
+          const swClip = sw ? null
+            : clips.find(c => isPhaseSwitchClip(c.name) && inCurrentPhase(c.name));
+          if (sw) playSequence(sw);
+          else if (swClip) playSingle(swClip);
+        }
       } else {
         animEl.classList.add('hidden');
         animEl.innerHTML = '';
