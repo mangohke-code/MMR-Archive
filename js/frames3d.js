@@ -1770,6 +1770,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 발광 재질 목록이 아직 안 만들어졌으면 칠하지 않는다(첫 재생이 그보다 먼저다).
     let glowReady = false;
 
+    // 사용자가 직접 고른 재생은 세트를 다시 뽑는다. 묶음 안에서 start -> loop 로
+    // 넘어가는 것만 앞서 뽑은 세트를 그대로 쓴다(중간에 바뀌면 깜빡인다).
+    function rerollClipGlow() { clipGlowKey = null; }
+
     // 이 클립에서 켤 발광 세트를 정한다. 같은 스킬 안에서는 다시 뽑지 않는다.
     function pickClipGlow(clipName) {
       const rule = clipGlowRuleFor(bossCode, clipName);
@@ -2544,12 +2548,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 때마다 매번 전환 연출을 거쳐가야 했다. 페이즈가 바뀐 자세는 poseFor() 가
     // 전환 클립의 끝 자세로 미리 맞춰 주므로 끼워 넣지 않아도 모습은 맞다.
     function playSequence(seq) {
+      rerollClipGlow();
       seqQueue = seq.steps.slice(1);
       playClipObject(seq.steps[0].clip, { repeat: 1, keepQueue: true });
       markActiveClip(seq.key);
     }
 
     function playSingle(clip) {
+      rerollClipGlow();
       seqQueue = [];
       playClipObject(clip, { repeat: isOneShot(clip.name) ? 1 : 0 });
     }
