@@ -144,13 +144,22 @@ const BOSS_TRANSFORM_OVERRIDES = {
 //   그만큼 작게 잡는다. 화면에 맞게 1.3 배, 0.3 아래로.
 //   camY - 카메라 눈높이. 카메라와 시선을 같은 값만큼 올려서 각도는 그대로 둔다.
 const CATALOG_FIT_OVERRIDES = {
-  xbg003: { scale: 1.3, position: [0, -0.3, 0], camY: 0.05 },
+  xbg003: { scale: 1.0, position: [0, 0, 0], camY: 0.05 },
+};
+
+// 정규화 직후에 한 번 더 먹이는 기준 보정. 이 값이 들어간 상태가 곧 "배율 1.0 / Y 0" 이다.
+// 조작 패널에 1.3 / -0.3 같은 값이 떠 있으면 지금이 기본 상태인지 손댄 상태인지 알 수
+// 없어서, 맞춰 둔 값을 여기로 옮기고 패널은 1.0 / 0 에서 출발하게 한다.
+// 화면은 그대로다 — 바깥 그룹에 걸던 것을 안쪽(normGroup)으로 옮겼을 뿐이고,
+// 좌우 회전은 Y 축이라 위아래 오프셋에도, 배율에도 영향을 주지 않는다.
+const CATALOG_FIT_BASE = {
+  xbg003: { scale: 1.3, y: -0.3 }, // 온리 원 - 소환수가 떨어져 있어 정규화가 작게 잡는다
 };
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
 const CLIP_CAM_LIFT = [
-  { boss: /^xbg003/i, re: /_take01$/i, y: 0.4 }, // 온리 원 take01
+  { boss: /^xbg003/i, re: /_take01$/i, y: 0.6 }, // 온리 원 take01
 ];
 
 function getBossTransform(bossCode, isCatalogExport) {
@@ -1606,8 +1615,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!nb.isEmpty()) {
         const ns = nb.getSize(new THREE.Vector3());
         const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
-        normGroup.scale.setScalar(k);
-        normGroup.position.set(0, -nb.min.y * k, 0);
+        const fitBase = CATALOG_FIT_BASE[bossCode] || {};
+        const bs = fitBase.scale || 1;
+        normGroup.scale.setScalar(k * bs);
+        normGroup.position.set(0, -nb.min.y * k * bs + (fitBase.y || 0), 0);
+        // 눈높이는 기준 보정 전 크기로 잡는다 — 맞춰 둔 시점을 그대로 유지한다.
         normHeight = ns.y * k;
       }
     }
