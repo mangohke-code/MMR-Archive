@@ -158,8 +158,13 @@ const CATALOG_FIT_OVERRIDES = {
 // 좌우 회전은 Y 축이라 위아래 오프셋에도, 배율에도 영향을 주지 않는다.
 const CATALOG_FIT_BASE = {
   xbg003: { scale: 1.3, y: -0.3 }, // 온리 원 - 소환수가 떨어져 있어 정규화가 작게 잡는다
-  xba001: { scale: 2.6, y: 0 },    // 미러 컨테이너 - 본이 본체 밖까지 뻗어 있어 작게 잡힌다
+  // pitch - 기준 상하 각도(도). 조작 패널에는 0 으로 표기된다.
+  xba001: { scale: 2.6, y: 0, pitch: 10 }, // 미러 컨테이너 - 본이 본체 밖까지 뻗어 있어 작게 잡힌다
 };
+
+function catalogFitBase(bossCode, isCatalogExport) {
+  return (isCatalogExport && CATALOG_FIT_BASE[bossCode]) || {};
+}
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
@@ -461,11 +466,11 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 미러 컨테이너: 연출 카메라가 보스 뒤편에 선다. 뼈대 루트(*_var)에 걸린 좌우
-  // 180도가 뼈대의 "방향" 에만 걸리고 카메라에는 안 걸려서, 보스만 홀로 뒤돌아
-  // 있는 꼴이다. 카메라를 그 자리에서 보스 반대편으로 옮겨 되돌린다 —
-  // 거리·높이는 그대로라 게임의 카메라 워크는 남는다.
-  { boss: /^xba001/i, orbitFlip: true },
+  // 미러 컨테이너: 연출 카메라의 방향이 통째로 어긋난다. 뼈대 루트(*_var)에 걸린
+  // 좌우 180도가 뼈대에만 걸리고 카메라 노드에는 안 걸려서, 보스만 홀로 뒤돌아
+  // 있는 꼴이다. 그래서 방향은 기본 시점과 같게 잡고, 대상까지의 거리만 게임 값을
+  // 따른다 — 다가오고 물러나는 카메라 워크는 그대로 남는다.
+  { boss: /^xba001/i, idleAngle: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -883,8 +888,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
+    // 맞춰 둔 기준 각도. 슬라이더에는 안 들어가서 패널은 0 에서 출발한다 —
+    // 배율·높이를 CATALOG_FIT_BASE 로 옮긴 것과 같은 방식이다.
+    const basePitch = catalogFitBase(bossCode, isCatalogExport).pitch || 0;
     yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg);
-    pitchGroup.rotation.x = THREE.MathUtils.degToRad(pitchDeg);
+    pitchGroup.rotation.x = THREE.MathUtils.degToRad(pitchDeg + basePitch);
     pitchGroup.rotation.z = THREE.MathUtils.degToRad(rollDeg);
     yawGroup.position.set(...bossTransform.position);
     yawGroup.scale.setScalar(bossTransform.scale);
@@ -906,7 +914,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applySliders() {
       if (!SL.yaw) return;
       yawGroup.rotation.y = THREE.MathUtils.degToRad(+SL.yaw.value);
-      pitchGroup.rotation.x = THREE.MathUtils.degToRad(+SL.pitch.value);
+      pitchGroup.rotation.x = THREE.MathUtils.degToRad(+SL.pitch.value + basePitch);
       pitchGroup.rotation.z = THREE.MathUtils.degToRad(+SL.roll.value);
       yawGroup.position.set(+SL.px.value, +SL.py.value, +SL.pz.value);
       yawGroup.scale.setScalar(+SL.sc.value);
@@ -1655,7 +1663,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!nb.isEmpty()) {
         const ns = nb.getSize(new THREE.Vector3());
         const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
-        const fitBase = CATALOG_FIT_BASE[bossCode] || {};
+        const fitBase = catalogFitBase(bossCode, isCatalogExport);
         const bs = fitBase.scale || 1;
         normGroup.scale.setScalar(k * bs);
         normGroup.position.set(0, -nb.min.y * k * bs + (fitBase.y || 0), 0);
@@ -1799,6 +1807,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 인게임 카메라가 도는 동안에는 시점 계산을 하지 않는다 — 카메라 노드의 월드
     // 트랜스폼을 그대로 옮겨 쓴다. 그 노드가 모델과 같은 그룹(yaw/pitch/norm) 안에
     // 있어서 방향 보정과 정규화 배율이 저절로 함께 걸린다.
+    const camIdleDir = new THREE.Vector3();
     const camWorldPos = new THREE.Vector3();
     const camWorldQuat = new THREE.Quaternion();
     const camWorldScl = new THREE.Vector3();
@@ -1887,11 +1896,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cameraFlip) camera.quaternion.multiply(CAM_FLIP);
-      // 보스를 사이에 두고 반대편으로 옮긴다. 높이와 거리는 그대로 둔다.
-      if (cinematic.orbitFlip && cinematic.lookAt) {
+      // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
+      if (cinematic.idleAngle && cinematic.lookAt && homeCamPos && homeTarget) {
         cinematic.lookAt.getWorldPosition(camPull);
-        camera.position.x = 2 * camPull.x - camera.position.x;
-        camera.position.z = 2 * camPull.z - camera.position.z;
+        camIdleDir.copy(homeCamPos).sub(homeTarget);
+        if (camIdleDir.lengthSq() > 1e-12) {
+          camIdleDir.normalize();
+          const d = camera.position.distanceTo(camPull);
+          camera.position.copy(camPull).addScaledVector(camIdleDir, d);
+        }
       }
       // 겨냥 대상이 지정된 연출은 매 프레임 그 본을 향하게 다시 잡는다.
       // 위치와 화각은 건드리지 않으므로 게임의 카메라 워크는 그대로 남는다.
@@ -2142,7 +2155,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue,
-          lookAt: lookAtBone, orbitFlip: !!cameraFixFor(bossCode).orbitFlip };
+          lookAt: lookAtBone, idleAngle: !!cameraFixFor(bossCode).idleAngle };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
