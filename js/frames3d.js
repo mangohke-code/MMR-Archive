@@ -470,7 +470,8 @@ const CAMERA_FIX = [
   // 좌우 180도가 뼈대에만 걸리고 카메라 노드에는 안 걸려서, 보스만 홀로 뒤돌아
   // 있는 꼴이다. 그래서 방향은 기본 시점과 같게 잡고, 대상까지의 거리만 게임 값을
   // 따른다 — 다가오고 물러나는 카메라 워크는 그대로 남는다.
-  { boss: /^xba001/i, idleAngle: true },
+  // idleDist - 대상까지의 거리에 곱하는 값. 게임 값보다 조금 당겨 본다.
+  { boss: /^xba001/i, idleAngle: true, idleDist: 0.85 },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -1902,7 +1903,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camIdleDir.copy(homeCamPos).sub(homeTarget);
         if (camIdleDir.lengthSq() > 1e-12) {
           camIdleDir.normalize();
-          const d = camera.position.distanceTo(camPull);
+          const d = camera.position.distanceTo(camPull) * cinematic.idleDist;
           camera.position.copy(camPull).addScaledVector(camIdleDir, d);
         }
       }
@@ -2155,7 +2156,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue,
-          lookAt: lookAtBone, idleAngle: !!cameraFixFor(bossCode).idleAngle };
+          lookAt: lookAtBone, idleAngle: !!cameraFixFor(bossCode).idleAngle,
+          idleDist: cameraFixFor(bossCode).idleDist || 1 };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
