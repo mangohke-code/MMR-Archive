@@ -562,6 +562,15 @@ function pairCameraClips(clips, camNodes) {
   return { cams, byModel };
 }
 
+// 파일에는 따로 들어 있지만 실제로는 이어서 도는 연출. 한 묶음으로 낸다.
+//   미러 컨테이너 2페이즈 파츠는 되살아난 뒤(rebirth) 곧바로 부서진다(Destruction).
+const MANUAL_SEQUENCES = [
+  {
+    key: 'xba001_2phase_parts',
+    steps: [/^xba001_2phase_parts_rebirth$/i, /^xba001_2phase_parts_Destruction_01$/i],
+  },
+];
+
 function findSequences(clips) {
   const groups = new Map();
   clips.forEach((c, i) => {
@@ -588,6 +597,13 @@ function findSequences(clips) {
   const strip = phases.size > 1
     ? /^[a-z]{2,4}\d{3}_/i
     : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
+  // 손으로 묶는 연출은 위 판정(phases)에 넣지 않는다 — 다른 보스의 라벨까지 흔든다.
+  MANUAL_SEQUENCES.forEach(def => {
+    if (out.some(o => o.key === def.key)) return;
+    const steps = def.steps.map(re => clips.find(c => re.test(c.name || '')));
+    if (steps.some(c => !c)) return;
+    out.push({ key: def.key, steps: steps.map(c => ({ clip: c, repeat: 1 })) });
+  });
   out.forEach(o => { o.label = o.key.replace(strip, ''); });
   return out;
 }
@@ -625,6 +641,8 @@ function stripPhaseTail(name) {
 const CLIP_PHASE_OVERRIDES = [
   { re: /^[a-z]{2,4}\d{3}_appearance$/i, boss: /^xbg003/i, phase: '1' },
   { re: /^[a-z]{2,4}\d{3}_death$/i, boss: /^xbg003/i, phase: '2' },
+  // 미러 컨테이너 포신 사격은 1페이즈 파츠를 쓴다
+  { re: /_shot_(?:start|fire|end)_[lr]\d+_\d+$/i, boss: /^xba001/i, phase: '1' },
 ];
 
 function clipPhaseOverride(bossCode, name) {
@@ -651,6 +669,47 @@ function findPhaseChangeClip(clips) {
     // 뒤에 아무것도 안 붙은 페이즈 이름은 그 페이즈로 넘어가는 연출로 본다.
     || clips.find(c => /^[a-z]{2,4}\d{3}_\d+phase$/i.test(c.name || ''))
     || null;
+}
+
+// 목록에 내지 않는 클립. 파일에는 있지만 보여 줄 게 없는 연출이다.
+//   미러 컨테이너 appearance_take1 은 3.17초 내내 보스가 폭 0.11 로 접혀 있어
+//   화면에 점으로만 찍힌다. 게임에서는 이펙트가 그 자리를 채우는데 그건 내보내기에 없다.
+const HIDDEN_CLIPS = [
+  { boss: /^xba001/i, re: /_appearance_take1$/i },
+];
+
+function isHiddenClip(bossCode, name) {
+  return HIDDEN_CLIPS.some(o => o.boss.test(bossCode || '') && o.re.test(name || ''));
+}
+
+// 목록 이름을 손으로 바꾸는 자리. 규칙으로 풀면 다른 보스까지 딸려 바뀌는 경우에만 쓴다.
+const CLIP_LABEL_FIX = [
+  // 짝인 take1 을 목록에서 뺐으니 꼬리표도 뗀다
+  { boss: /^xba001/i, re: /_appearance_take2$/i, label: 'appearance' },
+  // 나머지 스킬은 묶음이라 페이즈 태그가 떨어진다. 낱개인 03 만 남아서 맞춰 준다.
+  { boss: /^xba001/i, re: /_1phase_skill_03$/i, label: 'skill_03' },
+  { boss: /^xba001/i, re: /_2phase_parts$/i, label: '2phase_parts' },
+];
+
+// 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
+// 사용자가 켜 둔 목록은 건드리지 않는다 — 클립이 바뀌면 원래대로 돌아온다.
+//   미러 컨테이너 포신 사격은 좌우 3문 중 그 한 문만 나온다.
+const CLIP_SOLO_PARTS = [
+  {
+    boss: /^xba001/i,
+    clip: /_shot_(?:start|fire|end)_([lr])(\d)_\d+$/i,
+    group: /_1phase_parts_[lr]\d+_skin/i,
+    keep: m => new RegExp('_1phase_parts_' + m[1] + '0' + m[2] + '_skin', 'i'),
+  },
+];
+
+function clipSoloPartsFor(bossCode, name) {
+  for (const o of CLIP_SOLO_PARTS) {
+    if (!o.boss.test(bossCode || '')) continue;
+    const m = (name || '').match(o.clip);
+    if (m) return { group: o.group, keep: o.keep(m) };
+  }
+  return null;
 }
 
 // 페이즈 전환 연출. 애니메이션 목록에서 "페이즈 전환" 구역으로 따로 뺀다 —
@@ -1502,8 +1561,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         .map(m => m.partKey)
     );
 
+    // 지금 도는 클립이 한 부위만 내보내는 연출이면 여기에 그 규칙이 들어온다.
+    let clipSolo = null;
+
     function applyVisibility() {
-      meshes.forEach(m => { m.visible = enabledMeshes.has(m.partKey); });
+      meshes.forEach(m => {
+        let on = enabledMeshes.has(m.partKey);
+        if (on && clipSolo && clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
+        m.visible = on;
+      });
     }
 
     function renderToggleUI() {
@@ -2170,6 +2236,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
       state.mixer = mixer;
       state.currentClip = clip.name;
+      clipSolo = clipSoloPartsFor(bossCode, clip.name);
+      applyVisibility();
       applyClipCamLift(clip.name);
       markActiveClip(opts.keepQueue ? undefined : clip.name);
       markPlayingClip(clip.name);
@@ -2280,7 +2348,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       measureCameraAim();
       measureCameraNear();
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
-      const clips = (gltf.animations || []).filter(c => !cameraClipNames.has(c.name));
+      const clips = (gltf.animations || [])
+        .filter(c => !cameraClipNames.has(c.name) && !isHiddenClip(bossCode, c.name));
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
       // 접두사가 다른 보스가 있어서(애니힐리오 1페이즈: 메쉬 xbga03_, 클립 xba003_)
       // 그 값으로 지우면 하나도 안 벗겨진다. 코드 자리를 패턴으로 잡는다.
@@ -2292,6 +2361,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         ? /^[a-z]{2,4}\d{3}_/i
         : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
       const label = name => String(name).replace(stripCodeRe, '');
+      // 손으로 정해 둔 이름이 있으면 그쪽이 이긴다
+      const labelOf = (raw, fallback) => {
+        const fix = CLIP_LABEL_FIX.find(
+          o => o.boss.test(bossCode || '') && o.re.test(raw || ''));
+        return fix ? fix.label : fallback;
+      };
 
       // 구형 변환본은 클립이 idle(또는 페이즈별 idle) 뿐이고 그 전환은 페이즈 토글이
       // 이미 담당한다. 거기에 애니메이션 목록까지 띄우면 역할이 겹치고, 클립만 바꾸면
@@ -2388,12 +2463,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
           // 1) 대기 동작
           clips.filter(c => isIdle(c) && inCurrentPhase(c.name))
-            .forEach(c => push(c.name, mkBtn(c.name, label(c.name), secs(c.duration))));
+            .forEach(c => push(c.name,
+              mkBtn(c.name, labelOf(c.name, label(c.name)), secs(c.duration))));
           // 2) 묶음 + 소속 클립
           seqs.forEach(sq => {
             if (!inCurrentPhase(sq.steps[0].clip.name)) return;
             const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
-            let html = mkBtn(sq.key, label(sq.label), secs(total), 'is-seq');
+            let html = mkBtn(sq.key, labelOf(sq.key, label(sq.label)), secs(total), 'is-seq');
             // 합성 묶음(파일에 없는 스킬을 원본 클립을 잘라 만든 것)은 하위 버튼을 내지
             // 않는다 — 재료 클립 버튼과 키가 겹치고, 잘라낸 클립은 clips 목록에 없다.
             if (!sq.synthetic) {
@@ -2401,7 +2477,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               sq.steps.forEach(st => {
                 if (seen.has(st.clip.name)) return;
                 seen.add(st.clip.name);
-                html += mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child');
+                html += mkBtn(st.clip.name, labelOf(st.clip.name, label(st.clip.name)),
+                  secs(st.clip.duration), 'is-child');
               });
             }
             push(sq.key, html, seqNo(sq.key));
@@ -2417,7 +2494,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
                 mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(c.duration), 'is-seq'));
               return;
             }
-            push(c.name, mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'),
+            push(c.name,
+              mkBtn(c.name, labelOf(c.name, label(c.name)), secs(c.duration),
+                isSolo(c) ? '' : 'is-extra'),
               seqNo(c.name));
           });
 
