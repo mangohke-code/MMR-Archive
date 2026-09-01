@@ -5111,6 +5111,25 @@
   .f3d-col .anim-group { display: flex; flex-direction: column; gap: 4px; }
   .f3d-col .anim-group + .anim-group { margin-top: 10px; }
 
+  /* 구역 이름 줄에 토글을 같이 놓을 때 — 이름은 왼쪽, 토글은 오른쪽 끝 */
+  .f3d-col .anim-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* 자동 페이즈 전환 토글 — 목록이 좁아서 기본 토글보다 작게 */
+  .f3d-col .anim-auto-phase { margin-left: auto; }
+  .f3d-col .anim-auto-phase .toggle-label { font-size: 10px; }
+  .f3d-col .anim-auto-phase .toggle-switch { width: 26px; height: 14px; }
+  .f3d-col .anim-auto-phase .toggle-switch::after {
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+  }
+  .f3d-col .anim-auto-phase.active .toggle-switch::after { transform: translateX(12px); }
+
   /* 한 구역 안에서 갈래가 바뀌는 자리 (기본 구역의 지상 -> 공중, 등장 -> 사망) */
   .f3d-col .anim-lane-split {
     height: 1px;

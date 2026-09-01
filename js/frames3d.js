@@ -2697,13 +2697,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               if (i > 0 && it.lane !== items[i - 1].lane) html += '<span class="anim-lane-split"></span>';
               html += it.html;
             });
-            // 페이즈 전환 구역 맨 위에 자동 넘김 켬/끔을 둔다(해당 보스만).
+            // 구역 이름 줄. 페이즈 전환에는 자동 넘김 토글을 오른쪽 끝에 얹는다
+            // (해당 보스만) — 이름 옆이 비어 있어서 가운데를 비우고 양끝으로 민다.
+            let head = `<span class="anim-group-label">${g}</span>`;
             if (g === '페이즈 전환' && AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')) {
-              html = `<button type="button" class="filter-chip frames-auto-phase`
-                + `${autoPhaseChain ? ' active' : ''}">자동 페이즈 전환 `
-                + `${autoPhaseChain ? '켬' : '끔'}</button>` + html;
+              head = `<div class="anim-group-head">${head}`
+                + `<div class="toggle-switch-wrap anim-auto-phase frames-auto-phase`
+                + `${autoPhaseChain ? ' active' : ''}" role="switch"`
+                + ` aria-checked="${autoPhaseChain}" title="전환 연출이 끝나면 다음 페이즈로 이어서 재생">`
+                + `<span class="toggle-label">자동 전환</span>`
+                + `<div class="toggle-switch"></div></div></div>`;
             }
-            parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${html}</div>`);
+            parts.push(`<div class="anim-group">${head}${html}</div>`);
           });
 
           animEl.innerHTML = parts.join('');
@@ -2714,7 +2719,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               if (container.__framesModel3D !== state) return;
               autoPhaseChain = !autoPhaseChain;
               autoBtn.classList.toggle('active', autoPhaseChain);
-              autoBtn.textContent = '자동 페이즈 전환 ' + (autoPhaseChain ? '켬' : '끔');
+              autoBtn.setAttribute('aria-checked', String(autoPhaseChain));
             });
           }
 
