@@ -639,8 +639,9 @@ function stripPhaseTail(name) {
 // 온리 원은 1페이즈로 등장해서 2페이즈에서 죽는다.
 // 목록에 낼지 말지만 여기서 가른다 — 자세·카메라 계산은 건드리지 않는다.
 const CLIP_PHASE_OVERRIDES = [
-  { re: /^[a-z]{2,4}\d{3}_appearance$/i, boss: /^xbg003/i, phase: '1' },
-  { re: /^[a-z]{2,4}\d{3}_death$/i, boss: /^xbg003/i, phase: '2' },
+  // 온리 원·미러 컨테이너 - 1페이즈로 등장해서 2페이즈에서 죽는다
+  { re: /_appearance(_take\d+)?$/i, boss: /^(xbg003|xba001)/i, phase: '1' },
+  { re: /_death$/i, boss: /^(xbg003|xba001)/i, phase: '2' },
   // 미러 컨테이너 포신 사격은 1페이즈 파츠를 쓴다
   { re: /_shot_(?:start|fire|end)_[lr]\d+_\d+$/i, boss: /^xba001/i, phase: '1' },
 ];
