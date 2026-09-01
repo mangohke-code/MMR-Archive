@@ -82,12 +82,34 @@ const PART_GROUPS = [
   ['연출', /(^|_)([a-z])?[FCP]_skin(_\d+)?$/],
 ];
 
+// 좌우 이름이 어긋난 메쉬를 맞바꾼다. 원본 이름이 그대로면 목록에서 짝이 안 맞아
+// 보인다 — 프로비던스 어깨는 늘 보이는 쪽이 shoulder_l_skin / shoulder_r_skin_1,
+// 발광 파츠가 shoulder_r_skin / shoulder_l_skin_1 로 좌우가 엇갈려 있다.
+const MESH_RENAME = [
+  { boss: /^xbg002/i, from: 'xbg002_shoulder_r_skin', to: 'xbg002_shoulder_r_skin_1' },
+  { boss: /^xbg002/i, from: 'xbg002_shoulder_r_skin_1', to: 'xbg002_shoulder_r_skin' },
+];
+
+// 맞바꾸기라 한꺼번에 정해야 한다. 하나씩 바꾸면 앞에서 바꾼 이름을 뒤에서 또 집는다.
+function renameMeshes(bossCode, meshes) {
+  const rules = MESH_RENAME.filter(o => o.boss.test(bossCode || ''));
+  if (!rules.length) return;
+  const next = meshes.map(m => {
+    const hit = rules.find(o => o.from === m.name);
+    return hit ? hit.to : m.name;
+  });
+  meshes.forEach((m, i) => { m.name = next[i]; });
+}
+
 // 프리팹에서 m_IsActive=false 로 꺼진 채 시작하는 메쉬. 화면에 늘 떠 있으면 안 되고,
 // 런타임 코드(행동트리)가 필요할 때만 켠다. 애니메이션·머티리얼에는 흔적이 없어서
 // 파일만 봐서는 알 수 없다.
 // (온리 원 소환수 3종은 여기 넣지 않는다 — 평소에는 보이지 않을 만큼 작게 접혀
 //  다른 자리에 놓여 있고, 필요할 때 자기 스킬 클립이 꺼내 쓴다. 상시 on 이어도 된다)
 const DEFAULT_OFF_MESHES = [
+  // 프로비던스 - 패턴 중에만 빛나는 파츠(fx_xbg002_part_fresnel_purple 재질).
+  // 평소에는 꺼져 있고 아래 CLIP_GLOW_PARTS 가 해당 스킬에서만 잠깐 켠다.
+  { boss: /^xbg002/i, re: /_(arm_[lr]_skin_2|legs_[lr]_skin001|shoulder_[lr]_skin_1)$/i },
 ];
 
 function isDefaultOffMesh(bossCode, name) {
@@ -785,6 +807,24 @@ const CLIP_SOLO_PARTS = [
   { boss: /^mbg003/i, clip: /_2phase_jump_end$/i, hide: /_catpult_skin/i },
 ];
 
+// 연출 중에만 켜지는 발광 파츠. 좌우 한 쌍이 한 세트고, 그중 count 개를 무작위로 고른다.
+// 색은 GLOW_PRESETS 의 key.
+//   프로비던스: 스킬 01 은 오른팔 하나 노랑, 03 은 팔·다리 중 한 세트 파랑,
+//               04 는 팔·다리·어깨 중 두 세트 보라.
+const CLIP_GLOW_PARTS = [
+  { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_01$/i, color: 'yellow', count: 1,
+    sets: [/_arm_r_skin_2$/i] },
+  { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_03$/i, color: 'blue', count: 1,
+    sets: [/_arm_[lr]_skin_2$/i, /_legs_[lr]_skin001$/i] },
+  { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_04$/i, color: 'purple', count: 2,
+    sets: [/_arm_[lr]_skin_2$/i, /_legs_[lr]_skin001$/i, /_shoulder_[lr]_skin_1$/i] },
+];
+
+function clipGlowRuleFor(bossCode, name) {
+  return CLIP_GLOW_PARTS.find(
+    o => o.boss.test(bossCode || '') && o.clip.test(name || '')) || null;
+}
+
 function clipSoloPartsFor(bossCode, name) {
   for (const o of CLIP_SOLO_PARTS) {
     if (!o.boss.test(bossCode || '')) continue;
@@ -825,8 +865,10 @@ function isAppearanceClip(name) {
 
 // 페이즈 전환 연출이 끝나면 다음 페이즈 모델로 넘어가서 그쪽 전환 연출을 이어 트는
 // 기능. 이렇게 이어지는 보스가 드물어서 대상을 지정한 보스에만 켠다.
-//   베히모스: 1페이즈 2phase_b1_take1_a -> 2페이즈 2phase_take2+3 -> 3페이즈 3phase_intro
+//   베히모스: 1페이즈 2phase_b1_take1_a -> 2페이즈 2phase_take2+3
+// 2 -> 3페이즈는 자동으로 넘기지 않는다. 그래서 토글도 1페이즈에만 낸다.
 const AUTO_PHASE_CHAIN_BOSS = /^mbg003/i;
+const AUTO_PHASE_CHAIN_FROM = '1';
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
 // 다음 모델을 불러오면 그쪽 전환 연출을 바로 틀라는 표시.
@@ -1057,6 +1099,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 모델 고르는 칩 이름이 가리키는 페이즈. 같은 파일을 항목 둘로 등록해 쓰는 보스가
     // 있어서, 보정도 항목별로 달리 줘야 하는 경우가 있다.
     const optLabelPhase = (String(options.modelLabel || '').match(/(\d+)\s*페이즈/) || [])[1] || null;
+    // 자동 페이즈 넘김을 낼지. 넘길 곳이 있는 페이즈에서만 낸다.
+    const autoPhaseAvailable = AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')
+      && optLabelPhase === AUTO_PHASE_CHAIN_FROM;
 
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
@@ -1264,6 +1309,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 코어(약점) 표시라 거의 모든 보스에 공통으로 존재 — 이건 꺼두면 몸통 안쪽이 통째로
     // 비어 보이므로 예외로 기본 표시한다. 나머지는 토글로 직접 켤 수 있다.
     const isSkillOnlyEffect = name => /^fx_/i.test(name || '') && !/monster_core/i.test(name || '');
+
+    // 좌우가 어긋난 이름을 먼저 맞바꾼다. 라벨·키·아래 보정표가 전부 이 이름을 쓴다.
+    renameMeshes(bossCode, meshes);
 
     // 파츠 토글 목록에서는 보스 코드(예: bba001)를 빼고 보여준다 — fx_bba001_... 처럼
     // 접두사가 맨 앞이 아니라 중간에 낀 경우도 있어서, 위치 상관없이 전부 제거한다.
@@ -1701,6 +1749,27 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 지금 도는 클립이 한 부위만 내보내는 연출이면 여기에 그 규칙이 들어온다.
     let clipSolo = null;
+    // 연출 중에만 켜지는 발광 파츠. { parts: [정규식], color } 또는 null.
+    let clipGlow = null;
+    // 같은 스킬의 start -> loop 로 넘어갈 때 고른 세트를 그대로 쓰기 위한 표시.
+    let clipGlowKey = null;
+    // 발광 재질 목록이 아직 안 만들어졌으면 칠하지 않는다(첫 재생이 그보다 먼저다).
+    let glowReady = false;
+
+    // 이 클립에서 켤 발광 세트를 정한다. 같은 스킬 안에서는 다시 뽑지 않는다.
+    function pickClipGlow(clipName) {
+      const rule = clipGlowRuleFor(bossCode, clipName);
+      if (!rule) { clipGlow = null; clipGlowKey = null; return; }
+      const key = rule.color + ':' + ((String(clipName).match(/_(\d+)$/) || [])[1] || '');
+      if (clipGlow && clipGlowKey === key) return;
+      const pool = rule.sets.slice();
+      const picked = [];
+      for (let i = 0; i < rule.count && pool.length; i++) {
+        picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      }
+      clipGlow = { parts: picked, color: rule.color };
+      clipGlowKey = key;
+    }
 
     function applyVisibility() {
       meshes.forEach(m => {
@@ -1709,6 +1778,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           if (clipSolo.hide) on = !clipSolo.hide.test(m.name);
           else if (clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
         }
+        // 이 연출에서만 켜지는 발광 파츠 — 평소 꺼둔 것을 잠깐 되살린다
+        if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
         m.visible = on;
       });
     }
@@ -2400,7 +2471,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       state.mixer = mixer;
       state.currentClip = clip.name;
       clipSolo = clipSoloPartsFor(bossCode, clip.name);
+      pickClipGlow(clip.name);
       applyVisibility();
+      if (glowReady) applyGlow();
       applyClipCamLift(clip.name);
       markActiveClip(opts.keepQueue ? undefined : clip.name);
       markPlayingClip(clip.name);
@@ -2425,7 +2498,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         return;
       }
       // 전환 연출이 끝났고 자동 넘김이 켜져 있으면 다음 페이즈 모델로 간다.
-      if (autoPhaseChain && AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')
+      if (autoPhaseChain && autoPhaseAvailable
           && isPhaseSwitchClip(state.currentClip) && goToNextPhaseModel()) {
         return;
       }
@@ -2700,7 +2773,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             // 구역 이름 줄. 페이즈 전환에는 자동 넘김 토글을 오른쪽 끝에 얹는다
             // (해당 보스만) — 이름 옆이 비어 있어서 가운데를 비우고 양끝으로 민다.
             let head = `<span class="anim-group-label">${g}</span>`;
-            if (g === '페이즈 전환' && AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')) {
+            if (g === '페이즈 전환' && autoPhaseAvailable) {
               head = `<div class="anim-group-head">${head}`
                 + `<div class="toggle-switch-wrap anim-auto-phase frames-auto-phase`
                 + `${autoPhaseChain ? ' active' : ''}" role="switch"`
@@ -2827,6 +2900,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           // 패턴과 무관한 상시 발광(몸체 띠 등)은 늘 파일 값 그대로
           mt.emissive.copy(orig);
           mt.emissiveIntensity = mt.userData.glowStrength;
+        } else if (clipGlow) {
+          // 연출 중에만 켜지는 색 — 사용자가 고른 색보다 이쪽이 먼저다.
+          const p = GLOW_PRESETS.find(x => x.key === clipGlow.color);
+          if (p && p.rgb) {
+            mt.emissive.setRGB(p.rgb[0], p.rgb[1], p.rgb[2]);
+            mt.emissiveIntensity = mt.userData.glowStrength;
+          }
         } else if (glowMode === 'off') {
           // 평소 모습 — 패턴 색 파츠는 빛나지 않는다. 파일에 보라가 들어 있는 건
           // 패턴 중 한 색일 뿐이라, 그걸 상시로 켜두면 늘 보라로 빛나 보인다.
@@ -2863,6 +2943,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           });
         });
       }
+      glowReady = true;
       applyGlow();
     }
 
