@@ -504,7 +504,7 @@ const CLIP_CAMERA_FIX = [
   // 방향은 기본 시점과 같게 두고, 거리는 게임 값에서 조금 당긴다.
   { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true, dist: 0.6 },
   // 사망 첫 컷은 너무 붙어 있어서 뒤 컷과 크기가 안 맞는다. 조금 물린다.
-  { boss: /^mbg003/i, clip: /_dead$/i, dist: 1.25 },
+  { boss: /^mbg003/i, clip: /_dead$/i, dist: 1.5 },
 ];
 
 function cameraFixFor(bossCode, clipName) {
@@ -754,13 +754,19 @@ const CLIP_SOLO_PARTS = [
     group: /_1phase_parts_[lr]\d+_skin/i,
     keep: m => new RegExp('_1phase_parts_' + m[1] + '0' + m[2] + '_skin', 'i'),
   },
+  // 베히모스 jump_end 는 원본 데이터에서 포탑 본(l/r_catpult_01)만 바인드 자세를
+  // 크게 벗어나, 그 본에 물린 정점이 바닥을 뚫는 바늘로 늘어난다. 압축 전 원본에서도
+  // 같은 값이 나온다. 그 클립에서만 포탑을 감춘다.
+  { boss: /^mbg003/i, clip: /_2phase_jump_end$/i, hide: /_catpult_skin/i },
 ];
 
 function clipSoloPartsFor(bossCode, name) {
   for (const o of CLIP_SOLO_PARTS) {
     if (!o.boss.test(bossCode || '')) continue;
     const m = (name || '').match(o.clip);
-    if (m) return { group: o.group, keep: o.keep(m) };
+    if (!m) continue;
+    if (o.hide) return { hide: o.hide };
+    return { group: o.group, keep: o.keep(m) };
   }
   return null;
 }
@@ -1651,7 +1657,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyVisibility() {
       meshes.forEach(m => {
         let on = enabledMeshes.has(m.partKey);
-        if (on && clipSolo && clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
+        if (on && clipSolo) {
+          if (clipSolo.hide) on = !clipSolo.hide.test(m.name);
+          else if (clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
+        }
         m.visible = on;
       });
     }
