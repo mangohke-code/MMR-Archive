@@ -160,10 +160,14 @@ const CATALOG_FIT_BASE = {
   xbg003: { scale: 1.3, y: -0.3 }, // 온리 원 - 소환수가 떨어져 있어 정규화가 작게 잡는다
   // pitch - 기준 상하 각도(도). 조작 패널에는 0 으로 표기된다.
   xba001: { scale: 2.6, y: 0, pitch: 10 }, // 미러 컨테이너 - 본이 본체 밖까지 뻗어 있어 작게 잡힌다
+  // 베히모스 1페이즈는 화면에서 작게 잡힌다. 항목별로 줘야 해서 "@1" 로 적는다.
+  'mbg003@1': { scale: 1.3, y: 0 },
 };
 
-function catalogFitBase(bossCode, isCatalogExport) {
-  return (isCatalogExport && CATALOG_FIT_BASE[bossCode]) || {};
+// 같은 보스라도 모델 항목(페이즈)마다 다르게 줘야 하면 "코드@페이즈" 로 적는다.
+function catalogFitBase(bossCode, isCatalogExport, labelPhase) {
+  if (!isCatalogExport) return {};
+  return CATALOG_FIT_BASE[bossCode + '@' + labelPhase] || CATALOG_FIT_BASE[bossCode] || {};
 }
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -503,8 +507,11 @@ const CLIP_CAMERA_FIX = [
   // 베히모스 페이즈 전환 뒤 두 컷은 카메라가 반대편에서 뒷모습을 잡는다.
   // 방향은 기본 시점과 같게 두고, 거리는 게임 값에서 조금 당긴다.
   { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true, dist: 0.6 },
-  // 사망 첫 컷은 너무 붙어 있어서 뒤 컷과 크기가 안 맞는다. 조금 물린다.
-  { boss: /^mbg003/i, clip: /_dead$/i, dist: 1.5 },
+  // 사망 첫 컷은 너무 붙어 있어서 뒤 컷과 크기가 안 맞는다. 물린다.
+  { boss: /^mbg003/i, clip: /_dead$/i, dist: 2 },
+  // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
+  // 거리는 게임 값에서 당긴다.
+  { boss: /^mbg003/i, clip: /_1phase_take[12]$/i, idleAngle: true, dist: 0.7 },
 ];
 
 function cameraFixFor(bossCode, clipName) {
@@ -1010,11 +1017,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     setupLights(isCatalogExport);
     setupPostFx(isCatalogExport);
 
+    // 모델 고르는 칩 이름이 가리키는 페이즈. 같은 파일을 항목 둘로 등록해 쓰는 보스가
+    // 있어서, 보정도 항목별로 달리 줘야 하는 경우가 있다.
+    const optLabelPhase = (String(options.modelLabel || '').match(/(\d+)\s*페이즈/) || [])[1] || null;
+
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
     // 맞춰 둔 기준 각도. 슬라이더에는 안 들어가서 패널은 0 에서 출발한다 —
     // 배율·높이를 CATALOG_FIT_BASE 로 옮긴 것과 같은 방식이다.
-    const basePitch = catalogFitBase(bossCode, isCatalogExport).pitch || 0;
+    const basePitch = catalogFitBase(bossCode, isCatalogExport, optLabelPhase).pitch || 0;
     yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg);
     pitchGroup.rotation.x = THREE.MathUtils.degToRad(pitchDeg + basePitch);
     pitchGroup.rotation.z = THREE.MathUtils.degToRad(rollDeg);
@@ -1823,7 +1834,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!nb.isEmpty()) {
         const ns = nb.getSize(new THREE.Vector3());
         const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
-        const fitBase = catalogFitBase(bossCode, isCatalogExport);
+        const fitBase = catalogFitBase(bossCode, isCatalogExport, optLabelPhase);
         const bs = fitBase.scale || 1;
         normGroup.scale.setScalar(k * bs);
         normGroup.position.set(0, -nb.min.y * k * bs + (fitBase.y || 0), 0);
