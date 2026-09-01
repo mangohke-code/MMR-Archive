@@ -498,8 +498,19 @@ function cameraLookAtFor(bossCode, clipName) {
     o => o.boss.test(bossCode || '') && (!o.clip || o.clip.test(clipName || ''))) || null;
 }
 
-function cameraFixFor(bossCode) {
-  return CAMERA_FIX.find(o => o.boss.test(bossCode || '')) || {};
+// 같은 보스 안에서 그 연출 하나만 따로 손봐야 할 때. 보스 설정 위에 덧씌운다.
+const CLIP_CAMERA_FIX = [
+  // 베히모스 페이즈 전환 뒤 두 컷은 카메라가 반대편에서 뒷모습을 잡는다.
+  // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
+  { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true },
+];
+
+function cameraFixFor(bossCode, clipName) {
+  const base = CAMERA_FIX.find(o => o.boss.test(bossCode || '')) || {};
+  if (clipName === undefined) return base;
+  const extra = CLIP_CAMERA_FIX.filter(
+    o => o.boss.test(bossCode || '') && o.clip.test(clipName || ''));
+  return extra.length ? Object.assign({}, base, ...extra) : base;
 }
 
 function cameraNeedsPull(bossCode) {
@@ -535,7 +546,20 @@ function pairCameraClips(clips, camNodes) {
   const cams = clips.filter(c => nodeOf.has(c.name));
   const models = clips.filter(c => !nodeOf.has(c.name));
   const byModel = new Map();
+  // 내보내기가 짝을 적어 준 카메라부터 처리한다. 이름 규칙보다 이쪽이 정확하다 —
+  // 베히모스 dead_camera2 는 이름만 보면 dead_2 와 붙지만 실제 짝은 dead 다.
   cams.forEach(cam => {
+    const node = nodeOf.get(cam.name);
+    const paired = node && node.userData && node.userData.pairedClip;
+    if (!paired) return;
+    const target = models.find(c => c.name === paired);
+    // 한 클립에 카메라가 둘 붙어 있으면 먼저 나온 것을 쓴다
+    if (target && !byModel.has(target.name)) byModel.set(target.name, { clip: cam, node });
+  });
+  // 짝이 안 적힌 카메라만 이름으로 찾는다
+  cams.forEach(cam => {
+    const node0 = nodeOf.get(cam.name);
+    if (node0 && node0.userData && node0.userData.pairedClip) return;
     // _camera / _camera1 / _camera_01 / _camera_take1 을 모두 받는다.
     const m = (cam.name || '').match(/^(.*?)_camera(?:_?(\d+))?(_take\d+)?$/i);
     if (!m) return;
@@ -546,8 +570,8 @@ function pairCameraClips(clips, camNodes) {
     // 그 번호의 take 클립이 실제로 있을 때만 그렇게 본다.
     if (!take && m[2]) {
       const n = Number(m[2]);
-      // 번호를 그대로 뒤에 붙이는 보스가 먼저다 — 베히모스 dead_camera2 는 dead_2 짝인데,
-      // take 쪽을 먼저 보면 엉뚱한 2phase_take2 로 끌려간다.
+      // 번호를 그대로 뒤에 붙이는 꼴(_camera2 <-> _2)을 먼저 본다.
+      // take 쪽을 먼저 보면 이름만 비슷한 엉뚱한 take 클립으로 끌려간다.
       const t = '_take' + n;
       if (models.some(c => c.name === m[1] + '_' + n)) take = '_' + n;
       else if (models.some(c => String(c.name).endsWith(t))) take = t;
@@ -564,7 +588,10 @@ function pairCameraClips(clips, camNodes) {
       else if (base.startsWith(n)) len = n.length;
       if (len > bestLen) { bestLen = len; best = c; }
     }
-    if (best && bestLen >= 8) byModel.set(best.name, { clip: cam, node: nodeOf.get(cam.name) });
+    // 파일이 짝을 적어 준 쪽이 이긴다
+    if (best && bestLen >= 8 && !byModel.has(best.name)) {
+      byModel.set(best.name, { clip: cam, node: nodeOf.get(cam.name) });
+    }
   });
   return { cams, byModel };
 }
@@ -575,6 +602,17 @@ const MANUAL_SEQUENCES = [
   {
     key: 'xba001_2phase_parts',
     steps: [/^xba001_2phase_parts_rebirth$/i, /^xba001_2phase_parts_Destruction_01$/i],
+  },
+  // 베히모스 - 페이즈 전환 연출의 뒤 두 컷
+  {
+    key: 'mbg003_2phase_take',
+    steps: [/^mbg003_2phase_take2$/i, /^mbg003_2phase_take3$/i],
+  },
+  // 베히모스 - 사망은 두 컷이 바로 이어진다.
+  // 키는 소속 클립 이름과 겹치면 안 된다(버튼 키가 겹쳐서 표시가 엉킨다).
+  {
+    key: 'mbg003_dead_all',
+    steps: [/^mbg003_dead$/i, /^mbg003_dead_2$/i],
   },
 ];
 
@@ -591,8 +629,9 @@ function findSequences(clips) {
   groups.forEach((g, key) => {
     if (!g.start || !(g.loop || g.end || g.fire)) return;
     const steps = [{ clip: g.start.clip, repeat: 1 }];
-    // 루프를 몇 번 도는지는 파일에 없다(행동트리 영역). 스킬은 한 번, 그 외는 두 번.
-    if (g.loop) steps.push({ clip: g.loop.clip, repeat: /skill/i.test(key) ? 1 : 2 });
+    // 루프를 몇 번 도는지는 파일에 없다(행동트리 영역). 그로기만 두 번 돌리고
+    // 나머지는 한 번만 — 점프처럼 한 번에 끝나는 동작이 두 번 뛰면 이상하다.
+    if (g.loop) steps.push({ clip: g.loop.clip, repeat: /groggy/i.test(key) ? 2 : 1 });
     if (g.fire) steps.push({ clip: g.fire.clip, repeat: 1 });
     if (g.end) steps.push({ clip: g.end.clip, repeat: 1 });
     out.push({ key, steps });
@@ -697,6 +736,8 @@ const CLIP_LABEL_FIX = [
   // 나머지 스킬은 묶음이라 페이즈 태그가 떨어진다. 낱개인 03 만 남아서 맞춰 준다.
   { boss: /^xba001/i, re: /_1phase_skill_03$/i, label: 'skill_03' },
   { boss: /^xba001/i, re: /_2phase_parts$/i, label: '2phase_parts' },
+  { boss: /^mbg003/i, re: /_dead_all$/i, label: 'dead' },
+  { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
@@ -730,6 +771,10 @@ const PHASE_SWITCH_CLIPS = [
   /(^|_)2phase_change$/i,          // 온리 원
   /(^|_)12phase_appeanrance$/i,    // 애니힐리오 (원본 철자 그대로)
   /^[a-z]{2,4}\d{3}_\d+phase$/i,   // 프로비던스 - 뒤에 아무것도 안 붙은 페이즈 이름
+  // 베히모스 - 1 -> 2페이즈 전환이 세 클립으로 이어진다. 앞 하나가 1페이즈 파일에,
+  // 뒤 둘이 2페이즈 파일에 들어 있어서 파일을 넘어 잇지는 못한다.
+  /^mbg003_2phase_b1_take1_a$/i,
+  /^mbg003_2phase_take[23]?$/i,   // 낱개 두 컷과 그 둘을 묶은 키까지
 ];
 
 function isPhaseSwitchClip(name) {
@@ -1556,7 +1601,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
       });
     }
-    const phaseKeys = Object.keys(phaseGroups).sort((a, b) => Number(a) - Number(b));
+    // 파츠에는 페이즈 태그가 없는데 클립만 페이즈로 갈리는 파일이 있다
+    // (베히모스 2페이즈 파일에 2·3페이즈 클립이 같이 들어 있다).
+    // "그 페이즈만의 대기 동작이 있으면 그 페이즈다" 로 본다 — 그래야 전환 클립
+    // 한 개가 딸려 있을 뿐인 파일(베히모스 1페이즈)에 헛토글이 생기지 않는다.
+    const phaseKeys = Object.keys(phaseGroups).length
+      ? Object.keys(phaseGroups).sort((a, b) => Number(a) - Number(b))
+      : [...new Set((gltf.animations || [])
+          .filter(c => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(c.name))
+            && !/air|skill/i.test(c.name || ''))
+          .map(c => clipPhase(c.name))
+          .filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     const minPhase = phaseKeys.length > 0 ? phaseKeys[0] : null;
     // 모든 보스는 항상 1페이즈(가장 낮은 페이즈)로 시작 - 다른 페이즈는 직접 선택해야 보인다.
     let currentPhase = minPhase;
@@ -1982,9 +2037,16 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
-      // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
-      if (cinematic.idleAngle && cinematic.lookAt && homeCamPos && homeTarget) {
+      // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
+      let hasAim = false;
+      if (cinematic.lookAt) {
         cinematic.lookAt.getWorldPosition(camPull);
+        hasAim = true;
+      } else if ((cinematic.lookAtFocus || cinematic.idleAngle) && focusMesh) {
+        hasAim = rigCenter(focusMesh, camPull, focusBone);
+      }
+      // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
+      if (cinematic.idleAngle && hasAim && homeCamPos && homeTarget) {
         camIdleDir.copy(homeCamPos).sub(homeTarget);
         if (camIdleDir.lengthSq() > 1e-12) {
           camIdleDir.normalize();
@@ -1992,16 +2054,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           camera.position.copy(camPull).addScaledVector(camIdleDir, d);
         }
       }
-      // 대상 본을 따로 안 정한 보스는 본체 중심을 겨눈다.
-      if (cinematic.lookAtFocus && focusMesh && rigCenter(focusMesh, camPull, focusBone)) {
-        camera.lookAt(camPull);
-      }
-      // 겨냥 대상이 지정된 연출은 매 프레임 그 본을 향하게 다시 잡는다.
-      // 위치와 화각은 건드리지 않으므로 게임의 카메라 워크는 그대로 남는다.
-      if (cinematic.lookAt) {
-        cinematic.lookAt.getWorldPosition(camPull);
-        camera.lookAt(camPull);
-      }
+      // 매 프레임 기준점을 향하게 다시 잡는다. 위치와 화각은 건드리지 않으므로
+      // 게임의 카메라 워크는 그대로 남는다.
+      if (hasAim) camera.lookAt(camPull);
       // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
       if (cinematic.rescue) applyShotRescue(dt || 1 / 60);
@@ -2242,13 +2297,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             if (!lookAtBone && o.isBone && la.bone.test(o.name || '')) lookAtBone = o;
           });
         }
+        const fix = cameraFixFor(bossCode, clip.name);
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
-          near: camNear.get(clip.name) || 0, rescue: !!cameraFixFor(bossCode).rescue,
+          near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
           flip: camNeedsFlip(clip.name),
-          lookAtFocus: !!cameraFixFor(bossCode).lookAtFocus,
-          lookAt: lookAtBone, idleAngle: !!cameraFixFor(bossCode).idleAngle,
-          idleDist: cameraFixFor(bossCode).idleDist || 1 };
+          lookAtFocus: !!fix.lookAtFocus,
+          lookAt: lookAtBone, idleAngle: !!fix.idleAngle,
+          idleDist: fix.idleDist || 1 };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
@@ -2276,7 +2332,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 그래서 여기서는 예약만 하고, 실제 교체는 다음 프레임 첫머리에서 한다.
     let pendingNext = null;
 
-    function onClipFinished() {
+    function onClipFinished(e) {
+      // 연출 카메라 클립도 같은 믹서에서 돌아서 자기 몫의 finished 를 한 번 더 쏜다.
+      // 그대로 두면 묶음의 다음 클립이 큐에서 빠진 직후 두 번째 신호가 들어와
+      // 그 클립을 idle 로 덮어쓴다 — 베히모스 take2 다음 take3 가 그렇게 잘렸다.
+      if (e && e.action && e.action.getClip() !== (currentAction && currentAction.getClip())) return;
       if (seqQueue.length) {
         const step = seqQueue.shift();
         pendingNext = () => playClipObject(step.clip, { repeat: step.repeat, keepQueue: true });
