@@ -617,6 +617,12 @@ const MANUAL_SEQUENCES = [
     key: 'mbg003_2phase_take',
     steps: [/^mbg003_2phase_take2$/i, /^mbg003_2phase_take3$/i],
   },
+  // 베히모스 1페이즈 등장 — take1 에서 크레인 부품 75개가 흩어져 날아오고
+  // take2 에서 전부 제자리로 모인다. 둘이 이어져야 조립 연출로 읽힌다.
+  {
+    key: 'mbg003_1phase_take',
+    steps: [/^mbg003_1phase_take1$/i, /^mbg003_1phase_take2$/i],
+  },
   // 베히모스 - 사망은 두 컷이 바로 이어진다.
   // 키는 소속 클립 이름과 겹치면 안 된다(버튼 키가 겹쳐서 표시가 엉킨다).
   {
@@ -749,6 +755,7 @@ const CLIP_LABEL_FIX = [
   { boss: /^xba001/i, re: /_2phase_parts$/i, label: '2phase_parts' },
   { boss: /^mbg003/i, re: /_dead_all$/i, label: 'dead' },
   { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
+  { boss: /^mbg003/i, re: /_1phase_take$/i, label: '1phase_take1+2' },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
@@ -794,6 +801,16 @@ const PHASE_SWITCH_CLIPS = [
   /^mbg003_2phase_take[23]?$/i,   // 낱개 두 컷과 그 둘을 묶은 키까지
   /^mbg003_3phase_intro$/i,       // 2 -> 3페이즈 전환
 ];
+
+// 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
+//   베히모스 1페이즈는 take1(부품이 날아옴) + take2(조립 완료)가 이어진 등장이다.
+const APPEARANCE_CLIPS = [
+  /^mbg003_1phase_take[12]?$/i,
+];
+
+function isAppearanceClip(name) {
+  return APPEARANCE_CLIPS.some(re => re.test(name || ''));
+}
 
 function isPhaseSwitchClip(name) {
   return PHASE_SWITCH_CLIPS.some(re => re.test(name || ''));
@@ -2524,7 +2541,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const groupOf = (name) => {
           const n = String(name);
           if (isPhaseSwitchClip(n)) return '페이즈 전환';
-          if (isAppearName(n) || isDeadName(n)) return '등장·사망';
+          if (isAppearName(n) || isDeadName(n) || isAppearanceClip(n)) return '등장·사망';
           if (/(^|_)groggy(_|\d|$)/i.test(n)) return '그로기';
           if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
           if (/(^|_)skill(_|\d|$)/i.test(n)) return '스킬';
