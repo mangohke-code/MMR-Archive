@@ -30,7 +30,6 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 //   회전이 두 번 걸려 통째로 틀어진다. 같은 보스를 신형으로 재업로드해도 이 표를
 //   지울 필요는 없다. 코드가 알아서 무시한다.
 const PHASE_MODE_OVERRIDES = {
-  xbg003: { mode: 'phase1-all' }, // 온리 원 - 날개(2phase 태그)가 상시 노출 파츠라 1페이즈에서 같이 켠다
   mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
 };
 
@@ -85,9 +84,9 @@ const PART_GROUPS = [
 // 프리팹에서 m_IsActive=false 로 꺼진 채 시작하는 메쉬. 화면에 늘 떠 있으면 안 되고,
 // 런타임 코드(행동트리)가 필요할 때만 켠다. 애니메이션·머티리얼에는 흔적이 없어서
 // 파일만 봐서는 알 수 없다.
+// (온리 원 소환수 3종은 여기 넣지 않는다 — 평소에는 보이지 않을 만큼 작게 접혀
+//  다른 자리에 놓여 있고, 필요할 때 자기 스킬 클립이 꺼내 쓴다. 상시 on 이어도 된다)
 const DEFAULT_OFF_MESHES = [
-  // 온리 원 소환수 3종 — 각자 자기 스킬 클립에서만 나온다
-  { boss: /^xbg003/i, re: /(^|_)(ziz|behamoth|leviathan)_skin/i },
 ];
 
 function isDefaultOffMesh(bossCode, name) {
@@ -147,6 +146,12 @@ const BOSS_TRANSFORM_OVERRIDES = {
 const CATALOG_FIT_OVERRIDES = {
   xbg003: { scale: 1.3, position: [0, -0.3, 0], camY: 0.05 },
 };
+
+// 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
+// 같은 값만큼 올린다 — 각도와 거리는 그대로다.
+const CLIP_CAM_LIFT = [
+  { boss: /^xbg003/i, re: /_take01$/i, y: 0.2 }, // 온리 원 take01
+];
 
 function getBossTransform(bossCode, isCatalogExport) {
   // 신형 추출본은 루트 노드에 방향 회전이 이미 들어 있고(쿼터니언 [0,-1,0,0] = yaw 180도)
@@ -571,6 +576,22 @@ function findPhaseChangeClip(clips) {
     // 뒤에 아무것도 안 붙은 페이즈 이름은 그 페이즈로 넘어가는 연출로 본다.
     || clips.find(c => /^[a-z]{2,4}\d{3}_\d+phase$/i.test(c.name || ''))
     || null;
+}
+
+// 페이즈 전환 연출. 애니메이션 목록에서 "페이즈 전환" 구역으로 따로 뺀다 —
+// 다른 동작과 성격이 달라서 기본 구역에 섞여 있으면 찾기 어렵다.
+// 이름 규칙이 보스마다 제각각이라(온리 원 2phase_change / 애니힐리오 12phase_appeanrance
+// - 원본 철자 그대로다 / 프로비던스 그냥 2phase) 보스별로 적어 둔다.
+// 보스 코드로 가르지 않는다 — 애니힐리오는 메쉬(xbga03)와 클립(xba003)의 접두사가
+// 서로 달라서, 메쉬에서 뽑은 보스 코드로 거르면 하나도 안 걸린다.
+const PHASE_SWITCH_CLIPS = [
+  /(^|_)2phase_change$/i,          // 온리 원
+  /(^|_)12phase_appeanrance$/i,    // 애니힐리오 (원본 철자 그대로)
+  /^[a-z]{2,4}\d{3}_\d+phase$/i,   // 프로비던스 - 뒤에 아무것도 안 붙은 페이즈 이름
+];
+
+function isPhaseSwitchClip(name) {
+  return PHASE_SWITCH_CLIPS.some(re => re.test(name || ''));
 }
 
 // idle / loop 만 반복하고 나머지는 한 번만 재생한 뒤 idle 로 돌아간다.
@@ -1360,6 +1381,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       });
     }
 
+    // 애니메이션 목록을 다시 그리는 함수. 아래 목록 블록에서 채운다 —
+    // 페이즈 토글이 여기를 불러서 그 페이즈의 클립만 남긴다.
+    let renderAnimList = null;
+
     const phaseConfig = getPhaseConfig(bossCode);
     // 신형 추출본은 보통 파일 하나가 곧 페이즈 하나다. 그런데 온리 원처럼 한 파일에
     // 1·2 페이즈가 다 든 보스가 있다. 메쉬 이름만으로는 구분이 안 된다 —
@@ -1630,6 +1655,23 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     homeCamPos = camera.position.clone();
     homeTarget = controls.target.clone();
     initialTarget = controls.target.clone();
+
+    // 클립 하나만 눈높이가 다른 경우(온리 원 take01). 기준점까지 같이 올려서
+    // 추적도, 시점 초기화도 올라간 자리를 기준으로 돌게 한다.
+    let clipCamLift = 0;
+    function applyClipCamLift(clipName) {
+      if (!homeCamPos) return;
+      const rule = CLIP_CAM_LIFT.find(
+        o => o.boss.test(bossCode || '') && o.re.test(clipName || ''));
+      const d = (rule ? rule.y : 0) - clipCamLift;
+      if (!d) return;
+      clipCamLift += d;
+      homeCamPos.y += d;
+      homeTarget.y += d;
+      initialTarget.y += d;
+      camera.position.y += d;
+      controls.target.y += d;
+    }
 
     // 카메라 추적 — 등장·사망 연출은 리그를 통째로 옮긴다. 게임에서도 카메라가 같이
     // 움직여서 본체를 잡기 때문에 성립하는 연출이다.
@@ -2018,6 +2060,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
       state.mixer = mixer;
       state.currentClip = clip.name;
+      applyClipCamLift(clip.name);
       markActiveClip(opts.keepQueue ? undefined : clip.name);
       markPlayingClip(clip.name);
     }
@@ -2037,7 +2080,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         return;
       }
       const idle = findIdleClipForPhase(currentPhase);
-      shownPhase = null;
       if (idle) pendingNext = () => playSingle(idle);
     }
 
@@ -2048,51 +2090,24 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       fn();
     }
 
+    // 고른 애니메이션의 부속 클립만 재생한다. 예전에는 다음 페이즈 클립을 고르면
+    // 전환 클립(2phase_change 등)을 앞에 끼워 넣었는데, 그러면 2페이즈 동작을 볼
+    // 때마다 매번 전환 연출을 거쳐가야 했다. 페이즈가 바뀐 자세는 poseFor() 가
+    // 전환 클립의 끝 자세로 미리 맞춰 주므로 끼워 넣지 않아도 모습은 맞다.
     function playSequence(seq) {
-      const want = withPhaseChange(seq.steps[0].clip);
-      if (want) {
-        shownPhase = want;
-        seqQueue = seq.steps.slice();
-        playClipObject(phaseChangeClip, { repeat: 1, keepQueue: true });
-      } else {
-        shownPhase = clipPhase(seq.steps[0].clip.name) || shownPhase;
-        seqQueue = seq.steps.slice(1);
-        playClipObject(seq.steps[0].clip, { repeat: 1, keepQueue: true });
-      }
+      seqQueue = seq.steps.slice(1);
+      playClipObject(seq.steps[0].clip, { repeat: 1, keepQueue: true });
       markActiveClip(seq.key);
-    }
-
-    // 지금 화면에 서 있는 페이즈.
-    let shownPhase = null;
-
-    // 목표 클립이 다음 페이즈면 전환 클립을 먼저 끼워 넣는다.
-    function withPhaseChange(clip) {
-      const want = clipPhase(clip.name);
-      if (!phaseChangeClip || want === null) return null;
-      const base = shownPhase === null ? '1' : shownPhase;
-      if (want === base) return null;
-      // 전환 클립은 1 -> 2 방향으로만 만들어져 있다. 되돌아갈 때 이걸 틀면 오히려
-      // 다시 2페이즈 모습으로 끝나버리므로, 앞으로 갈 때만 끼운다.
-      // 뒤로 갈 때는 poseFor() 가 알아서 초기 자세로 되돌려준다.
-      if (Number(want) <= Number(base)) return null;
-      return want;
     }
 
     function playSingle(clip) {
       seqQueue = [];
-      const want = withPhaseChange(clip);
-      if (want) {
-        shownPhase = want;
-        seqQueue = [{ clip, repeat: isOneShot(clip.name) ? 1 : 0 }];
-        playClipObject(phaseChangeClip, { repeat: 1, keepQueue: true });
-        markActiveClip(clip.name);
-        return;
-      }
-      shownPhase = clipPhase(clip.name) || shownPhase;
       playClipObject(clip, { repeat: isOneShot(clip.name) ? 1 : 0 });
     }
 
     function updateAnimationForPhase() {
+      // 목록도 지금 페이즈의 클립만 남게 다시 그린다.
+      if (renderAnimList) renderAnimList();
       const clip = findIdleClipForPhase(currentPhase);
       if (clip) playSingle(clip);
     }
@@ -2194,17 +2209,31 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}" data-key="${key}">`
           + `<span class="anim-name">${text}</span><span class="anim-time">${time}</span></button>`;
 
-        // 종류별로 나눈다 — 샷은 샷끼리, 스킬은 스킬끼리, 공중은 공중끼리, 지상은 지상끼리.
-        // 묶음(start/loop/fire)은 그 묶음 이름으로 분류하고 소속 클립을 바로 아래 붙인다.
-        const GROUPS = ['기본', '지상', '공중', '스킬', '샷'];
+        // 종류별로 나눈다. 배열 순서가 곧 화면 순서다 —
+        // 페이즈 전환 / 등장·사망 / 기본 / 그로기 / 스킬 / 샷.
+        // 지상·공중은 따로 두지 않고 기본 구역에 합치되, 아래 laneOf 로 갈래를
+        // 나눠서 서로 섞이지는 않게 한다.
+        const GROUPS = ['페이즈 전환', '등장·사망', '기본', '그로기', '스킬', '샷'];
+        const isAppearName = n => /(^|_)appea/i.test(n);           // appearance / appeanrance
+        const isDeadName = n => /(^|_)(dead|death)/i.test(n);
+        const isAirName = n => /(^|_)air/i.test(n);
         const groupOf = (name) => {
           const n = String(name);
+          if (isPhaseSwitchClip(n)) return '페이즈 전환';
+          if (isAppearName(n) || isDeadName(n)) return '등장·사망';
+          if (/(^|_)groggy(_|\d|$)/i.test(n)) return '그로기';
           if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
           if (/(^|_)skill(_|\d|$)/i.test(n)) return '스킬';
-          if (/(^|_)air/i.test(n)) return '공중';
-          if (isIdle({ name: n }) || isSolo({ name: n })) return '기본';
-          if (/^[a-z]{2,4}\d{3}_\d+phase$/i.test(n)) return '기본';
-          return '지상';
+          return '기본';
+        };
+        // 한 구역 안의 갈래. 번호보다 먼저 이 값으로 세운다.
+        const laneOf = (group, name) => {
+          const n = String(name);
+          if (group === '등장·사망') return isDeadName(n) ? 1 : 0;  // 사망이 아래
+          // 공중을 먼저 본다 — air_idle_01 은 대기 동작이기도 해서, 순서를 바꾸면
+          // 지상 대기 동작 옆에 붙어 버린다.
+          if (group === '기본') return isAirName(n) ? 2 : (isIdle({ name: n }) ? 0 : 1);
+          return 0;
         };
 
         // 좌우 머리가 함께 나오는 연출은 하나로 묶는다. 낱개 좌·우 클립은 목록에서 뺀다
@@ -2214,7 +2243,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         trios.forEach(t => { trioSide.add(t.left.name); trioSide.add(t.right.name); });
         const trioByCenter = new Map(trios.map(t => [t.center.name, t]));
 
-        // 이름 끝의 번호. 같은 구역 안에서 번호 순으로 세우는 데 쓴다 —
+        // 이름 끝의 번호. 같은 갈래 안에서 번호 순으로 세우는 데 쓴다 —
         // 묶음이 없는 낱개 클립(거대 질량체 skill_fire_09 는 start/loop 이 없다)이
         // 파일 순서대로 맨 뒤에 붙어서 10 번 뒤에 서 있었다.
         const seqNo = (name) => {
@@ -2222,78 +2251,103 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           return m ? Number(m[1]) : Infinity;
         };
 
-        const bucket = {};
-        GROUPS.forEach(g => { bucket[g] = []; });
-        // 묶음은 하위 버튼까지 한 덩어리로 넣는다. 안 그러면 번호로 다시 세울 때
-        // 자식이 부모에게서 떨어진다.
-        const push = (g, html, order) => {
-          (bucket[g] || bucket['지상']).push({ html, order: order === undefined ? Infinity : order });
+        // 한 파일에 페이즈가 여럿인 보스(온리 원)는 지금 고른 페이즈의 클립만 낸다.
+        // groggy_1phase / groggy_2phase 처럼 페이즈가 확실히 갈린 동작이 양쪽에 다
+        // 보이면 어느 쪽이 지금 모습인지 알 수 없다.
+        const phaseFiltered = singleFilePhases && phaseKeys.length > 1;
+        const inCurrentPhase = (name) => {
+          if (!phaseFiltered) return true;
+          const p = clipPhase(name);
+          return !p || p === currentPhase;
         };
 
-        // 1) 대기 동작
-        clips.filter(isIdle).forEach(c => push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration))));
-        // 2) 묶음 + 소속 클립
-        seqs.forEach(sq => {
-          const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
-          const g = groupOf(sq.key);
-          let html = mkBtn(sq.key, label(sq.label), secs(total), 'is-seq');
-          // 합성 묶음(파일에 없는 스킬을 원본 클립을 잘라 만든 것)은 하위 버튼을 내지
-          // 않는다 — 재료 클립 버튼과 키가 겹치고, 잘라낸 클립은 clips 목록에 없다.
-          if (!sq.synthetic) {
-            const seen = new Set();
-            sq.steps.forEach(st => {
-              if (seen.has(st.clip.name)) return;
-              seen.add(st.clip.name);
-              html += mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child');
+        renderAnimList = function () {
+          const bucket = {};
+          GROUPS.forEach(g => { bucket[g] = []; });
+          // 묶음은 하위 버튼까지 한 덩어리로 넣는다. 안 그러면 번호로 다시 세울 때
+          // 자식이 부모에게서 떨어진다.
+          const push = (name, html, order) => {
+            const g = groupOf(name);
+            bucket[g].push({
+              html,
+              lane: laneOf(g, name),
+              order: order === undefined ? Infinity : order,
             });
-          }
-          push(g, html, seqNo(sq.key));
-        });
-        // 3) 나머지
-        clips.forEach(c => {
-          if (inSeq.has(c.name) || isIdle(c) || trioSide.has(c.name)) return;
-          const trio = trioByCenter.get(c.name);
-          if (trio) {
-            // 머리 셋이 동시에 나오는 연출
-            push(groupOf(c.name),
-              mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(c.duration), 'is-seq'));
-            return;
-          }
-          push(groupOf(c.name), mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'),
-            seqNo(c.name));
-        });
+          };
 
-        const parts = [];
-        GROUPS.forEach(g => {
-          if (!bucket[g].length) return;
-          // 번호가 있는 것끼리 번호 순으로. 번호가 없으면 원래 자리를 지킨다.
-          const items = bucket[g]
-            .map((it, i) => ({ ...it, i }))
-            .sort((a, b) => (a.order - b.order) || (a.i - b.i))
-            .map(it => it.html)
-            .join('');
-          parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${items}</div>`);
-        });
-
-        animEl.innerHTML = parts.join('');
-
-        document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            if (container.__framesModel3D !== state) return;
-            const key = btn.dataset.key;
-            if (key.endsWith('#trio')) {
-              const t = trioByCenter.get(key.slice(0, -5));
-              if (t) playTrio(t);
+          // 1) 대기 동작
+          clips.filter(c => isIdle(c) && inCurrentPhase(c.name))
+            .forEach(c => push(c.name, mkBtn(c.name, label(c.name), secs(c.duration))));
+          // 2) 묶음 + 소속 클립
+          seqs.forEach(sq => {
+            if (!inCurrentPhase(sq.steps[0].clip.name)) return;
+            const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
+            let html = mkBtn(sq.key, label(sq.label), secs(total), 'is-seq');
+            // 합성 묶음(파일에 없는 스킬을 원본 클립을 잘라 만든 것)은 하위 버튼을 내지
+            // 않는다 — 재료 클립 버튼과 키가 겹치고, 잘라낸 클립은 clips 목록에 없다.
+            if (!sq.synthetic) {
+              const seen = new Set();
+              sq.steps.forEach(st => {
+                if (seen.has(st.clip.name)) return;
+                seen.add(st.clip.name);
+                html += mkBtn(st.clip.name, label(st.clip.name), secs(st.clip.duration), 'is-child');
+              });
+            }
+            push(sq.key, html, seqNo(sq.key));
+          });
+          // 3) 나머지
+          clips.forEach(c => {
+            if (inSeq.has(c.name) || isIdle(c) || trioSide.has(c.name)) return;
+            if (!inCurrentPhase(c.name)) return;
+            const trio = trioByCenter.get(c.name);
+            if (trio) {
+              // 머리 셋이 동시에 나오는 연출
+              push(c.name,
+                mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(c.duration), 'is-seq'));
               return;
             }
-            const sq = seqs.find(x => x.key === key);
-            if (sq) playSequence(sq);
-            else {
-              const clip = clips.find(c => c.name === key);
-              if (clip) playSingle(clip);
-            }
+            push(c.name, mkBtn(c.name, label(c.name), secs(c.duration), isSolo(c) ? '' : 'is-extra'),
+              seqNo(c.name));
           });
-        });
+
+          const parts = [];
+          GROUPS.forEach(g => {
+            if (!bucket[g].length) return;
+            // 갈래 -> 번호 순. 번호가 없으면 원래 자리를 지킨다.
+            const items = bucket[g]
+              .map((it, i) => ({ ...it, i }))
+              .sort((a, b) => (a.lane - b.lane) || (a.order - b.order) || (a.i - b.i));
+            let html = '';
+            items.forEach((it, i) => {
+              // 갈래가 바뀌는 자리에 가는 선을 넣어, 합쳐 둔 갈래끼리 눈으로 갈리게 한다.
+              if (i > 0 && it.lane !== items[i - 1].lane) html += '<span class="anim-lane-split"></span>';
+              html += it.html;
+            });
+            parts.push(`<div class="anim-group"><span class="anim-group-label">${g}</span>${html}</div>`);
+          });
+
+          animEl.innerHTML = parts.join('');
+
+          document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (container.__framesModel3D !== state) return;
+              const key = btn.dataset.key;
+              if (key.endsWith('#trio')) {
+                const t = trioByCenter.get(key.slice(0, -5));
+                if (t) playTrio(t);
+                return;
+              }
+              const sq = seqs.find(x => x.key === key);
+              if (sq) playSequence(sq);
+              else {
+                const clip = clips.find(c => c.name === key);
+                if (clip) playSingle(clip);
+              }
+            });
+          });
+        };
+
+        renderAnimList();
         markActiveClip((findIdleClipForPhase(currentPhase) || {}).name || null);
       } else {
         animEl.classList.add('hidden');

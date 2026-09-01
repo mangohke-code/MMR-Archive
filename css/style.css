@@ -5107,9 +5107,16 @@
 
   .f3d-col .anim-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* 종류별 구역 (기본 / 지상 / 공중 / 스킬 / 샷) */
+  /* 종류별 구역 (페이즈 전환 / 등장·사망 / 기본 / 그로기 / 스킬 / 샷) */
   .f3d-col .anim-group { display: flex; flex-direction: column; gap: 4px; }
   .f3d-col .anim-group + .anim-group { margin-top: 10px; }
+
+  /* 한 구역 안에서 갈래가 바뀌는 자리 (기본 구역의 지상 -> 공중, 등장 -> 사망) */
+  .f3d-col .anim-lane-split {
+    height: 1px;
+    margin: 3px 2px;
+    background: var(--border-subtle, rgba(255, 255, 255, .12));
+  }
 
   .f3d-col .anim-group-label {
     font-size: 10px;
