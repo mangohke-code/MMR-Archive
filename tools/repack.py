@@ -19,6 +19,8 @@ WEBP = os.path.join(BASE, '정보모음-web', 'tools', 'glb_webp.py')
 # (원본 상대경로, 출력 이름)
 JOBS = [
     ('S16 미러 컨테이너/xba001_미러 컨테이너.glb', 'xba001'),
+    ('S19 베히모스/mbg003_베히모스 P.S.I.D.glb', 'mbg003_1phase'),
+    ('S19 베히모스/mbg003_베히모스 P.S.I.D_mbg003_psid.glb', 'mbg003_2phase'),
     ('S24 검은 뱀/bbg008_검은 뱀 H.S.T.A. · summon.glb', 'bbg008'),
     ('S26 프로비던스/xbg002_프로비던스 Z.E.U.S.glb', 'xbg002'),
     ('S33 온리 원/xbg003_온리 원 H.S.T.A.glb', 'xbg003'),
