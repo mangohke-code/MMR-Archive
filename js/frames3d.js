@@ -145,6 +145,9 @@ const BOSS_TRANSFORM_OVERRIDES = {
 //   camY - 카메라 눈높이. 카메라와 시선을 같은 값만큼 올려서 각도는 그대로 둔다.
 const CATALOG_FIT_OVERRIDES = {
   xbg003: { scale: 1.0, position: [0, 0, 0], camY: 0.05 },
+  // 미러 컨테이너는 옆으로 넓고 위아래로 낮아서, 세로 크기로 잡는 기본 눈높이가
+  // 보스 발치까지 내려온다. 보스 한가운데로 올린다.
+  xba001: { scale: 1.0, position: [0, 0, 0], camY: 0.33 },
 };
 
 // 정규화 직후에 한 번 더 먹이는 기준 보정. 이 값이 들어간 상태가 곧 "배율 1.0 / Y 0" 이다.
@@ -154,6 +157,7 @@ const CATALOG_FIT_OVERRIDES = {
 // 좌우 회전은 Y 축이라 위아래 오프셋에도, 배율에도 영향을 주지 않는다.
 const CATALOG_FIT_BASE = {
   xbg003: { scale: 1.3, y: -0.3 }, // 온리 원 - 소환수가 떨어져 있어 정규화가 작게 잡는다
+  xba001: { scale: 2.6, y: 0 },    // 미러 컨테이너 - 본이 본체 밖까지 뻗어 있어 작게 잡힌다
 };
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -422,7 +426,11 @@ function restorePose(list) {
 // start -> loop -> end/fire 로 이어지는 클립 묶음. 이름 규칙만으로 찾는다.
 //   groggy_start / groggy_loop / groggy_end
 //   skill_start_01 / skill_loop_01 / skill_fire_01
-const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_\d+)?$/i;
+// 꼬리표가 번호만인 보스(skill_start_01)도 있고, 포신마다 갈리는 보스도 있다 —
+// 미러 컨테이너는 shot_start_l1_02 / shot_fire_l1_02 / shot_end_l1_02 처럼
+// 좌우 3문씩 여섯 벌이다. 그래서 꼬리표를 번호로 한정하지 않는다.
+// (기존 보스 9개 클립 전부에 대해 결과가 달라지지 않는 것을 확인했다)
+const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_.+)?$/i;
 
 // 게임에는 있는데 전용 클립이 없는 스킬. 거대 질량체 05 번은 04 번 클립을 잘라 쓴다 —
 // 타임라인이 skill_loop_04 를 1.17 초 지점부터, 이어서 skill_fire_04 를 통째로 얹는다.
@@ -452,6 +460,10 @@ const SYNTHETIC_SEQUENCES = [
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
+  // 미러 컨테이너: 사망 카메라가 보스보다 29도 위를 겨눠서 화면이 통째로 빈다.
+  // 위치·화각은 게임 값 그대로 두고 겨누는 방향만 되돌린다.
+  // 등장 카메라는 이미 잘 맞아서(3도 미만) 손대지 않는다.
+  { boss: /^xba001/i, aim: true, rescue: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.

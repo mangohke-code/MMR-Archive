@@ -18,6 +18,7 @@ WEBP = os.path.join(BASE, '정보모음-web', 'tools', 'glb_webp.py')
 
 # (원본 상대경로, 출력 이름)
 JOBS = [
+    ('S16 미러 컨테이너/xba001_미러 컨테이너.glb', 'xba001'),
     ('S24 검은 뱀/bbg008_검은 뱀 H.S.T.A. · summon.glb', 'bbg008'),
     ('S26 프로비던스/xbg002_프로비던스 Z.E.U.S.glb', 'xbg002'),
     ('S33 온리 원/xbg003_온리 원 H.S.T.A.glb', 'xbg003'),
@@ -29,7 +30,10 @@ GT = ['npx', '--yes', '@gltf-transform/cli@latest']
 
 
 def run(args):
-    r = subprocess.run(args, capture_output=True, text=True, shell=(os.name == 'nt'))
+    # 출력에 한글·기호가 섞여 나온다. 콘솔 기본 코덱(cp949)으로 읽으면 읽는 스레드가
+    # 통째로 죽어서, 진짜 실패했을 때 오류 내용을 하나도 못 본다.
+    r = subprocess.run(args, capture_output=True, text=True, shell=(os.name == 'nt'),
+                       encoding='utf-8', errors='replace')
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout)[-800:])
     return r
