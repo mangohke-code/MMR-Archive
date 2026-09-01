@@ -470,8 +470,8 @@ const CAMERA_FIX = [
   // 좌우 180도가 뼈대에만 걸리고 카메라 노드에는 안 걸려서, 보스만 홀로 뒤돌아
   // 있는 꼴이다. 그래서 방향은 기본 시점과 같게 잡고, 대상까지의 거리만 게임 값을
   // 따른다 — 다가오고 물러나는 카메라 워크는 그대로 남는다.
-  // idleDist - 대상까지의 거리에 곱하는 값. 게임 값보다 조금 당겨 본다.
-  { boss: /^xba001/i, idleAngle: true, idleDist: 0.85 },
+  // dist - 대상까지의 거리에 곱하는 값. 게임 값보다 조금 당겨 본다.
+  { boss: /^xba001/i, idleAngle: true, dist: 0.85 },
   // 베히모스: 카메라 위치·화각은 게임 값이 맞는데 겨냥이 어긋난다(미러 컨테이너와
   // 같은 증상). 겨냥만 매 프레임 본체 중심으로 다시 잡는다.
   { boss: /^mbg003/i, lookAtFocus: true },
@@ -501,8 +501,10 @@ function cameraLookAtFor(bossCode, clipName) {
 // 같은 보스 안에서 그 연출 하나만 따로 손봐야 할 때. 보스 설정 위에 덧씌운다.
 const CLIP_CAMERA_FIX = [
   // 베히모스 페이즈 전환 뒤 두 컷은 카메라가 반대편에서 뒷모습을 잡는다.
-  // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
-  { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true },
+  // 방향은 기본 시점과 같게 두고, 거리는 게임 값에서 조금 당긴다.
+  { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true, dist: 0.6 },
+  // 사망 첫 컷은 너무 붙어 있어서 뒤 컷과 크기가 안 맞는다. 조금 물린다.
+  { boss: /^mbg003/i, clip: /_dead$/i, dist: 1.25 },
 ];
 
 function cameraFixFor(bossCode, clipName) {
@@ -690,6 +692,8 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_death$/i, boss: /^(xbg003|xba001)/i, phase: '2' },
   // 미러 컨테이너 포신 사격은 1페이즈 파츠를 쓴다
   { re: /_shot_(?:start|fire|end)_[lr]\d+_\d+$/i, boss: /^xba001/i, phase: '1' },
+  // 베히모스는 3페이즈에서 죽는다
+  { re: /_dead(_\d+|_all)?$/i, boss: /^mbg003/i, phase: '3' },
 ];
 
 function clipPhaseOverride(bossCode, name) {
@@ -775,6 +779,7 @@ const PHASE_SWITCH_CLIPS = [
   // 뒤 둘이 2페이즈 파일에 들어 있어서 파일을 넘어 잇지는 못한다.
   /^mbg003_2phase_b1_take1_a$/i,
   /^mbg003_2phase_take[23]?$/i,   // 낱개 두 컷과 그 둘을 묶은 키까지
+  /^mbg003_3phase_intro$/i,       // 2 -> 3페이즈 전환
 ];
 
 function isPhaseSwitchClip(name) {
@@ -1612,7 +1617,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             && !/air|skill/i.test(c.name || ''))
           .map(c => clipPhase(c.name))
           .filter(Boolean))].sort((a, b) => Number(a) - Number(b));
-    const minPhase = phaseKeys.length > 0 ? phaseKeys[0] : null;
+    // 모델 고르는 칩의 이름이 페이즈를 가리키면(예: "3페이즈") 그 페이즈로 고정한다.
+    // 같은 파일을 페이즈별 항목으로 두 번 등록해 쓰는 보스가 있다 — 베히모스 2페이즈
+    // 파일에는 2·3페이즈 클립이 같이 들어 있고, DB 에 2페이즈/3페이즈로 나눠 적는다.
+    const labelPhase = (String(options.modelLabel || '').match(/(\d+)\s*페이즈/) || [])[1] || null;
+    const lockedPhase = labelPhase && phaseKeys.includes(labelPhase) ? labelPhase : null;
+    const minPhase = lockedPhase || (phaseKeys.length > 0 ? phaseKeys[0] : null);
     // 모든 보스는 항상 1페이즈(가장 낮은 페이즈)로 시작 - 다른 페이즈는 직접 선택해야 보인다.
     let currentPhase = minPhase;
     // 신형 추출본은 파일 하나가 곧 페이즈 하나라, 메쉬 이름의 phase 태그를 무시해야 한다.
@@ -1750,7 +1760,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const phaseToggleEl = document.getElementById('frames-phase-toggle');
     if (phaseToggleEl) {
-      if (phaseKeys.length > 1) {
+      if (phaseKeys.length > 1 && !lockedPhase) {
         phaseToggleEl.classList.remove('hidden');
         phaseToggleEl.innerHTML = phaseKeys.map(p => `
           <button type="button" class="filter-chip frames-phase-btn${p === currentPhase ? ' active' : ''}" data-phase="${p}">${p}페이즈</button>
@@ -2050,9 +2060,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camIdleDir.copy(homeCamPos).sub(homeTarget);
         if (camIdleDir.lengthSq() > 1e-12) {
           camIdleDir.normalize();
-          const d = camera.position.distanceTo(camPull) * cinematic.idleDist;
+          const d = camera.position.distanceTo(camPull) * cinematic.dist;
           camera.position.copy(camPull).addScaledVector(camIdleDir, d);
         }
+      } else if (cinematic.dist !== 1 && hasAim) {
+        // 방향은 게임 값 그대로 두고 거리만 조정한다.
+        camera.position.sub(camPull).multiplyScalar(cinematic.dist).add(camPull);
       }
       // 매 프레임 기준점을 향하게 다시 잡는다. 위치와 화각은 건드리지 않으므로
       // 게임의 카메라 워크는 그대로 남는다.
@@ -2304,7 +2317,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
           lookAt: lookAtBone, idleAngle: !!fix.idleAngle,
-          idleDist: fix.idleDist || 1 };
+          dist: fix.dist || 1 };
         rescueW = 0;
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.

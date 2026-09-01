@@ -432,9 +432,15 @@
       // 내용이 없는 조작 그룹은 라벨만 남아 허전해 보인다. 자식이 비면 통째로 감춘다.
       requestAnimationFrame(syncCtlGroups);
       renderBossModelPicker(models, m => {
-        window.loadFramesModel3D(wrap, m.url, { onError: err => console.error('[보스 3D] 로드 실패:', err) });
+        // 칩 이름을 같이 넘긴다 — 같은 파일을 페이즈별 항목으로 나눠 등록한 보스가
+        // 있어서(베히모스 2/3페이즈), 뷰어가 어느 페이즈로 볼지 이 이름으로 정한다.
+        window.loadFramesModel3D(wrap, m.url, {
+          modelLabel: m.name,
+          onError: err => console.error('[보스 3D] 로드 실패:', err),
+        });
       });
       window.loadFramesModel3D(wrap, modelUrl, {
+        modelLabel: models.length ? models[0].name : '',
         onError: () => {
           // 3D 로드 실패 시 L2D/이미지/이름 순으로 안전하게 대체
           wrap.innerHTML = '';
