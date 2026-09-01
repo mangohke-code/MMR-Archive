@@ -499,6 +499,9 @@ const CAMERA_LOOK_AT = [
   // (y -1.04)이 1 만큼 떨어져 있어서 본체를 중심에 두면 크레인이 화면 위끝
   // (화면 y +0.88)에 걸린다. 크레인 본 뭉치를 겨눈다.
   { boss: /^mbg003/i, clip: /_1phase_take1$/i, bone: /_exc_head_/i },
+  // 뒷컷은 조립이 끝난 굴착기(1phase_ar_skin)가 주인공이다. 이 메쉬가 쓰는 본은
+  // exc_body 계열이라 이름만으로는 본체와 안 갈린다 — 메쉬로 지정한다.
+  { boss: /^mbg003/i, clip: /_1phase_take2$/i, mesh: /_1phase_ar_skin/i },
 ];
 
 function cameraLookAtFor(bossCode, clipName) {
@@ -2355,9 +2358,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.play();
         // 겨냥 대상 본. 여러 개가 걸리면 그 뭉치의 한가운데를 본다 —
         // 베히모스 크레인은 본이 139개로 쪼개져 있어서 하나만 집으면 흔들린다.
-        const lookAtBones = [];
+        let lookAtBones = [];
         const la = cameraLookAtFor(bossCode, clip.name);
-        if (la) {
+        if (la && la.mesh) {
+          // 메쉬로 지정하면 그 메쉬가 실제로 쓰는 본만 모은다(skinIndex 기준).
+          const target = meshes.find(m => la.mesh.test(m.name || ''));
+          if (target) lookAtBones = focusBonesOf(target).slice();
+        } else if (la && la.bone) {
           gltf.scene.traverse(o => {
             if (o.isBone && la.bone.test(o.name || '')) lookAtBones.push(o);
           });
