@@ -173,6 +173,14 @@ function renameMeshes(bossCode, meshes) {
 const PART_LABELS = {
   xbg004: {
     'helm_01_skin': '성녀의 후광 1',
+    'helm_02_skin': '성녀의 후광 2',
+    'helm_03_skin': '성녀의 후광 3',
+    'helm_04_skin': '성녀의 후광 4',
+    'helm_05_skin': '성녀의 후광 5',
+    'helm_06_skin': '성녀의 후광 6',
+    'helm_07_skin': '성녀의 후광 7',
+    'helm_08_skin': '성녀의 후광 8',
+    'helm_09_skin': '성녀의 후광 9',
   },
 };
 
