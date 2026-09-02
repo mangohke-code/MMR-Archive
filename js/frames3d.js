@@ -32,6 +32,7 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 const PHASE_MODE_OVERRIDES = {
   mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
   xba001: { mode: 'exclusive' },  // 미러 컨테이너 - 2페이즈에서 1phase 파츠는 전부 사라진다
+  xbg005: { mode: 'exclusive' },  // 에고비스타 - 페이즈마다 깃털이 통째로 갈린다
 };
 
 function getPhaseConfig(bossCode) {
@@ -138,6 +139,14 @@ const MESH_RENAME = [
   // 하나뿐인데 번호가 붙은 것들 — 노드가 같은 이름을 먼저 차지해서 그렇다. 꼬리표만 뗀다.
   { boss: /^xbg004/i,
     re: /^(xbg004_(?:body_skin|shield_[lr]_led_skin))(_\d+)?$/i,
+    bySuffix: {} },
+
+  // 에고비스타 — 이름이 겹치는 메쉬는 없고, 노드가 이름을 먼저 차지해서 꼬리표만 붙었다.
+  // 몸통은 한 메쉬의 프리미티브 둘이라 재질로 가른다.
+  { boss: /^xbg005/i, re: /^(xbg005_body_skin)(_\d+)?$/i,
+    bySuffix: { 'xbg005_body': '', 'xbg005_wings': '001' } },
+  { boss: /^xbg005/i,
+    re: /^(xbg005_(?:core_skin|phase[12]_feather|[lr]_coverts_skin|[lr]_pauldrons_skin))(_\d+)?$/i,
     bySuffix: {} },
 ];
 
@@ -622,6 +631,8 @@ const CAMERA_FIX = [
   // 앨트루이아: 등장·사망 카메라가 보스 뒤에 선다(등장 dz -3.15 ~ -2.17, idle 은 +2.25).
   // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
   { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
+  // 에고비스타도 같다 — 등장 담김 0~99% 로 널뛰고 사망은 내내 0% 였다.
+  { boss: /^xbg005/i, lookAtFocus: true, idleAngle: true, rescue: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -659,6 +670,9 @@ const CLIP_CAMERA_FIX = [
   { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true, dist: 0.6 },
   // 사망 첫 컷은 너무 붙어 있어서 뒤 컷과 크기가 안 맞는다. 물린다.
   { boss: /^mbg003/i, clip: /_dead$/i, dist: 2 },
+  // 에고비스타 사망은 몸이 조각나 흩어진다. 구제 보정을 두면 그 파편까지 담으려고
+  // 카메라가 10 이상 물러나서 본체가 점만 해진다. 이 클립만 끈다.
+  { boss: /^xbg005/i, clip: /_death$/i, rescue: false },
   // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
   // 거리는 게임 값에서 당긴다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
@@ -971,6 +985,7 @@ function clipSoloPartsFor(bossCode, name) {
 // 서로 달라서, 메쉬에서 뽑은 보스 코드로 거르면 하나도 안 걸린다.
 const PHASE_SWITCH_CLIPS = [
   /(^|_)2phase_change$/i,          // 온리 원
+  /(^|_)phase_change$/i,           // 에고비스타
   /(^|_)12phase_appeanrance$/i,    // 애니힐리오 (원본 철자 그대로)
   /^[a-z]{2,4}\d{3}_\d+phase$/i,   // 프로비던스 - 뒤에 아무것도 안 붙은 페이즈 이름
   // 베히모스 - 1 -> 2페이즈 전환이 세 클립으로 이어진다. 앞 하나가 1페이즈 파일에,
