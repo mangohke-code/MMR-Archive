@@ -902,7 +902,8 @@ const CLIP_PHASE_OVERRIDES = [
   // 에고비스타 - 1페이즈로 등장해서 2페이즈에서 죽는다. 전환 연출은 넘어간 쪽에 둔다.
   { re: /_appearance$/i, boss: /^xbg005/i, phase: '1' },
   { re: /_death$/i, boss: /^xbg005/i, phase: '2' },
-  { re: /_phase_change$/i, boss: /^xbg005/i, phase: '2' },
+  // 전환 연출은 넘어가기 전 페이즈에 둔다 — 1페이즈에서 눌러 2페이즈로 간다.
+  { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
 ];
 
 function clipPhaseOverride(bossCode, name) {
@@ -1049,9 +1050,14 @@ function isAppearanceClip(name) {
 // 페이즈 전환 연출이 끝나면 다음 페이즈 모델로 넘어가서 그쪽 전환 연출을 이어 트는
 // 기능. 이렇게 이어지는 보스가 드물어서 대상을 지정한 보스에만 켠다.
 //   베히모스: 1페이즈 2phase_b1_take1_a -> 2페이즈 2phase_take2+3
+//   에고비스타: 1페이즈 phase_change -> 2페이즈
 // 2 -> 3페이즈는 자동으로 넘기지 않는다. 그래서 토글도 1페이즈에만 낸다.
-const AUTO_PHASE_CHAIN_BOSS = /^mbg003/i;
-const AUTO_PHASE_CHAIN_FROM = '1';
+// by - 페이즈를 무엇으로 넘기는가. 베히모스는 페이즈마다 모델 항목이 따로라
+// 모델 칩을 넘기고, 에고비스타는 한 모델 안이라 페이즈 칩을 넘긴다.
+const AUTO_PHASE_CHAIN = [
+  { boss: /^mbg003/i, from: '1', by: 'model' },
+  { boss: /^xbg005/i, from: '1', by: 'phase' },
+];
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
 // 다음 모델을 불러오면 그쪽 전환 연출을 바로 틀라는 표시.
@@ -1283,8 +1289,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 있어서, 보정도 항목별로 달리 줘야 하는 경우가 있다.
     const optLabelPhase = (String(options.modelLabel || '').match(/(\d+)\s*페이즈/) || [])[1] || null;
     // 자동 페이즈 넘김을 낼지. 넘길 곳이 있는 페이즈에서만 낸다.
-    const autoPhaseAvailable = AUTO_PHASE_CHAIN_BOSS.test(bossCode || '')
-      && optLabelPhase === AUTO_PHASE_CHAIN_FROM;
+    const autoPhaseRule = AUTO_PHASE_CHAIN.find(o => o.boss.test(bossCode || '')) || null;
+    function autoPhaseAvailable() {
+      if (!autoPhaseRule) return false;
+      return autoPhaseRule.by === 'model'
+        ? optLabelPhase === autoPhaseRule.from
+        : currentPhase === autoPhaseRule.from;
+    }
 
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
@@ -2735,22 +2746,28 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         return;
       }
       // 전환 연출이 끝났고 자동 넘김이 켜져 있으면 다음 페이즈 모델로 간다.
-      if (autoPhaseChain && autoPhaseAvailable
-          && isPhaseSwitchClip(state.currentClip) && goToNextPhaseModel()) {
-        return;
+      if (autoPhaseChain && autoPhaseAvailable() && isPhaseSwitchClip(state.currentClip)) {
+        // 같은 모델 안에서 페이즈만 바꾸는 쪽은 여기서 바로 부르면 mixer.update()
+        // 안에서 믹서를 갈아 끼우게 된다 — 다음 프레임으로 미룬다.
+        if (autoPhaseRule.by === 'phase') { pendingNext = goToNextPhase; return; }
+        if (goToNextPhase()) return;
       }
       const idle = findIdleClipForPhase(currentPhase);
       if (idle) pendingNext = () => playSingle(idle);
     }
 
-    // 모델 고르는 칩을 다음 것으로 넘긴다. 칩의 클릭 처리를 그대로 쓰므로
-    // 불러오기·목록 다시 그리기가 알아서 따라온다.
-    function goToNextPhaseModel() {
-      const btns = [].slice.call(
-        document.querySelectorAll('#frames-model-toggle .frames-model-btn'));
+    // 칩을 다음 것으로 넘긴다. 칩의 클릭 처리를 그대로 쓰므로 불러오기·목록
+    // 다시 그리기가 알아서 따라온다.
+    function goToNextPhase() {
+      const byPhase = autoPhaseRule && autoPhaseRule.by === 'phase';
+      const btns = [].slice.call(document.querySelectorAll(
+        byPhase ? '#frames-phase-toggle .frames-phase-btn'
+                : '#frames-model-toggle .frames-model-btn'));
       const at = btns.findIndex(b => b.classList.contains('active'));
       if (at < 0 || at + 1 >= btns.length) return false;
-      autoPhasePending = true;
+      // 모델을 새로 불러오는 쪽만 대기표가 필요하다. 페이즈 칩은 그 자리에서
+      // 그 페이즈 대기 동작을 틀어 준다.
+      if (!byPhase) autoPhasePending = true;
       btns[at + 1].click();
       return true;
     }
@@ -3012,7 +3029,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             // 구역 이름 줄. 페이즈 전환에는 자동 넘김 토글을 오른쪽 끝에 얹는다
             // (해당 보스만) — 이름 옆이 비어 있어서 가운데를 비우고 양끝으로 민다.
             let head = `<span class="anim-group-label">${g}</span>`;
-            if (g === '페이즈 전환' && autoPhaseAvailable) {
+            if (g === '페이즈 전환' && autoPhaseAvailable()) {
               head = `<div class="anim-group-head">${head}`
                 + `<div class="toggle-switch-wrap anim-auto-phase frames-auto-phase`
                 + `${autoPhaseChain ? ' active' : ''}" role="switch"`
