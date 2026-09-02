@@ -112,6 +112,25 @@ const MESH_RENAME = [
   { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_l_skin001_1' },
   { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_r_skin001' },
   { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_r_skin001_1' },
+
+  // 앨트루이아 — 부위마다 본체 + 발광 두 겹이고, 원본 그대로 두면 투구 아홉 쌍의
+  // 번호가 제각각으로 붙는다(불러올 때마다 달라진다). 한 규칙으로 정한다.
+  // re 의 첫 괄호가 기준 이름이고, 재질에 따라 꼬리표를 붙인다.
+  { boss: /^xbg004/i, re: /^(xbg004_helm_\d+_skin)(_\d+)?$/i,
+    bySuffix: { 'xbg004_body': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+  // 눈은 좌우 한 쌍인데 이름이 l_sdf_eye_02 / sdf_eye_01 로 엇갈려 있다.
+  // 이 파일은 l 이 x+, r 이 x- 다(shield_l_skin x+0.31 / shield_r_skin x-0.31).
+  // 실제 위치가 각각 x+0.33 / x-0.32 라 그대로 방패와 같은 꼴로 맞춘다.
+  { boss: /^xbg004/i, re: /^xbg004_l_sdf_eye_\d+_skin(_\d+)?$/i, base: 'xbg004_sdf_eye_l_skin',
+    bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+  { boss: /^xbg004/i, re: /^xbg004_sdf_eye_\d+_skin(_\d+)?$/i, base: 'xbg004_sdf_eye_r_skin',
+    bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+  { boss: /^xbg004/i, re: /^(xbg004_shield_[lr]_skin)(_\d+)?$/i,
+    bySuffix: { 'xbg004_shield': '', 'xbg004_body': '_1' } },
+  // 하나뿐인데 번호가 붙은 것들 — 노드가 같은 이름을 먼저 차지해서 그렇다. 꼬리표만 뗀다.
+  { boss: /^xbg004/i,
+    re: /^(xbg004_(?:body_skin|arms_04_skin_\d+|shield_[lr]_led_skin))(_\d+)?$/i,
+    bySuffix: {} },
 ];
 
 function meshMatName(m) {
@@ -124,8 +143,16 @@ function renameMeshes(bossCode, meshes) {
   const rules = MESH_RENAME.filter(o => o.boss.test(bossCode || ''));
   if (!rules.length) return;
   const next = meshes.map(m => {
-    const hit = rules.find(o => o.re.test(m.name || '') && o.mat === meshMatName(m));
-    return hit ? hit.to : m.name;
+    const mat = meshMatName(m);
+    for (const o of rules) {
+      if (o.bySuffix) {
+        const hit = String(m.name || '').match(o.re);
+        if (hit) return (o.base || hit[1]) + (o.bySuffix[mat] || '');
+      } else if (o.re.test(m.name || '') && o.mat === mat) {
+        return o.to;
+      }
+    }
+    return m.name;
   });
   meshes.forEach((m, i) => { m.name = next[i]; });
 }
@@ -530,6 +557,8 @@ const CAMERA_FIX = [
   // 베히모스: 카메라 위치·화각은 게임 값이 맞는데 겨냥이 어긋난다(미러 컨테이너와
   // 같은 증상). 겨냥만 매 프레임 본체 중심으로 다시 잡는다.
   { boss: /^mbg003/i, lookAtFocus: true },
+  // 앨트루이아: 사망 카메라가 진행할수록 보스를 놓친다. 같은 증상이라 같은 처방.
+  { boss: /^xbg004/i, lookAtFocus: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -611,6 +640,12 @@ function cameraClipTarget(clip, camNodes) {
 //   eba004_death_camera             -> eba004_death
 //   bbg008_appearance_camera_take1  -> bbg008_appearance_take1
 //   xba001_appearance_camera_01     -> xba001_appearance_take1
+// 이름에 공백이 섞여 들어오는 파일이 있다 — 앨트루이아 사망 카메라는
+// "xbg004 _death_camera" 다. 짝을 찾을 때는 공백을 빼고 본다.
+function squash(name) {
+  return String(name || '').replace(/\s+/g, '');
+}
+
 function pairCameraClips(clips, camNodes) {
   const nodeOf = new Map();
   clips.forEach(c => { const n = cameraClipTarget(c, camNodes); if (n) nodeOf.set(c.name, n); });
@@ -632,7 +667,7 @@ function pairCameraClips(clips, camNodes) {
     const node0 = nodeOf.get(cam.name);
     if (node0 && node0.userData && node0.userData.pairedClip) return;
     // _camera / _camera1 / _camera_01 / _camera_take1 을 모두 받는다.
-    const m = (cam.name || '').match(/^(.*?)_camera(?:_?(\d+))?(_take\d+)?$/i);
+    const m = squash(cam.name).match(/^(.*?)_camera(?:_?(\d+))?(_take\d+)?$/i);
     if (!m) return;
     // take 꼬리표가 붙은 카메라는 같은 꼬리표를 가진 클립하고만 짝짓는다.
     let take = m[3] || '';
@@ -644,15 +679,15 @@ function pairCameraClips(clips, camNodes) {
       // 번호를 그대로 뒤에 붙이는 꼴(_camera2 <-> _2)을 먼저 본다.
       // take 쪽을 먼저 보면 이름만 비슷한 엉뚱한 take 클립으로 끌려간다.
       const t = '_take' + n;
-      if (models.some(c => c.name === m[1] + '_' + n)) take = '_' + n;
-      else if (models.some(c => String(c.name).endsWith(t))) take = t;
+      if (models.some(c => squash(c.name) === m[1] + '_' + n)) take = '_' + n;
+      else if (models.some(c => squash(c.name).endsWith(t))) take = t;
     }
     const base = m[1] + take;
     // 정확히 같은 이름 -> 그 이름으로 시작 -> 그 이름이 나를 포함, 순으로 찾는다.
-    const cand = models.filter(c => !take || String(c.name).endsWith(take));
+    const cand = models.filter(c => !take || squash(c.name).endsWith(take));
     let best = null, bestLen = -1;
     for (const c of cand) {
-      const n = String(c.name);
+      const n = squash(c.name);
       let len = -1;
       if (n === base) len = 1000;
       else if (n.startsWith(base)) len = base.length;
