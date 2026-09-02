@@ -163,6 +163,35 @@ function renameMeshes(bossCode, meshes) {
   meshes.forEach((m, i) => { m.name = next[i]; });
 }
 
+// 파츠 목록에 띄울 인게임 이름. 파일 이름만 봐서는 무슨 부위인지 알 수 없어서
+// 게임에서 쓰는 표기를 손으로 적어 둔다. 내부 이름(mesh.name)은 그대로 두고
+// 보이는 글자만 바꾼다 — 기본 꺼짐·패턴 발광 표가 전부 내부 이름으로 물려 있다.
+// 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
+// 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
+const PART_LABELS = {
+  xbg004: {
+    'helm_01_skin': '성녀의 후광 1',
+  },
+};
+
+// 겹쳐 있는 발광 층은 뒤에 이걸 붙여서 구분한다.
+const PART_LABEL_GLOW = ' (발광)';
+
+// 발광 층인지 — 재질 이름으로 가른다. 이름 뒤 번호는 못 믿는다.
+function isGlowLayer(m) {
+  return /(^|_)fx_|_glow$|fresnel/i.test(meshMatName(m));
+}
+
+function partLabelOf(bossCode, m, fallback) {
+  const table = PART_LABELS[bossCode];
+  if (!table) return fallback;
+  const key = String(m.name || '').replace(new RegExp('^' + bossCode + '_?', 'i'), '');
+  // 발광 층은 본체 이름을 물려받는다. 짝이 되는 본체 이름은 뒤 번호를 뗀 것.
+  const hit = table[key] || (isGlowLayer(m) ? table[key.replace(/_\d+$/, '')] : null);
+  if (!hit) return fallback;
+  return isGlowLayer(m) ? hit + PART_LABEL_GLOW : hit;
+}
+
 // 프리팹에서 m_IsActive=false 로 꺼진 채 시작하는 메쉬. 화면에 늘 떠 있으면 안 되고,
 // 런타임 코드(행동트리)가 필요할 때만 켠다. 애니메이션·머티리얼에는 흔적이 없어서
 // 파일만 봐서는 알 수 없다.
@@ -1388,7 +1417,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 실제 조회/저장에 쓰는 mesh.name은 그대로 두고, 화면 표시용 label만 별도로 붙인다.
     if (bossCode) {
       const stripCode = new RegExp(bossCode + '_?', 'ig');
-      meshes.forEach(m => { m.label = (m.name || '').replace(stripCode, ''); });
+      meshes.forEach(m => {
+        const raw = (m.name || '').replace(stripCode, '');
+        m.label = partLabelOf(bossCode, m, raw);
+      });
     }
 
     // 파츠 토글은 이름을 키로 쓰는데, 이름이 겹치는 보스가 있다 — 앨트루이아는 메쉬 31개
@@ -1876,7 +1908,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       groups.forEach(g => {
         g.items.forEach((m, i) => { m.__order = i; });
         g.items.sort((a, b) => {
-          const c = comparePartKeys(partSortKey(a.label || a.name), partSortKey(b.label || b.name));
+          // 정렬은 늘 내부 이름으로. 표시 이름(인게임 표기)으로 세우면 이름을 적어 둔
+          // 파츠만 엉뚱한 자리로 튄다.
+          const c = comparePartKeys(partSortKey(a.name), partSortKey(b.name));
           return c || (a.__order - b.__order);
         });
       });
@@ -1902,7 +1936,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const rows = g.items.map(m => `
           <div class="toggle-switch-wrap part-toggle-item${enabledMeshes.has(m.partKey) ? ' active' : ''}" data-skin="${esc(m.partKey)}">
             <div class="toggle-switch"></div>
-            <span class="toggle-label">${esc(m.label || m.name)}</span>
+            <span class="toggle-label" title="${esc(m.name)}">${esc(m.label || m.name)}</span>
           </div>`).join('');
         return `
           <div class="part-group">
