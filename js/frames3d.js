@@ -660,6 +660,10 @@ const CAMERA_LOOK_AT = [
   // 뒷컷은 조립이 끝난 굴착기(1phase_ar_skin)가 주인공이다. 이 메쉬가 쓰는 본은
   // exc_body 계열이라 이름만으로는 본체와 안 갈린다 — 메쉬로 지정한다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, mesh: /_1phase_ar_skin/i },
+  // 에고비스타 사망은 마무리에서 대검을 잡아준다(인게임 확인). 본체 리그가 흩어져
+  // 있어서 lookAtFocus 로는 못 잡는다 — 카메라가 y -1.57 까지 내려가는데 대검은
+  // y +0.63 에 멈춰 있어 화면 위로 벗어난다. 대검 본을 직접 겨눈다.
+  { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_greatsword_(0[12]|parts_0[12])$/i },
 ];
 
 function cameraLookAtFor(bossCode, clipName) {
@@ -676,7 +680,7 @@ const CLIP_CAMERA_FIX = [
   { boss: /^mbg003/i, clip: /_dead$/i, dist: 2 },
   // 에고비스타 사망은 몸이 조각나 흩어진다. 구제 보정을 두면 그 파편까지 담으려고
   // 카메라가 10 이상 물러나서 본체가 점만 해진다. 이 클립만 끈다.
-  { boss: /^xbg005/i, clip: /_death$/i, rescue: false },
+  { boss: /^xbg005/i, clip: /_death$/i, rescue: false, fixDist: 2.5 },
   // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
   // 거리는 게임 값에서 당긴다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
@@ -2385,7 +2389,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camIdleDir.copy(homeCamPos).sub(homeTarget);
         if (camIdleDir.lengthSq() > 1e-12) {
           camIdleDir.normalize();
-          const d = camera.position.distanceTo(camPull) * cinematic.dist;
+          // fixDist - 게임 카메라의 거리를 아예 무시하고 고정한다. 리그가 부서지는
+          // 연출은 게임 거리가 프레임마다 크게 흔들려서 배율(dist)로는 못 잡는다.
+          const d = cinematic.fixDist > 0
+            ? cinematic.fixDist
+            : camera.position.distanceTo(camPull) * cinematic.dist;
           camera.position.copy(camPull).addScaledVector(camIdleDir, d);
         }
       } else if (cinematic.dist !== 1 && hasAim) {
@@ -2651,7 +2659,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
           lookAt: lookAtBones.length ? lookAtBones : null, idleAngle: !!fix.idleAngle,
-          dist: fix.dist || 1,
+          dist: fix.dist || 1, fixDist: fix.fixDist || 0,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
         rescueW = 0;
       }
