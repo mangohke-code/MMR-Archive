@@ -660,15 +660,22 @@ const CAMERA_LOOK_AT = [
   // 뒷컷은 조립이 끝난 굴착기(1phase_ar_skin)가 주인공이다. 이 메쉬가 쓰는 본은
   // exc_body 계열이라 이름만으로는 본체와 안 갈린다 — 메쉬로 지정한다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, mesh: /_1phase_ar_skin/i },
-  // 에고비스타 사망은 마무리에서 대검을 잡아준다(인게임 확인). 본체 리그가 흩어져
-  // 있어서 lookAtFocus 로는 못 잡는다 — 카메라가 y -1.57 까지 내려가는데 대검은
-  // y +0.63 에 멈춰 있어 화면 위로 벗어난다. 대검 본을 직접 겨눈다.
-  { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_greatsword_(0[12]|parts_0[12])$/i },
+  // 에고비스타 사망은 도중에 겨냥이 바뀐다(인게임 확인) — 처음에는 본체(core)를
+  // 잡다가, 대검이 땅에 꽂히는 순간부터 대검으로 넘어간다. 본체 리그가 흩어지는
+  // 클립이라 lookAtFocus 로는 둘 다 못 잡는다(카메라가 y -1.57 까지 내려가는데
+  // 대검은 y +0.63 에 멈춰 있어 화면 위 -1.25 로 벗어났다).
+  // 대검이 꽂히는 시점은 실측했다 — 1.6초에 y 3.12, 1.8초에 y 0.70, 그 뒤로는
+  // 클립이 끝날 때까지 한 프레임도 안 움직인다.
+  { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_core$/i, fixDist: 3 },
+  { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_greatsword_(0[12]|parts_0[12])$/i,
+    from: 1.7, blend: 0.5, fixDist: 2.5 },
 ];
 
+// 한 클립에 여러 줄을 두면 시간순 단계가 된다. from 이 없으면 0초부터다.
 function cameraLookAtFor(bossCode, clipName) {
-  return CAMERA_LOOK_AT.find(
-    o => o.boss.test(bossCode || '') && (!o.clip || o.clip.test(clipName || ''))) || null;
+  const hit = CAMERA_LOOK_AT.filter(
+    o => o.boss.test(bossCode || '') && (!o.clip || o.clip.test(clipName || '')));
+  return hit.length ? hit.slice().sort((a, b) => (a.from || 0) - (b.from || 0)) : null;
 }
 
 // 같은 보스 안에서 그 연출 하나만 따로 손봐야 할 때. 보스 설정 위에 덧씌운다.
@@ -680,7 +687,7 @@ const CLIP_CAMERA_FIX = [
   { boss: /^mbg003/i, clip: /_dead$/i, dist: 2 },
   // 에고비스타 사망은 몸이 조각나 흩어진다. 구제 보정을 두면 그 파편까지 담으려고
   // 카메라가 10 이상 물러나서 본체가 점만 해진다. 이 클립만 끈다.
-  { boss: /^xbg005/i, clip: /_death$/i, rescue: false, fixDist: 2.5 },
+  { boss: /^xbg005/i, clip: /_death$/i, rescue: false },
   // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
   // 거리는 게임 값에서 당긴다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
@@ -2284,6 +2291,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 있어서 방향 보정과 정규화 배율이 저절로 함께 걸린다.
     const camIdleDir = new THREE.Vector3();
     const camAimTmp = new THREE.Vector3();
+    const camStageTmp = new THREE.Vector3();
+    // 본 뭉치의 한가운데. 여러 개가 걸리면 흔들림이 상쇄된다.
+    function boneMid(bones, out) {
+      out.set(0, 0, 0);
+      bones.forEach(b => out.add(b.getWorldPosition(camAimTmp)));
+      return out.divideScalar(bones.length || 1);
+    }
     const camWorldPos = new THREE.Vector3();
     const camWorldQuat = new THREE.Quaternion();
     const camWorldScl = new THREE.Vector3();
@@ -2374,10 +2388,24 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
       // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
       let hasAim = false;
+      // 이 단계에서 쓸 고정 거리. 0 이면 클립 값을 따른다.
+      let stageDist = 0;
       if (cinematic.lookAt) {
-        camPull.set(0, 0, 0);
-        cinematic.lookAt.forEach(b => camPull.add(b.getWorldPosition(camAimTmp)));
-        camPull.divideScalar(cinematic.lookAt.length);
+        const st = cinematic.lookAt;
+        const now = currentAction ? currentAction.time : 0;
+        let i = 0;
+        while (i + 1 < st.length && now >= st[i + 1].from) i++;
+        boneMid(st[i].bones, camPull);
+        stageDist = st[i].fixDist;
+        // 넘어가는 동안은 앞 단계 겨냥점에서 이어 붙인다. 안 그러면 화면이 한 번 튄다.
+        if (i > 0 && st[i].blend > 0) {
+          const w = Math.min(1, Math.max(0, (now - st[i].from) / st[i].blend));
+          if (w < 1) {
+            boneMid(st[i - 1].bones, camStageTmp);
+            camPull.lerp(camStageTmp, 1 - w);
+            stageDist = st[i - 1].fixDist + (stageDist - st[i - 1].fixDist) * w;
+          }
+        }
         hasAim = true;
       } else if ((cinematic.lookAtFocus || cinematic.idleAngle) && focusMesh) {
         hasAim = rigCenter(focusMesh, camPull, focusBone);
@@ -2391,8 +2419,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           camIdleDir.normalize();
           // fixDist - 게임 카메라의 거리를 아예 무시하고 고정한다. 리그가 부서지는
           // 연출은 게임 거리가 프레임마다 크게 흔들려서 배율(dist)로는 못 잡는다.
-          const d = cinematic.fixDist > 0
-            ? cinematic.fixDist
+          const fixed = stageDist || cinematic.fixDist;
+          const d = fixed > 0
+            ? fixed
             : camera.position.distanceTo(camPull) * cinematic.dist;
           camera.position.copy(camPull).addScaledVector(camIdleDir, d);
         }
@@ -2641,24 +2670,26 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.play();
         // 겨냥 대상 본. 여러 개가 걸리면 그 뭉치의 한가운데를 본다 —
         // 베히모스 크레인은 본이 139개로 쪼개져 있어서 하나만 집으면 흔들린다.
-        let lookAtBones = [];
-        const la = cameraLookAtFor(bossCode, clip.name);
-        if (la && la.mesh) {
-          // 메쉬로 지정하면 그 메쉬가 실제로 쓰는 본만 모은다(skinIndex 기준).
-          const target = meshes.find(m => la.mesh.test(m.name || ''));
-          if (target) lookAtBones = focusBonesOf(target).slice();
-        } else if (la && la.bone) {
-          gltf.scene.traverse(o => {
-            if (o.isBone && la.bone.test(o.name || '')) lookAtBones.push(o);
-          });
-        }
+        const stages = (cameraLookAtFor(bossCode, clip.name) || []).map(la => {
+          let bones = [];
+          if (la.mesh) {
+            // 메쉬로 지정하면 그 메쉬가 실제로 쓰는 본만 모은다(skinIndex 기준).
+            const target = meshes.find(m => la.mesh.test(m.name || ''));
+            if (target) bones = focusBonesOf(target).slice();
+          } else if (la.bone) {
+            gltf.scene.traverse(o => {
+              if (o.isBone && la.bone.test(o.name || '')) bones.push(o);
+            });
+          }
+          return { bones, from: la.from || 0, blend: la.blend || 0, fixDist: la.fixDist || 0 };
+        }).filter(o => o.bones.length);
         const fix = cameraFixFor(bossCode, clip.name);
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
-          lookAt: lookAtBones.length ? lookAtBones : null, idleAngle: !!fix.idleAngle,
+          lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
           dist: fix.dist || 1, fixDist: fix.fixDist || 0,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
         rescueW = 0;
