@@ -636,7 +636,7 @@ const CAMERA_FIX = [
   { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
   // 에고비스타도 같다 — 등장 담김 0~99% 로 널뛰고 사망은 내내 0% 였다.
   // flip - 기본 시점의 반대편에서 잡는다. 등장·사망이 뒷모습이라 뒤집었다.
-  { boss: /^xbg005/i, lookAtFocus: true, idleAngle: true, idleFlip: true, rescue: true },
+  { boss: /^xbg005/i, lookAtFocus: true, idleAngle: true, rescue: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -955,6 +955,19 @@ const CLIP_SOLO_PARTS = [
   // 같은 값이 나온다. 그 클립에서만 포탑을 감춘다.
   { boss: /^mbg003/i, clip: /_2phase_jump_end$/i, hide: /_catpult_skin/i },
 ];
+
+// 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
+// 카메라를 반대편으로 옮기는 것(CAMERA_FIX.idleFlip)과 달리 거리·담김 계산이
+// 안 어긋난다. 조작 패널의 표시값은 건드리지 않는다 — 기준 180도 그대로 보인다.
+// 에고비스타로 재보니 뒷모습의 원인은 모델이 아니라 idleFlip 이었다(그건 걷어냈다).
+// 지금은 해당되는 보스가 없다.
+const CLIP_MODEL_YAW = [];
+
+function clipModelYawFor(bossCode, name) {
+  const o = CLIP_MODEL_YAW.find(
+    x => x.boss.test(bossCode || '') && x.clip.test(name || ''));
+  return o ? o.yaw : null;
+}
 
 // 연출 중에만 켜지는 발광 파츠. 좌우 한 쌍이 한 세트고, 그중 count 개를 무작위로 고른다.
 // 색은 GLOW_PRESETS 의 key.
@@ -1284,9 +1297,23 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       SL.sc.value = bossTransform.scale;
     }
 
+    // 연출용 강제 각도. null 이면 슬라이더(=표시값) 를 그대로 쓴다.
+    let clipYaw = null;
+    function applyModelYaw() {
+      const base = SL.yaw ? +SL.yaw.value : yawDeg;
+      yawGroup.rotation.y =
+        THREE.MathUtils.degToRad(clipYaw !== null ? clipYaw : base);
+    }
+    function setClipYaw(name) {
+      const want = clipModelYawFor(bossCode, name);
+      if (want === clipYaw) return;
+      clipYaw = want;
+      applyModelYaw();
+    }
+
     function applySliders() {
       if (!SL.yaw) return;
-      yawGroup.rotation.y = THREE.MathUtils.degToRad(+SL.yaw.value);
+      applyModelYaw();
       pitchGroup.rotation.x = THREE.MathUtils.degToRad(+SL.pitch.value + basePitch);
       pitchGroup.rotation.z = THREE.MathUtils.degToRad(+SL.roll.value);
       yawGroup.position.set(+SL.px.value, +SL.py.value, +SL.pz.value);
@@ -2356,7 +2383,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
       if (cinematic.idleAngle && hasAim && homeCamPos && homeTarget) {
         camIdleDir.copy(homeCamPos).sub(homeTarget);
-        if (cinematic.idleFlip) camIdleDir.x = -camIdleDir.x, camIdleDir.z = -camIdleDir.z;
         if (camIdleDir.lengthSq() > 1e-12) {
           camIdleDir.normalize();
           const d = camera.position.distanceTo(camPull) * cinematic.dist;
@@ -2573,6 +2599,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       opts = opts || {};
       // 세 머리 재생이 아니면 옆 머리는 치운다
       if (!opts.keepSides) hideSideRigs();
+      // 등장·사망처럼 보스가 반대로 서 있는 연출은 모델을 돌려서 맞춘다.
+      // 자세·카메라 측정보다 먼저 해야 담김 계산이 돌린 뒤 기준으로 나온다.
+      setClipYaw(clip.name);
       // 앞 클립이 옮겨놓은 본을 원위치로. 믹서 교체만으로는 트랙 없는 본이 안 돌아온다.
       restorePose(poseFor(clip.name));
       // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
@@ -2622,7 +2651,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
           lookAt: lookAtBones.length ? lookAtBones : null, idleAngle: !!fix.idleAngle,
-          idleFlip: !!fix.idleFlip,
           dist: fix.dist || 1,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
         rescueW = 0;
