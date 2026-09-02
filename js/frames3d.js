@@ -276,6 +276,18 @@ function bossKeyFrom(bossCode, url) {
   return stem.toLowerCase().startsWith(bossCode) ? stem : bossCode;
 }
 
+// 이름이 겹치는 클립. 사치스러운 거미는 파일에 dead_01 이 두 벌 들어 있는데,
+// 목록에서 이름으로 찾으면 뒤엣것은 영영 못 고른다. 뒤엣것에 번호를 붙여 가른다.
+function dedupeClipNames(clips) {
+  const seen = new Map();
+  clips.forEach(c => {
+    const n = c.name || '';
+    const hit = (seen.get(n) || 0) + 1;
+    seen.set(n, hit);
+    if (hit > 1) c.name = n + '_' + hit;
+  });
+}
+
 function detectBossCode(meshNames) {
   for (const name of meshNames) {
     const m = (name || '').match(/^([a-z]{2,4}\d{3})/i);
@@ -839,9 +851,20 @@ const MANUAL_SEQUENCES = [
   },
 ];
 
-function findSequences(clips) {
+// 묶지 않고 낱개로 두는 클립. 인게임에서 어떻게 이어지는지 아직 확인 전이라
+// start/end 를 자동으로 한 덩어리로 만들면 안 되는 것들.
+const NO_SEQUENCE = [
+  { boss: /^bbg001_rich/i, re: /^bbg001_cc_/i },
+];
+
+function isNoSequence(bossKey, name) {
+  return NO_SEQUENCE.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+}
+
+function findSequences(clips, bossKey) {
   const groups = new Map();
   clips.forEach((c, i) => {
+    if (isNoSequence(bossKey, c.name)) return;
     const m = (c.name || '').match(SEQ_RE);
     if (!m) return;
     const key = m[1] + (m[3] || '');
@@ -1305,6 +1328,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const meshNamesForBossCode = [];
     gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
+    dedupeClipNames(gltf.animations || []);
     const bossCode = detectBossCode(meshNamesForBossCode);
     // 규칙 표는 파일 이름까지 본다(변종 보스 구분). 표 안 쓰는 쪽(파츠 이름 자르기,
     // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
@@ -2931,7 +2955,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     const animEl = document.getElementById('frames-anim-toggle');
     if (animEl) {
-      const seqs = findSequences(gltf.animations || []);
+      const seqs = findSequences(gltf.animations || [], bossKey);
       buildSyntheticSequences(seqs);
       measureCameraFlip();
       measureCameraZoom();
@@ -2997,7 +3021,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const n = String(name);
           if (isPhaseSwitchClip(n)) return '페이즈 전환';
           if (isAppearName(n) || isDeadName(n) || isAppearanceClip(n)) return '등장·사망';
-          if (/(^|_)(groggy|cc)(_|\d|$)/i.test(n)) return '그로기';
+          if (/(^|_)groggy(_|\d|$)/i.test(n)) return '그로기';
           if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
           if (/(^|_)skill(_|\d|$)/i.test(n)) return '스킬';
           return '기본';
