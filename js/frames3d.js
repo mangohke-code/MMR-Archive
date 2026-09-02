@@ -107,11 +107,11 @@ const MESH_RENAME = [
   { boss: /^xbg002/i, re: /^xbg002_shoulder_l_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_shoulder_l_skin_1' },
   { boss: /^xbg002/i, re: /^xbg002_shoulder_r_skin(_\d+)?$/i, mat: 'xbg002_shoulder', to: 'xbg002_shoulder_r_skin' },
   { boss: /^xbg002/i, re: /^xbg002_shoulder_r_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_shoulder_r_skin_1' },
-  // 다리 — 발광 쪽이 꼬리표 없는 이름을 쓴다. 여긴 원래 이름을 그대로 지킨다.
-  { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_l_skin001' },
-  { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_l_skin001_1' },
-  { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_r_skin001' },
-  { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_r_skin001_1' },
+  // 다리 — 원본은 발광 쪽이 꼬리표 없는 이름을 쓴다. 팔·어깨와 반대라서 뒤집는다.
+  { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_l_skin001' },
+  { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_l_skin001_1' },
+  { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_r_skin001' },
+  { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_r_skin001_1' },
 
   // 앨트루이아 — 부위마다 본체 + 발광 두 겹이고, 원본 그대로 두면 투구 아홉 쌍의
   // 번호가 제각각으로 붙는다(불러올 때마다 달라진다). 한 규칙으로 정한다.
@@ -125,8 +125,10 @@ const MESH_RENAME = [
     bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
   { boss: /^xbg004/i, re: /^xbg004_sdf_eye_\d+_skin(_\d+)?$/i, base: 'xbg004_sdf_eye_r_skin',
     bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+  // 방패는 한 메쉬의 프리미티브 둘인데 어느 쪽도 발광이 아니다.
+  // _1 은 발광 층 자리로 비워 두고, 게임이 쓰는 꼴대로 001 을 붙인다.
   { boss: /^xbg004/i, re: /^(xbg004_shield_[lr]_skin)(_\d+)?$/i,
-    bySuffix: { 'xbg004_shield': '', 'xbg004_body': '_1' } },
+    bySuffix: { 'xbg004_shield': '', 'xbg004_body': '001' } },
   // 몸 중심선에 쌓인 고리 넷. 원본 번호(04 / 005 / 007 / 006)가 높이 순서와 안 맞아서
   // 아래에서 위로 다시 매긴다. idle 3종·스킬·그로기에서 위아래 순서가 같은 것을 확인했다.
   { boss: /^xbg004/i, re: /^xbg004_arms_04_skin_04(_\d+)?$/i,  base: 'xbg004_arms_04_skin_01', bySuffix: {} },
@@ -200,7 +202,7 @@ function partLabelOf(bossCode, m, fallback) {
 const DEFAULT_OFF_MESHES = [
   // 프로비던스 - 패턴 중에만 빛나는 파츠(fx_xbg002_part_fresnel_purple 재질).
   // 평소에는 꺼져 있고 아래 CLIP_GLOW_PARTS 가 해당 스킬에서만 잠깐 켠다.
-  { boss: /^xbg002/i, re: /_(arm_[lr]_skin_1|legs_[lr]_skin001|shoulder_[lr]_skin_1)$/i },
+  { boss: /^xbg002/i, re: /_(arm_[lr]_skin_1|legs_[lr]_skin001_1|shoulder_[lr]_skin_1)$/i },
 ];
 
 function isDefaultOffMesh(bossCode, name) {
@@ -914,9 +916,9 @@ const CLIP_GLOW_PARTS = [
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_01$/i, color: 'yellow', count: 1,
     sets: [/_arm_r_skin_1$/i] },
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_03$/i, color: 'blue', count: 1,
-    sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001$/i] },
+    sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001_1$/i] },
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_04$/i, color: 'purple', count: 2,
-    sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001$/i, /_shoulder_[lr]_skin_1$/i] },
+    sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001_1$/i, /_shoulder_[lr]_skin_1$/i] },
 ];
 
 function clipGlowRuleFor(bossCode, name) {
