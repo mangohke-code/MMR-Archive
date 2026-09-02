@@ -181,8 +181,12 @@ const PART_LABELS = {
     'helm_07_skin': '성녀의 후광 7',
     'helm_08_skin': '성녀의 후광 8',
     'helm_09_skin': '성녀의 후광 9',
-    'shield_l_skin': '최강의 방패 L',
-    'shield_r_skin': '최강의 방패 R',
+    'shield_l_skin': '최강의 방패 L (앞)',
+    'shield_r_skin': '최강의 방패 R (앞)',
+    'shield_l_skin001': '최강의 방패 L (뒤)',
+    'shield_r_skin001': '최강의 방패 R (뒤)',
+    'shield_l_led_skin': '최강의 방패 L (발광)',
+    'shield_r_led_skin': '최강의 방패 R (발광)',
   },
 };
 
@@ -604,8 +608,9 @@ const CAMERA_FIX = [
   // 베히모스: 카메라 위치·화각은 게임 값이 맞는데 겨냥이 어긋난다(미러 컨테이너와
   // 같은 증상). 겨냥만 매 프레임 본체 중심으로 다시 잡는다.
   { boss: /^mbg003/i, lookAtFocus: true },
-  // 앨트루이아: 사망 카메라가 진행할수록 보스를 놓친다. 같은 증상이라 같은 처방.
-  { boss: /^xbg004/i, lookAtFocus: true },
+  // 앨트루이아: 등장·사망 카메라가 보스 뒤에 선다(등장 dz -3.15 ~ -2.17, idle 은 +2.25).
+  // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
+  { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
