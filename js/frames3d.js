@@ -181,6 +181,8 @@ const PART_LABELS = {
     'helm_07_skin': '성녀의 후광 7',
     'helm_08_skin': '성녀의 후광 8',
     'helm_09_skin': '성녀의 후광 9',
+    'shield_l_skin': '최강의 방패 L',
+    'shield_r_skin': '최강의 방패 R',
   },
 };
 
