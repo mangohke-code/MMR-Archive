@@ -24,6 +24,7 @@ JOBS = [
     ('S24 검은 뱀/bbg008_검은 뱀 H.S.T.A. · summon.glb', 'bbg008'),
     ('S26 프로비던스/xbg002_프로비던스 Z.E.U.S.glb', 'xbg002'),
     ('S33 온리 원/xbg003_온리 원 H.S.T.A.glb', 'xbg003'),
+    ('S34 앨트루이아/xbg004_앨트루이아 Z.E.U.S.glb', 'xbg004'),
     ('S38 애니힐리오/xba003_애니힐리오 D.M.T.R.glb', 'xba003_1phase'),
     ('S38 애니힐리오/xba003_애니힐리오 D.M.T.R_xba003_dmtr.glb', 'xba003_2phase'),
 ]
