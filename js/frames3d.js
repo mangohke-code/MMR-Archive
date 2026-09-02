@@ -226,6 +226,9 @@ const DEFAULT_OFF_MESHES = [
   // 프로비던스 - 패턴 중에만 빛나는 파츠(fx_xbg002_part_fresnel_purple 재질).
   // 평소에는 꺼져 있고 아래 CLIP_GLOW_PARTS 가 해당 스킬에서만 잠깐 켠다.
   { boss: /^xbg002/i, re: /_(arm_[lr]_skin_1|legs_[lr]_skin001_1|shoulder_[lr]_skin_1)$/i },
+  // 앨트루이아 - 발광 층(fx_xbg004_zeus_parts_glow 재질)은 평소 꺼둔다. 밑에 본체 층이
+  // 그대로 있어서 파츠가 사라지지는 않고, 빛나야 할 때만 CLIP_GLOW_PARTS 가 켠다.
+  { boss: /^xbg004/i, re: /_(helm_\d+_skin_1|sdf_eye_[lr]_skin_1)$/i },
 ];
 
 function isDefaultOffMesh(bossCode, name) {
