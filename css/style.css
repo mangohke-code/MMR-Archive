@@ -5423,6 +5423,48 @@
     max-height: 100%;
   }
 
+  /* 모델 불러오는 동안 무대 한가운데 띄우는 진행 막대.
+     내려받기 구간은 실제 비율로 차오르고, 압축 해제·텍스처 올리는 구간은
+     길이를 알 수 없어서 줄무늬가 흐르는 형태로 바뀐다. */
+  #f3d-loading {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(260px, 70%);
+    padding: 14px 16px;
+    text-align: center;
+    pointer-events: none;
+    border-radius: var(--radius-md);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-card);
+  }
+  .f3d-loading-label { font-size: 12px; color: var(--text-secondary); }
+  .f3d-loading-track {
+    height: 5px;
+    margin: 9px 0 6px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--bg-inset);
+  }
+  .f3d-loading-fill {
+    width: 0;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+    transition: width .15s linear;
+  }
+  /* 남은 양을 모를 때 — 막대를 꽉 채우고 줄무늬만 흐르게 둔다 */
+  #f3d-loading.indeterminate .f3d-loading-fill {
+    width: 100%;
+    background: repeating-linear-gradient(
+      -45deg, var(--accent) 0 10px, var(--accent-dim) 10px 20px);
+    background-size: 28px 100%;
+    animation: f3d-loading-flow .7s linear infinite;
+  }
+  @keyframes f3d-loading-flow { to { background-position: 28px 0; } }
+  .f3d-loading-sub { font-size: 11px; color: var(--text-muted); min-height: 14px; }
+
   #f3d-hud {
     position: absolute;
     left: 12px;

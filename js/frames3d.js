@@ -156,8 +156,8 @@ function meshMatName(m) {
 }
 
 // 한꺼번에 정해서 한 번에 갈아 끼운다. 하나씩 바꾸면 앞에서 바꾼 이름을 뒤에서 또 집는다.
-function renameMeshes(bossCode, meshes) {
-  const rules = MESH_RENAME.filter(o => o.boss.test(bossCode || ''));
+function renameMeshes(bossKey, meshes) {
+  const rules = MESH_RENAME.filter(o => o.boss.test(bossKey || ''));
   if (!rules.length) return;
   const next = meshes.map(m => {
     const mat = meshMatName(m);
@@ -231,8 +231,8 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^xbg004/i, re: /_(helm_\d+_skin_1|sdf_eye_[lr]_skin_1)$/i },
 ];
 
-function isDefaultOffMesh(bossCode, name) {
-  return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossCode || '') && o.re.test(name || ''));
+function isDefaultOffMesh(bossKey, name) {
+  return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 }
 
 // 파츠 목록 정렬 키. 좌우 파츠가 바로 붙어 나오도록 세운다 — 왼쪽 다음 오른쪽.
@@ -258,6 +258,19 @@ function comparePartKeys(a, b) {
 function partGroupLabel(name) {
   for (const [label, re] of PART_GROUPS) if (re.test(name || '')) return label;
   return '기타';
+}
+
+// 규칙 표가 보고 판단하는 이름. 메쉬에서 뽑은 코드만으로는 변종 보스를 못 가른다 —
+// 하베스터와 사치스러운 거미가 둘 다 bbg001 이다. 파일 이름이 코드로 시작하면
+// 그 이름을 그대로 쓴다("bbg001_사치스러운 거미"). 기존 규칙은 /^bbg001/ 처럼
+// 코드로 시작해서 변종에도 그대로 걸리고, 변종만 집으려면 뒤까지 적으면 된다.
+// 원종만 집으려면 /^bbg001$/ 로 끝을 막는다.
+function bossKeyFrom(bossCode, url) {
+  if (!bossCode) return bossCode;
+  let stem = String(url || '').split(/[?#]/)[0];
+  stem = stem.slice(stem.lastIndexOf('/') + 1).replace(/\.glb$/i, '');
+  try { stem = decodeURIComponent(stem); } catch (e) { /* 인코딩 깨진 이름은 그대로 */ }
+  return stem.toLowerCase().startsWith(bossCode) ? stem : bossCode;
 }
 
 function detectBossCode(meshNames) {
@@ -440,9 +453,9 @@ const FOCUS_OVERRIDES = [
   { boss: /^bbg008/i, bone: HEAD_BONE_RE },
 ];
 
-function focusOverrideFor(bossCode) {
-  if (!bossCode) return null;
-  return FOCUS_OVERRIDES.find(o => o.boss.test(bossCode)) || null;
+function focusOverrideFor(bossKey) {
+  if (!bossKey) return null;
+  return FOCUS_OVERRIDES.find(o => o.boss.test(bossKey)) || null;
 }
 
 function pickFocusMesh(meshes, override) {
@@ -675,9 +688,9 @@ const CAMERA_LOOK_AT = [
 ];
 
 // 한 클립에 여러 줄을 두면 시간순 단계가 된다. from 이 없으면 0초부터다.
-function cameraLookAtFor(bossCode, clipName) {
+function cameraLookAtFor(bossKey, clipName) {
   const hit = CAMERA_LOOK_AT.filter(
-    o => o.boss.test(bossCode || '') && (!o.clip || o.clip.test(clipName || '')));
+    o => o.boss.test(bossKey || '') && (!o.clip || o.clip.test(clipName || '')));
   return hit.length ? hit.slice().sort((a, b) => (a.from || 0) - (b.from || 0)) : null;
 }
 
@@ -700,16 +713,16 @@ const CLIP_CAMERA_FIX = [
   { boss: /^mbg003/i, clip: /_1phase_take1$/i, idleAngle: true, dist: 0.9, aimY: 0 },
 ];
 
-function cameraFixFor(bossCode, clipName) {
-  const base = CAMERA_FIX.find(o => o.boss.test(bossCode || '')) || {};
+function cameraFixFor(bossKey, clipName) {
+  const base = CAMERA_FIX.find(o => o.boss.test(bossKey || '')) || {};
   if (clipName === undefined) return base;
   const extra = CLIP_CAMERA_FIX.filter(
-    o => o.boss.test(bossCode || '') && o.clip.test(clipName || ''));
+    o => o.boss.test(bossKey || '') && o.clip.test(clipName || ''));
   return extra.length ? Object.assign({}, base, ...extra) : base;
 }
 
-function cameraNeedsPull(bossCode) {
-  const f = cameraFixFor(bossCode);
+function cameraNeedsPull(bossKey) {
+  const f = cameraFixFor(bossKey);
   return !!(f.pull || f.fit);
 }
 
@@ -906,9 +919,9 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
 ];
 
-function clipPhaseOverride(bossCode, name) {
+function clipPhaseOverride(bossKey, name) {
   const o = CLIP_PHASE_OVERRIDES.find(
-    x => x.boss.test(bossCode || '') && x.re.test(name || ''));
+    x => x.boss.test(bossKey || '') && x.re.test(name || ''));
   return o ? o.phase : null;
 }
 
@@ -939,8 +952,8 @@ const HIDDEN_CLIPS = [
   { boss: /^xba001/i, re: /_appearance_take1$/i },
 ];
 
-function isHiddenClip(bossCode, name) {
-  return HIDDEN_CLIPS.some(o => o.boss.test(bossCode || '') && o.re.test(name || ''));
+function isHiddenClip(bossKey, name) {
+  return HIDDEN_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 }
 
 // 목록 이름을 손으로 바꾸는 자리. 규칙으로 풀면 다른 보스까지 딸려 바뀌는 경우에만 쓴다.
@@ -978,9 +991,9 @@ const CLIP_SOLO_PARTS = [
 // 지금은 해당되는 보스가 없다.
 const CLIP_MODEL_YAW = [];
 
-function clipModelYawFor(bossCode, name) {
+function clipModelYawFor(bossKey, name) {
   const o = CLIP_MODEL_YAW.find(
-    x => x.boss.test(bossCode || '') && x.clip.test(name || ''));
+    x => x.boss.test(bossKey || '') && x.clip.test(name || ''));
   return o ? o.yaw : null;
 }
 
@@ -998,9 +1011,9 @@ const CLIP_PART_SWAP = [
     from: /_phase1_feather$/i, to: /_phase2_feather$/i },
 ];
 
-function clipPartSwapFor(bossCode, name) {
+function clipPartSwapFor(bossKey, name) {
   return CLIP_PART_SWAP.find(
-    o => o.boss.test(bossCode || '') && o.clip.test(name || '')) || null;
+    o => o.boss.test(bossKey || '') && o.clip.test(name || '')) || null;
 }
 
 const CLIP_GLOW_PARTS = [
@@ -1018,14 +1031,14 @@ const CLIP_GLOW_PARTS = [
     sets: [/_sdf_eye_[lr]_skin_1$/i] },
 ];
 
-function clipGlowRuleFor(bossCode, name) {
+function clipGlowRuleFor(bossKey, name) {
   return CLIP_GLOW_PARTS.find(
-    o => o.boss.test(bossCode || '') && o.clip.test(name || '')) || null;
+    o => o.boss.test(bossKey || '') && o.clip.test(name || '')) || null;
 }
 
-function clipSoloPartsFor(bossCode, name) {
+function clipSoloPartsFor(bossKey, name) {
   for (const o of CLIP_SOLO_PARTS) {
-    if (!o.boss.test(bossCode || '')) continue;
+    if (!o.boss.test(bossKey || '')) continue;
     const m = (name || '').match(o.clip);
     if (!m) continue;
     if (o.hide) return { hide: o.hide };
@@ -1144,6 +1157,33 @@ function disposeState(container) {
 
 window.disposeFramesModel3D = disposeState;
 
+// ── 불러오기 진행 막대 ─────────────────────────────────────────
+// 보스를 고르면 큰 파일을 내려받는 동안 무대가 한참 비어 있다. 무슨 일이 일어나는지
+// 보이도록 가운데에 막대를 띄운다. 내려받기가 끝나도 압축 해제(Draco)와 텍스처
+// 올리기가 남아 있는데 그 구간은 길이를 알 수 없어서, 줄무늬가 흐르는 형태로 바꾼다.
+// 보스를 연달아 누르면 앞 요청이 나중에 끝날 수 있어, 표를 든 쪽만 막대를 만진다.
+let loadSeq = 0;
+
+function setLoadingBar(seq, pct, sub) {
+  if (seq !== loadSeq) return;
+  const box = document.getElementById('f3d-loading');
+  if (!box) return;
+  box.classList.remove('hidden');
+  box.classList.toggle('indeterminate', pct === null);
+  const fill = box.querySelector('.f3d-loading-fill');
+  if (fill && pct !== null) fill.style.width = pct + '%';
+  const el = box.querySelector('.f3d-loading-sub');
+  if (el) el.textContent = sub || '';
+}
+
+function hideLoadingBar(seq) {
+  if (seq !== loadSeq) return;
+  const box = document.getElementById('f3d-loading');
+  if (box) box.classList.add('hidden');
+}
+
+const MB = 1024 * 1024;
+
 window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, options = {}) {
   const { onError, onLoaded } = options;
 
@@ -1245,6 +1285,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
   const loader = new GLTFLoader();
   loader.setDRACOLoader(dracoLoader);
+  const mySeq = ++loadSeq;
+  setLoadingBar(mySeq, 0, '');
 
   let mixer = null;
   const clock = new THREE.Clock();
@@ -1261,6 +1303,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const meshNamesForBossCode = [];
     gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
     const bossCode = detectBossCode(meshNamesForBossCode);
+    // 규칙 표는 파일 이름까지 본다(변종 보스 구분). 표 안 쓰는 쪽(파츠 이름 자르기,
+    // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
+    const bossKey = bossKeyFrom(bossCode, modelUrl);
 
     // 신형(카탈로그에서 직접 뽑은) 추출본은 기존 FBX 변환본과 규칙이 다르다.
     //  - 루트 노드에 방향 회전이 이미 들어 있다 (공통 225도 보정을 주면 안 된다)
@@ -1304,7 +1349,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 있어서, 보정도 항목별로 달리 줘야 하는 경우가 있다.
     const optLabelPhase = (String(options.modelLabel || '').match(/(\d+)\s*페이즈/) || [])[1] || null;
     // 자동 페이즈 넘김을 낼지. 넘길 곳이 있는 페이즈에서만 낸다.
-    const autoPhaseRule = AUTO_PHASE_CHAIN.find(o => o.boss.test(bossCode || '')) || null;
+    const autoPhaseRule = AUTO_PHASE_CHAIN.find(o => o.boss.test(bossKey || '')) || null;
     function autoPhaseAvailable() {
       if (!autoPhaseRule) return false;
       return autoPhaseRule.by === 'model'
@@ -1345,7 +1390,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         THREE.MathUtils.degToRad(clipYaw !== null ? clipYaw : base);
     }
     function setClipYaw(name) {
-      const want = clipModelYawFor(bossCode, name);
+      const want = clipModelYawFor(bossKey, name);
       if (want === clipYaw) return;
       clipYaw = want;
       applyModelYaw();
@@ -1534,7 +1579,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const isSkillOnlyEffect = name => /^fx_/i.test(name || '') && !/monster_core/i.test(name || '');
 
     // 좌우가 어긋난 이름을 먼저 맞바꾼다. 라벨·키·아래 보정표가 전부 이 이름을 쓴다.
-    renameMeshes(bossCode, meshes);
+    renameMeshes(bossKey, meshes);
 
     // 파츠 토글 목록에서는 보스 코드(예: bba001)를 빼고 보여준다 — fx_bba001_... 처럼
     // 접두사가 맨 앞이 아니라 중간에 낀 경우도 있어서, 위치 상관없이 전부 제거한다.
@@ -1588,10 +1633,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       : { cams: [], byModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
     // 목록에서 감추는 건 그대로 두고 재생만 막는다
-    if (cameraFixFor(bossCode).noCamera) camPairs.byModel = new Map();
+    if (cameraFixFor(bossKey).noCamera) camPairs.byModel = new Map();
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
     let cinematic = null;
-    const focusOverride = focusOverrideFor(bossCode);
+    const focusOverride = focusOverrideFor(bossKey);
     const focusMesh = pickFocusMesh(meshes, focusOverride);
     // 본 패턴이 있으면 그게 우선. 메쉬만 지정했으면 그 메쉬 전체가 기준이라는 뜻이다.
     const focusBone = focusOverride
@@ -1687,7 +1732,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function measureCameraZoom() {
       if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      if (!cameraNeedsPull(bossCode)) return;
+      if (!cameraNeedsPull(bossKey)) return;
       const saved = capturePose(gltf.scene);
       const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
       const center = new THREE.Vector3();
@@ -1720,7 +1765,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           ratios.sort((a, b) => a - b);
           const k = ratios[Math.floor(ratios.length / 2)];
           // pull 은 멀 때만 당긴다. fit 은 가까울 때 뒤로도 물린다.
-          const twoWay = !!cameraFixFor(bossCode).fit;
+          const twoWay = !!cameraFixFor(bossKey).fit;
           if (k < 0.98 || (twoWay && k > 1.02)) {
             camZoom.set(modelName, Math.max(0.12, Math.min(6, k)));
           }
@@ -1745,7 +1790,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function measureCameraNear() {
       if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      if (!cameraFixFor(bossCode).near) return;
+      if (!cameraFixFor(bossKey).near) return;
       const saved = capturePose(gltf.scene);
       const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
       const center = new THREE.Vector3();
@@ -1783,7 +1828,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function measureCameraAim() {
       if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      const fix = cameraFixFor(bossCode);
+      const fix = cameraFixFor(bossKey);
       if (!fix.aim && !fix.aimX) return;
       const saved = capturePose(gltf.scene);
       const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
@@ -1890,7 +1935,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function buildSyntheticSequences(seqs) {
       const list = gltf.animations || [];
       SYNTHETIC_SEQUENCES.forEach(def => {
-        if (!def.boss.test(bossCode || '')) return;
+        if (!def.boss.test(bossKey || '')) return;
         // 이미 진짜 클립이 있으면 손대지 않는다
         if (seqs.some(sq => sq.key.endsWith(def.key))) return;
         const steps = [];
@@ -1968,7 +2013,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const enabledMeshes = new Set(
       meshes
         .filter(m => !isSkillOnlyEffect(m.name)
-          && !isDefaultOffMesh(bossCode, m.name)
+          && !isDefaultOffMesh(bossKey, m.name)
           && isPhaseVisible(phaseOf(m.name), currentPhase))
         .map(m => m.partKey)
     );
@@ -1991,7 +2036,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 이 클립에서 켤 발광 세트를 정한다. 같은 스킬 안에서는 다시 뽑지 않는다.
     function pickClipGlow(clipName) {
-      const rule = clipGlowRuleFor(bossCode, clipName);
+      const rule = clipGlowRuleFor(bossKey, clipName);
       if (!rule) { clipGlow = null; clipGlowKey = null; return; }
       const key = rule.color + ':' + ((String(clipName).match(/_(\d+)$/) || [])[1] || '');
       if (clipGlow && clipGlowKey === key) return;
@@ -2262,7 +2307,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyClipCamLift(clipName) {
       if (!homeCamPos) return;
       const rule = CLIP_CAM_LIFT.find(
-        o => o.boss.test(bossCode || '') && o.re.test(clipName || ''));
+        o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
       const d = (rule ? rule.y : 0) - clipCamLift;
       if (!d) return;
       clipCamLift += d;
@@ -2708,7 +2753,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         camAct.play();
         // 겨냥 대상 본. 여러 개가 걸리면 그 뭉치의 한가운데를 본다 —
         // 베히모스 크레인은 본이 139개로 쪼개져 있어서 하나만 집으면 흔들린다.
-        const stages = (cameraLookAtFor(bossCode, clip.name) || []).map(la => {
+        const stages = (cameraLookAtFor(bossKey, clip.name) || []).map(la => {
           let bones = [];
           if (la.mesh) {
             // 메쉬로 지정하면 그 메쉬가 실제로 쓰는 본만 모은다(skinIndex 기준).
@@ -2721,7 +2766,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           }
           return { bones, from: la.from || 0, blend: la.blend || 0, fixDist: la.fixDist || 0 };
         }).filter(o => o.bones.length);
-        const fix = cameraFixFor(bossCode, clip.name);
+        const fix = cameraFixFor(bossKey, clip.name);
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
@@ -2742,8 +2787,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 바깥에서 재생 상태를 들여다볼 수 있게 걸어둔다(검증·디버깅용).
       state.mixer = mixer;
       state.currentClip = clip.name;
-      clipSolo = clipSoloPartsFor(bossCode, clip.name);
-      clipSwap = clipPartSwapFor(bossCode, clip.name);
+      clipSolo = clipSoloPartsFor(bossKey, clip.name);
+      clipSwap = clipPartSwapFor(bossKey, clip.name);
       clipSwapDone = false;
       pickClipGlow(clip.name);
       applyVisibility();
@@ -2888,7 +2933,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       measureCameraNear();
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
       const clips = (gltf.animations || [])
-        .filter(c => !cameraClipNames.has(c.name) && !isHiddenClip(bossCode, c.name));
+        .filter(c => !cameraClipNames.has(c.name) && !isHiddenClip(bossKey, c.name));
       // 라벨에서 보스 코드를 뗀다. detectBossCode 는 메쉬 이름에서 뽑는데 클립과
       // 접두사가 다른 보스가 있어서(애니힐리오 1페이즈: 메쉬 xbga03_, 클립 xba003_)
       // 그 값으로 지우면 하나도 안 벗겨진다. 코드 자리를 패턴으로 잡는다.
@@ -2903,7 +2948,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 손으로 정해 둔 이름이 있으면 그쪽이 이긴다
       const labelOf = (raw, fallback) => {
         const fix = CLIP_LABEL_FIX.find(
-          o => o.boss.test(bossCode || '') && o.re.test(raw || ''));
+          o => o.boss.test(bossKey || '') && o.re.test(raw || ''));
         return fix ? fix.label : fallback;
       };
 
@@ -2982,7 +3027,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const phaseFiltered = singleFilePhases && phaseKeys.length > 1;
         const inCurrentPhase = (name) => {
           if (!phaseFiltered) return true;
-          const p = clipPhaseOverride(bossCode, name) || clipPhase(name);
+          const p = clipPhaseOverride(bossKey, name) || clipPhase(name);
           return !p || p === currentPhase;
         };
 
@@ -3361,8 +3406,21 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       state.step(clock.getDelta());
     }
     animate();
-  }, undefined, (err) => {
+    hideLoadingBar(mySeq);
+  }, (e) => {
+    // Content-Length 가 없으면(gzip 등) 비율을 못 낸다 — 받은 양만 보여준다.
+    if (e && e.lengthComputable && e.total) {
+      const pct = Math.min(100, e.loaded / e.total * 100);
+      setLoadingBar(mySeq, pct,
+        (e.loaded / MB).toFixed(1) + ' / ' + (e.total / MB).toFixed(1) + ' MB');
+      // 다 받고 나면 압축 해제·텍스처 올리기가 남는다. 그 구간은 길이를 모른다.
+      if (pct >= 100) setLoadingBar(mySeq, null, '준비 중');
+    } else {
+      setLoadingBar(mySeq, null, e ? (e.loaded / MB).toFixed(1) + ' MB' : '');
+    }
+  }, (err) => {
     console.error('[역대 테두리 3D] 모델 로드 실패:', err);
+    hideLoadingBar(mySeq);
     if (onError) onError(err);
   });
 };
