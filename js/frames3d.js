@@ -127,9 +127,15 @@ const MESH_RENAME = [
     bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
   { boss: /^xbg004/i, re: /^(xbg004_shield_[lr]_skin)(_\d+)?$/i,
     bySuffix: { 'xbg004_shield': '', 'xbg004_body': '_1' } },
+  // 몸 중심선에 쌓인 고리 넷. 원본 번호(04 / 005 / 007 / 006)가 높이 순서와 안 맞아서
+  // 아래에서 위로 다시 매긴다. idle 3종·스킬·그로기에서 위아래 순서가 같은 것을 확인했다.
+  { boss: /^xbg004/i, re: /^xbg004_arms_04_skin_04(_\d+)?$/i,  base: 'xbg004_arms_04_skin_01', bySuffix: {} },
+  { boss: /^xbg004/i, re: /^xbg004_arms_04_skin_005(_\d+)?$/i, base: 'xbg004_arms_04_skin_02', bySuffix: {} },
+  { boss: /^xbg004/i, re: /^xbg004_arms_04_skin_007(_\d+)?$/i, base: 'xbg004_arms_04_skin_03', bySuffix: {} },
+  { boss: /^xbg004/i, re: /^xbg004_arms_04_skin_006(_\d+)?$/i, base: 'xbg004_arms_04_skin_04', bySuffix: {} },
   // 하나뿐인데 번호가 붙은 것들 — 노드가 같은 이름을 먼저 차지해서 그렇다. 꼬리표만 뗀다.
   { boss: /^xbg004/i,
-    re: /^(xbg004_(?:body_skin|arms_04_skin_\d+|shield_[lr]_led_skin))(_\d+)?$/i,
+    re: /^(xbg004_(?:body_skin|shield_[lr]_led_skin))(_\d+)?$/i,
     bySuffix: {} },
 ];
 
