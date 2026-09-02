@@ -660,13 +660,16 @@ const CAMERA_LOOK_AT = [
   // 뒷컷은 조립이 끝난 굴착기(1phase_ar_skin)가 주인공이다. 이 메쉬가 쓰는 본은
   // exc_body 계열이라 이름만으로는 본체와 안 갈린다 — 메쉬로 지정한다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, mesh: /_1phase_ar_skin/i },
-  // 에고비스타 사망은 도중에 겨냥이 바뀐다(인게임 확인) — 처음에는 본체(core)를
-  // 잡다가, 대검이 땅에 꽂히는 순간부터 대검으로 넘어간다. 본체 리그가 흩어지는
+  // 에고비스타 사망은 도중에 겨냥이 바뀐다(인게임 확인) — 처음에는 몸통을
+  // 잡다가, 대검이 땅에 꽂히는 순간부터 대검으로 넘어간다. 몸통은 body_skin 의
+  // 척추·골반 본으로 잡는다. core 본은 1.8초부터 화면 밖(y 1.11)으로 튀고,
+  // body_skin 전체 본(119개)을 쓰면 흩어지는 파편을 따라가 중심이 흔들린다. 본체 리그가 흩어지는
   // 클립이라 lookAtFocus 로는 둘 다 못 잡는다(카메라가 y -1.57 까지 내려가는데
   // 대검은 y +0.63 에 멈춰 있어 화면 위 -1.25 로 벗어났다).
   // 대검이 꽂히는 시점은 실측했다 — 1.6초에 y 3.12, 1.8초에 y 0.70, 그 뒤로는
   // 클립이 끝날 때까지 한 프레임도 안 움직인다.
-  { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_core$/i, fixDist: 3 },
+  { boss: /^xbg005/i, clip: /_death$/i,
+    bone: /^xbg005_(pelvis|spine_0[1-4])$/i, fixDist: 3 },
   { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_greatsword_(0[12]|parts_0[12])$/i,
     from: 1.7, blend: 0.5, fixDist: 2.5 },
 ];
