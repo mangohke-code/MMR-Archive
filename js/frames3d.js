@@ -849,10 +849,16 @@ const MANUAL_SEQUENCES = [
     key: 'mbg003_dead_all',
     steps: [/^mbg003_dead$/i, /^mbg003_dead_2$/i],
   },
+  // 사치스러운 거미 그로기 - 사이에 낀 대기 동작 이름이 cc_idle 이다.
+  {
+    key: 'bbg001_cc',
+    steps: [/^bbg001_cc_start_01$/i, /^bbg001_cc_idle$/i, /^bbg001_cc_end_01$/i],
+  },
 ];
 
-// 묶지 않고 낱개로 두는 클립. 인게임에서 어떻게 이어지는지 아직 확인 전이라
-// start/end 를 자동으로 한 덩어리로 만들면 안 되는 것들.
+// 자동으로 묶지 않는 클립. 사치스러운 거미의 cc(그로기)는 사이에 낀 대기 동작
+// 이름이 cc_idle 이라 start/loop/end 규칙에 안 걸린다. 자동 묶음(start+end)을
+// 막아 두고 MANUAL_SEQUENCES 에서 start -> idle -> end 로 손수 잇는다.
 const NO_SEQUENCE = [
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_/i },
 ];
@@ -976,6 +982,8 @@ function findPhaseChangeClip(clips) {
 //   화면에 점으로만 찍힌다. 게임에서는 이펙트가 그 자리를 채우는데 그건 내보내기에 없다.
 const HIDDEN_CLIPS = [
   { boss: /^xba001/i, re: /_appearance_take1$/i },
+  // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
+  { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
 ];
 
 function isHiddenClip(bossKey, name) {
@@ -2996,8 +3004,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         //     groggy_end
         //   death                <- 단독
         // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니라 단독 클립이다.
+        // cc_idle 은 그로기 묶음 안에 들어가는 대기 동작이다. 여기서 걸러내지 않으면
+        // 대기 동작 줄에 한 번, 묶음 밑에 한 번 해서 두 번 나온다.
         const isIdle = c => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(c.name))
-          && !/skill/i.test(c.name || '');
+          && !/skill|(^|_)cc(_|$)/i.test(c.name || '');
         // dead / death 표기가 보스마다 다르다
         const isSolo = c => /(^|_)(dead|death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
@@ -3021,7 +3031,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const n = String(name);
           if (isPhaseSwitchClip(n)) return '페이즈 전환';
           if (isAppearName(n) || isDeadName(n) || isAppearanceClip(n)) return '등장·사망';
-          if (/(^|_)groggy(_|\d|$)/i.test(n)) return '그로기';
+          if (/(^|_)(groggy|cc)(_|\d|$)/i.test(n)) return '그로기';
           if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
           if (/(^|_)skill(_|\d|$)/i.test(n)) return '스킬';
           return '기본';
