@@ -988,6 +988,21 @@ function clipModelYawFor(bossCode, name) {
 // 색은 GLOW_PRESETS 의 key.
 //   프로비던스: 스킬 01 은 오른팔 하나 노랑, 03 은 팔·다리 중 한 세트 파랑,
 //               04 는 팔·다리·어깨 중 두 세트 보라.
+// 전환 연출 도중에 파츠가 통째로 갈리는 보스. at(초) 전에는 from 만, 뒤에는 to 만
+// 보인다. 리그가 알아서 바꿔주지 않는다 — 에고비스타 phase_change 를 재보면
+// 1.5초를 경계로 phase1_feather 가 1.16 x 0.52 에서 0.58 x 0.05 로 납작하게
+// 접히고, phase2_feather 가 0.03 짜리 점에서 0.41 x 0.38 로 펴진다. 둘 다 켜두면
+// 접힌 깃털이 선으로, 안 펴진 깃털이 점으로 남는다.
+const CLIP_PART_SWAP = [
+  { boss: /^xbg005/i, clip: /_phase_change$/i, at: 1.5,
+    from: /_phase1_feather$/i, to: /_phase2_feather$/i },
+];
+
+function clipPartSwapFor(bossCode, name) {
+  return CLIP_PART_SWAP.find(
+    o => o.boss.test(bossCode || '') && o.clip.test(name || '')) || null;
+}
+
 const CLIP_GLOW_PARTS = [
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_01$/i, color: 'yellow', count: 1,
     sets: [/_arm_r_skin_1$/i] },
@@ -1960,6 +1975,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 지금 도는 클립이 한 부위만 내보내는 연출이면 여기에 그 규칙이 들어온다.
     let clipSolo = null;
+    // 전환 도중 파츠 교체. done 은 경계를 넘었는지.
+    let clipSwap = null;
+    let clipSwapDone = false;
     // 연출 중에만 켜지는 발광 파츠. { parts: [정규식], color } 또는 null.
     let clipGlow = null;
     // 같은 스킬의 start -> loop 로 넘어갈 때 고른 세트를 그대로 쓰기 위한 표시.
@@ -1992,6 +2010,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (on && clipSolo) {
           if (clipSolo.hide) on = !clipSolo.hide.test(m.name);
           else if (clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
+        }
+        // 전환 도중 갈리는 파츠. 경계 전에는 옛 것만, 뒤에는 새 것만 보인다.
+        // 새 파츠는 지금 페이즈에서 꺼져 있으므로 켜는 쪽도 여기서 정한다.
+        if (clipSwap) {
+          if (clipSwap.from.test(m.name)) on = !clipSwapDone;
+          else if (clipSwap.to.test(m.name)) on = clipSwapDone;
         }
         // 이 연출에서만 켜지는 발광 파츠 — 평소 꺼둔 것을 잠깐 되살린다
         if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
@@ -2719,6 +2743,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       state.mixer = mixer;
       state.currentClip = clip.name;
       clipSolo = clipSoloPartsFor(bossCode, clip.name);
+      clipSwap = clipPartSwapFor(bossCode, clip.name);
+      clipSwapDone = false;
       pickClipGlow(clip.name);
       applyVisibility();
       if (glowReady) applyGlow();
@@ -3303,6 +3329,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 예약된 클립 교체를 먼저 처리한다(옛 믹서가 이미 멈춘 뒤라 안전하다)
       runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
+      // 파츠가 갈리는 지점을 지났으면 그 순간 바꿔 끼운다
+      if (clipSwap && currentAction) {
+        const past = currentAction.time >= clipSwap.at;
+        if (past !== clipSwapDone) { clipSwapDone = past; applyVisibility(); }
+      }
       if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
       if (!applyCinematicCamera(dt)) {
         updateFollow();
