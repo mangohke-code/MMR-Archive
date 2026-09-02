@@ -344,6 +344,17 @@ const GLOW_PRESETS = [
   { key: 'yellow', label: '노랑',  rgb: [1, 0.500, 0], css: '#FFB000' },
 ];
 
+// 보스마다 실제로 쓰는 색만 낸다. 적어 두지 않은 보스는 전부 낸다.
+//   앨트루이아는 패턴 발광이 파랑 하나뿐이다.
+const GLOW_KEYS_BY_BOSS = {
+  xbg004: ['off', 'blue'],
+};
+
+function glowPresetsFor(bossCode) {
+  const keys = GLOW_KEYS_BY_BOSS[bossCode];
+  return keys ? GLOW_PRESETS.filter(p => keys.includes(p.key)) : GLOW_PRESETS;
+}
+
 // 발광 후처리.
 //
 // 게임은 블룸 threshold 를 1.0~1.05 로 쓴다(캐시에서 확인된 40개 표본 중 33개가 이 범위).
@@ -3058,7 +3069,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!glowMats.length) {
         glowEl.innerHTML = '';
       } else {
-        glowEl.innerHTML = GLOW_PRESETS.map(p =>
+        glowEl.innerHTML = glowPresetsFor(bossCode).map(p =>
           `<button type="button" class="f3d-btn f3d-glow-btn${p.key === 'off' ? ' active' : ''}" data-glow="${p.key}">`
           + (p.css ? `<i style="background:${p.css}"></i>` : '') + p.label + '</button>'
         ).join('');
