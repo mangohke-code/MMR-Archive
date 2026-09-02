@@ -3167,7 +3167,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 발광 재질은 여러 파츠가 나눠 쓴다. 그대로 두면 한 파츠만 켤 수가 없다
     // (앨트루이아는 후광 아홉과 눈 둘이 같은 재질이다). 파츠마다 복제해서 갈라 둔다.
     meshes.forEach(m => {
-      const one = mt => (mt && mt.userData && mt.userData.glowColor) ? mt.clone() : mt;
+      const one = mt => {
+        if (!(mt && mt.userData && mt.userData.glowColor)) return mt;
+        const c = mt.clone();
+        // Material.copy 는 userData 를 JSON 으로 베낀다. 그런데 Color.toJSON 이
+        // 16진수 숫자를 돌려줘서, 기억해 둔 발광색이 복제본에서는 Color 가 아니라
+        // 숫자가 된다. 그걸 emissive.copy() 에 넣으면 r/g/b 가 undefined -> 셰이더
+        // 에서 NaN 이 되고, 블룸의 가우시안 블러가 그 NaN 을 화면 전체로 퍼뜨려서
+        // 뷰어가 통째로 검게 나온다. Color 로 되돌려 둔다.
+        c.userData.glowColor = new THREE.Color(mt.userData.glowColor);
+        return c;
+      };
       m.material = Array.isArray(m.material) ? m.material.map(one) : one(m.material);
     });
 
@@ -3204,7 +3214,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         }
         if (!paintTargets.includes(mt)) {
           // 패턴과 무관한 상시 발광(몸체 띠 등)은 늘 파일 값 그대로
-          mt.emissive.copy(orig);
+          mt.emissive.set(orig);
           mt.emissiveIntensity = mt.userData.glowStrength;
         } else if (glowMode === 'off') {
           // 평소 모습 — 패턴 색 파츠는 빛나지 않는다. 파일에 보라가 들어 있는 건
