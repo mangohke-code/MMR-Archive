@@ -82,34 +82,49 @@ const PART_GROUPS = [
   ['연출', /(^|_)([a-z])?[FCP]_skin(_\d+)?$/],
 ];
 
-// 좌우 이름이 어긋난 메쉬를 맞바꾼다. 원본 이름이 그대로면 목록에서 짝이 안 맞아
-// 보인다 — 프로비던스 어깨는 늘 보이는 쪽이 shoulder_l_skin / shoulder_r_skin_1,
-// 발광 파츠가 shoulder_r_skin / shoulder_l_skin_1 로 좌우가 엇갈려 있다.
-// 팔은 한 메쉬의 프리미티브 넷이 _2.._5 로 나와서 다른 부위(어깨·다리)와 번호가
-// 따로 논다. 어깨와 같은 꼴로 다시 매긴다 — 본체는 꼬리표 없이, 발광은 _1.
-//   _4 (5664정점, xbg002_arm)          본체       -> arm_?_skin
-//   _2 (2503정점, fresnel_purple)      패턴 발광  -> arm_?_skin_1
-//   _3 ( 126정점, 재질 없음)                       -> arm_?_skin_2
-//   _5 ( 126정점, xbg002_shoulder)                 -> arm_?_skin_3
+// 이름이 겹치는 메쉬의 이름을 재질로 다시 정한다.
+//
+// three.js 는 이름이 겹치면 불러온 순서대로 _1, _2 ... 를 붙인다. Draco 해제가
+// 비동기라 그 순서가 매번 같지 않아서, 새로고침할 때마다 번호가 뒤바뀌었다.
+// 재질 이름은 파일에 든 값이라 순서와 무관하다 — 그걸로 집는다.
+//
+// 프로비던스는 부위마다 "본체 + 패턴 발광" 두 겹인데, 원본 이름이 좌우·번호 모두
+// 제각각이라 여기서 한 규칙으로 맞춘다.
+//   본체 xbg002_arm / xbg002_shoulder / xbg002_head
+//   발광 fx_xbg002_part_fresnel_purple
 const MESH_RENAME = [
-  { boss: /^xbg002/i, from: 'xbg002_shoulder_r_skin', to: 'xbg002_shoulder_r_skin_1' },
-  { boss: /^xbg002/i, from: 'xbg002_shoulder_r_skin_1', to: 'xbg002_shoulder_r_skin' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_4', to: 'xbg002_arm_l_skin' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_2', to: 'xbg002_arm_l_skin_1' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_3', to: 'xbg002_arm_l_skin_2' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_l_skin_5', to: 'xbg002_arm_l_skin_3' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_4', to: 'xbg002_arm_r_skin' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_2', to: 'xbg002_arm_r_skin_1' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_3', to: 'xbg002_arm_r_skin_2' },
-  { boss: /^xbg002/i, from: 'xbg002_arm_r_skin_5', to: 'xbg002_arm_r_skin_3' },
+  // 프로비던스 팔 — 한 메쉬의 프리미티브 넷. 본체는 꼬리표 없이, 발광은 _1.
+  { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'xbg002_arm', to: 'xbg002_arm_l_skin' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_arm_l_skin_1' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: '', to: 'xbg002_arm_l_skin_2' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'xbg002_shoulder', to: 'xbg002_arm_l_skin_3' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_r_skin(_\d+)?$/i, mat: 'xbg002_arm', to: 'xbg002_arm_r_skin' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_r_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_arm_r_skin_1' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_r_skin(_\d+)?$/i, mat: '', to: 'xbg002_arm_r_skin_2' },
+  { boss: /^xbg002/i, re: /^xbg002_arm_r_skin(_\d+)?$/i, mat: 'xbg002_shoulder', to: 'xbg002_arm_r_skin_3' },
+  // 어깨 — 원본은 좌우가 엇갈려 있었다. 재질로 집으면 저절로 짝이 맞는다.
+  { boss: /^xbg002/i, re: /^xbg002_shoulder_l_skin(_\d+)?$/i, mat: 'xbg002_shoulder', to: 'xbg002_shoulder_l_skin' },
+  { boss: /^xbg002/i, re: /^xbg002_shoulder_l_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_shoulder_l_skin_1' },
+  { boss: /^xbg002/i, re: /^xbg002_shoulder_r_skin(_\d+)?$/i, mat: 'xbg002_shoulder', to: 'xbg002_shoulder_r_skin' },
+  { boss: /^xbg002/i, re: /^xbg002_shoulder_r_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_shoulder_r_skin_1' },
+  // 다리 — 발광 쪽이 꼬리표 없는 이름을 쓴다. 여긴 원래 이름을 그대로 지킨다.
+  { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_l_skin001' },
+  { boss: /^xbg002/i, re: /^xbg002_legs_l_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_l_skin001_1' },
+  { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_legs_r_skin001' },
+  { boss: /^xbg002/i, re: /^xbg002_legs_r_skin001(_\d+)?$/i, mat: 'xbg002_head', to: 'xbg002_legs_r_skin001_1' },
 ];
 
-// 맞바꾸기라 한꺼번에 정해야 한다. 하나씩 바꾸면 앞에서 바꾼 이름을 뒤에서 또 집는다.
+function meshMatName(m) {
+  const mt = Array.isArray(m.material) ? m.material[0] : m.material;
+  return (mt && mt.name) || '';
+}
+
+// 한꺼번에 정해서 한 번에 갈아 끼운다. 하나씩 바꾸면 앞에서 바꾼 이름을 뒤에서 또 집는다.
 function renameMeshes(bossCode, meshes) {
   const rules = MESH_RENAME.filter(o => o.boss.test(bossCode || ''));
   if (!rules.length) return;
   const next = meshes.map(m => {
-    const hit = rules.find(o => o.from === m.name);
+    const hit = rules.find(o => o.re.test(m.name || '') && o.mat === meshMatName(m));
     return hit ? hit.to : m.name;
   });
   meshes.forEach((m, i) => { m.name = next[i]; });
