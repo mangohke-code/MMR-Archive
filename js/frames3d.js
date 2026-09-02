@@ -632,7 +632,8 @@ const CAMERA_FIX = [
   // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
   { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
   // 에고비스타도 같다 — 등장 담김 0~99% 로 널뛰고 사망은 내내 0% 였다.
-  { boss: /^xbg005/i, lookAtFocus: true, idleAngle: true, rescue: true },
+  // flip - 기본 시점의 반대편에서 잡는다. 등장·사망이 뒷모습이라 뒤집었다.
+  { boss: /^xbg005/i, lookAtFocus: true, idleAngle: true, idleFlip: true, rescue: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -881,6 +882,10 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_shot_(?:start|fire|end)_[lr]\d+_\d+$/i, boss: /^xba001/i, phase: '1' },
   // 베히모스는 3페이즈에서 죽는다
   { re: /_dead(_\d+|_all)?$/i, boss: /^mbg003/i, phase: '3' },
+  // 에고비스타 - 1페이즈로 등장해서 2페이즈에서 죽는다. 전환 연출은 넘어간 쪽에 둔다.
+  { re: /_appearance$/i, boss: /^xbg005/i, phase: '1' },
+  { re: /_death$/i, boss: /^xbg005/i, phase: '2' },
+  { re: /_phase_change$/i, boss: /^xbg005/i, phase: '2' },
 ];
 
 function clipPhaseOverride(bossCode, name) {
@@ -959,6 +964,12 @@ const CLIP_GLOW_PARTS = [
     sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001_1$/i] },
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_04$/i, color: 'purple', count: 2,
     sets: [/_arm_[lr]_skin_1$/i, /_legs_[lr]_skin001_1$/i, /_shoulder_[lr]_skin_1$/i] },
+  // 앨트루이아 — 파츠가 늘 보이는 대신 이 스킬 동안만 빛난다.
+  //   02 는 성녀의 후광 아홉, 04 는 두 눈. 무작위 고름 없이 그 세트를 그대로 쓴다.
+  { boss: /^xbg004/i, clip: /_skill_(?:start|loop)_02$/i, color: 'blue', count: 1,
+    sets: [/_helm_\d+_skin_1$/i] },
+  { boss: /^xbg004/i, clip: /_skill_(?:start|loop)_04$/i, color: 'blue', count: 1,
+    sets: [/_sdf_eye_[lr]_skin_1$/i] },
 ];
 
 function clipGlowRuleFor(bossCode, name) {
@@ -2342,6 +2353,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
       if (cinematic.idleAngle && hasAim && homeCamPos && homeTarget) {
         camIdleDir.copy(homeCamPos).sub(homeTarget);
+        if (cinematic.idleFlip) camIdleDir.x = -camIdleDir.x, camIdleDir.z = -camIdleDir.z;
         if (camIdleDir.lengthSq() > 1e-12) {
           camIdleDir.normalize();
           const d = camera.position.distanceTo(camPull) * cinematic.dist;
@@ -2607,6 +2619,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
           lookAt: lookAtBones.length ? lookAtBones : null, idleAngle: !!fix.idleAngle,
+          idleFlip: !!fix.idleFlip,
           dist: fix.dist || 1,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
         rescueW = 0;
@@ -3035,9 +3048,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // ── 발광색 ─────────────────────────────────────────────────────
     // 기본은 꺼둔다. 파츠 자체는 그대로 보이고 빛만 안 낸다.
     // "원본" 은 파일에 든 값, 나머지는 패턴별 색으로 바꿔 칠한다.
+    // 발광 재질은 여러 파츠가 나눠 쓴다. 그대로 두면 한 파츠만 켤 수가 없다
+    // (앨트루이아는 후광 아홉과 눈 둘이 같은 재질이다). 파츠마다 복제해서 갈라 둔다.
+    meshes.forEach(m => {
+      const one = mt => (mt && mt.userData && mt.userData.glowColor) ? mt.clone() : mt;
+      m.material = Array.isArray(m.material) ? m.material.map(one) : one(m.material);
+    });
+
     const glowMats = [];
+    const glowOwner = new Map();
     meshes.forEach(m => [].concat(m.material).forEach(mt => {
-      if (mt.userData && mt.userData.glowColor && !glowMats.includes(mt)) glowMats.push(mt);
+      if (!(mt.userData && mt.userData.glowColor)) return;
+      if (!glowMats.includes(mt)) glowMats.push(mt);
+      glowOwner.set(mt, m);
     }));
 
     // 패턴에 따라 색이 바뀌는 건 fresnel 계열이다. 그런 재질이 없으면 전부에 칠한다.
@@ -3049,17 +3072,24 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyGlow() {
       glowMats.forEach(mt => {
         const orig = mt.userData.glowColor;
+        // 이 연출에서 켤 파츠가 정해져 있으면 그 파츠만 칠하고 나머지는 재운다.
+        if (clipGlow && paintTargets.includes(mt)) {
+          const owner = glowOwner.get(mt);
+          const on = owner && clipGlow.parts.some(re => re.test(owner.name || ''));
+          const p = on && GLOW_PRESETS.find(x => x.key === clipGlow.color);
+          if (p && p.rgb) {
+            mt.emissive.setRGB(p.rgb[0], p.rgb[1], p.rgb[2]);
+            mt.emissiveIntensity = mt.userData.glowStrength;
+          } else {
+            mt.emissive.setRGB(0, 0, 0);
+          }
+          mt.needsUpdate = true;
+          return;
+        }
         if (!paintTargets.includes(mt)) {
           // 패턴과 무관한 상시 발광(몸체 띠 등)은 늘 파일 값 그대로
           mt.emissive.copy(orig);
           mt.emissiveIntensity = mt.userData.glowStrength;
-        } else if (clipGlow) {
-          // 연출 중에만 켜지는 색 — 사용자가 고른 색보다 이쪽이 먼저다.
-          const p = GLOW_PRESETS.find(x => x.key === clipGlow.color);
-          if (p && p.rgb) {
-            mt.emissive.setRGB(p.rgb[0], p.rgb[1], p.rgb[2]);
-            mt.emissiveIntensity = mt.userData.glowStrength;
-          }
         } else if (glowMode === 'off') {
           // 평소 모습 — 패턴 색 파츠는 빛나지 않는다. 파일에 보라가 들어 있는 건
           // 패턴 중 한 색일 뿐이라, 그걸 상시로 켜두면 늘 보라로 빛나 보인다.
