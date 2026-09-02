@@ -148,6 +148,9 @@ const MESH_RENAME = [
   { boss: /^xbg005/i,
     re: /^(xbg005_(?:core_skin|phase[12]_feather|[lr]_coverts_skin|[lr]_pauldrons_skin))(_\d+)?$/i,
     bySuffix: {} },
+  // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
+  // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
+  { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
 ];
 
 function meshMatName(m) {
@@ -2605,8 +2608,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 걸린다 — 그러면 페이즈 태그 때문에 전환 클립까지 딸려 재생된다.
     // 온리 원은 idle_1phase / idle_2phase 처럼 페이즈 태그가 이름 끝에 온다.
     // 그대로 보면 대기 동작으로 안 잡혀서, 페이즈를 바꿔도 1페이즈 idle 이 계속 돌았다.
+    // cc 는 경직 상태다(사치스러운 거미: cc_start_01 -> cc_idle -> cc_end_01).
+    // 그 안의 대기 동작이 이름 순으로 idle_01 보다 앞이라, 걸러내지 않으면 보스를
+    // 열자마자 경직 자세로 서 있게 된다.
     const isPlainIdle = n => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(n))
-      && !/air|skill/i.test(n || '');
+      && !/air|skill|(^|_)cc(_|$)/i.test(n || '');
 
     function findIdleClipForPhase(phase) {
       const list = gltf.animations || [];
@@ -2991,7 +2997,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const n = String(name);
           if (isPhaseSwitchClip(n)) return '페이즈 전환';
           if (isAppearName(n) || isDeadName(n) || isAppearanceClip(n)) return '등장·사망';
-          if (/(^|_)groggy(_|\d|$)/i.test(n)) return '그로기';
+          if (/(^|_)(groggy|cc)(_|\d|$)/i.test(n)) return '그로기';
           if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
           if (/(^|_)skill(_|\d|$)/i.test(n)) return '스킬';
           return '기본';
