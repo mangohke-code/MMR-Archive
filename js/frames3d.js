@@ -148,6 +148,18 @@ const MESH_RENAME = [
   { boss: /^xbg005/i,
     re: /^(xbg005_(?:core_skin|phase[12]_feather|[lr]_coverts_skin|[lr]_pauldrons_skin))(_\d+)?$/i,
     bySuffix: {} },
+  // 애니힐리오 1페이즈 - 원본 메쉬 이름이 xbga03_ 로 잘못 박혀 있다(xba003 오타).
+  // 그대로 두면 보스 코드가 안 떨어져 나가서 파츠 이름이 통째로 나온다.
+  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_skin(_\d+)?$/i,
+    base: 'xba003_1phase_skin', bySuffix: {} },
+  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_dl_skin(_\d+)?$/i,
+    base: 'xba003_1phase_dl_skin', bySuffix: {} },
+  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_dr_skin(_\d+)?$/i,
+    base: 'xba003_1phase_dr_skin', bySuffix: {} },
+  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_ul_skin(_\d+)?$/i,
+    base: 'xba003_1phase_ul_skin', bySuffix: {} },
+  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_ur_skin(_\d+)?$/i,
+    base: 'xba003_1phase_ur_skin', bySuffix: {} },
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
@@ -185,6 +197,19 @@ function renameMeshes(bossKey, meshes) {
 const PART_LABELS = {
   bbg001: {
     'egg_skin': '알집',
+  },
+  // 애니힐리오. 1·2페이즈가 파일은 다르지만 코드는 같아서 한 표에 같이 적는다.
+  xba003: {
+    '1phase_skin': '몸통',
+    '1phase_dl_skin': '난쟁이의 상자 Ⅰ',
+    '1phase_dr_skin': '난쟁이의 상자 Ⅱ',
+    '1phase_ul_skin': '난쟁이의 상자 Ⅲ',
+    '1phase_ur_skin': '난쟁이의 상자 Ⅳ',
+    'turret01': '마녀의 까마귀 Ⅰ',
+    'turret02': '마녀의 까마귀 Ⅱ',
+    'turret03': '마녀의 까마귀 Ⅲ',
+    'turret04': '마녀의 까마귀 Ⅳ',
+    'turret05': '마녀의 까마귀 Ⅴ',
   },
   xbg004: {
     'helm_01_skin': '성녀의 후광 1',
@@ -237,6 +262,8 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^xbg004/i, re: /_(helm_\d+_skin_1|sdf_eye_[lr]_skin_1)$/i },
   // 사치스러운 거미 알집 - 위 CLIP_SOLO_PARTS 설명 참고.
   { boss: /^bbg001_rich/i, re: /_egg_skin$/i },
+  // 애니힐리오 마녀의 까마귀 III - 파츠는 있지만 보스전에서 나온 적이 없다.
+  { boss: /^xba003_2phase/i, re: /_turret03$/i },
 ];
 
 function isDefaultOffMesh(bossKey, name) {
@@ -293,12 +320,17 @@ function dedupeClipNames(clips) {
   });
 }
 
-function detectBossCode(meshNames) {
+function detectBossCode(meshNames, url) {
   for (const name of meshNames) {
     const m = (name || '').match(/^([a-z]{2,4}\d{3})/i);
     if (m) return m[1].toLowerCase();
   }
-  return null;
+  // 메쉬 이름이 코드 꼴이 아닌 파일이 있다 — 애니힐리오 1페이즈는 xbga03 으로
+  // 잘못 박혀 있다(xba003 오타). 그러면 파일 이름에서 찾는다.
+  let stem = String(url || '').split(/[?#]/)[0];
+  stem = stem.slice(stem.lastIndexOf('/') + 1);
+  const f = stem.match(/^([a-z]{2,4}\d{3})/i);
+  return f ? f[1].toLowerCase() : null;
 }
 
 // 보스 전체(모델 통째로) 회전/위치/크기 보정 - 보스마다 원본 좌표축이 조금씩 달라서
@@ -1357,7 +1389,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const meshNamesForBossCode = [];
     gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
     dedupeClipNames(gltf.animations || []);
-    const bossCode = detectBossCode(meshNamesForBossCode);
+    const bossCode = detectBossCode(meshNamesForBossCode, modelUrl);
     // 규칙 표는 파일 이름까지 본다(변종 보스 구분). 표 안 쓰는 쪽(파츠 이름 자르기,
     // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
     const bossKey = bossKeyFrom(bossCode, modelUrl);
