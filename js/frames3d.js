@@ -160,6 +160,8 @@ const MESH_RENAME = [
     base: 'xba003_1phase_ul_skin', bySuffix: {} },
   { boss: /^xba003_1phase/i, re: /^xbga03_1phase_ur_skin(_\d+)?$/i,
     base: 'xba003_1phase_ur_skin', bySuffix: {} },
+  // 애니힐리오 2페이즈 - 노드와 메쉬가 이름을 나눠 가져 붙는 꼬리표를 뗀다.
+  { boss: /^xba003_2phase/i, re: /^(xba003_1phase_magiccarpet_skin)(_\d+)?$/i, bySuffix: {} },
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
@@ -205,6 +207,7 @@ const PART_LABELS = {
     '1phase_dr_skin': '난쟁이의 상자 Ⅱ',
     '1phase_ul_skin': '난쟁이의 상자 Ⅲ',
     '1phase_ur_skin': '난쟁이의 상자 Ⅳ',
+    '1phase_magiccarpet_skin': '마법의 양탄자',
     'turret01': '마녀의 까마귀 Ⅰ',
     'turret02': '마녀의 까마귀 Ⅱ',
     'turret03': '마녀의 까마귀 Ⅲ',
@@ -290,7 +293,18 @@ function comparePartKeys(a, b) {
   return a[1] - b[1];
 }
 
-function partGroupLabel(name) {
+// 이름만으로는 안 갈리는 파츠. 애니힐리오 1페이즈 몸통은 이름이 그냥 1phase_skin
+// 이고, 마법의 양탄자는 magiccarpet 이라 carpet 앞에 밑줄이 없어서 날개에도 안
+// 걸린다. 공용 정규식을 느슨하게 하면 다른 보스까지 흔들려서 여기서 바로잡는다.
+const PART_GROUP_OVERRIDES = [
+  { boss: /^xba003_1phase/i, re: /_1phase_skin$/i, group: '몸통' },
+  { boss: /^xba003_2phase/i, re: /_magiccarpet_skin$/i, group: '몸통' },
+];
+
+function partGroupLabel(bossKey, name) {
+  const o = PART_GROUP_OVERRIDES.find(
+    x => x.boss.test(bossKey || '') && x.re.test(name || ''));
+  if (o) return o.group;
   for (const [label, re] of PART_GROUPS) if (re.test(name || '')) return label;
   return '기타';
 }
@@ -2171,7 +2185,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (!g) { g = { label, items: [] }; groups.push(g); }
         return g;
       };
-      meshes.forEach(m => findGroup(partGroupLabel(m.name)).items.push(m));
+      meshes.forEach(m => findGroup(partGroupLabel(bossKey, m.name)).items.push(m));
       // 그룹 안에서 부위 -> 좌우 -> 번호 순으로 세운다
       groups.forEach(g => {
         g.items.forEach((m, i) => { m.__order = i; });
