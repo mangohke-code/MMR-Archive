@@ -2836,6 +2836,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function nextStepClip(clip) {
       const m = (clip.name || '').match(SEQ_RE);
       if (!m || m[2].toLowerCase() !== 'start') return null;
+      // 묶음을 재생 중이면 실제로 다음에 올 클립이 큐에 들어 있다. 이름 규칙으로
+      // 짚으면 틀리는 경우가 있다 — 사치스러운 거미 그로기는 다음이 cc_idle 인데
+      // 이름만 보면 cc_end_01 을 집는다(loop/fire/end 순으로 찾기 때문).
+      if (seqQueue.length) return seqQueue[0].clip;
       const prefix = m[1], suffix = m[3] || '';
       const list = gltf.animations || [];
       for (const kind of ['loop', 'fire', 'end']) {
