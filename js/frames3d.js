@@ -183,6 +183,9 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  bbg001: {
+    'egg_skin': '알집',
+  },
   xbg004: {
     'helm_01_skin': '성녀의 후광 1',
     'helm_02_skin': '성녀의 후광 2',
@@ -232,6 +235,8 @@ const DEFAULT_OFF_MESHES = [
   // 앨트루이아 - 발광 층(fx_xbg004_zeus_parts_glow 재질)은 평소 꺼둔다. 밑에 본체 층이
   // 그대로 있어서 파츠가 사라지지는 않고, 빛나야 할 때만 CLIP_GLOW_PARTS 가 켠다.
   { boss: /^xbg004/i, re: /_(helm_\d+_skin_1|sdf_eye_[lr]_skin_1)$/i },
+  // 사치스러운 거미 알집 - 위 CLIP_SOLO_PARTS 설명 참고.
+  { boss: /^bbg001_rich/i, re: /_egg_skin$/i },
 ];
 
 function isDefaultOffMesh(bossKey, name) {
@@ -849,6 +854,15 @@ const MANUAL_SEQUENCES = [
     key: 'mbg003_dead_all',
     steps: [/^mbg003_dead$/i, /^mbg003_dead_2$/i],
   },
+  // 사치스러운 거미 두 번째 스킬. 파일 이름의 끝 번호로 묶으면 02, 03 에는 start
+  // 가 없어서 낱개로 흩어진다. 인게임에서는 fire_02 -> loop_03 -> fire_01 로
+  // 이어지고, 마지막 fire_01 은 skill_01 과 같은 클립을 다시 쓴다.
+  // 실측도 같은 얘기다 - fire_02 끝(기본 자세에서 0.463)과 loop_03 끝(0.448)은
+  // 기본 자세로 안 돌아오는데, fire_01 끝만 0.019 로 돌아온다.
+  {
+    key: 'bbg001_skill_02',
+    steps: [/^bbg001_skill_fire_02$/i, /^bbg001_skill_loop_03$/i, /^bbg001_skill_fire_01$/i],
+  },
   // 사치스러운 거미 그로기 - 사이에 낀 대기 동작 이름이 cc_idle 이다.
   {
     key: 'bbg001_cc',
@@ -1016,6 +1030,11 @@ const CLIP_SOLO_PARTS = [
   // 크게 벗어나, 그 본에 물린 정점이 바닥을 뚫는 바늘로 늘어난다. 압축 전 원본에서도
   // 같은 값이 나온다. 그 클립에서만 포탑을 감춘다.
   { boss: /^mbg003/i, clip: /_2phase_jump_end$/i, hide: /_catpult_skin/i },
+  // 사치스러운 거미 알집은 변종 전용 스킬에서만 배에 붙어 움직인다. 다른 클립에는
+  // 알집 본을 건드리는 트랙이 아예 없어서 원점에 못 박힌 채 남고, 몸이 그만큼
+  // 멀어지면(등장 2.12, skill_fire_02 0.62 - 몸통 지름이 0.69다) 허공에 뜬다.
+  // 그래서 평소에는 끄고(DEFAULT_OFF_MESHES) 이 클립들에서만 되살린다.
+  { boss: /^bbg001_rich/i, clip: /_rich_skill0[12]_/i, show: /_egg_skin$/i },
 ];
 
 // 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
@@ -1075,6 +1094,7 @@ function clipSoloPartsFor(bossKey, name) {
     if (!o.boss.test(bossKey || '')) continue;
     const m = (name || '').match(o.clip);
     if (!m) continue;
+    if (o.show) return { show: o.show };
     if (o.hide) return { hide: o.hide };
     return { group: o.group, keep: o.keep(m) };
   }
@@ -2087,9 +2107,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function applyVisibility() {
       meshes.forEach(m => {
         let on = enabledMeshes.has(m.partKey);
-        if (on && clipSolo) {
-          if (clipSolo.hide) on = !clipSolo.hide.test(m.name);
-          else if (clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
+        if (clipSolo) {
+          // 이 연출에서만 켜는 파츠 — 평소 꺼둔 것을 되살린다.
+          if (clipSolo.show && clipSolo.show.test(m.name)) on = true;
+          else if (on && clipSolo.hide) on = !clipSolo.hide.test(m.name);
+          else if (on && clipSolo.group
+                   && clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
         }
         // 전환 도중 갈리는 파츠. 경계 전에는 옛 것만, 뒤에는 새 것만 보인다.
         // 새 파츠는 지금 페이즈에서 꺼져 있으므로 켜는 쪽도 여기서 정한다.
