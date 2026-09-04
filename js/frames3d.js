@@ -1047,6 +1047,7 @@ const HIDDEN_CLIPS = [
   // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
   // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
+  { boss: /^bbg001_rich/i, re: /^bbg001_shot_/i },
 ];
 
 function isHiddenClip(bossKey, name) {
@@ -1063,6 +1064,12 @@ const CLIP_LABEL_FIX = [
   { boss: /^mbg003/i, re: /_dead_all$/i, label: 'dead' },
   { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
   { boss: /^mbg003/i, re: /_1phase_take$/i, label: '1phase_take1+2' },
+  // 사치스러운 거미 - 짝이던 idle_02 / dead_01_2 를 뺐고 cc 는 start·end 가
+  // 하나씩뿐이라, 뒤에 붙은 번호가 더는 아무것도 안 가른다.
+  { boss: /^bbg001_rich/i, re: /^bbg001_idle_01$/i, label: 'idle' },
+  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, label: 'dead' },
+  { boss: /^bbg001_rich/i, re: /^bbg001_cc_start_01$/i, label: 'cc_start' },
+  { boss: /^bbg001_rich/i, re: /^bbg001_cc_end_01$/i, label: 'cc_end' },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
