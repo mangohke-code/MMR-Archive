@@ -2777,6 +2777,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 묶음을 재생하면 start -> loop -> end 순서로 아래쪽에 차례로 불이 들어온다.
     // markActiveClip 이 호이스팅돼서 먼저 불리므로 선언은 여기 위쪽에 둔다.
     let activeMainKey = null;
+    // 같은 클립을 두 묶음이 나눠 쓰면 버튼이 둘 생긴다 — 사치스러운 거미의
+    // skill_fire_01 은 skill_01 과 skill_02 에 모두 들어 있다. 키만 보고 불을
+    // 켜면 둘 다 켜져서, 엉뚱한 묶음 버튼에 진행 막대가 차고 누른 표시도 같이
+    // 들어왔다. 지금 어느 묶음을 재생 중인지 같이 본다(묶음 밖 버튼은 그대로).
+    // 아래 markActiveClip 은 호이스팅돼서 playSingle 이 먼저 부른다 — 선언이
+    // 그쪽보다 뒤에 있으면 TDZ 에 걸린다.
+    let uiSeqKey = null;
 
     // 클립 재생. 시퀀스(start->loop->end)를 위해 남은 단계를 큐로 들고 간다.
     // markActiveClip 은 아래 UI 블록에서 함수 선언으로 정의된다(호이스팅됨).
@@ -2963,13 +2970,16 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 전환 클립의 끝 자세로 미리 맞춰 주므로 끼워 넣지 않아도 모습은 맞다.
     function playSequence(seq) {
       rerollClipGlow();
+      uiSeqKey = seq.key;
       seqQueue = seq.steps.slice(1);
       playClipObject(seq.steps[0].clip, { repeat: 1, keepQueue: true });
       markActiveClip(seq.key);
     }
 
-    function playSingle(clip) {
+    // seqKey - 묶음 밑의 하위 버튼을 눌러서 온 경우 그 묶음 이름.
+    function playSingle(clip, seqKey) {
       rerollClipGlow();
+      uiSeqKey = seqKey || null;
       seqQueue = [];
       playClipObject(clip, { repeat: isOneShot(clip.name) ? 1 : 0 });
     }
@@ -3014,17 +3024,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 아무것도 그리지 않고 숨긴 채로 둔다.
     // 이 함수는 호이스팅되어 위쪽 playSingle() 에서 먼저 불린다. 그래서 컨테이너를
     // 바깥 const 로 잡아두면 TDZ 에 걸린다 — 부를 때마다 직접 찾는다.
+    const seqMatch = b => !b.dataset.seq || b.dataset.seq === uiSeqKey;
+
     function markActiveClip(key) {
       if (key !== undefined) activeMainKey = key;
       document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(b => {
-        b.classList.toggle('active', activeMainKey !== null && b.dataset.key === activeMainKey);
+        b.classList.toggle('active',
+          activeMainKey !== null && b.dataset.key === activeMainKey && seqMatch(b));
       });
     }
 
     // 지금 실제로 도는 클립. 묶음을 재생하면 소속 클립에 차례로 불이 들어온다.
     function markPlayingClip(name) {
       document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(b => {
-        const on = b.dataset.key === name;
+        const on = b.dataset.key === name && seqMatch(b);
         b.classList.toggle('playing', on);
         if (!on) b.style.removeProperty('--anim-progress');
       });
@@ -3084,8 +3097,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const inSeq = new Set();
         seqs.forEach(sq => { if (!sq.synthetic) sq.steps.forEach(st => inSeq.add(st.clip.name)); });
 
-        const mkBtn = (key, text, time, cls) =>
-          `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}" data-key="${key}">`
+        const mkBtn = (key, text, time, cls, seq) =>
+          `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}"`
+          + ` data-key="${key}"${seq ? ` data-seq="${seq}"` : ''}>`
           + `<span class="anim-name">${text}</span><span class="anim-time">${time}</span></button>`;
 
         // 종류별로 나눈다. 배열 순서가 곧 화면 순서다 —
@@ -3171,7 +3185,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
                 if (seen.has(st.clip.name)) return;
                 seen.add(st.clip.name);
                 html += mkBtn(st.clip.name, labelOf(st.clip.name, label(st.clip.name)),
-                  secs(st.clip.duration), 'is-child');
+                  secs(st.clip.duration), 'is-child', sq.key);
               });
             }
             push(sq.key, html, seqNo(sq.key));
@@ -3245,7 +3259,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               if (sq) playSequence(sq);
               else {
                 const clip = clips.find(c => c.name === key);
-                if (clip) playSingle(clip);
+                if (clip) playSingle(clip, btn.dataset.seq || null);
               }
             });
           });
