@@ -1044,6 +1044,9 @@ const HIDDEN_CLIPS = [
   { boss: /^xba001/i, re: /_appearance_take1$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
+  // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
+  // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
+  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
 ];
 
 function isHiddenClip(bossKey, name) {
