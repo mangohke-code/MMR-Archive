@@ -4449,6 +4449,9 @@
     vertical-align: middle;
   }
 
+  /* 약점이 둘인 스테이지는 아이콘이 나란히 온다. 붙어 버리지 않게 사이만 띄운다. */
+  .stage-code-icon + .stage-code-icon { margin-left: 3px; }
+
   #stage-table tr:last-child td {
     border-bottom: none;
   }

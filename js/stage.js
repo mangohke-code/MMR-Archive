@@ -183,13 +183,16 @@
           <td class="blurable-cell">${String(boss ?? '-')}</td>
           <td style="text-align:center;">${
             (() => {
-              const val = String(code ?? '');
+              // 약점 코드가 둘인 스테이지가 있다(22·23·25챕터 EX). 쉼표로 나눠 적으면
+              // 아이콘을 나란히 놓는다 — 전에는 둘을 합쳐 그린 그림을 따로 넣었다.
+              const val = String(code ?? '').trim();
               if (!val) return '-';
-              const iconUrl = stageIconImgData['우월코드'] && stageIconImgData['우월코드'][val]
-                ? stageIconImgData['우월코드'][val] : null;
-              return iconUrl
-                ? `<img src="${iconUrl}" alt="${val}" class="stage-code-icon" title="${val}">`
-                : val;
+              const table = stageIconImgData['우월코드'] || {};
+              const parts = val.split(',').map(v => v.trim()).filter(Boolean);
+              if (!parts.length) return '-';
+              return parts.map(one => table[one]
+                ? `<img src="${table[one]}" alt="${one}" class="stage-code-icon" title="${one}">`
+                : one).join('');
             })()
           }</td>
           <td>${String(s['스토리'] ?? '-')}</td>
