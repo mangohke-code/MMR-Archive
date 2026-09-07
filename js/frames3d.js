@@ -1017,11 +1017,22 @@ function clipPhaseOverride(bossKey, name) {
   return o ? o.phase : null;
 }
 
-// 클립 이름에 붙은 페이즈 번호. "xbg005_2phase_idle_01" -> "2"
+// 이름에 붙은 페이즈 번호. 표기가 보스마다 다르다.
+//   xbg005_2phase_idle_01      -> 2   (숫자가 앞)
+//   ebg001_phase001_idle       -> 1   (숫자가 뒤, 자리수 채움)
+//   xbg005_phase1_feather      -> 1
+// 앞뒤로 밑줄(또는 끝)을 요구해서 xba003_12phase_appeanrance 처럼 두 페이즈를
+// 잇는 연출이 "12페이즈" 로 잡히지 않게 한다 — 그건 페이즈가 없는 클립이다.
+const PHASE_TAG_RE = /(?:^|_)(\d)phase(?:_|$)|(?:^|_)phase0*(\d+)(?:_|$)/i;
+
+function phaseTag(name) {
+  const m = (name || '').match(PHASE_TAG_RE);
+  if (!m) return null;
+  return String(parseInt(m[1] || m[2], 10));
+}
+
 function clipPhase(name) {
-  // 페이즈 태그가 이름 끝에 오는 보스가 있다 — 온리 원은 idle_1phase / idle_2phase 다.
-  const m = (name || '').match(/(?:^|_)(\d)phase(?:_|$)/i);
-  return m ? m[1] : null;
+  return phaseTag(name);
 }
 
 // 페이즈 전환 클립. 에고비스타는 페이즈가 파일로 갈리지 않고 한 모델 안에서
@@ -1736,11 +1747,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 이 있다. 그런데 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적(교체)이지만,
     // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이름 패턴만
     // 으로는 구분이 안 되므로 PHASE_MODE_OVERRIDES에 보스별로 등록해서 정확히 지정한다.
-    const meshPhase = name => {
-      const m = (name || '').match(/(\d+)phase|phase0*(\d+)/i);
-      if (!m) return null;
-      return String(parseInt(m[1] || m[2], 10));
-    };
+    const meshPhase = phaseTag;
     const basePose = capturePose(gltf.scene);
 
     // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.
