@@ -70,7 +70,7 @@ const PART_GROUPS = [
   ['팔',   /(^|_)arm/i],
   ['다리', /(^|_)(leg|foot|calf|thigh)/i],
   ['날개', /(^|_)(wing|feather|remiges|carpet|halo|orbiter|rocket)/i],
-  ['무기', /(^|_)(weapon|gun|rifle|turret|shield|sword|magazine|missile|launcher|led)/i],
+  ['무기', /(^|_)(weapon|gun|rifle|turret|shield|sword|magazine|missile|launcher|cannon|led)/i],
   // parts_ul / parts_dr 처럼 방향만 붙은 부속 파츠
   ['부속', /(^|_)parts?(_|\d|$)/i],
   // 거대 질량체(eba004) — main 이 몸체 전부고, 나머지 넷은 부위가 아니라
@@ -304,8 +304,6 @@ function comparePartKeys(a, b) {
 const PART_GROUP_OVERRIDES = [
   { boss: /^xba003_1phase/i, re: /_1phase_skin$/i, group: '몸통' },
   { boss: /^xba003_2phase/i, re: /_magiccarpet_skin$/i, group: '몸통' },
-  // 아일랜드 이터 캐논. 이름이 parts_ 로 시작해서 부속으로 걸린다.
-  { boss: /^ebg001_island/i, re: /_parts_cannon_skin$/i, group: '무기' },
 ];
 
 function partGroupLabel(bossKey, name) {
@@ -1131,6 +1129,9 @@ const CLIP_SOLO_PARTS = [
   // 은 배 주위에 불규칙하게 흩어져 있다. 무엇이 맞는지는 파일이 말해주지 않으니
   // 지어내지 않고 skill02 에서는 감춘다.
   { boss: /^bbg001_rich/i, clip: /_rich_skill01_/i, show: /_egg_skin$/i },
+  // 아일랜드 이터 - 2페이즈 등장은 1페이즈에서 넘어오는 연출이라 그동안은
+  // 1페이즈 파츠까지 다 보여야 한다.
+  { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
 ];
 
 // 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
