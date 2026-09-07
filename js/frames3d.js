@@ -29,17 +29,22 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 //   신형은 방향·위치·페이즈가 파일 자체에 이미 들어 있어서, 여기 값을 또 얹으면
 //   회전이 두 번 걸려 통째로 틀어진다. 같은 보스를 신형으로 재업로드해도 이 표를
 //   지울 필요는 없다. 코드가 알아서 무시한다.
+// merge - 이름에 붙은 페이즈 번호를 다른 번호로 접는다. 파일에는 페이즈가 셋인데
+// 실제로는 둘인 보스가 있다(아일랜드 이터: 3페이즈는 존재하지 않는다).
+// 변종은 파일 이름(bossKey)으로도 찾는다 — 원종과 코드가 같기 때문이다.
 const PHASE_MODE_OVERRIDES = {
   mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
   xba001: { mode: 'exclusive' },  // 미러 컨테이너 - 2페이즈에서 1phase 파츠는 전부 사라진다
   xbg005: { mode: 'exclusive' },  // 에고비스타 - 페이즈마다 깃털이 통째로 갈린다
+  // 아일랜드 이터 - 1페이즈는 전체 파츠, 2페이즈는 phase002·003 파츠 10개.
+  ebg001_island: { mode: 'phase1-all', merge: { 3: 2 } },
 };
 
-function getPhaseConfig(bossCode) {
-  const raw = PHASE_MODE_OVERRIDES[bossCode];
-  if (!raw) return { mode: 'cumulative' };
-  if (typeof raw === 'string') return { mode: raw };
-  return { mode: raw.mode || 'cumulative' };
+function getPhaseConfig(bossKey, bossCode) {
+  const raw = PHASE_MODE_OVERRIDES[bossKey] || PHASE_MODE_OVERRIDES[bossCode];
+  if (!raw) return { mode: 'cumulative', merge: null };
+  if (typeof raw === 'string') return { mode: raw, merge: null };
+  return { mode: raw.mode || 'cumulative', merge: raw.merge || null };
 }
 
 // 메시별 위치/크기 보정 - 극히 드물게, 원본 FBX에 애니메이션이 아예 없고 뼈대 바인드
@@ -299,6 +304,8 @@ function comparePartKeys(a, b) {
 const PART_GROUP_OVERRIDES = [
   { boss: /^xba003_1phase/i, re: /_1phase_skin$/i, group: '몸통' },
   { boss: /^xba003_2phase/i, re: /_magiccarpet_skin$/i, group: '몸통' },
+  // 아일랜드 이터 캐논. 이름이 parts_ 로 시작해서 부속으로 걸린다.
+  { boss: /^ebg001_island/i, re: /_parts_cannon_skin$/i, group: '무기' },
 ];
 
 function partGroupLabel(bossKey, name) {
@@ -382,12 +389,18 @@ const CATALOG_FIT_BASE = {
   xba001: { scale: 2.6, y: 0, pitch: 10 }, // 미러 컨테이너 - 본이 본체 밖까지 뻗어 있어 작게 잡힌다
   // 베히모스 1페이즈는 화면에서 작게 잡힌다. 항목별로 줘야 해서 "@1" 로 적는다.
   'mbg003@1': { scale: 1.3, y: 0 },
+  // yaw - 기준 좌우 각도(도). pitch 와 마찬가지로 조작 패널 표기는 안 바뀐다.
+  ebg001_island: { yaw: 10 },
 };
 
 // 같은 보스라도 모델 항목(페이즈)마다 다르게 줘야 하면 "코드@페이즈" 로 적는다.
-function catalogFitBase(bossCode, isCatalogExport, labelPhase) {
+// 변종은 파일 이름(bossKey)으로도 찾는다 — 원종과 코드가 같기 때문이다.
+function catalogFitBase(bossKey, bossCode, isCatalogExport, labelPhase) {
   if (!isCatalogExport) return {};
-  return CATALOG_FIT_BASE[bossCode + '@' + labelPhase] || CATALOG_FIT_BASE[bossCode] || {};
+  return CATALOG_FIT_BASE[bossKey + '@' + labelPhase]
+    || CATALOG_FIT_BASE[bossKey]
+    || CATALOG_FIT_BASE[bossCode + '@' + labelPhase]
+    || CATALOG_FIT_BASE[bossCode] || {};
 }
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -1009,6 +1022,9 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_death$/i, boss: /^xbg005/i, phase: '2' },
   // 전환 연출은 넘어가기 전 페이즈에 둔다 — 1페이즈에서 눌러 2페이즈로 간다.
   { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
+  // 아일랜드 이터 - 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
+  { re: /_move_/i, boss: /^ebg001_island/i, phase: '2' },
+  { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001_island/i, phase: '2' },
 ];
 
 function clipPhaseOverride(bossKey, name) {
@@ -1059,6 +1075,7 @@ const HIDDEN_CLIPS = [
   // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
   { boss: /^bbg001_rich/i, re: /^bbg001_shot_/i },
+  { boss: /^ebg001_island/i, re: /^ebg001_phase001_idle2$/i },
 ];
 
 function isHiddenClip(bossKey, name) {
@@ -1489,8 +1506,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
     // 맞춰 둔 기준 각도. 슬라이더에는 안 들어가서 패널은 0 에서 출발한다 —
     // 배율·높이를 CATALOG_FIT_BASE 로 옮긴 것과 같은 방식이다.
-    const basePitch = catalogFitBase(bossCode, isCatalogExport, optLabelPhase).pitch || 0;
-    yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg);
+    const fitBase0 = catalogFitBase(bossKey, bossCode, isCatalogExport, optLabelPhase);
+    const basePitch = fitBase0.pitch || 0;
+    const baseYaw = fitBase0.yaw || 0;
+    yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg + baseYaw);
     pitchGroup.rotation.x = THREE.MathUtils.degToRad(pitchDeg + basePitch);
     pitchGroup.rotation.z = THREE.MathUtils.degToRad(rollDeg);
     yawGroup.position.set(...bossTransform.position);
@@ -1513,7 +1532,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 연출용 강제 각도. null 이면 슬라이더(=표시값) 를 그대로 쓴다.
     let clipYaw = null;
     function applyModelYaw() {
-      const base = SL.yaw ? +SL.yaw.value : yawDeg;
+      const base = (SL.yaw ? +SL.yaw.value : yawDeg) + baseYaw;
       yawGroup.rotation.y =
         THREE.MathUtils.degToRad(clipYaw !== null ? clipYaw : base);
     }
@@ -1747,7 +1766,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 이 있다. 그런데 보스마다 사정이 달라서 — 어떤 보스는 페이즈 파츠가 서로 배타적(교체)이지만,
     // 어떤 보스(예: 온리 원)는 1페이즈 파츠를 2페이즈에서도 그대로 재사용(누적)한다. 이름 패턴만
     // 으로는 구분이 안 되므로 PHASE_MODE_OVERRIDES에 보스별로 등록해서 정확히 지정한다.
-    const meshPhase = phaseTag;
+    // 파일에는 있는데 실제로는 없는 페이즈를 접는다(아일랜드 이터 3 -> 2).
+    const foldPhase = p => {
+      if (p === null) return null;
+      const m = phaseConfig.merge;
+      return (m && m[p] !== undefined) ? String(m[p]) : p;
+    };
+    const meshPhase = name => foldPhase(phaseTag(name));
     const basePose = capturePose(gltf.scene);
 
     // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.
@@ -2088,13 +2113,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 페이즈 토글이 여기를 불러서 그 페이즈의 클립만 남긴다.
     let renderAnimList = null;
 
-    const phaseConfig = getPhaseConfig(bossCode);
+    const phaseConfig = getPhaseConfig(bossKey, bossCode);
     // 신형 추출본은 보통 파일 하나가 곧 페이즈 하나다. 그런데 온리 원처럼 한 파일에
     // 1·2 페이즈가 다 든 보스가 있다. 메쉬 이름만으로는 구분이 안 된다 —
     // 애니힐리오 2페이즈 파일에도 1phase_magiccarpet 메쉬가 들어 있는데 그건 2페이즈에서
     // 쓰는 파츠다. 클립 쪽을 보면 정확하다: 그 파일은 2페이즈 클립만 갖고 있고,
     // 온리 원은 1·2 페이즈 클립을 둘 다 갖고 있다.
-    const clipPhaseKeys = new Set((gltf.animations || []).map(c => clipPhase(c.name)).filter(Boolean));
+    const clipPhaseKeys = new Set(
+      (gltf.animations || []).map(c => foldPhase(clipPhase(c.name))).filter(Boolean));
     const singleFilePhases = clipPhaseKeys.size > 1;
     const phaseGroups = {};
     if (!isCatalogExport || singleFilePhases) {
@@ -2355,7 +2381,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!nb.isEmpty()) {
         const ns = nb.getSize(new THREE.Vector3());
         const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
-        const fitBase = catalogFitBase(bossCode, isCatalogExport, optLabelPhase);
+        const fitBase = catalogFitBase(bossKey, bossCode, isCatalogExport, optLabelPhase);
         const bs = fitBase.scale || 1;
         normGroup.scale.setScalar(k * bs);
         normGroup.position.set(0, -nb.min.y * k * bs + (fitBase.y || 0), 0);
@@ -3177,7 +3203,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const phaseFiltered = singleFilePhases && phaseKeys.length > 1;
         const inCurrentPhase = (name) => {
           if (!phaseFiltered) return true;
-          const p = clipPhaseOverride(bossKey, name) || clipPhase(name);
+          const p = clipPhaseOverride(bossKey, name) || foldPhase(clipPhase(name));
           return !p || p === currentPhase;
         };
 
