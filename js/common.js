@@ -617,6 +617,9 @@ function logVisit() {
 
 // Supabase(PostgREST)는 한 번에 최대 1000행까지만 반환하므로, 그 이상인 테이블(스테이지 정보 등)을
 // 위해 다 받을 때까지 range()로 이어붙인다.
+// orderColumn 은 1000행을 넘겨 여러 쪽으로 받아야 하는 표에서는 반드시 줘야 한다.
+// 정렬이 없으면 각 쪽이 어떤 순서로 올지 정해져 있지 않아서, 쪽 경계에서 행이
+// 겹치거나 빠질 수 있다.
 async function fetchAll(tableName, orderColumn) {
   const pageSize = 1000;
   let allRows = [];
@@ -642,7 +645,12 @@ async function loadAllData() {
     fetchAll('픽업_기록', '시작일'),
     fetchAll('유니크_코스튬'),
     fetchAll('기념품'),
-    fetchAll('스테이지_정보'),
+    // 번호 순으로 받아야 한다. 스테이지 표는 화면에서 따로 정렬하지 않고 받은
+    // 순서대로 그리는데, 정렬을 안 주면 순서가 보장되지 않는다(EX스테이지가
+    // 26번 뒤가 아니라 맨 끝에 붙어 있었다). 게다가 이 표는 1,884행이라
+    // range() 로 두 쪽에 나눠 받는데, 정렬 없는 페이징은 행이 겹치거나 빠질 수도
+    // 있다 -- 순서를 정해줘야 쪽 나누기가 안전해진다.
+    fetchAll('스테이지_정보', '번호'),
     fetchAll('미실장_캐릭터'),
     fetchAll('IMG_니케'),
     fetchAll('IMG_아이콘'),
