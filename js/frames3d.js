@@ -1023,7 +1023,9 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_death$/i, boss: /^xbg005/i, phase: '2' },
   // 전환 연출은 넘어가기 전 페이즈에 둔다 — 1페이즈에서 눌러 2페이즈로 간다.
   { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
-  // 아일랜드 이터 - 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
+  // 아일랜드 이터 - 2페이즈 등장은 1->2 전환 연출이라 넘어가기 전 페이즈에 둔다.
+  { re: /_phase002_appearance$/i, boss: /^ebg001_island/i, phase: '1' },
+  // 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
   { re: /_move_/i, boss: /^ebg001_island/i, phase: '2' },
   { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001_island/i, phase: '2' },
   { re: /_dead$/i, boss: /^ebg001_island/i, phase: '2' },
@@ -1202,6 +1204,9 @@ const PHASE_SWITCH_CLIPS = [
   /(^|_)2phase_change$/i,          // 온리 원
   /(^|_)phase_change$/i,           // 에고비스타
   /(^|_)12phase_appeanrance$/i,    // 애니힐리오 (원본 철자 그대로)
+  // 아일랜드 이터 - 이름은 등장이지만 1 -> 2페이즈 전환 연출이다.
+  // 진짜 등장은 phase001_appearance 쪽이다.
+  /^ebg001_phase002_appearance$/i,
   /^[a-z]{2,4}\d{3}_\d+phase$/i,   // 프로비던스 - 뒤에 아무것도 안 붙은 페이즈 이름
   // 베히모스 - 1 -> 2페이즈 전환이 세 클립으로 이어진다. 앞 하나가 1페이즈 파일에,
   // 뒤 둘이 2페이즈 파일에 들어 있어서 파일을 넘어 잇지는 못한다.
@@ -1224,12 +1229,14 @@ function isAppearanceClip(name) {
 // 기능. 이렇게 이어지는 보스가 드물어서 대상을 지정한 보스에만 켠다.
 //   베히모스: 1페이즈 2phase_b1_take1_a -> 2페이즈 2phase_take2+3
 //   에고비스타: 1페이즈 phase_change -> 2페이즈
+//   아일랜드 이터: 1페이즈 phase002_appearance -> 2페이즈
 // 2 -> 3페이즈는 자동으로 넘기지 않는다. 그래서 토글도 1페이즈에만 낸다.
 // by - 페이즈를 무엇으로 넘기는가. 베히모스는 페이즈마다 모델 항목이 따로라
 // 모델 칩을 넘기고, 에고비스타는 한 모델 안이라 페이즈 칩을 넘긴다.
 const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
+  { boss: /^ebg001_island/i, from: '1', by: 'phase' },
 ];
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
