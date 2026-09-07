@@ -783,7 +783,9 @@ const CLIP_CAMERA_FIX = [
   // 아일랜드 이터 2페이즈 등장 - 게임 카메라가 보스를 화면 왼쪽으로 밀어 놓는다
   // (화면 가로 중앙이 0.5 여야 하는데 0.23~0.37, 6초대에는 양옆으로 넘친다).
   // 위치는 그대로 두고 시선만 보스에 맞춘다 — 카메라 워크와 거리는 유지된다.
-  { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, lookAtFocus: true },
+  // 게임 카메라가 -2.5° 기울어 있는데(우->좌로 고개 꺾는 연출) lookAt 이 그걸
+  // 눌러 버리므로 keepRoll 로 기울기만 되살린다.
+  { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, lookAtFocus: true, keepRoll: true },
   // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
   // 거리는 게임 값에서 당긴다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
@@ -2535,6 +2537,21 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camIdleDir = new THREE.Vector3();
     const camAimTmp = new THREE.Vector3();
     const camStageTmp = new THREE.Vector3();
+    const WORLD_UP = new THREE.Vector3(0, 1, 0);
+    const rollUp = new THREE.Vector3();
+    const rollFwd = new THREE.Vector3();
+    const rollRight = new THREE.Vector3();
+    const rollFlat = new THREE.Vector3();
+    // 화면 위쪽이 월드 수직에서 몇 라디안 기울었는지. 시선축 기준 부호를 맞춘다.
+    function rollOf(q) {
+      rollUp.set(0, 1, 0).applyQuaternion(q);
+      rollFwd.set(0, 0, -1).applyQuaternion(q);
+      rollRight.set(1, 0, 0).applyQuaternion(q);
+      rollFlat.copy(WORLD_UP).addScaledVector(rollFwd, -WORLD_UP.dot(rollFwd));
+      if (rollFlat.lengthSq() < 1e-9) return null;
+      rollFlat.normalize();
+      return -Math.atan2(rollRight.dot(rollFlat), rollUp.dot(rollFlat));
+    }
     // 본 뭉치의 한가운데. 여러 개가 걸리면 흔들림이 상쇄된다.
     function boneMid(bones, out) {
       out.set(0, 0, 0);
@@ -2629,6 +2646,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
+      // 조준으로 덮어쓰기 전에 원본이 갖고 있던 기울기를 재 둔다.
+      let gameRoll = null;
+      if (cinematic.keepRoll) gameRoll = rollOf(camera.quaternion);
       // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
       let hasAim = false;
       // 이 단계에서 쓸 고정 거리. 0 이면 클립 값을 따른다.
@@ -2675,6 +2695,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 매 프레임 기준점을 향하게 다시 잡는다. 위치와 화각은 건드리지 않으므로
       // 게임의 카메라 워크는 그대로 남는다.
       if (hasAim) camera.lookAt(camPull);
+      // keepRoll - lookAt 은 화면 위쪽을 늘 월드 수직에 맞춰서 게임이 넣어 둔
+      // 기울기(롤)를 0 으로 눌러 버린다. 조준은 lookAt 에 맡기고, 원본 카메라가
+      // 갖고 있던 기울기만 시선축을 중심으로 다시 얹는다.
+      // rotateZ 는 카메라 로컬 축 기준이라 rollOf 와 부호가 반대다.
+      if (cinematic.keepRoll && hasAim && gameRoll !== null && Math.abs(gameRoll) > 1e-5) {
+        camera.rotateZ(-gameRoll);
+      }
       // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
       if (cinematic.rescue) applyShotRescue(dt || 1 / 60);
@@ -2944,6 +2971,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
+          keepRoll: !!fix.keepRoll,
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
           lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
