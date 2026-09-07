@@ -1129,8 +1129,12 @@ const CLIP_SOLO_PARTS = [
   // 은 배 주위에 불규칙하게 흩어져 있다. 무엇이 맞는지는 파일이 말해주지 않으니
   // 지어내지 않고 skill02 에서는 감춘다.
   { boss: /^bbg001_rich/i, clip: /_rich_skill01_/i, show: /_egg_skin$/i },
-  // 아일랜드 이터 - 2페이즈 등장은 1페이즈에서 넘어오는 연출이라 그동안은
-  // 1페이즈 파츠까지 다 보여야 한다.
+  // 페이즈 전환 연출은 그동안 양쪽 페이즈 파츠가 다 켜져 있어야 한다. 파츠가
+  // 중간에 생기거나 사라지는 게 아니라, 처음부터 켜진 채로 안 보이는 곳에
+  // 숨어 있다 나오거나 화면 밖으로 빠지는 연출이기 때문이다.
+  // 에고비스타 phase_change 에서 1·2페이즈 깃털 조인트 28개가 전부 트랙을 갖는 것이
+  // 그 증거다 — 갈아 끼울 대상이 아니다.
+  { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
 ];
 
@@ -1156,16 +1160,6 @@ function clipModelYawFor(bossKey, name) {
 // 1.5초를 경계로 phase1_feather 가 1.16 x 0.52 에서 0.58 x 0.05 로 납작하게
 // 접히고, phase2_feather 가 0.03 짜리 점에서 0.41 x 0.38 로 펴진다. 둘 다 켜두면
 // 접힌 깃털이 선으로, 안 펴진 깃털이 점으로 남는다.
-const CLIP_PART_SWAP = [
-  { boss: /^xbg005/i, clip: /_phase_change$/i, at: 1.5,
-    from: /_phase1_feather$/i, to: /_phase2_feather$/i },
-];
-
-function clipPartSwapFor(bossKey, name) {
-  return CLIP_PART_SWAP.find(
-    o => o.boss.test(bossKey || '') && o.clip.test(name || '')) || null;
-}
-
 const CLIP_GLOW_PARTS = [
   { boss: /^xbg002/i, clip: /_skill_(?:start|loop)_01$/i, color: 'yellow', count: 1,
     sets: [/_arm_r_skin_1$/i] },
@@ -2177,9 +2171,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 지금 도는 클립이 한 부위만 내보내는 연출이면 여기에 그 규칙이 들어온다.
     let clipSolo = null;
-    // 전환 도중 파츠 교체. done 은 경계를 넘었는지.
-    let clipSwap = null;
-    let clipSwapDone = false;
     // 연출 중에만 켜지는 발광 파츠. { parts: [정규식], color } 또는 null.
     let clipGlow = null;
     // 같은 스킬의 start -> loop 로 넘어갈 때 고른 세트를 그대로 쓰기 위한 표시.
@@ -2215,12 +2206,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           else if (on && clipSolo.hide) on = !clipSolo.hide.test(m.name);
           else if (on && clipSolo.group
                    && clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
-        }
-        // 전환 도중 갈리는 파츠. 경계 전에는 옛 것만, 뒤에는 새 것만 보인다.
-        // 새 파츠는 지금 페이즈에서 꺼져 있으므로 켜는 쪽도 여기서 정한다.
-        if (clipSwap) {
-          if (clipSwap.from.test(m.name)) on = !clipSwapDone;
-          else if (clipSwap.to.test(m.name)) on = clipSwapDone;
         }
         // 이 연출에서만 켜지는 발광 파츠 — 평소 꺼둔 것을 잠깐 되살린다
         if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
@@ -2962,8 +2947,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       state.mixer = mixer;
       state.currentClip = clip.name;
       clipSolo = clipSoloPartsFor(bossKey, clip.name);
-      clipSwap = clipPartSwapFor(bossKey, clip.name);
-      clipSwapDone = false;
       pickClipGlow(clip.name);
       applyVisibility();
       if (glowReady) applyGlow();
@@ -3567,11 +3550,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 예약된 클립 교체를 먼저 처리한다(옛 믹서가 이미 멈춘 뒤라 안전하다)
       runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
-      // 파츠가 갈리는 지점을 지났으면 그 순간 바꿔 끼운다
-      if (clipSwap && currentAction) {
-        const past = currentAction.time >= clipSwap.at;
-        if (past !== clipSwapDone) { clipSwapDone = past; applyVisibility(); }
-      }
       if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
       if (!applyCinematicCamera(dt)) {
         updateFollow();
