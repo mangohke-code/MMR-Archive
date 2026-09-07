@@ -389,8 +389,7 @@ const CATALOG_FIT_BASE = {
   xba001: { scale: 2.6, y: 0, pitch: 10 }, // 미러 컨테이너 - 본이 본체 밖까지 뻗어 있어 작게 잡힌다
   // 베히모스 1페이즈는 화면에서 작게 잡힌다. 항목별로 줘야 해서 "@1" 로 적는다.
   'mbg003@1': { scale: 1.3, y: 0 },
-  // yaw - 기준 좌우 각도(도). pitch 와 마찬가지로 조작 패널 표기는 안 바뀐다.
-  ebg001_island: { yaw: 10 },
+  ebg001_island: { pitch: 10 }, // 아일랜드 이터 - 기준 상하 각도
 };
 
 // 같은 보스라도 모델 항목(페이즈)마다 다르게 줘야 하면 "코드@페이즈" 로 적는다.
@@ -783,6 +782,10 @@ const CLIP_CAMERA_FIX = [
   // 에고비스타 사망은 몸이 조각나 흩어진다. 구제 보정을 두면 그 파편까지 담으려고
   // 카메라가 10 이상 물러나서 본체가 점만 해진다. 이 클립만 끈다.
   { boss: /^xbg005/i, clip: /_death$/i, rescue: false },
+  // 아일랜드 이터 2페이즈 등장 - 게임 카메라가 보스를 화면 왼쪽으로 밀어 놓는다
+  // (화면 가로 중앙이 0.5 여야 하는데 0.23~0.37, 6초대에는 양옆으로 넘친다).
+  // 위치는 그대로 두고 시선만 보스에 맞춘다 — 카메라 워크와 거리는 유지된다.
+  { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, lookAtFocus: true },
   // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
   // 거리는 게임 값에서 당긴다.
   { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
@@ -1025,6 +1028,7 @@ const CLIP_PHASE_OVERRIDES = [
   // 아일랜드 이터 - 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
   { re: /_move_/i, boss: /^ebg001_island/i, phase: '2' },
   { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001_island/i, phase: '2' },
+  { re: /_dead$/i, boss: /^ebg001_island/i, phase: '2' },
 ];
 
 function clipPhaseOverride(bossKey, name) {
@@ -1076,6 +1080,8 @@ const HIDDEN_CLIPS = [
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
   { boss: /^bbg001_rich/i, re: /^bbg001_shot_/i },
   { boss: /^ebg001_island/i, re: /^ebg001_phase001_idle2$/i },
+  { boss: /^ebg001_island/i, re: /^ebg001_phase003_appearance$/i },
+  { boss: /^ebg001_island/i, re: /^ebg001_island_dead$/i },
 ];
 
 function isHiddenClip(bossKey, name) {
