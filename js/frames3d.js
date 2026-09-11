@@ -304,6 +304,9 @@ function comparePartKeys(a, b) {
 const PART_GROUP_OVERRIDES = [
   { boss: /^xba003_1phase/i, re: /_1phase_skin$/i, group: '몸통' },
   { boss: /^xba003_2phase/i, re: /_magiccarpet_skin$/i, group: '몸통' },
+  // 스톰브링어 - 재질 이름이 eba001_sr_anmi / eba001_rl_anmi 다. 공용 무기
+  // 목록에 sr·rl 을 넣으면 베히모스 소환수(behemoth_l_rl_skin)까지 딸려온다.
+  { boss: /^eba001/i, re: /(^|_)(sr|rl)(_|\d|$)/i, group: '무기' },
 ];
 
 function partGroupLabel(bossKey, name) {
@@ -720,6 +723,10 @@ const CAMERA_FIX = [
   // 베히모스: 카메라 위치·화각은 게임 값이 맞는데 겨냥이 어긋난다(미러 컨테이너와
   // 같은 증상). 겨냥만 매 프레임 본체 중심으로 다시 잡는다.
   { boss: /^mbg003/i, lookAtFocus: true },
+  // 스톰브링어: 등장 초반에 보스가 y 12.6 상공에 떠 있는데 카메라는 지상
+  // (y 0.1)에 수평으로 서 있다. 겨냥이 75도까지 어긋나서 보스가 화면 위로
+  // 통째로 빠진다. 위치·화각은 게임 값 그대로 두고 겨냥만 매 프레임 다시 잡는다.
+  { boss: /^eba001/i, lookAtFocus: true },
   // 앨트루이아: 등장·사망 카메라가 보스 뒤에 선다(등장 dz -3.15 ~ -2.17, idle 은 +2.25).
   // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
   { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
@@ -797,7 +804,7 @@ function cameraFixFor(bossKey, clipName) {
   const base = CAMERA_FIX.find(o => o.boss.test(bossKey || '')) || {};
   if (clipName === undefined) return base;
   const extra = CLIP_CAMERA_FIX.filter(
-    o => o.boss.test(bossKey || '') && o.clip.test(clipName || ''));
+    o => o.boss.test(bossKey || '') && (!o.clip || o.clip.test(clipName || '')));
   return extra.length ? Object.assign({}, base, ...extra) : base;
 }
 
@@ -986,7 +993,13 @@ function findSequences(clips, bossKey) {
 // 그 연출이 클립 세 벌로 들어 있다 — 가운데(이름 그대로), _left_, _right_.
 // 좌우 위치가 애니메이션 자체에 들어 있어서(Helper_Chain_Root 이동이 최대 147 만큼
 // 다르다) 모델을 셋 세워 각자 제 클립을 틀면 배치까지 그대로 재현된다.
-function findTrios(clips) {
+// 머리 셋을 동시에 물려서 틀는 보스. 검은 뱀 하나뿐이라 대상을 적어 둔다.
+// 이름만으로 가르면 스톰브링어의 이동 방향 셋(move_back_01 / _left_01 /
+// _right_01)이 같이 걸려서, 따로 틀어야 할 이동이 한 덩어리로 묶인다.
+const TRIO_BOSS = [/^bbg008/i];
+
+function findTrios(clips, bossKey) {
+  if (!TRIO_BOSS.some(re => re.test(bossKey || ''))) return [];
   const byName = new Map(clips.map(c => [c.name, c]));
   const out = [];
   clips.forEach(c => {
@@ -1075,6 +1088,8 @@ const HIDDEN_CLIPS = [
   { boss: /^xba001/i, re: /_appearance_take1$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
+  // 스톰브링어 idle_2 도 0.03초짜리다.
+  { boss: /^eba001/i, re: /^eba001_idle_2$/i },
   // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
   // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
@@ -3181,7 +3196,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
         // 좌우 머리가 함께 나오는 연출은 하나로 묶는다. 낱개 좌·우 클립은 목록에서 뺀다
         // — 혼자 틀어봐야 옆 머리 하나만 허공에서 움직인다.
-        const trios = findTrios(clips);
+        const trios = findTrios(clips, bossKey);
         const trioSide = new Set();
         trios.forEach(t => { trioSide.add(t.left.name); trioSide.add(t.right.name); });
         const trioByCenter = new Map(trios.map(t => [t.center.name, t]));
