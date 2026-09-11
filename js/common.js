@@ -23,6 +23,19 @@ function onAppDataReady(fn) {
   }
 }
 
+// 새로고침해도 보던 탭이 그대로 남도록 주소에 탭 이름을 적는다. 깃허브 페이지는
+// 서버 쪽 라우팅을 못 하므로 경로(/stage)가 아니라 # 뒤에 붙인다. 경로로 적으면
+// 새로고침이 404 가 난다. 메인은 # 없이 깔끔하게 둔다.
+function tabUrl(tabName) {
+  return tabName === 'main' ? location.pathname + location.search : '#' + tabName;
+}
+// 주소의 # 가 실제로 있는 탭을 가리킬 때만 그 이름을 돌려준다.
+function tabFromHash() {
+  const name = String(location.hash || '').replace(/^#/, '');
+  if (!/^[a-z0-9_-]+$/i.test(name)) return null;
+  return document.querySelector('.tab-btn[data-tab="' + name + '"]') ? name : null;
+}
+
 // pushHistory=false는 popstate(뒤로/앞으로가기)에 반응해서 탭만 바꿀 때 쓴다 —
 // 안 그러면 뒤로가기로 전환한 탭이 다시 history에 쌓여서 무한히 앞으로 못 가는 상태가 된다.
 function switchTab(tabName, pushHistory = true) {
@@ -38,13 +51,14 @@ function switchTab(tabName, pushHistory = true) {
   document.body.classList.toggle('compact-nav', tabName !== 'main');
 
   if (pushHistory) {
-    history.pushState({ tab: tabName }, '');
+    history.pushState({ tab: tabName }, '', tabUrl(tabName));
   }
 }
 
 // 브라우저 뒤로가기/앞으로가기 키로 탭 이동이 되도록 지원
 window.addEventListener('popstate', e => {
-  const tabName = (e.state && e.state.tab) || 'main';
+  // 주소창에서 # 만 직접 고친 경우에는 state 가 없으므로 # 를 대신 본다.
+  const tabName = (e.state && e.state.tab) || tabFromHash() || 'main';
   switchTab(tabName, false);
 });
 
@@ -698,6 +712,12 @@ document.addEventListener('DOMContentLoaded', function () {
       switchTab(this.dataset.tab);
     });
   });
+
+  // 새로고침·북마크로 들어온 경우 주소에 적힌 탭을 되살린다. 여기서 history 를
+  // 밀면 뒤로가기가 한 번 헛돌므로 replaceState 로 현재 항목에 덮어쓴다.
+  const startTab = tabFromHash() || 'main';
+  if (startTab !== 'main') switchTab(startTab, false);
+  history.replaceState({ tab: startTab }, '', tabUrl(startTab));
 
   // 테마 토글 (기본 라이트, 다크는 선택 시 localStorage에 저장)
   const themeToggle = document.getElementById('theme-toggle');
