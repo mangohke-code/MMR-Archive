@@ -213,6 +213,11 @@ const PART_LABELS = {
     'left_sr_01_skin': '터렛 Ⅰ',
     'right_sr_01_skin': '터렛 Ⅱ',
   },
+  mbg002: {
+    '1phase_parts_left_skin': '굴착기 L',
+    '1phase_parts_right_skin': '굴착기 R',
+    '1phase_sawtooth_skin': '기어',
+  },
   // 애니힐리오. 1·2페이즈가 파일은 다르지만 코드는 같아서 한 표에 같이 적는다.
   xba003: {
     '1phase_skin': '몸통',
@@ -297,6 +302,31 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^xba003_2phase/i, re: /_turret03$/i },
 ];
 
+// 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
+// 안 맞는 보스에 쓴다 — 그레이브 디거는 1페이즈 파츠가 페이즈마다 차례로
+// 떨어져 나간다. 적은 페이즈에서 꺼져야 하는 메쉬를 전부 나열한다
+// (누적이 아니라 그 페이즈의 꺼진 목록 전체다).
+const PHASE_PART_OFF = [
+  { boss: /^mbg002/i, phase: '2', re: [
+    /_1phase_skin(_\d+)?$/i, /_1phase_sawtooth_skin$/i, /_1phase_parts_(left|right)_skin$/i,
+  ] },
+  { boss: /^mbg002/i, phase: '3', re: [
+    /_1phase_skin(_\d+)?$/i, /_1phase_sawtooth_skin$/i, /_1phase_parts_(left|right)_skin$/i,
+    /_2phase_drill_skin$/i, /_2phase_skin(_\d+)?$/i,
+    /_phase001_ar_(\d+|frame_\d+)_skin$/i,
+  ] },
+];
+
+function hasPhasePartTable(bossKey) {
+  return PHASE_PART_OFF.some(o => o.boss.test(bossKey || ''));
+}
+
+function isPhasePartOff(bossKey, phase, name) {
+  const o = PHASE_PART_OFF.find(
+    x => x.boss.test(bossKey || '') && x.phase === String(phase));
+  return !!o && o.re.some(re => re.test(name || ''));
+}
+
 function isDefaultOffMesh(bossKey, name) {
   return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 }
@@ -332,7 +362,8 @@ const PART_GROUP_OVERRIDES = [
   { boss: /^eba001/i, re: /(^|_)(sr|rl)(_|\d|$)/i, group: '무기' },
   // 그레이브 디거 - ar 은 베히모스(mbg003_1phase_ar_skin)와도 겹쳐서
   // 공용 목록에 못 넣는다. 보스 한정으로 둔다.
-  { boss: /^mbg002/i, re: /(^|_)(ar|sawtooth|drill)(_|\d|$)/i, group: '무기' },
+  { boss: /^mbg002/i, re: /(^|_)sawtooth(_|\d|$)/i, group: '부속' },
+  { boss: /^mbg002/i, re: /(^|_)(ar|drill)(_|\d|$)/i, group: '무기' },
   { boss: /^mbg002/i, re: /(^|_)\dphase_skin(_|\d|$)/i, group: '몸통' },
 ];
 
@@ -1075,6 +1106,9 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_death$/i, boss: /^xbg005/i, phase: '2' },
   // 전환 연출은 넘어가기 전 페이즈에 둔다 — 1페이즈에서 눌러 2페이즈로 간다.
   { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
+  // 그레이브 디거 - 등장은 1페이즈에서, 사망은 3페이즈에서만 나온다.
+  { re: /^mbg002_appearance$/i, boss: /^mbg002/i, phase: '1' },
+  { re: /^mbg002_dead$/i, boss: /^mbg002/i, phase: '3' },
   // 아일랜드 이터 - 2페이즈 등장은 1->2 전환 연출이라 넘어가기 전 페이즈에 둔다.
   { re: /_phase002_appearance$/i, boss: /^ebg001_island/i, phase: '1' },
   // 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
@@ -1082,6 +1116,17 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001_island/i, phase: '2' },
   { re: /_dead$/i, boss: /^ebg001_island/i, phase: '2' },
 ];
+
+// 원래 페이즈 말고 다른 페이즈 목록에도 같이 내는 클립.
+// 그레이브 디거는 2페이즈 skill_01 을 1페이즈에서도 쓴다.
+const CLIP_EXTRA_PHASE = [
+  { boss: /^mbg002/i, re: /^mbg002_phase002_skill_01(_|$)/i, phase: '1' },
+];
+
+function clipExtraPhase(bossKey, name, phase) {
+  return CLIP_EXTRA_PHASE.some(
+    o => o.boss.test(bossKey || '') && o.re.test(name || '') && o.phase === String(phase));
+}
 
 function clipPhaseOverride(bossKey, name) {
   const o = CLIP_PHASE_OVERRIDES.find(
@@ -1303,6 +1348,7 @@ const PHASE_SWITCH_CLIPS = [
   /^mbg003_2phase_b1_take1_a$/i,
   /^mbg003_2phase_take[23]?$/i,   // 낱개 두 컷과 그 둘을 묶은 키까지
   /^mbg003_3phase_intro$/i,       // 2 -> 3페이즈 전환
+  /^mbg002_phase001_destroy$/i,   // 그레이브 디거 1 -> 2페이즈
 ];
 
 // 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
@@ -2262,7 +2308,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 전부 숨겨진다 — 실제로 11개 중 6개가 사라졌었다.
     const phaseOf = (name) => ((isCatalogExport && !singleFilePhases) ? null : meshPhase(name));
 
+    const partTable = hasPhasePartTable(bossKey);
     const isPhaseVisible = (p, current) => {
+      // 페이즈별 파츠 표가 있는 보스는 그 표만 본다.
+      if (partTable) return true;
       if (p === null) return true;
       if (phaseConfig.mode === 'exclusive') return p === current;
       if (phaseConfig.mode === 'phase1-all') return current === minPhase ? true : p === current;
@@ -2273,6 +2322,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       meshes
         .filter(m => !isSkillOnlyEffect(m.name)
           && !isDefaultOffMesh(bossKey, m.name)
+          && !isPhasePartOff(bossKey, currentPhase, m.name)
           && isPhaseVisible(phaseOf(m.name), currentPhase))
         .map(m => m.partKey)
     );
@@ -2441,6 +2491,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             // 프리셋 적용: 페이즈 태그가 있는 파츠만 보스별 모드(누적/배타)에 맞게 다시
             // 켜고/끄고, 페이즈 태그가 없는 공용 파츠는 건드리지 않는다.
             meshes.forEach(m => {
+              if (partTable) {
+                if (isPhasePartOff(bossKey, currentPhase, m.name)
+                    || isSkillOnlyEffect(m.name) || isDefaultOffMesh(bossKey, m.name)) {
+                  enabledMeshes.delete(m.partKey);
+                } else {
+                  enabledMeshes.add(m.partKey);
+                }
+                return;
+              }
               const p = phaseOf(m.name);
               if (p === null) return;
               if (isPhaseVisible(p, currentPhase)) enabledMeshes.add(m.partKey);
@@ -3313,6 +3372,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         const phaseFiltered = singleFilePhases && phaseKeys.length > 1;
         const inCurrentPhase = (name) => {
           if (!phaseFiltered) return true;
+          if (clipExtraPhase(bossKey, name, currentPhase)) return true;
           const p = clipPhaseOverride(bossKey, name) || foldPhase(clipPhase(name));
           return !p || p === currentPhase;
         };
