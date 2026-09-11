@@ -205,6 +205,10 @@ const PART_LABELS = {
   bbg001: {
     'egg_skin': '알집',
   },
+  eba001: {
+    'left_sr_01_skin': '터렛 Ⅰ',
+    'right_sr_01_skin': '터렛 Ⅱ',
+  },
   // 애니힐리오. 1·2페이즈가 파일은 다르지만 코드는 같아서 한 표에 같이 적는다.
   xba003: {
     '1phase_skin': '몸통',
@@ -261,6 +265,21 @@ function partLabelOf(bossCode, m, fallback) {
 // 파일만 봐서는 알 수 없다.
 // (온리 원 소환수 3종은 여기 넣지 않는다 — 평소에는 보이지 않을 만큼 작게 접혀
 //  다른 자리에 놓여 있고, 필요할 때 자기 스킬 클립이 꺼내 쓴다. 상시 on 이어도 된다)
+// 텍스처 알파를 반투명으로 살려야 하는 재질. 파일에는 전부 alphaMode=MASK
+// (cutoff 0.5) 로 나와서 잡라내기 용도로만 적혀 있는데, 알파가 0/1 이 아니라
+// 중간값으로 깔려 있는 재질은 그 알파가 곳 반투명도다.
+//   스톰브링어 방패(eba001_shield_01_anmi) - 512x512 텍스처의 알파가
+//   0 이 47.0%, 1~127 이 48.9%, 128~254 가 3.9%, 255 는 0.2% 뿐이다.
+//   불투명하게 그리면 게임에서 살짝 비치는 방패가 판때기로 보인다.
+const TRANSLUCENT_MATERIALS = [
+  { boss: /^eba001/i, mat: /_shield_01_anmi$/i },
+];
+
+function isTranslucentMaterial(bossKey, matName) {
+  return TRANSLUCENT_MATERIALS.some(
+    o => o.boss.test(bossKey || '') && o.mat.test(matName || ''));
+}
+
 const DEFAULT_OFF_MESHES = [
   // 프로비던스 - 패턴 중에만 빛나는 파츠(fx_xbg002_part_fresnel_purple 재질).
   // 평소에는 꺼져 있고 아래 CLIP_GLOW_PARTS 가 해당 스킬에서만 잠깐 켠다.
@@ -391,6 +410,7 @@ const CATALOG_FIT_BASE = {
   // 베히모스 1페이즈는 화면에서 작게 잡힌다. 항목별로 줘야 해서 "@1" 로 적는다.
   'mbg003@1': { scale: 1.3, y: 0 },
   ebg001_island: { pitch: 10 }, // 아일랜드 이터 - 기준 상하 각도
+  eba001: { y: 0.2 },           // 스톰브링어 - 기준 높이
 };
 
 // 같은 보스라도 모델 항목(페이즈)마다 다르게 줘야 하면 "코드@페이즈" 로 적는다.
@@ -1090,6 +1110,7 @@ const HIDDEN_CLIPS = [
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
   // 스톰브링어 idle_2 도 0.03초짜리다.
   { boss: /^eba001/i, re: /^eba001_idle_2$/i },
+  { boss: /^eba001/i, re: /^eba001_shot_/i },
   // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
   // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
@@ -1098,6 +1119,39 @@ const HIDDEN_CLIPS = [
   { boss: /^ebg001_island/i, re: /^ebg001_phase003_appearance$/i },
   { boss: /^ebg001_island/i, re: /^ebg001_island_dead$/i },
 ];
+
+// 앞부분을 잘라내고 쓰는 연출. 게임에서는 그 구간을 이펙트가 채우는데
+// 내보내기에는 그게 없어서 볼 게 없는 구간에 쓴다.
+//   from - 몇 초부터 쓸지(초).
+const CLIP_TRIM = [
+  // 스톰브링어 등장 - 3.5초까지는 보스가 y 12.6 상공에 멈춰 있고
+  // 카메라도 안 움직인다(거리 13.0 고정, 화면 높이의 10%).
+  { boss: /^eba001/i, re: /^eba001_appearance$/i, from: 3.5 },
+];
+
+// gltf.animations 를 제자리에서 바꿄다. 이름은 그대로 두어서 이름으로 물린 표
+// (구역 나누기·카메라 짝짓기·카메라 보정)가 그대로 동작하게 한다.
+// 짝인 카메라 클립도 같은 만큼 잘라야 카메라가 그만큼 앞서 가지 않는다.
+// 돌려주는 목록은 나중에 잘라낸 지점의 자세를 떠 두는 데 쓴다 — 그 지점
+// 이전에만 키가 있는 본이 기본 자세로 튀는 것을 막는다.
+function applyClipTrim(clips, bossKey) {
+  const done = [];
+  CLIP_TRIM.forEach(rule => {
+    if (!rule.boss.test(bossKey || '')) return;
+    clips.forEach((c, i) => {
+      const isCam = /_camera$/i.test(c.name || '');
+      const base = isCam ? c.name.replace(/_camera$/i, '') : (c.name || '');
+      if (!rule.re.test(base)) return;
+      // fps 를 1000 으로 두고 밀리초 단위로 자른다.
+      const cut = THREE.AnimationUtils.subclip(
+        c, c.name, Math.round(rule.from * 1000), 1e9, 1000);
+      if (!cut.tracks.length) return;
+      clips[i] = cut;
+      if (!isCam) done.push({ name: c.name, src: c, from: rule.from });
+    });
+  });
+  return done;
+}
 
 function isHiddenClip(bossKey, name) {
   return HIDDEN_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
@@ -1474,6 +1528,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 규칙 표는 파일 이름까지 본다(변종 보스 구분). 표 안 쓰는 쪽(파츠 이름 자르기,
     // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
     const bossKey = bossKeyFrom(bossCode, modelUrl);
+    // 이름으로 물린 표가 전부 이 뒤에 오므로 여기서 잘라 둔다.
+    const trimmedClips = applyClipTrim(gltf.animations || [], bossKey);
 
     // 신형(카탈로그에서 직접 뽑은) 추출본은 기존 FBX 변환본과 규칙이 다르다.
     //  - 루트 노드에 방향 회전이 이미 들어 있다 (공통 225도 보정을 주면 안 된다)
@@ -1628,7 +1684,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         [].concat(m.material).forEach(mt => {
           mt.wireframe = optWire;
           // 발광 파츠는 알파 블렌딩을 유지한다. 컷아웃을 걸면 판때기로 보인다.
-          if (!glow && !/^fx_/i.test(mt.name || '')) {
+          if (!glow && !mt.userData.translucent && !/^fx_/i.test(mt.name || '')) {
             // 끈 상태에서도 완전 투명(0)만은 잘라낸다 — 아니면 LED 발광판의 투명
             // 테두리가 네모로 통째로 보인다. 로드할 때 준 값과 같아야 한다.
             mt.alphaTest = optAlpha ? 0.5 : (isCatalogExport ? 0.05 : 0);
@@ -1711,6 +1767,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           if (m.color) m.color.setRGB(0, 0, 0);
           if (m.map && !m.emissiveMap) m.emissiveMap = m.map;
           applyFresnelGlow(m);
+        } else if (isTranslucentMaterial(bossKey, m.name)) {
+          // 텍스처 알파를 그대로 투명도로 쓴다. 자르지 않는다.
+          m.transparent = true;
+          m.depthWrite = false;
+          m.alphaTest = 0;
+          m.userData.translucent = true;
         } else {
           m.transparent = false;
           m.depthWrite = true;
@@ -1878,6 +1940,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       return taken;
     }
+
+    // 잘라낸 클립은 잘라낸 지점의 자세에서 시작해야 한다.
+    trimmedClips.forEach(t => syntheticPoses.set(t.name, poseAtClipTime(t.src, t.from)));
 
     // Unity 카메라는 +Z 를 보고 glTF/three 카메라는 -Z 를 본다. 내보내기가 이 차이를
     // 보정하지 않으면 시선이 정확히 180 도 뒤집혀서, 본체를 등지고 반대편 허공을 찍는다.
