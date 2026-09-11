@@ -217,6 +217,7 @@ const PART_LABELS = {
     '1phase_parts_left_skin': '굴착기 L',
     '1phase_parts_right_skin': '굴착기 R',
     '1phase_sawtooth_skin': '기어',
+    '2phase_drill_skin': '드릴',
   },
   // 애니힐리오. 1·2페이즈가 파일은 다르지만 코드는 같아서 한 표에 같이 적는다.
   xba003: {
@@ -362,8 +363,8 @@ const PART_GROUP_OVERRIDES = [
   { boss: /^eba001/i, re: /(^|_)(sr|rl)(_|\d|$)/i, group: '무기' },
   // 그레이브 디거 - ar 은 베히모스(mbg003_1phase_ar_skin)와도 겹쳐서
   // 공용 목록에 못 넣는다. 보스 한정으로 둔다.
-  { boss: /^mbg002/i, re: /(^|_)sawtooth(_|\d|$)/i, group: '부속' },
-  { boss: /^mbg002/i, re: /(^|_)(ar|drill)(_|\d|$)/i, group: '무기' },
+  { boss: /^mbg002/i, re: /(^|_)(sawtooth|drill)(_|\d|$)/i, group: '부속' },
+  { boss: /^mbg002/i, re: /(^|_)ar(_|\d|$)/i, group: '무기' },
   { boss: /^mbg002/i, re: /(^|_)\dphase_skin(_|\d|$)/i, group: '몸통' },
 ];
 
@@ -1177,6 +1178,9 @@ const HIDDEN_CLIPS = [
   { boss: /^eba001/i, re: /^eba001_shot_/i },
   // 그레이브 디거 phase003_idle_empty 는 0.17초짜리다.
   { boss: /^mbg002/i, re: /^mbg002_phase003_idle_empty$/i },
+  { boss: /^mbg002/i, re: /^mbg002_phase001_shot_/i },
+  // 2.5페이즈 대기·전환은 목록에서 뺀다.
+  { boss: /^mbg002/i, re: /^mbg002_phase0025_(idle|destroy)$/i },
   // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
   // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
@@ -1349,6 +1353,7 @@ const PHASE_SWITCH_CLIPS = [
   /^mbg003_2phase_take[23]?$/i,   // 낱개 두 컷과 그 둘을 묶은 키까지
   /^mbg003_3phase_intro$/i,       // 2 -> 3페이즈 전환
   /^mbg002_phase001_destroy$/i,   // 그레이브 디거 1 -> 2페이즈
+  /^mbg002_phase002_destroy$/i,   // 그레이브 디거 2 -> 3페이즈
 ];
 
 // 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
@@ -1366,13 +1371,15 @@ function isAppearanceClip(name) {
 //   베히모스: 1페이즈 2phase_b1_take1_a -> 2페이즈 2phase_take2+3
 //   에고비스타: 1페이즈 phase_change -> 2페이즈
 //   아일랜드 이터: 1페이즈 phase002_appearance -> 2페이즈
-// 2 -> 3페이즈는 자동으로 넘기지 않는다. 그래서 토글도 1페이즈에만 낸다.
+//   그레이브 디거: 1페이즈 phase001_destroy -> 2, 2페이즈 phase002_destroy -> 3
+// from - 토글을 낼 페이즈. 여럿이면 배열로 적는다.
 // by - 페이즈를 무엇으로 넘기는가. 베히모스는 페이즈마다 모델 항목이 따로라
 // 모델 칩을 넘기고, 에고비스타는 한 모델 안이라 페이즈 칩을 넘긴다.
 const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
+  { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
 ];
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
@@ -1643,9 +1650,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const autoPhaseRule = AUTO_PHASE_CHAIN.find(o => o.boss.test(bossKey || '')) || null;
     function autoPhaseAvailable() {
       if (!autoPhaseRule) return false;
+      const from = [].concat(autoPhaseRule.from);
       return autoPhaseRule.by === 'model'
-        ? optLabelPhase === autoPhaseRule.from
-        : currentPhase === autoPhaseRule.from;
+        ? from.includes(optLabelPhase)
+        : from.includes(currentPhase);
     }
 
     const bossTransform = getBossTransform(bossCode, isCatalogExport);
@@ -2933,7 +2941,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       && !/air|skill|(^|_)cc(_|$)/i.test(n || '');
 
     function findIdleClipForPhase(phase) {
-      const list = gltf.animations || [];
+      // 목록에서 뻔 클립은 여기서도 고르면 안 된다 — 그레이브 디거의 숨긴
+      // phase0025_idle 이 자동 전환 직후에 텔려서 목록에 없는 동작이 돌았다.
+      const all = gltf.animations || [];
+      const shown = all.filter(a => !isHiddenClip(bossKey, a.name));
+      const list = shown.length ? shown : all;
       if (!list.length) return null;
       if (phase !== null) {
         const m = list.find(a => isPlainIdle(a.name) && meshPhase(a.name) === phase);
