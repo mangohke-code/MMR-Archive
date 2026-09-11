@@ -450,11 +450,15 @@ const BOSS_TRANSFORM_OVERRIDES = {
 //   온리 원 - 소환수(ziz/behamoth/leviathan)가 본체에서 떨어져 있어서 정규화가
 //   그만큼 작게 잡는다. 화면에 맞게 1.3 배, 0.3 아래로.
 //   camY - 카메라 눈높이. 카메라와 시선을 같은 값만큼 올려서 각도는 그대로 둔다.
+//   camDist - 기본 시점 거리. 안 적으면 공용값 2.3 을 쓴다. 이 값을 줄이면
+//     모델은 그대로 두고 카메라만 다가간다 — 눈높이·각도는 안 바뀐다.
 const CATALOG_FIT_OVERRIDES = {
   xbg003: { scale: 1.0, position: [0, 0, 0], camY: 0.05 },
   // 미러 컨테이너는 옆으로 넓고 위아래로 낮아서, 세로 크기로 잡는 기본 눈높이가
   // 보스 발치까지 내려온다. 보스 한가운데로 올린다.
   xba001: { scale: 1.0, position: [0, 0, 0], camY: 0.33 },
+  // 퀸 001 - 공용 거리 2.3 에서는 멀어 보인다(화면 세로 0.53). 1.84 로 당기면 0.66.
+  xba002: { camDist: 1.84 },
 };
 
 // 정규화 직후에 한 번 더 먹이는 기준 보정. 이 값이 들어간 상태가 곧 "배율 1.0 / Y 0" 이다.
@@ -2586,8 +2590,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     if (isCatalogExport) {
       // 카메라와 시선을 같은 값만큼 올린다 — 각도는 그대로 두고 눈높이만 바꾼다.
-      const camLift = (CATALOG_FIT_OVERRIDES[bossCode] || {}).camY || 0;
-      camera.position.set(0, normHeight * 0.55 + camLift, 2.3);
+      const fitOv = CATALOG_FIT_OVERRIDES[bossCode] || {};
+      const camLift = fitOv.camY || 0;
+      camera.position.set(0, normHeight * 0.55 + camLift, fitOv.camDist || 2.3);
       controls.target.set(0, normHeight * 0.5 + camLift, 0);
     } else {
       camera.position.set(center.x + radius * 0.8, center.y + radius * 0.5, center.z + radius * 0.8);
