@@ -811,6 +811,16 @@ function cameraLookAtFor(bossKey, clipName) {
 
 // 같은 보스 안에서 그 연출 하나만 따로 손봐야 할 때. 보스 설정 위에 덧씌운다.
 const CLIP_CAMERA_FIX = [
+  // 그레이브 디거 등장 - 보는 방향은 정면이 맞는데 화면이 기울어 있다.
+  // 게임 값이 2.67초에서 컷으로 부호가 바뀐다 — 앞은 -1.7~-11.4도,
+  // 뒤는 +20.3~24.6도다. 눈에 거슬리는 것은 뒷구간(5초대 +21.1도)이라
+  // 거기를 10도 되돌린다.
+  // rollDeg - 연출 카메라 화면을 굴릴 각도(도). 측정한 기울기 값에 그대로
+  //   더해진다 — -10 을 주면 +21.1 도가 +11.1 도가 된다.
+  // rollFrom / rollTo - 걸릴 구간(초). 안 적으면 클립 전체.
+  // 전체에 걸면 앞 구간이 -11.4 → -21.6 도로 반대쪽으로 더 누워진다.
+  // 컬 뒤에만 걸어서 그쪽만 고친다.
+  { boss: /^mbg002/i, clip: /_appearance$/i, rollDeg: -10, rollFrom: 2.67 },
   // 베히모스 페이즈 전환 뒤 두 컷은 카메라가 반대편에서 뒷모습을 잡는다.
   // 방향은 기본 시점과 같게 두고, 거리는 게임 값에서 조금 당긴다.
   { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true, dist: 0.6 },
@@ -2763,6 +2773,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (hasAim) camera.lookAt(camPull);
       // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
+      // 화면 기울기 보정. rotateZ 는 카메라 로컬 Z(시선축) 기준이라 위치·거리·
+      // 겨냥은 그대로 두고 화면만 굴러간다. 화면이 도는 방향과 부호가
+      // 반대라 뒤집어 넣는다 — rollDeg 양수 = 화면이 반시계.
+      if (cinematic.rollDeg) {
+        const rt = cinematic.action ? cinematic.action.time : 0;
+        if (rt >= cinematic.rollFrom && rt < cinematic.rollTo) {
+          camera.rotateZ(-THREE.MathUtils.degToRad(cinematic.rollDeg));
+        }
+      }
       if (cinematic.rescue) applyShotRescue(dt || 1 / 60);
       // 너무 멀리서 잡는 클립은 같은 선 위에서 모델 쪽으로 당긴다.
       // 시선 방향은 그대로라 화면 구도는 유지되고 크기만 커진다.
@@ -3030,6 +3049,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
+          rollDeg: fix.rollDeg || 0,
+          rollFrom: fix.rollFrom || 0,
+          rollTo: (typeof fix.rollTo === 'number') ? fix.rollTo : Infinity,
           flip: camNeedsFlip(clip.name),
           lookAtFocus: !!fix.lookAtFocus,
           lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
