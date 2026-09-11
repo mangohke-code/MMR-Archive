@@ -20,6 +20,8 @@ WEBP = os.path.join(BASE, '정보모음-web', 'tools', 'glb_webp.py')
 JOBS = [
     ('S11 스톰 브링어/eba001_스톰브링어 A.N.M.I.glb', 'eba001'),
     ('S14 그레이브 디거/mbg002_그레이브 디거 raid.glb', 'mbg002'),
+    # 시즌 폴더가 아니라 보스 폴더 바로 아래에 들어 있다.
+    ('xba002_퀸 001 D.M.T.R.glb', 'xba002'),
     ('S16 미러 컨테이너/xba001_미러 컨테이너.glb', 'xba001'),
     ('S19 베히모스/mbg003_베히모스 P.S.I.D.glb', 'mbg003_1phase'),
     ('S19 베히모스/mbg003_베히모스 P.S.I.D_mbg003_psid.glb', 'mbg003_2phase'),

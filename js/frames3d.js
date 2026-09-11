@@ -103,6 +103,14 @@ const PART_GROUPS = [
 //   본체 xbg002_arm / xbg002_shoulder / xbg002_head
 //   발광 fx_xbg002_part_fresnel_purple
 const MESH_RENAME = [
+  // 퀸 001 — 보스 전체가 메쉬 하나에 프리미티브 넷이다. 파일 이름은 face 지만
+  // 실제로는 몸통·가시·부속이 다 들어 있어서, 그대로 두면 face_skin_2~5 네 개가
+  // 전부 “머리” 구역으로 묶인다. 재질 이름으로 나눈다.
+  // parts 재질이 둘이라 nth 로 가른다(파일에 든 순서, 삼각형 1510 / 3352).
+  { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_body', to: 'xba002_body_skin' },
+  { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_thorn', to: 'xba002_thorn_skin' },
+  { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_parts', nth: 0, to: 'xba002_parts_01_skin' },
+  { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_parts', nth: 1, to: 'xba002_parts_02_skin' },
   // 프로비던스 팔 — 한 메쉬의 프리미티브 넷. 본체는 꼬리표 없이, 발광은 _1.
   { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'xbg002_arm', to: 'xbg002_arm_l_skin' },
   { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_arm_l_skin_1' },
@@ -185,13 +193,24 @@ function meshMatName(m) {
 function renameMeshes(bossKey, meshes) {
   const rules = MESH_RENAME.filter(o => o.boss.test(bossKey || ''));
   if (!rules.length) return;
+  // 같은 재질을 쓰는 메쉬가 둘 이상일 때 가를 수 있게 몇 번째인지 세어 둔다.
+  // 한 메쉬 안의 프리미티브 순서는 파일에 든 순서라 로드마다 같다.
+  const occ = new Map();
+  const cnt = new Map();
+  meshes.forEach(m => {
+    const mat = meshMatName(m);
+    const i = cnt.get(mat) || 0;
+    occ.set(m, i);
+    cnt.set(mat, i + 1);
+  });
   const next = meshes.map(m => {
     const mat = meshMatName(m);
     for (const o of rules) {
       if (o.bySuffix) {
         const hit = String(m.name || '').match(o.re);
         if (hit) return (o.base || hit[1]) + (o.bySuffix[mat] || '');
-      } else if (o.re.test(m.name || '') && o.mat === mat) {
+      } else if (o.re.test(m.name || '') && o.mat === mat
+                 && (o.nth === undefined || o.nth === occ.get(m))) {
         return o.to;
       }
     }
@@ -791,6 +810,9 @@ const CAMERA_FIX = [
   // (y 0.1)에 수평으로 서 있다. 겨냥이 75도까지 어긋나서 보스가 화면 위로
   // 통째로 빠진다. 위치·화각은 게임 값 그대로 두고 겨냥만 매 프레임 다시 잡는다.
   { boss: /^eba001/i, lookAtFocus: true },
+  // 퀸 001: 보스는 지상(y 0.3~0.9)에 그대로 있는데 연출 카메라의 겨냥이
+  // 43~97도 어긋나 있다. 등장·사망 둘 다 보스가 화면 밖으로 빠졌다.
+  { boss: /^xba002/i, lookAtFocus: true },
   // 앨트루이아: 등장·사망 카메라가 보스 뒤에 선다(등장 dz -3.15 ~ -2.17, idle 은 +2.25).
   // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
   { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
