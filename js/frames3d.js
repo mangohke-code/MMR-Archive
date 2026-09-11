@@ -38,6 +38,10 @@ const PHASE_MODE_OVERRIDES = {
   xbg005: { mode: 'exclusive' },  // 에고비스타 - 페이즈마다 깃털이 통째로 갈린다
   // 아일랜드 이터 - 1페이즈는 전체 파츠, 2페이즈는 phase002·003 파츠 10개.
   ebg001_island: { mode: 'phase1-all', merge: { 3: 2 } },
+  // 그레이브 디거 - phase001/002/003 사이에 phase0025 가 끼어 있다.
+  // 자리수 채운 이름이라 2.5 가 "25" 로 읽힐테고, 그러면 25페이즈 칩이
+  // 없어서 그 클립들이 어느 목록에도 안 나온다. 2페이즈로 접어 둔다.
+  mbg002: { merge: { 25: 2 } },
 };
 
 function getPhaseConfig(bossKey, bossCode) {
@@ -326,6 +330,10 @@ const PART_GROUP_OVERRIDES = [
   // 스톰브링어 - 재질 이름이 eba001_sr_anmi / eba001_rl_anmi 다. 공용 무기
   // 목록에 sr·rl 을 넣으면 베히모스 소환수(behemoth_l_rl_skin)까지 딸려온다.
   { boss: /^eba001/i, re: /(^|_)(sr|rl)(_|\d|$)/i, group: '무기' },
+  // 그레이브 디거 - ar 은 베히모스(mbg003_1phase_ar_skin)와도 겹쳐서
+  // 공용 목록에 못 넣는다. 보스 한정으로 둔다.
+  { boss: /^mbg002/i, re: /(^|_)(ar|sawtooth|drill)(_|\d|$)/i, group: '무기' },
+  { boss: /^mbg002/i, re: /(^|_)\dphase_skin(_|\d|$)/i, group: '몸통' },
 ];
 
 function partGroupLabel(bossKey, name) {
@@ -411,6 +419,9 @@ const CATALOG_FIT_BASE = {
   'mbg003@1': { scale: 1.3, y: 0 },
   ebg001_island: { pitch: 10 }, // 아일랜드 이터 - 기준 상하 각도
   eba001: { y: 0.2 },           // 스톰브링어 - 기준 높이
+  // 그레이브 디거 - 땅을 파는 모양이라 앞뒤로 길다(보이는 범위 x 0.32,
+  // y 0.32, z 1.01). 정규화가 긴 쪽인 깊이로 잡아서 화면에서 매우 작아진다.
+  mbg002: { scale: 2.2, y: -1.45 },
 };
 
 // 같은 보스라도 모델 항목(페이즈)마다 다르게 줘야 하면 "코드@페이즈" 로 적는다.
@@ -550,6 +561,7 @@ const FOCUS_OVERRIDES = [
   // 동체 메쉬의 본 93개를 그냥 평균내면 그쪽으로 끌려간다. 사람 몸통만 잡는다.
   { boss: /^xba003/i, mesh: /2phase_body_skin_2$/i, bone: TORSO_BONE_RE },
   { boss: /^bbg008/i, bone: HEAD_BONE_RE },
+  { boss: /^mbg002/i, mesh: /1phase_skin(_\d+)?$/i },
 ];
 
 function focusOverrideFor(bossKey) {
@@ -1111,6 +1123,8 @@ const HIDDEN_CLIPS = [
   // 스톰브링어 idle_2 도 0.03초짜리다.
   { boss: /^eba001/i, re: /^eba001_idle_2$/i },
   { boss: /^eba001/i, re: /^eba001_shot_/i },
+  // 그레이브 디거 phase003_idle_empty 는 0.17초짜리다.
+  { boss: /^mbg002/i, re: /^mbg002_phase003_idle_empty$/i },
   // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
   // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
