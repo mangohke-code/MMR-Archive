@@ -470,7 +470,11 @@
       // 자리가 밀려 보이므로 물음표를 세워 둔다. 복각은 원본 행에서 값을 채워 오기 때문에
       // 비어 있다면 그냥 정보가 없는 것이라 예전처럼 아무것도 그리지 않는다.
       if (!val) {
-        return isRerun ? '' : `<span class="nikke-attr-chip is-unknown" data-tooltip="${attr} 미공개">?</span>`;
+        if (isRerun) return '';
+        // 우월코드 칸은 값이 있을 때 한 줄을 다 차지한다(code-chip).
+        // 미공개라고 한 칸만 쓰면 공개 전·후로 칸 배열이 바뀜다.
+        const wide = attr === '우월코드' ? ' code-chip' : '';
+        return `<span class="nikke-attr-chip is-unknown${wide}" data-tooltip="${attr} 미공개">?</span>`;
       }
       // 기업 값 자체가 오버스펙이면("엘리시온(오)") 이 값 그대로 아이콘을 먼저 찾고,
       // IMG_아이콘에 전용 아이콘이 아직 없으면 괄호를 뗀 일반 기업 아이콘으로 폴백한다.

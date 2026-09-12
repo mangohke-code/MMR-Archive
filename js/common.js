@@ -50,6 +50,17 @@ function switchTab(tabName, pushHistory = true) {
   // 메인을 뺀 나머지 탭도 탭 바를 얇게 쓴다(내용 볼 자리를 더 준다)
   document.body.classList.toggle('compact-nav', tabName !== 'main');
 
+  // 제목 구역이 접히는 탭에서는 테마 버튼을 탭 바 오른쪽 끝으로 옮긴다.
+  // 숨기는 게 아니라 버튼을 통째로 옴겨야 헤더를 접어도 살아있다.
+  const themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn) {
+    const host = tabName === 'main'
+      ? document.querySelector('header')
+      : document.getElementById('tab-nav');
+    if (host && themeBtn.parentElement !== host) host.appendChild(themeBtn);
+    themeBtn.classList.toggle('in-nav', tabName !== 'main');
+  }
+
   if (pushHistory) {
     history.pushState({ tab: tabName }, '', tabUrl(tabName));
   }

@@ -404,6 +404,50 @@
   }
 
   /* ===== 공통 섹션 타이틀 ===== */
+  /* ══ 메인 공지 ═══════════════════════════════════ */
+  #main-notice {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent) 7%, var(--bg-panel));
+  }
+
+  .notice-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.6rem;
+  }
+
+  .notice-badge {
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: var(--text-on-accent);
+  }
+
+  .notice-date {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .notice-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    list-style: disc;
+  }
+
+  .notice-list li {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
   .section-title {
     display: flex;
     align-items: center;
@@ -1702,6 +1746,12 @@
 
   .calendar-date-cell.is-outside .calendar-date-label {
     color: var(--text-dim);
+  }
+
+  /* 오늘 칸은 배경까지 다르게 해서 한눈에 보이게 한다 */
+  .calendar-date-cell.is-today {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   .calendar-date-cell.is-today .calendar-date-label {
@@ -4926,6 +4976,19 @@
   body.compact-nav #tab-nav {
     zoom: 0.72;
     margin-bottom: 0.75rem;
+  }
+
+  /* 메인 외 탭에서는 사이트 이름 구역을 접는다(솔로 레이드와 같은 배치).
+     테마 버튼은 switchTab 이 탭 바로 옮겨 놓아서 같이 안 사라진다. */
+  body.compact-nav header { display: none; }
+
+  /* 탭 바로 올라온 테마 버튼. 오른쪽 끝으로 밀고 탭 높이에 맞췠 줄인다. */
+  #theme-toggle.in-nav {
+    width: 34px;
+    height: 34px;
+    margin-top: 0;
+    margin-left: auto;
+    font-size: 15px;
   }
 
   body.app-mode #tab-nav {
