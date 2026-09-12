@@ -3,3 +3,8 @@ migration/raw/
 
 # 이미지 점검 스크립트가 만드는 보고서
 _image_report.txt
+
+__pycache__/
+
+# 보스 3D 모델은 Supabase Storage 에 올린다. 여기는 작업용 사본일 뿐이다.
+img/boss/*.glb

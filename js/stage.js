@@ -41,8 +41,17 @@
     const zeroChapters = chapters.filter(ch => String(ch) === '0');
     const restChapters = chapters.filter(ch => String(ch) !== '0');
 
+    // 맨 뒤에 예고 카드 한 장. 다음 챕터 자리를 비워 두는 표시라 누르지는 않는다.
+    const comingSoon = `
+      <div class="chapter-card is-locked is-soon">
+        <div class="chapter-img">
+          <div class="chapter-label">COMING SOON</div>
+        </div>
+      </div>
+    `;
+
     document.getElementById('chapter-grid-zero').innerHTML = zeroChapters.map(makeCard).join('');
-    document.getElementById('chapter-grid').innerHTML = restChapters.map(makeCard).join('');
+    document.getElementById('chapter-grid').innerHTML = restChapters.map(makeCard).join('') + comingSoon;
   }
 
   function selectChapter(chapter, direction = null) {

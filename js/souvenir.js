@@ -166,7 +166,20 @@
     // 이미 펼쳐진 항목을 다시 누르면 접는다
     if (currentSouvenir === item) { clearSouvenirSelection(); return; }
     currentSouvenir = item;
-    document.getElementById('souvenir-detail').classList.remove('hidden');
+    const detailEl = document.getElementById('souvenir-detail');
+    detailEl.classList.remove('hidden');
+    // 상세는 목록 위에 있어서, 아래쪽 항목을 누르면 고른 결과가 화면 밖에 남는다.
+    // 감춰져 있던 상세를 펼치면 보는 위치보다 위쪽이 그만큼 늘어나고,
+    // 브라우저는 보이는 것을 그대로 두려고 스크롤을 그만큼 내려버린다
+    // (scroll anchoring). 그래서 바로 한 번 올리고, 상세 그림이 늦게 들어와
+    // 높이가 바뀌는 경우까지 잡도록 잠시 뒤에 한 번 더 맞춰 둔다.
+    const bring = () => {
+      const y = detailEl.getBoundingClientRect().top + window.scrollY - 12;
+      window.scrollTo(0, Math.max(0, y));
+    };
+    bring();
+    setTimeout(bring, 0);
+    setTimeout(bring, 150);
 
     document.querySelectorAll('.souvenir-strip-item').forEach(el => {
       el.classList.toggle('active', allSouvenirData[el.dataset.idx] === item);

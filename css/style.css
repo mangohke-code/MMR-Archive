@@ -527,6 +527,11 @@
     color: var(--text-secondary);
     letter-spacing: 0.04em;
     flex-shrink: 0;
+    /* 자릿수마다 폭이 달라서 날짜 길이가 제각각이었다
+       (2026.08.29 가 2026.09.12 보다 넓다). 숫자를 같은 폭으로
+       그려서 옆의 내용이 세로로 맞게 한다. */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
   .update-log-note {
@@ -4209,6 +4214,35 @@
   .chapter-card.is-locked:hover {
     box-shadow: var(--shadow-card);
     transform: none;
+  }
+
+  /* 맨 뒤의 예고 카드. 배경 그림이 없어서 is-locked 의 흑백·흐림을
+     그대로 쓰면 빈 상자로 보인다. 점선 테두리로 자리만 표시한다. */
+  .chapter-card.is-soon {
+    opacity: 1;
+    filter: none;
+    background: transparent;
+    border: 2px dashed var(--border-subtle);
+    box-shadow: none;
+  }
+
+  .chapter-card.is-soon:hover {
+    box-shadow: none;
+  }
+
+  .chapter-card.is-soon .chapter-img {
+    background: transparent;
+  }
+
+  .chapter-card.is-soon .chapter-label {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    transform: translate(-50%, -50%);
+    width: auto;
+    color: var(--text-dim);
+    text-shadow: none;
+    font-size: 17px;
   }
 
   .chapter-img {
