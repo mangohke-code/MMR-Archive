@@ -5040,14 +5040,10 @@
     font-size: 15px;
   }
 
+  /* 솔로 레이드도 다른 탭과 같은 탭 바를 쓴다. 여기서 여백과 배경을
+     따로 주면 이 탭만 바가 얇고 색이 달라 보인다. 높이만 고정한다. */
   body.app-mode #tab-nav {
     flex: none;
-    zoom: 0.72;
-    margin: 0;
-    padding: 5px 10px;
-    gap: 4px;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-panel);
   }
 
   body.app-mode main {
