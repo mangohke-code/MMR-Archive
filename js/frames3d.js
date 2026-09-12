@@ -3647,6 +3647,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const patternMats = glowMats.filter(mt => /fresnel/i.test(mt.name || ''));
     const paintTargets = patternMats.length ? patternMats : glowMats;
 
+    // 패턴과 무관하게 늘 켜져 있는 발광(프로비던스 몸체 띠 등)은 게임에서도 그
+    // 파츠의 겉면이지, 빛을 "더하는" 층이 아니다. 가산으로 그리면 이미 밝은 본체
+    // 위에 또 더해져 색이 흰 쪽으로 뜬다 — 실측 248,184,96 (게임 색 255,146,63).
+    // 텍스처 알파로 일반 합성하면 알파가 낮은 곳은 아래 본체가 비쳐서, 게임처럼
+    // 반투명하게 보인다(실측 248,144,64).
+    // 패턴에 따라 껐다 켜는 재질은 꺼진 상태가 "아무것도 안 더함" 이어야 하므로
+    // 가산 그대로 둔다 — 일반 합성으로 바꾸면 꺼졌을 때 검은 껍데기가 덮인다.
+    glowMats.forEach(mt => {
+      if (paintTargets.includes(mt)) return;
+      mt.blending = THREE.NormalBlending;
+      mt.needsUpdate = true;
+    });
+
     let glowMode = 'off';
 
     function applyGlow() {
