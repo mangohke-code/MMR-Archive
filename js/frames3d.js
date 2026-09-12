@@ -801,6 +801,31 @@ const SYNTHETIC_SEQUENCES = [
 //   pull : 너무 멀리서 잡아서 모델 쪽으로 당긴다
 //   aim  : 보스를 화면 한쪽으로 밀어놔서 겨누는 방향만 돌린다
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
+// ── 원본 확인 모드 ────────────────────────────────────────────
+// 주소에 ?raw=1 을 붙이면 우리가 손으로 넣은 보정을 전부 끈다.
+// 게임 파일에 든 값만으로 어떻게 보이는지 확인하는 용도다.
+//   끄는 것 - 연출 카메라 보정 9단계(뒤집기·겨냥·거리·기울기·구조·확대·물림),
+//             클립 앞부분 잘라내기, 목록에서 클립 감추기, 연출별 눈높이
+//   두는 것 - 모델 정규화(화면에 담기 위한 균일 축소), 파츠 기본 표시,
+//             재질 처리. 카메라와 모델에 똑같이 걸려서 구도를 바꾸지 않는다.
+const RAW_MODE = (() => {
+  try { return /[?&]raw=1(?:&|$)/.test(location.search); } catch (e) { return false; }
+})();
+
+// 켜져 있는 것을 화면에서 바로 알 수 있게 띠를 붙인다. 이걸 모르고 보면
+// "왜 이렇게 어긋나지" 하고 엉뚱한 곳을 고치게 된다.
+if (RAW_MODE) {
+  try {
+    const tag = document.createElement('div');
+    tag.id = 'f3d-raw-tag';
+    tag.textContent = '원본 확인 모드 — 뷰어 보정 꺼짐';
+    tag.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);'
+      + 'z-index:9999;padding:5px 12px;border-radius:999px;font:700 12px/1.4 system-ui;'
+      + 'color:#fff;background:#c0392b;box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
+    (document.body || document.documentElement).appendChild(tag);
+  } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
+}
+
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
   // 미러 컨테이너: 연출 카메라의 방향이 통째로 어긋난다. 뼈대 루트(*_var)에 걸린
@@ -1261,6 +1286,7 @@ function applyClipTrim(clips, bossKey) {
 }
 
 function isHiddenClip(bossKey, name) {
+  if (RAW_MODE) return false;
   return HIDDEN_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 }
 
@@ -1670,7 +1696,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
     const bossKey = bossKeyFrom(bossCode, modelUrl);
     // 이름으로 물린 표가 전부 이 뒤에 오므로 여기서 잘라 둔다.
-    const trimmedClips = applyClipTrim(gltf.animations || [], bossKey);
+    const trimmedClips = RAW_MODE ? [] : applyClipTrim(gltf.animations || [], bossKey);
 
     // 신형(카탈로그에서 직접 뽑은) 추출본은 기존 FBX 변환본과 규칙이 다르다.
     //  - 루트 노드에 방향 회전이 이미 들어 있다 (공통 225도 보정을 주면 안 된다)
@@ -2729,7 +2755,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     let clipCamLift = 0;
     function applyClipCamLift(clipName) {
       if (!homeCamPos) return;
-      const rule = CLIP_CAM_LIFT.find(
+      const rule = RAW_MODE ? null : CLIP_CAM_LIFT.find(
         o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
       const d = (rule ? rule.y : 0) - clipCamLift;
       if (!d) return;
@@ -2891,6 +2917,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
+      // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
+      if (RAW_MODE) {
+        if (node.isPerspectiveCamera) {
+          if (savedFov === null) savedFov = camera.fov;
+          if (Math.abs(camera.fov - node.fov) > 1e-4) {
+            camera.fov = node.fov;
+            camera.updateProjectionMatrix();
+          }
+        }
+        camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        controls.target.copy(camera.position).addScaledVector(camFwd, 2);
+        return true;
+      }
       if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
       // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
       let hasAim = false;
