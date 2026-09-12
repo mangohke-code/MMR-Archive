@@ -23,6 +23,7 @@
     document.getElementById('frames-sort-btn').addEventListener('click', toggleFramesAttrSort);
     wireFramesDrawers();
     wireFramesSearch();
+    wireFramesBgm();
   }
 
   // 보스의 약점 속성 아이콘. 니케 쪽에서 쓰는 우월코드 아이콘을 그대로 재사용한다
@@ -158,6 +159,7 @@
       'frames-drawer-list': 'f3d-drawer-list',
       'frames-drawer-info': 'f3d-drawer-info',
       'frames-drawer-tiers': 'f3d-drawer-tiers',
+      'frames-drawer-bgm': 'f3d-drawer-bgm',
     };
     // 기본은 전부 접힘 — 3D 가 화면을 최대한 넓게 쓴다
     let openId = null;
@@ -224,6 +226,7 @@
     // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
     // 남아 있으면 무엇에 딸린 건지 알 수 없다.
     document.getElementById('frames-tiers').innerHTML = '';
+    renderFramesBgm(null);
     document.querySelectorAll('.frames-item').forEach(el => el.classList.remove('active'));
   }
 
@@ -252,6 +255,7 @@
       : '-';
 
     renderFrameTiers(item);
+    renderFramesBgm(item);
     syncFramesSelectorHeight();
     loadFramesSpine(item);
   }
@@ -333,6 +337,126 @@
     `).join('');
 
     // 프레임은 오른쪽 서랍이 담당한다.
+  }
+
+  // ===== 전용 BGM =====
+  // 표에는 유튜브 주소나 mp3 주소를 넣는다. 페이즈별로 여러 곡이면 [{제목, 링크}] 배열로
+  // 넣을 수 있게 해서, 곡이 늘어도 열을 새로 만들지 않아도 되게 한다.
+  function bgmEntries(item) {
+    const raw = item && item['BGM'];
+    if (!raw) return [];
+
+    // 표에 적는 방법은 어느 쪽이든 된다.
+    //   주소 하나        https://youtu.be/...
+    //   여러 곡          줄바꿈으로 한 줄에 하나
+    //   제목을 붙일 때   1페이즈 | https://youtu.be/...
+    //   JSON 으로도      [{"제목":"1페이즈","링크":"..."}]
+    let list;
+    if (Array.isArray(raw)) {
+      list = raw;
+    } else if (typeof raw === 'string') {
+      const text = raw.trim();
+      if (text.startsWith('[')) {
+        try { list = JSON.parse(text); } catch (err) { list = null; }
+      }
+      if (!Array.isArray(list)) list = text.split(NEWLINE_RE);
+    } else {
+      list = [raw];
+    }
+
+    return list.map(v => {
+      if (v && typeof v === 'object') {
+        return { title: v['제목'] || v.title || '', url: v['링크'] || v.url || v['주소'] || '' };
+      }
+      const text = String(v || '').trim();
+      const bar = text.indexOf('|');
+      return bar >= 0
+        ? { title: text.slice(0, bar).trim(), url: text.slice(bar + 1).trim() }
+        : { title: '', url: text };
+    }).filter(e => e.url);
+  }
+
+  const YOUTUBE_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/))([A-Za-z0-9_-]{11})/;
+
+  function youtubeId(url) {
+    const m = String(url).match(YOUTUBE_RE);
+    return m ? m[1] : null;
+  }
+
+  // ?t=90 / &start=90 / ?t=1m30s 로 적어둔 시작 지점을 초로 바꾼다
+  function youtubeStart(url) {
+    const m = String(url).match(/[?&](?:t|start)=([0-9hms]+)/i);
+    if (!m) return 0;
+    const v = m[1];
+    if (/^\d+$/.test(v)) return +v;
+    const hms = v.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/i);
+    return (+(hms[1] || 0)) * 3600 + (+(hms[2] || 0)) * 60 + (+(hms[3] || 0));
+  }
+
+  function renderFramesBgm(item) {
+    const box = document.getElementById('frames-bgm');
+    if (!box) return;
+    const list = bgmEntries(item);
+
+    if (!list.length) {
+      box.innerHTML = '<div class="frames-bgm-empty">등록된 BGM이 없습니다.</div>';
+      return;
+    }
+
+    box.innerHTML = list.map((e, i) => {
+      const title = escapeHtml(e.title || (list.length > 1 ? `트랙 ${i + 1}` : (item['보스'] || '전용 BGM')));
+      const url = escapeHtml(e.url);
+      const id = youtubeId(e.url);
+
+      // 유튜브는 서랍을 열자마자 통째로 불러오면 느리다. 표지만 먼저 보여주고
+      // 누를 때 iframe 을 끼운다. 표지 그림도 서랍이 접혀 있는 동안은 안 받아오게 둔다.
+      if (id) {
+        return `<div class="frames-bgm-item">
+          <div class="frames-bgm-title">${title}</div>
+          <div class="frames-bgm-yt" data-yt="${id}" data-start="${youtubeStart(e.url)}"
+               role="button" tabindex="0" aria-label="${title} 재생">
+            <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy">
+            <span class="frames-bgm-play"><i class="fas fa-play"></i></span>
+          </div>
+          <a class="frames-bgm-link" href="${url}" target="_blank" rel="noopener">유튜브에서 열기</a>
+        </div>`;
+      }
+
+      return `<div class="frames-bgm-item">
+        <div class="frames-bgm-title">${title}</div>
+        <audio class="frames-bgm-audio" controls preload="none" src="${url}"></audio>
+      </div>`;
+    }).join('');
+  }
+
+  // 표지를 누르면 그 자리에서 유튜브로 바꾼다. 목록을 다시 그려도 살아있도록 위임으로 건다.
+  function wireFramesBgm() {
+    const box = document.getElementById('frames-bgm');
+    if (!box) return;
+    const open = (cover) => {
+      const id = cover.dataset.yt;
+      if (!id) return;
+      const start = +cover.dataset.start || 0;
+      const frame = document.createElement('iframe');
+      frame.className = 'frames-bgm-frame';
+      frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`
+        + (start ? `&start=${start}` : '');
+      frame.title = cover.getAttribute('aria-label') || 'BGM';
+      frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+      frame.allowFullscreen = true;
+      cover.replaceWith(frame);
+    };
+    box.addEventListener('click', ev => {
+      const cover = ev.target.closest('.frames-bgm-yt');
+      if (cover) open(cover);
+    });
+    box.addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      const cover = ev.target.closest('.frames-bgm-yt');
+      if (!cover) return;
+      ev.preventDefault();
+      open(cover);
+    });
   }
 
   // 표에 적힌 줄바꿈(CRLF/LF)을 <br> 로 바꿀 때 쓴다

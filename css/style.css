@@ -5690,6 +5690,82 @@
 
   #f3d-drawer.hidden { display: none; }
 
+  /* ===== 전용 BGM 서랍 ===== */
+  #frames-bgm {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .frames-bgm-empty {
+    padding: 24px 8px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .frames-bgm-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .frames-bgm-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+
+  /* 표지. 누르면 같은 자리에 유튜브가 들어온다 */
+  .frames-bgm-yt {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--bg-panel-alt);
+  }
+
+  .frames-bgm-yt img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .frames-bgm-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.32);
+    transition: background 0.2s;
+  }
+
+  .frames-bgm-yt:hover .frames-bgm-play { background: rgba(0, 0, 0, 0.5); }
+
+  .frames-bgm-frame {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    border-radius: var(--radius-md);
+    display: block;
+  }
+
+  .frames-bgm-link {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  .frames-bgm-link:hover { color: var(--text-heading); text-decoration: underline; }
+
+  .frames-bgm-audio { width: 100%; }
+
+
   #f3d-drawer #f3d-back-home {
     position: sticky;
     top: -12px;
