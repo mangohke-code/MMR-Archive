@@ -432,6 +432,15 @@
     requestAnimationFrame(() => setupYearObserver());
   }
 
+  // 이벤트 이름을 아직 모르는 픽업은 DB 에 비워 둔다. 그 값을 객체 키로 쓰면
+  // 문자열 "null" 이 돼서 화면에 그대로 찍힌다. 속성 미공개 칸과 같은 물음표로 세운다.
+  const UNKNOWN_EVENT_KEYS = new Set(['null', 'undefined', '']);
+  function eventLabelHtml(name) {
+    const v = String(name === null || name === undefined ? '' : name).trim();
+    if (!UNKNOWN_EVENT_KEYS.has(v)) return v;
+    return '<span class="event-label-unknown" data-tooltip="이벤트 이름 미공개">?</span>';
+  }
+
   function renderEventLine(eventName, eventData) {
     const nikkes = [...eventData.nikkes]
       .sort((a, b) => (a['복각'] ? 1 : 0) - (b['복각'] ? 1 : 0));
@@ -439,7 +448,7 @@
     return `
       <div class="event-line">
         <div class="event-label-col">
-          <div class="event-label-name">${eventName}</div>
+          <div class="event-label-name">${eventLabelHtml(eventName)}</div>
           ${eventData.season ? `<div class="event-label-season">${eventData.season}</div>` : ''}
         </div>
         <div class="nikke-grid">
