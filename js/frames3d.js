@@ -1859,6 +1859,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             // 도로 나눠서 셰이더의 HDR 최대값만 남긴다.
             const bloom = (m.userData.unity && m.userData.unity._BloomIntensity) || 1;
             m.emissiveIntensity = m.emissiveIntensity / bloom;
+            // 나눠도 여전히 1.0 을 넘는 색이 있다(프로비던스 _GlowColor 는
+            // 1.7, 0.489, 0.085). 게임에서는 넘친 만큼이 블룸으로 번지지만
+            // 화면은 1.0 까지만 담을 수 있어서, 그대로 두면 채널마다 잘린다 —
+            // 빨강만 1.7 -> 1.0 으로 눌리고 초록·파랑은 안 눌려서 색조가
+            // 노란 쪽으로 밀린다. 가장 큰 성분이 1.0 이 되게 같이 줄여
+            // 게임이 지정한 색조를 그대로 남긴다.
+            const peak = m.emissiveIntensity
+              * Math.max(m.emissive.r, m.emissive.g, m.emissive.b);
+            if (peak > 1) m.emissiveIntensity /= peak;
             m.userData.glowColor = m.emissive.clone();
             m.userData.glowStrength = m.emissiveIntensity;
           }
@@ -1874,6 +1883,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           m.depthWrite = false;
           m.alphaTest = 0;
           m.blending = THREE.AdditiveBlending;
+          // 발광층은 게임이 색을 직접 적어 준 자체발광이다. 본체를 보려고 걸어 둔
+          // 톤매핑(ACES)과 노출 2.0 을 여기에 또 걸면 색이 흰 쪽으로 떠버린다
+          // (프로비던스 주황 255,146,63 -> 252,210,135). 이 층만 빼 둔다.
+          m.toneMapped = false;
           // 바탕색은 빼고(가산이라 그대로 두면 회색이 더해진다) 흑백 텍스처를 발광 마스크로
           // 돌려서, 텍스처의 명암 그라디언트가 빛의 세기 분포가 되게 한다.
           if (m.color) m.color.setRGB(0, 0, 0);
