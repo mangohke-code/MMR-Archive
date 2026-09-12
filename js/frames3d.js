@@ -2376,14 +2376,16 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return Number(p) <= Number(current); // cumulative
     };
 
-    const enabledMeshes = new Set(
-      meshes
-        .filter(m => !isSkillOnlyEffect(m.name)
-          && !isDefaultOffMesh(bossKey, m.name)
-          && !isPhasePartOff(bossKey, currentPhase, m.name)
-          && isPhaseVisible(phaseOf(m.name), currentPhase))
-        .map(m => m.partKey)
-    );
+    // 그 페이즈에서 처음 보여줄 파츠. 초기화 버튼이 이걸 다시 쓴다 —
+    // "처음 열었을 때" 가 아니라 "지금 페이즈의 기본" 으로 돌아가야 한다.
+    const defaultPartKeys = phase => meshes
+      .filter(m => !isSkillOnlyEffect(m.name)
+        && !isDefaultOffMesh(bossKey, m.name)
+        && !isPhasePartOff(bossKey, phase, m.name)
+        && isPhaseVisible(phaseOf(m.name), phase))
+      .map(m => m.partKey);
+
+    const enabledMeshes = new Set(defaultPartKeys(currentPhase));
 
     // 지금 도는 클립이 한 부위만 내보내는 연출이면 여기에 그 규칙이 들어온다.
     let clipSolo = null;
@@ -2461,12 +2463,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 하나씩 누르지 않고 한 번에 비우고 필요한 것만 켤 수 있게 한다.
       const totalOn = meshes.filter(m => enabledMeshes.has(m.partKey)).length;
       const allState = totalOn === meshes.length ? ' active' : (totalOn ? ' partial' : '');
+      // 기본 상태와 다를 때만 초기화가 의미가 있다. 같으면 눌러도 변화가 없으니 죽여 둔다.
+      const defKeys = defaultPartKeys(currentPhase);
+      const isDefault = defKeys.length === enabledMeshes.size
+        && defKeys.every(k => enabledMeshes.has(k));
       const allHtml = `
           <div class="part-group">
             <div class="part-group-head part-all${allState}">
               <div class="toggle-switch"></div>
               <span class="toggle-label">전체 파츠</span>
               <em>${totalOn}/${meshes.length}</em>
+              <button type="button" class="part-reset-btn"${isDefault ? ' disabled' : ''}
+                      title="${isDefault ? '이미 기본 상태다' : '이 페이즈의 기본 파츠 상태로 되돌린다'}">초기화</button>
             </div>
           </div>`;
       box.innerHTML = allHtml + groups.map((g, gi) => {
@@ -2487,6 +2495,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             <div class="part-group-body">${rows}</div>
           </div>`;
       }).join('');
+
+      // 초기화: 지금 페이즈의 기본 파츠 상태로 되돌린다. 전체 파츠 줄 안에 있어서
+      // 그대로 두면 줄의 켜기/끄기까지 같이 돈다 — 버블링을 끊는다.
+      const resetBtn = box.querySelector('.part-reset-btn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          if (container.__framesModel3D !== state) return;
+          enabledMeshes.clear();
+          defaultPartKeys(currentPhase).forEach(k => enabledMeshes.add(k));
+          applyVisibility();
+          renderToggleUI();
+        });
+      }
 
       // 전체 파츠: 하나라도 꺼져 있으면 전부 켜고, 다 켜져 있으면 전부 끈다
       const allHead = box.querySelector('.part-all');

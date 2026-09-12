@@ -5425,6 +5425,32 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* 전체 파츠 줄 오른쪽 끝의 초기화 */
+  .part-reset-btn {
+    flex: none;
+    margin-left: 6px;
+    padding: 2px 7px;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.5;
+    cursor: pointer;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    color: var(--text-muted);
+    background: var(--bg-panel);
+  }
+
+  .part-reset-btn:hover:not(:disabled) {
+    border-color: var(--border-accent);
+    color: var(--text-heading);
+  }
+
+  .part-reset-btn:disabled {
+    opacity: .35;
+    cursor: default;
+  }
+
   .part-group-head .toggle-switch {
     flex: none;
     width: 12px;
