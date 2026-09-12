@@ -1433,6 +1433,33 @@ function isOneShot(name) {
   return !/(^|_)(idle|loop)(_\d+)?$/i.test(stripPhaseTail(name));
 }
 
+// ── 테마 따라가기 ──────────────────────────────────────────────
+// 뷰어 배경은 three.js 가 색 값을 복사해 들고 있어서, 테마를 바꿔도 CSS 변수만
+// 바뀌고 화면은 그대로다. 다시 불러올 필요는 없다 — 살아 있는 뷰어를 모아 두고
+// 색만 갈아 끼운다.
+const liveStates = new Set();
+
+function panelColor() {
+  return getComputedStyle(document.body).getPropertyValue('--bg-panel').trim();
+}
+
+function applyThemeBackground(st) {
+  // 배경을 안 칠하는(투명) 뷰어는 CSS 가 알아서 따라가므로 건드리지 않는다.
+  if (!st || !st.scene || !st.scene.background) return;
+  const panel = panelColor();
+  if (!panel) return;
+  try { st.scene.background.set(panel); } catch (e) { /* 색 파싱 실패는 무시 */ }
+}
+
+let themeWatcher = null;
+
+function watchTheme() {
+  if (themeWatcher) return;
+  themeWatcher = new MutationObserver(() => liveStates.forEach(applyThemeBackground));
+  themeWatcher.observe(document.documentElement,
+    { attributes: true, attributeFilter: ['data-theme'] });
+}
+
 function disposeState(container) {
   const state = container.__framesModel3D;
   if (!state) return;
@@ -1484,6 +1511,7 @@ function disposeState(container) {
       }
     });
   }
+  liveStates.delete(state);
   container.__framesModel3D = null;
 }
 
@@ -1597,7 +1625,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     // 후처리를 태우면 알파가 사라져 캔버스가 불투명해진다. 투명 배경을 유지하려고
     // 애쓰는 것보다, 뷰어 판 색을 그대로 칠하는 편이 낫다(테마도 따라간다).
-    const panel = getComputedStyle(document.body).getPropertyValue('--bg-panel').trim();
+    const panel = panelColor();
     if (panel) {
       try { scene.background = new THREE.Color(panel); } catch (e) { /* 색 파싱 실패는 무시 */ }
     }
@@ -1614,6 +1642,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
   const state = { renderer, scene, camera, controls, rafId: null, paused: false, resizeObserver };
   container.__framesModel3D = state;
+  liveStates.add(state);
+  watchTheme();
 
   const loader = new GLTFLoader();
   loader.setDRACOLoader(dracoLoader);
