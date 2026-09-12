@@ -64,6 +64,10 @@ function switchTab(tabName, pushHistory = true) {
   if (pushHistory) {
     history.pushState({ tab: tabName }, '', tabUrl(tabName));
   }
+
+  // 탭이 바뀐 것을 알린다. 솔로 레이드의 전용 BGM 처럼, 안 보이는 곳에서 계속
+  // 돌면 안 되는 것들이 이걸 듣고 멈춘다.
+  document.dispatchEvent(new CustomEvent('mmr:tab-change', { detail: { tab: tabName } }));
 }
 
 // 브라우저 뒤로가기/앞으로가기 키로 탭 이동이 되도록 지원

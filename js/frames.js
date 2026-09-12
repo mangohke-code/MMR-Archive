@@ -173,6 +173,8 @@
         if (pane) pane.classList.toggle('hidden', !on);
       });
       if (drawer) drawer.classList.toggle('hidden', !openId);
+      // 서랍을 접으면 재생 중이던 BGM 도 멈춘다 — 화면에서 사라졌는데 소리만 남는다.
+      if (openId !== 'frames-drawer-bgm') stopFramesBgm();
     }
 
     Object.keys(panes).forEach(btnId => {
@@ -428,6 +430,21 @@
       </div>`;
     }).join('');
   }
+
+  // 재생 중이던 BGM 을 멈춘다. iframe 을 걷어내면 소리도 같이 끊긴다 —
+  // 표지로 되돌려 두면 다시 누르면 그만이다.
+  function stopFramesBgm() {
+    const box = document.getElementById('frames-bgm');
+    if (!box || !box.querySelector('iframe')) return;
+    renderFramesBgm(currentFrame);
+  }
+
+  // 다른 탭으로 나가면 멈춘다. 안 보이는 곳에서 소리만 계속 나면 어디서 나는지
+  // 찾을 수가 없다. 보스를 바꾸거나 목록으로 돌아갈 때는 목록을 다시 그리면서
+  // iframe 이 같이 걷히므로 따로 안 건다.
+  document.addEventListener('mmr:tab-change', ev => {
+    if (!ev.detail || ev.detail.tab !== 'frames') stopFramesBgm();
+  });
 
   // 표지를 누르면 그 자리에서 유튜브로 바꾼다. 목록을 다시 그려도 살아있도록 위임으로 건다.
   function wireFramesBgm() {
