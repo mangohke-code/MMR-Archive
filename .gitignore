@@ -1,2 +1,5 @@
 migration/raw/
 *.tmp
+
+# 이미지 점검 스크립트가 만드는 보고서
+_image_report.txt
