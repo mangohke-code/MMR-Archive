@@ -5656,6 +5656,9 @@
 
   #f3d-rail button {
     writing-mode: vertical-rl;
+    /* 세로쓰기에서 한글은 바로 서지만 로마자는 기본값에서 90도 누워진다.
+       'BGM' 도 한 글자씩 바로 서게 한다. */
+    text-orientation: upright;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -5678,6 +5681,9 @@
   }
 
   #f3d-rail button i { writing-mode: horizontal-tb; }
+
+  /* BGM 은 성격이 다른 서랍이라 나머지와 붙이지 않고 맨 아래에 둔다 */
+  #frames-drawer-bgm { margin-top: auto; }
 
   #f3d-drawer {
     flex: none;
