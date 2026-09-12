@@ -3630,6 +3630,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 에서 NaN 이 되고, 블룸의 가우시안 블러가 그 NaN 을 화면 전체로 퍼뜨려서
         // 뷰어가 통째로 검게 나온다. Color 로 되돌려 둔다.
         c.userData.glowColor = new THREE.Color(mt.userData.glowColor);
+        // Material.copy 는 onBeforeCompile / customProgramCacheKey 도 안 베낀다.
+        // 그래서 복제본에서는 프레넬(테두리) 감쇠가 통째로 빠져, 면 전체가 꽉 찬
+        // 색으로 균일하게 빛났다 — 게임에서는 보는 각도에 따라 가장자리만 짙고
+        // 가운데는 비쳐 보이는 부분이다. 복제본에도 다시 걸어 준다.
+        applyFresnelGlow(c);
         return c;
       };
       m.material = Array.isArray(m.material) ? m.material.map(one) : one(m.material);
