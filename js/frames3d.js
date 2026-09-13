@@ -3844,11 +3844,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 지상·공중은 따로 두지 않고 기본 구역에 합치되, 아래 laneOf 로 갈래를
         // 나눠서 서로 섞이지는 않게 한다.
         const GROUPS = ['페이즈 전환', '등장·사망', '기본', '그로기', '스킬', '샷'];
+        // 이름에 skill 이 들어 있어도 실제로는 대기 동작인 클립. 이름만 보면
+        // 스킬 구역으로 가는데, 애니힐리오 2phase_skill_idle 은 스킬을 쓸 자세로
+        // 서 있는 대기 동작이라 기본 구역이 맞다.
+        const BASE_DESPITE_NAME = [
+          { boss: /^xba003/i, re: /_2phase_skill_idle$/i },
+        ];
+        const isBaseDespiteName = (n) => BASE_DESPITE_NAME.some(
+          o => o.boss.test(bossKey || '') && o.re.test(n));
         const isAppearName = n => /(^|_)appea/i.test(n);           // appearance / appeanrance
         const isDeadName = n => /(^|_)(dead|death)/i.test(n);
         const isAirName = n => /(^|_)air/i.test(n);
         const groupOf = (name) => {
           const n = String(name);
+          if (isBaseDespiteName(n)) return '기본';
           if (isPhaseSwitchClip(n)) return '페이즈 전환';
           if (isAppearName(n) || isDeadName(n) || isAppearanceClip(n)) return '등장·사망';
           if (/(^|_)(groggy|cc)(_|\d|$)/i.test(n)) return '그로기';
@@ -3862,7 +3871,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           if (group === '등장·사망') return isDeadName(n) ? 1 : 0;  // 사망이 아래
           // 공중을 먼저 본다 — air_idle_01 은 대기 동작이기도 해서, 순서를 바꾸면
           // 지상 대기 동작 옆에 붙어 버린다.
-          if (group === '기본') return isAirName(n) ? 2 : (isIdle({ name: n }) ? 0 : 1);
+          if (group === '기본') {
+            return isAirName(n) ? 2 : ((isIdle({ name: n }) || isBaseDespiteName(n)) ? 0 : 1);
+          }
           return 0;
         };
 
