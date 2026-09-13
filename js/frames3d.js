@@ -1567,7 +1567,7 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
   // 애니힐리오 - 1·2페이즈가 파일이 갈려 있다. 전환 연출(12phase_appeanrance)은
   // 1페이즈 파일에 들어 있어서, 그게 끝나면 2페이즈 모델로 넘어간다.
-  { boss: /^xba003/i, from: '1', by: 'model' },
+  { boss: /^xba003/i, from: '1', by: 'phase' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
@@ -2176,7 +2176,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       const m = phaseConfig.merge;
       return (m && m[p] !== undefined) ? String(m[p]) : p;
     };
-    const meshPhase = name => foldPhase(phaseTag(name));
+    // 메쉬 이름의 페이즈 태그가 실제와 다른 것들. 이름으로는 못 가른다.
+    //   애니힐리오 - 1phase_magiccarpet 은 이름과 달리 2페이즈 파츠이고,
+    //     터렛 다섯은 아예 태그가 없다. 둘 다 2페이즈에서만 쓴다.
+    // 파일을 합치기 전에는 "파일 하나가 곧 페이즈" 라 안 걸렸던 문제다.
+    const MESH_PHASE_FIX = [
+      { boss: /^xba003/i, re: /^xba003_1phase_magiccarpet_skin$/i, phase: '2' },
+      { boss: /^xba003/i, re: /^xba003_turret\d+$/i, phase: '2' },
+    ];
+    const meshPhase = (name) => {
+      const fix = MESH_PHASE_FIX.find(
+        o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+      return fix ? fix.phase : foldPhase(phaseTag(name));
+    };
     const basePose = capturePose(gltf.scene);
 
     // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.

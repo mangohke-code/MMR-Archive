@@ -4,7 +4,9 @@
 파일 이름에 공백·중점(·)·한글이 섞여 있어서 셸로 돌리면 인용이 계속 깨진다.
 그래서 목록을 여기 적고 파이썬에서 직접 호출한다.
 """
+import json
 import os
+import struct
 import shutil
 import subprocess
 import sys
@@ -44,11 +46,47 @@ JOBS = [
     # 사치스러운 거미는 하베스터(bbg001)의 변종이라 메쉬 이름이 원종과 같다.
     # 뷰어가 규칙을 파일 이름으로 가르므로 출력 이름에 변종을 적어 둔다.
     ('추출프로그램 업데이트 이후/bbg001_사치스러운 거미.glb', 'bbg001_rich'),
-    ('추출프로그램 업데이트 이후/xba003_애니힐리오 D.M.T.R.glb', 'xba003_1phase'),
-    ('추출프로그램 업데이트 이후/xba003_애니힐리오 D.M.T.R_xba003_dmtr.glb', 'xba003_2phase'),
+    # 애니힐리오는 1·2페이즈를 한 파일로 합친다. 페이즈 전환 연출이 두 파일에
+    # 걸쳐 있어서, 나눠 두면 전환할 때마다 모델을 새로 받느라 연출이 끊긴다.
+    # 두 파일은 노드·클립·메쉬 이름이 하나도 안 겹쳐서 그냥 붙이면 된다.
+    (['추출프로그램 업데이트 이후/xba003_애니힐리오 D.M.T.R.glb',
+      '추출프로그램 업데이트 이후/xba003_애니힐리오 D.M.T.R_xba003_dmtr.glb'], 'xba003'),
 ]
 
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
+
+
+def merge_scenes(path):
+    """gltf-transform merge 는 씬을 파일 수만큼 남긴다. 로더는 기본 씬 하나만
+    보기 때문에 뒤쪽 파일이 통째로 안 보인다. 루트를 한 씬으로 모은다."""
+    with open(path, 'rb') as f:
+        struct.unpack('<III', f.read(12))
+        chunks = []
+        while True:
+            hdr = f.read(8)
+            if len(hdr) < 8:
+                break
+            ln, ty = struct.unpack('<II', hdr)
+            chunks.append([ty, f.read(ln)])
+    doc = json.loads(chunks[0][1].decode('utf-8'))
+    scenes = doc.get('scenes') or []
+    if len(scenes) <= 1:
+        return
+    roots = []
+    for sc in scenes:
+        roots.extend(sc.get('nodes') or [])
+    doc['scenes'] = [{'name': 'scene', 'nodes': roots}]
+    doc['scene'] = 0
+    raw = json.dumps(doc, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    raw += b' ' * ((4 - len(raw) % 4) % 4)
+    chunks[0][1] = raw
+    body = b''
+    for ty, data in chunks:
+        pad = b'\x00' if ty == 0x004E4942 else b' '
+        data = data + pad * ((4 - len(data) % 4) % 4)
+        body += struct.pack('<II', len(data), ty) + data
+    with open(path, 'wb') as f:
+        f.write(struct.pack('<III', 0x46546C67, 2, 12 + len(body)) + body)
 
 
 def run(args):
@@ -68,13 +106,22 @@ def main():
         for rel, out in JOBS:
             if only and out not in only:
                 continue
-            src = os.path.join(SRC, rel.replace('/', os.sep))
-            if not os.path.exists(src):
-                print('건너뜀(원본 없음):', rel)
+            rels = rel if isinstance(rel, list) else [rel]
+            srcs = [os.path.join(SRC, r.replace('/', os.sep)) for r in rels]
+            missing = [r for r, p in zip(rels, srcs) if not os.path.exists(p)]
+            if missing:
+                print('건너뜀(원본 없음):', missing[0])
                 continue
             a = os.path.join(tmp, 'a.glb')
             b = os.path.join(tmp, 'b.glb')
             c = os.path.join(tmp, 'c.glb')
+            if len(srcs) > 1:
+                m = os.path.join(tmp, 'm.glb')
+                run(GT + ['merge'] + srcs + [m])
+                merge_scenes(m)
+                src = m
+            else:
+                src = srcs[0]
             run(GT + ['resample', src, a])
             run(GT + ['prune', a, b])
             run(GT + ['draco', b, c])
@@ -82,7 +129,8 @@ def main():
             run([sys.executable, WEBP, c, dst])
             shutil.copyfile(dst, os.path.join(LOCAL, out + '.glb'))
             print('%-16s %7.1f MB -> %5.1f MB' % (
-                out, os.path.getsize(src) / 1e6, os.path.getsize(dst) / 1e6))
+                out, sum(os.path.getsize(p) for p in srcs) / 1e6,
+                os.path.getsize(dst) / 1e6))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
