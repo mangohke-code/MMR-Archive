@@ -182,6 +182,13 @@ const MESH_RENAME = [
     base: 'xba003_1phase_ul_skin', bySuffix: {} },
   { boss: /^xba003/i, re: /^xbga03_1phase_ur_skin(_\d+)?$/i,
     base: 'xba003_1phase_ur_skin', bySuffix: {} },
+  // 애니힐리오 2페이즈 동체 - 원본은 서브메쉬 둘짜리 한 메쉬인데(재질
+  // xba003_phase02_body · _body2) 머티리얼별로 갈려 나와서 _2 · _3 으로 보였다.
+  // 둘을 같은 이름으로 보내 한 파츠로 묶는다.
+  { boss: /^xba003/i, re: /^xba003_2phase_body_skin(_\d+)?$/i,
+    mat: 'xba003_phase02_body', to: 'xba003_2phase_body_skin' },
+  { boss: /^xba003/i, re: /^xba003_2phase_body_skin(_\d+)?$/i,
+    mat: 'xba003_phase02_body2', to: 'xba003_2phase_body_skin' },
   // 애니힐리오 2페이즈 - 노드와 메쉬가 이름을 나눠 가져 붙는 꼬리표를 뗀다.
   { boss: /^xba003/i, re: /^(xba003_1phase_magiccarpet_skin)(_\d+)?$/i, bySuffix: {} },
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
@@ -256,6 +263,10 @@ const PART_LABELS = {
     'turret03': '마녀의 까마귀 Ⅲ',
     'turret04': '마녀의 까마귀 Ⅳ',
     'turret05': '마녀의 까마귀 Ⅴ',
+    '2phase_body_skin': '몸통',
+    // 2페이즈 파츠 넷(parts_dl/dr/ul/ur)은 이름을 비워 둔다. 게임 로케일에
+    // "난쟁이의 보물 I~IV" 가 있고 개수도 맞지만, 어느 메쉬가 몇 번인지
+    // 잇는 데이터가 없다(MonsterPartsPrefab 의 Skin 이 2페이즈를 안 가리킨다).
   },
   xbg004: {
     'helm_01_skin': '성녀의 후광 1',
