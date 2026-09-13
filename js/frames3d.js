@@ -36,6 +36,9 @@ const PHASE_MODE_OVERRIDES = {
   mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
   xba001: { mode: 'exclusive' },  // 미러 컨테이너 - 2페이즈에서 1phase 파츠는 전부 사라진다
   xbg005: { mode: 'exclusive' },  // 에고비스타 - 페이즈마다 깃털이 통째로 갈린다
+  // 애니힐리오 - 1·2페이즈 파일을 합쳐 두었다. 변신하면 1페이즈 몸체는
+  // 통째로 사라지고 2페이즈 파츠만 남는다.
+  xba003: { mode: 'exclusive' },
   // 아일랜드 이터 - 1페이즈는 전체 파츠, 2페이즈는 phase002·003 파츠 10개.
   ebg001_island: { mode: 'phase1-all', merge: { 3: 2 } },
   // 그레이브 디거 - phase001/002/003 사이에 phase0025 가 끼어 있다.
