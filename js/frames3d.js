@@ -322,7 +322,7 @@ const DEFAULT_OFF_MESHES = [
   // 사치스러운 거미 알집 - 위 CLIP_SOLO_PARTS 설명 참고.
   { boss: /^bbg001_rich/i, re: /_egg_skin$/i },
   // 애니힐리오 마녀의 까마귀 III - 파츠는 있지만 보스전에서 나온 적이 없다.
-  { boss: /^xba003_2phase/i, re: /_turret03$/i },
+  { boss: /^xba003/i, re: /_turret03$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -2722,7 +2722,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (!g) { g = { label, items: [] }; groups.push(g); }
         return g;
       };
-      meshes.forEach(m => findGroup(partGroupLabel(bossKey, m.name)).items.push(m));
+      // 지금 페이즈에 안 쓰는 파츠는 목록에서 뺀다. 한 파일에 페이즈가 둘 다
+      // 들어 있으면(애니힐리오) 쓰지도 않는 파츠가 절반씩 섞여 보인다.
+      meshes
+        .filter(m => isPhaseVisible(phaseOf(m.name), currentPhase))
+        .forEach(m => findGroup(partGroupLabel(bossKey, m.name)).items.push(m));
       // 그룹 안에서 부위 -> 좌우 -> 번호 순으로 세운다
       groups.forEach(g => {
         g.items.forEach((m, i) => { m.__order = i; });
@@ -2739,18 +2743,23 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       box.classList.remove('hidden');
       // 맨 위에 전체 켜기/끄기. 파츠가 많은 보스(프로비던스는 39개)에서
       // 하나씩 누르지 않고 한 번에 비우고 필요한 것만 켤 수 있게 한다.
-      const totalOn = meshes.filter(m => enabledMeshes.has(m.partKey)).length;
-      const allState = totalOn === meshes.length ? ' active' : (totalOn ? ' partial' : '');
+      // 목록에 보이는 것만 센다 - 다른 페이즈 파츠까지 세면 "전체" 개수가
+      // 화면과 안 맞는다.
+      const shown = meshes.filter(m => isPhaseVisible(phaseOf(m.name), currentPhase));
+      const totalOn = shown.filter(m => enabledMeshes.has(m.partKey)).length;
+      const allState = totalOn === shown.length ? ' active' : (totalOn ? ' partial' : '');
       // 기본 상태와 다를 때만 초기화가 의미가 있다. 같으면 눌러도 변화가 없으니 죽여 둔다.
       const defKeys = defaultPartKeys(currentPhase);
-      const isDefault = defKeys.length === enabledMeshes.size
+      const shownKeys = new Set(shown.map(m => m.partKey));
+      const onShown = [...enabledMeshes].filter(k => shownKeys.has(k));
+      const isDefault = defKeys.length === onShown.length
         && defKeys.every(k => enabledMeshes.has(k));
       const allHtml = `
           <div class="part-group">
             <div class="part-group-head part-all${allState}">
               <div class="toggle-switch"></div>
               <span class="toggle-label">전체 파츠</span>
-              <em>${totalOn}/${meshes.length}</em>
+              <em>${totalOn}/${shown.length}</em>
               <button type="button" class="part-reset-btn"${isDefault ? ' disabled' : ''}
                       title="${isDefault ? '이미 기본 상태다' : '이 페이즈의 기본 파츠 상태로 되돌린다'}">초기화</button>
             </div>
@@ -2793,8 +2802,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (allHead) {
         allHead.addEventListener('click', () => {
           if (container.__framesModel3D !== state) return;
-          const allOn = meshes.every(m => enabledMeshes.has(m.partKey));
-          meshes.forEach(m => {
+          const pool = meshes.filter(m => isPhaseVisible(phaseOf(m.name), currentPhase));
+          const allOn = pool.every(m => enabledMeshes.has(m.partKey));
+          pool.forEach(m => {
             if (allOn) enabledMeshes.delete(m.partKey);
             else enabledMeshes.add(m.partKey);
           });
@@ -2861,6 +2871,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
               }
               const p = phaseOf(m.name);
               if (p === null) return;
+              // 평소 꺼 두는 파츠(마녀의 까마귀 III 처럼)는 페이즈를 바꿔도 그대로 둔다.
+              if (isSkillOnlyEffect(m.name) || isDefaultOffMesh(bossKey, m.name)) {
+                enabledMeshes.delete(m.partKey);
+                return;
+              }
               if (isPhaseVisible(p, currentPhase)) enabledMeshes.add(m.partKey);
               else enabledMeshes.delete(m.partKey);
             });
