@@ -858,6 +858,26 @@ const CUTSCENE_ANCHOR_ON = [
 // 실측(겨냥 각도, 중앙값): 프로비던스 등장 19.7° -> 10.4°,
 // 아일랜드 이터 2페 등장 33.3° -> 16.7°, 그레이브 디거 사망 27.5° -> 27.1°.
 // 나머지 3개는 홀더에 회전이 없어 결과가 같다.
+// 연출 카메라의 화각을 화면비에 맞춰 고친다.
+//
+// 파일에 든 값은 Cinemachine 의 m_Lens.FieldOfView 이고 유니티 기준 세로 화각인데,
+// 게임은 센서가 정사각(1,1)이고 게이트핏이 가로라서 그 각도가 실제로는 가로에
+// 걸린다. 세로는 화면비에 따라 정해진다. three.js 의 camera.fov 는 세로라서
+// 그대로 넣으면 화면이 그만큼 넓어지고 보스가 작게 잡힌다 — 16:9 에서 1.778 배다.
+//
+// 인게임 영상과 맞춰 본 값(세로 화면 점유):
+//   온리 원 등장 후반   22% -> 39.1%   인게임 39%
+//   프로비던스 등장 중반 37% -> 65.8%   인게임 71%
+//   프로비던스 등장 초반 63% -> 112%    인게임 90% 이상(상하 잘림)
+//
+// 상수를 박지 않고 캔버스 비율에서 유도한다. 창 모양이 바뀌어도 게임과 같이
+// 가로 화각을 지키고 세로만 따라 움직인다.
+function gateFitFov(fovDeg, aspect) {
+  const a = (aspect > 1e-6) ? aspect : 1;
+  const halfW = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
+  return THREE.MathUtils.radToDeg(2 * Math.atan(halfW / a));
+}
+
 function cutsceneAnchorOf(node) {
   if (RAW_MODE || !node || !node.userData) return null;
   if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
@@ -2971,11 +2991,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           camera.position.sub(camPull).multiplyScalar(cinematic.near / d).add(camPull);
         }
       }
-      // 게임 카메라의 화각(yfov)을 따른다. 클립이 끝나면 원래 값으로 돌려놓는다.
+      // 게임 카메라의 화각을 따른다. 게이트핏이 가로라 화면비로 세로를 낸다.
+      // 클립이 끝나면 원래 값으로 돌려놓는다.
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        if (Math.abs(camera.fov - node.fov) > 1e-4) {
-          camera.fov = node.fov;
+        const want = gateFitFov(node.fov, camera.aspect);
+        if (Math.abs(camera.fov - want) > 1e-4) {
+          camera.fov = want;
           camera.updateProjectionMatrix();
         }
       }
