@@ -596,8 +596,26 @@
     });
   }
 
+  // 다음 페이즈 파일을 미리 받아 둔다. 페이즈 자동 전환이 로딩 없이 이어지게
+  // 하려는 것이다. 브라우저 캐시에만 올려 두면 뷰어가 나중에 받을 때 즉시 끝난다.
+  //
+  // 전환 연출 클립을 1페이즈 파일로 옮기는 방법도 생각했지만, 그 연출은 2페이즈
+  // 메쉬가 변신하는 것이라 모델이 같이 있어야 한다. 그래서 파일을 당겨 두는 쪽으로 한다.
+  let prefetchTimer = null;
+  function prefetchNextModel(models) {
+    clearTimeout(prefetchTimer);
+    const next = models && models[1];
+    if (!next || !next.url) return;
+    // 첫 모델을 받는 동안은 대역폭을 나눠 쓰지 않게 조금 미룬다.
+    prefetchTimer = setTimeout(() => {
+      const idle = window.requestIdleCallback || (fn => setTimeout(fn, 0));
+      idle(() => { fetch(next.url, { cache: 'force-cache' }).catch(() => {}); });
+    }, 3000);
+  }
+
   function loadFramesSpine(item) {
     clearFramesSpine();
+    clearTimeout(prefetchTimer);
 
     const wrap = document.getElementById('frames-spine-player');
     const models = sortBossModels(parseBossModels(item['model']));
@@ -617,6 +635,7 @@
           onError: err => console.error('[보스 3D] 로드 실패:', err),
         });
       });
+      prefetchNextModel(models);
       window.loadFramesModel3D(wrap, modelUrl, {
         modelLabel: models.length ? models[0].name : '',
         onError: () => {
