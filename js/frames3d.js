@@ -170,18 +170,20 @@ const MESH_RENAME = [
     bySuffix: {} },
   // 애니힐리오 1페이즈 - 원본 메쉬 이름이 xbga03_ 로 잘못 박혀 있다(xba003 오타).
   // 그대로 두면 보스 코드가 안 떨어져 나가서 파츠 이름이 통째로 나온다.
-  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_skin(_\d+)?$/i,
+  // 1·2페이즈를 한 파일로 합치면서 bossKey 가 xba003 이 됐다. 페이즈 구분은
+  // 아래 re 가 하므로 boss 쪽은 넓게 둔다.
+  { boss: /^xba003/i, re: /^xbga03_1phase_skin(_\d+)?$/i,
     base: 'xba003_1phase_skin', bySuffix: {} },
-  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_dl_skin(_\d+)?$/i,
+  { boss: /^xba003/i, re: /^xbga03_1phase_dl_skin(_\d+)?$/i,
     base: 'xba003_1phase_dl_skin', bySuffix: {} },
-  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_dr_skin(_\d+)?$/i,
+  { boss: /^xba003/i, re: /^xbga03_1phase_dr_skin(_\d+)?$/i,
     base: 'xba003_1phase_dr_skin', bySuffix: {} },
-  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_ul_skin(_\d+)?$/i,
+  { boss: /^xba003/i, re: /^xbga03_1phase_ul_skin(_\d+)?$/i,
     base: 'xba003_1phase_ul_skin', bySuffix: {} },
-  { boss: /^xba003_1phase/i, re: /^xbga03_1phase_ur_skin(_\d+)?$/i,
+  { boss: /^xba003/i, re: /^xbga03_1phase_ur_skin(_\d+)?$/i,
     base: 'xba003_1phase_ur_skin', bySuffix: {} },
   // 애니힐리오 2페이즈 - 노드와 메쉬가 이름을 나눠 가져 붙는 꼬리표를 뗀다.
-  { boss: /^xba003_2phase/i, re: /^(xba003_1phase_magiccarpet_skin)(_\d+)?$/i, bySuffix: {} },
+  { boss: /^xba003/i, re: /^(xba003_1phase_magiccarpet_skin)(_\d+)?$/i, bySuffix: {} },
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
@@ -378,8 +380,8 @@ function comparePartKeys(a, b) {
 // 이고, 마법의 양탄자는 magiccarpet 이라 carpet 앞에 밑줄이 없어서 날개에도 안
 // 걸린다. 공용 정규식을 느슨하게 하면 다른 보스까지 흔들려서 여기서 바로잡는다.
 const PART_GROUP_OVERRIDES = [
-  { boss: /^xba003_1phase/i, re: /_1phase_skin$/i, group: '몸통' },
-  { boss: /^xba003_2phase/i, re: /_magiccarpet_skin$/i, group: '몸통' },
+  { boss: /^xba003/i, re: /_1phase_skin$/i, group: '몸통' },
+  { boss: /^xba003/i, re: /_magiccarpet_skin$/i, group: '몸통' },
   // 스톰브링어 - 재질 이름이 eba001_sr_anmi / eba001_rl_anmi 다. 공용 무기
   // 목록에 sr·rl 을 넣으면 베히모스 소환수(behemoth_l_rl_skin)까지 딸려온다.
   { boss: /^eba001/i, re: /(^|_)(sr|rl)(_|\d|$)/i, group: '무기' },
