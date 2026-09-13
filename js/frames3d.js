@@ -1526,7 +1526,11 @@ function clipSoloPartsFor(bossKey, name) {
 const PHASE_SWITCH_CLIPS = [
   /(^|_)2phase_change$/i,          // 온리 원
   /(^|_)phase_change$/i,           // 에고비스타
-  /(^|_)12phase_appeanrance$/i,    // 애니힐리오 (원본 철자 그대로)
+  // 애니힐리오 - 1페이즈 파일의 12phase_appeanrance 로 시작해서 2페이즈 파일의
+  // xbga03_2phase_appearance 로 이어진다. 둘 다 원본 철자 그대로다
+  // (12phase_appeanrance / xbga03 = xba003 오타).
+  /(^|_)12phase_appeanrance$/i,
+  /^xbga03_2phase_appearance$/i,
   // 아일랜드 이터 - 이름은 등장이지만 1 -> 2페이즈 전환 연출이다.
   // 진짜 등장은 phase001_appearance 쪽이다.
   /^ebg001_phase002_appearance$/i,
@@ -1563,10 +1567,7 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
   // 애니힐리오 - 1·2페이즈가 파일이 갈려 있다. 전환 연출(12phase_appeanrance)은
   // 1페이즈 파일에 들어 있어서, 그게 끝나면 2페이즈 모델로 넘어간다.
-  // next - 넘어간 뒤에 이어서 틀 클립. 베히모스처럼 2페이즈 파일에도 전환
-  // 연출이 있는 보스는 안 적어도 되지만, 애니힐리오는 그쪽이 등장 연출이라
-  // 짚어 줘야 한다(xbga03 은 원본 철자 그대로다).
-  { boss: /^xba003/i, from: '1', by: 'model', next: /_2phase_appearance$/i },
+  { boss: /^xba003/i, from: '1', by: 'model' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },

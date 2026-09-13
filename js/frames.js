@@ -218,7 +218,24 @@
     if (app) app.classList.toggle('hidden', on);
   }
 
-  function collapseFrame() {
+  // 뒤로 가기로 보스 선택 화면에 돌아올 수 있게, 보스를 열 때 방문 기록을 하나
+  // 쌓는다. 안 그러면 브라우저가 솔로 레이드 탭 이전 페이지로 바로 나가 버린다.
+  let frameHistoryDepth = 0;
+
+  window.addEventListener('popstate', ev => {
+    if (!currentFrame) return;
+    if (ev.state && ev.state.mmrFrame) return;   // 보스에서 보스로 옮긴 경우
+    frameHistoryDepth = 0;
+    collapseFrame({ fromHistory: true });
+  });
+
+  function collapseFrame(opts) {
+    // 우리가 쌓아 둔 기록을 되돌린다. 뒤로 가기로 들어온 길이면 이미 빠진 뒤다.
+    if (!(opts && opts.fromHistory) && frameHistoryDepth > 0) {
+      const back = frameHistoryDepth;
+      frameHistoryDepth = 0;
+      history.go(-back);
+    }
     currentFrame = null;
     clearFramesSpine();
     showFramesHome(true);
@@ -235,6 +252,13 @@
   function selectFrame(item) {
     // 이미 펼쳐진 보스를 다시 누르면 접는다
     if (currentFrame === item) { collapseFrame(); return; }
+    // 목록에서 처음 들어올 때만 기록을 쌓는다. 보스끼리 옮길 때는 이미 쌓여 있다.
+    try {
+      if (!currentFrame) {
+        history.pushState({ mmrFrame: true }, '', location.href);
+        frameHistoryDepth = 1;
+      }
+    } catch (e) { /* 기록을 못 쌓아도 화면은 그대로 동작한다 */ }
     currentFrame = item;
     showFramesHome(false);
 
@@ -252,9 +276,13 @@
     const attrEl = document.getElementById('frames-attr');
     const code = item['약점 속성'];
     const iconUrl = code ? (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[code] : null;
+    // 속성마다 색이 달라서 알약 하나로 감싸면 한눈에 들어온다.
+    attrEl.className = code ? `code-${code}` : '';
     attrEl.innerHTML = code
-      ? `${iconUrl ? `<img src="${iconUrl}" alt="${code}" class="frames-attr-icon">` : ''}<span>${code}</span>`
-      : '-';
+      ? `<span class="frames-attr-pill">`
+        + `${iconUrl ? `<img src="${iconUrl}" alt="" class="frames-attr-icon">` : ''}`
+        + `<span class="frames-attr-name">${code}</span></span>`
+      : '<span class="frames-attr-none">-</span>';
 
     renderFrameTiers(item);
     renderFramesBgm(item);
@@ -429,6 +457,9 @@
         <audio class="frames-bgm-audio" controls preload="none" src="${url}"></audio>
       </div>`;
     }).join('');
+
+    // mp3 쪽도 같은 음량에서 시작한다. volume 은 속성으로 못 적어서 여기서 건다.
+    box.querySelectorAll('.frames-bgm-audio').forEach(a => { a.volume = BGM_VOLUME / 100; });
   }
 
   // 재생 중이던 BGM 을 멈춘다. iframe 을 걷어내면 소리도 같이 끊긴다 —
@@ -446,6 +477,9 @@
     if (!ev.detail || ev.detail.tab !== 'frames') stopFramesBgm();
   });
 
+  // 전용 BGM 기본 음량(0~100). 유튜브 기본값은 100 이라 갑자기 크게 나온다.
+  const BGM_VOLUME = 50;
+
   // 표지를 누르면 그 자리에서 유튜브로 바꾼다. 목록을 다시 그려도 살아있도록 위임으로 건다.
   function wireFramesBgm() {
     const box = document.getElementById('frames-bgm');
@@ -456,12 +490,25 @@
       const start = +cover.dataset.start || 0;
       const frame = document.createElement('iframe');
       frame.className = 'frames-bgm-frame';
-      frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`
+      // enablejsapi - 음량을 낮추려면 IFrame API 로 말을 걸어야 한다.
+      // origin 을 같이 넘겨야 postMessage 가 막히지 않는다.
+      frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&enablejsapi=1`
+        + `&origin=${encodeURIComponent(location.origin)}`
         + (start ? `&start=${start}` : '');
       frame.title = cover.getAttribute('aria-label') || 'BGM';
       frame.allow = 'autoplay; encrypted-media; picture-in-picture';
       frame.allowFullscreen = true;
       cover.replaceWith(frame);
+      // 기본 음량이 너무 커서 절반으로 줄인다. 플레이어가 준비되기 전에 보내면
+      // 무시되므로 몇 번 나눠 보낸다 - 한 번 먹으면 나머지는 같은 값이라 무해하다.
+      const setVol = () => {
+        try {
+          frame.contentWindow.postMessage(JSON.stringify({
+            event: 'command', func: 'setVolume', args: [BGM_VOLUME],
+          }), 'https://www.youtube.com');
+        } catch (e) { /* 아직 못 받는 상태면 다음 차례에 다시 보낸다 */ }
+      };
+      [400, 900, 1600, 2600].forEach(ms => setTimeout(setVol, ms));
     };
     box.addEventListener('click', ev => {
       const cover = ev.target.closest('.frames-bgm-yt');

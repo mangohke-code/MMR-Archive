@@ -5850,7 +5850,73 @@
     box-shadow: none;
   }
 
-  #f3d-drawer #frames-info > *:not(.info-handle) { opacity: 1; transform: none; }
+  /* 보스 이름·시즌: 서랍 머리를 표지처럼 꾸민다. 왼쪽에 속성색 띠를 세우고
+     시즌은 알약으로 띄운다 - 이름만 크게 있던 때보다 구역이 분명해진다. */
+  #f3d-drawer #frames-info-header {
+    position: relative;
+    padding: 2px 0 14px 12px;
+    margin-bottom: 2px;
+  }
+
+  #f3d-drawer #frames-info-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 18px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent, #7c5cff);
+  }
+
+  #f3d-drawer #frames-boss-name {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    word-break: keep-all;
+  }
+
+  #f3d-drawer #frames-season-label {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    background: var(--bg-subtle, rgba(127, 127, 127, .12));
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+  }
+
+  /* 약점 속성: 아이콘과 이름을 알약 하나로 묶는다 */
+  #f3d-drawer #frames-attr .frames-attr-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 11px 4px 7px;
+    border-radius: 999px;
+    background: var(--bg-subtle, rgba(127, 127, 127, .12));
+    border: 1px solid var(--border-subtle);
+  }
+
+  #f3d-drawer #frames-attr .frames-attr-icon { height: 21px; }
+
+  #f3d-drawer #frames-attr .frames-attr-name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* 펼침 폭(420px)에 맞춘 고정 폭 372px 이 서랍 안에서도 남아 있었다.
+     서랍은 285px 라 87px 이 잘려 나갔다 - 진행 기간 값이 그렇게 사라졌다. */
+  #f3d-drawer #frames-info > *:not(.info-handle) {
+    opacity: 1;
+    transform: none;
+    width: auto;
+    max-width: 100%;
+  }
 
   /* 진행 기간은 "2024-10-31 12:00 ~ 11-01 22:00" 처럼 길어서 한 줄에 안 들어간다.
      라벨을 위에 놓고 값이 폭을 다 쓰게 세로로 쌓는다. */
