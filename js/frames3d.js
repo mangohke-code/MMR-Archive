@@ -969,6 +969,18 @@ function aimCutForBoss(bossKey) {
   return AIM_CUT_BOSS.some(re => re.test(bossKey || ''));
 }
 
+// 게이트핏(가로 화각 -> 16:9 세로 환산)을 끄고 파일 화각을 그대로 쓰는 보스.
+// 온리 원에서는 게이트핏 쪽이 인게임과 맞았는데, 애니힐리오는 반대다 -
+// 12phase_appeanrance · 2phase_appearance · death 세 클립을 인게임과 대보면
+// 파일 화각(40도) 그대로가 맞다. 왜 갈리는지는 아직 모른다.
+const GATEFIT_OFF_BOSS = [
+  /^xba003/i,
+];
+
+function gateFitOffFor(bossKey) {
+  return GATEFIT_OFF_BOSS.some(re => re.test(bossKey || ''));
+}
+
 const AIM_DAMP = (() => {
   try {
     const m = /[?&]d=([\d.]+)(?:&|$)/.exec(location.search);
@@ -3204,7 +3216,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 클립이 끝나면 원래 값으로 돌려놓는다.
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        const want = GATEFIT_OFF ? node.fov : gateFitFov(node.fov, GAME_ASPECT);
+        const want = (GATEFIT_OFF || gateFitOffFor(bossKey))
+          ? node.fov : gateFitFov(node.fov, GAME_ASPECT);
         if (Math.abs(camera.fov - want) > 1e-4) {
           camera.fov = want;
           camera.updateProjectionMatrix();
@@ -3900,7 +3913,23 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function seekToRatio(ratio) {
       if (!currentAction) return;
       const dur = currentAction.getClip().duration || 0;
-      currentAction.time = Math.max(0, Math.min(dur, dur * ratio));
+      const t = Math.max(0, Math.min(dur, dur * ratio));
+      currentAction.time = t;
+      currentAction.paused = false;
+      currentAction.enabled = true;
+      // 연출 카메라가 붙어 있으면 같이 옮긴다. 안 그러면 모델만 움직이고
+      // 화면은 그대로라 재생바가 안 먹는 것처럼 보인다. 카메라 클립이 모델보다
+      // 길거나 짧은 연출이 있어서(애니힐리오 1페는 카메라 8.00초 / 모델 5.00초)
+      // 각자 길이로 잘라 넣는다.
+      if (cinematic && cinematic.action) {
+        const cd = cinematic.action.getClip().duration || 0;
+        const ct = t - (cinematic.timeOffset || 0);
+        cinematic.action.time = Math.max(0, Math.min(cd, ct));
+        cinematic.action.paused = false;
+        cinematic.action.enabled = true;
+        // 컷 머리 겨냥은 앞 컷의 값을 들고 있으면 안 된다 — 다시 재게 한다.
+        aimCutPrev.valid = false;
+      }
       if (mixer) mixer.update(0);
       syncBar();
     }
