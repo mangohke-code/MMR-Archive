@@ -1563,7 +1563,10 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
   // 애니힐리오 - 1·2페이즈가 파일이 갈려 있다. 전환 연출(12phase_appeanrance)은
   // 1페이즈 파일에 들어 있어서, 그게 끝나면 2페이즈 모델로 넘어간다.
-  { boss: /^xba003/i, from: '1', by: 'model' },
+  // next - 넘어간 뒤에 이어서 틀 클립. 베히모스처럼 2페이즈 파일에도 전환
+  // 연출이 있는 보스는 안 적어도 되지만, 애니힐리오는 그쪽이 등장 연출이라
+  // 짚어 줘야 한다(xbga03 은 원본 철자 그대로다).
+  { boss: /^xba003/i, from: '1', by: 'model', next: /_2phase_appearance$/i },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
@@ -3908,10 +3911,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // 앞 페이즈의 전환 연출이 끝나서 넘어온 참이면 이쪽 전환 연출을 바로 튼다.
         if (autoPhasePending) {
           autoPhasePending = false;
-          const sw = seqs.find(sq => isPhaseSwitchClip(sq.key) && inCurrentPhase(sq.steps[0].clip.name))
-            || null;
-          const swClip = sw ? null
-            : clips.find(c => isPhaseSwitchClip(c.name) && inCurrentPhase(c.name));
+          // 규칙에 이어서 틀 클립을 적어 뒀으면 그쪽을 먼저 본다.
+          const nextRe = autoPhaseRule && autoPhaseRule.next;
+          const hit = c => (nextRe ? nextRe.test(c.name || '') : isPhaseSwitchClip(c.name))
+            && inCurrentPhase(c.name);
+          const sw = seqs.find(sq => hit(sq.steps[0].clip)) || null;
+          const swClip = sw ? null : clips.find(hit);
           if (sw) playSequence(sw);
           else if (swClip) playSingle(swClip);
         }
