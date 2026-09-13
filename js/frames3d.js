@@ -1166,6 +1166,13 @@ const MANUAL_SEQUENCES = [
     key: 'mbg003_2phase_take',
     steps: [/^mbg003_2phase_take2$/i, /^mbg003_2phase_take3$/i],
   },
+  // 애니힐리오 - 1 -> 2페이즈 전환은 두 컷이 바로 이어진다. 앞 컷은 1페이즈
+  // 몸이 변형되는 장면이고(원본 철자 12phase_appeanrance), 뒤 컷이 2페이즈
+  // 모습으로 서는 장면이다(xbga03 은 xba003 오타).
+  {
+    key: 'xba003_2phase_change',
+    steps: [/^xba003_12phase_appeanrance$/i, /^xbga03_2phase_appearance$/i],
+  },
   // 베히모스 1페이즈 등장 — take1 에서 크레인 부품 75개가 흩어져 날아오고
   // take2 에서 전부 제자리로 모인다. 둘이 이어져야 조립 연출로 읽힌다.
   {
@@ -1469,6 +1476,10 @@ const CLIP_SOLO_PARTS = [
   // 그 증거다 — 갈아 끼울 대상이 아니다.
   { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
+  // 애니힐리오도 같다. 앞 컷(12phase_appeanrance)은 1페이즈 본만 움직이는데
+  // 2페이즈 목록에 두었더니 1페이즈 몸이 통째로 숨어 화면이 비었다.
+  { boss: /^xba003/i, clip: /_12phase_appeanrance$/i, show: /./ },
+  { boss: /^xba003/i, clip: /^xbga03_2phase_appearance$/i, show: /./ },
 ];
 
 // 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
