@@ -896,6 +896,31 @@ const GATEFIT_OFF = (() => {
   try { return /[?&]gate=0(?:&|$)/.test(location.search); } catch (e) { return false; }
 })();
 
+// 비교용 스위치 2. ?aim=1 을 붙이면 연출 카메라가 매 프레임 보스 중심을
+// 겨냥한다. 위치·거리·화각은 파일 값 그대로라 카메라 워크는 남는다.
+//
+// 파일의 회전은 보스를 시선축 아래 6~18도에 두다가 중간에 위로 올린다
+// (-17.8도 ~ +4.1도). 인게임은 "정중앙 고정"이라는 관찰이 있어서, 파일
+// 회전이 그대로 쓰이지 않는다는 가정을 눈으로 대볼 수 있게 열어 둔다.
+// 추출 쪽에서 m_LookAt·Composer·LensShift·Dutch 가 전부 비어 있음을 확인했고,
+// 겨냥 타겟을 조인트 중심으로 잡든 정점 중심으로 잡든 1도 이하 차이다.
+const AIM_ALL = (() => {
+  try { return /[?&]aim=1(?:&|$)/.test(location.search); } catch (e) { return false; }
+})();
+
+if (AIM_ALL && !RAW_MODE) {
+  try {
+    const tag = document.createElement('div');
+    tag.id = 'f3d-aim-tag';
+    tag.textContent = '겨냥 비교 모드 — 카메라가 보스 중심을 본다';
+    tag.style.cssText = 'position:fixed;left:50%;top:' + (GATEFIT_OFF ? '38px' : '8px')
+      + ';transform:translateX(-50%);z-index:9999;padding:5px 12px;border-radius:999px;'
+      + 'font:700 12px/1.4 system-ui;color:#fff;background:#2e7d52;'
+      + 'box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
+    (document.body || document.documentElement).appendChild(tag);
+  } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
+}
+
 // 이쪽도 켜진 걸 모르면 엉뚱한 데를 고치게 된다. 띠를 붙인다.
 if (GATEFIT_OFF && !RAW_MODE) {
   try {
@@ -3292,7 +3317,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           rollFrom: fix.rollFrom || 0,
           rollTo: (typeof fix.rollTo === 'number') ? fix.rollTo : Infinity,
           flip: camNeedsFlip(clip.name),
-          lookAtFocus: !!fix.lookAtFocus,
+          lookAtFocus: AIM_ALL || !!fix.lookAtFocus,
           lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
           dist: fix.dist || 1, fixDist: fix.fixDist || 0,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
