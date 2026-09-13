@@ -2453,6 +2453,32 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
     }
 
+    // 이 클립이 실제로 움직이는 본의 한가운데. 한 파일에 페이즈가 둘 다 든 보스는
+    // focusMesh(본이 가장 많은 메쉬 하나)가 다른 페이즈 것일 수 있어서, 그걸
+    // 기준으로 재면 엉뚱한 답이 나온다 - 애니힐리오를 합친 뒤 1페이즈 카메라가
+    // 2페이즈 몸체를 기준으로 판정돼 시선이 통째로 뒤집혔다.
+    const clipBoneCenter = (clip, out) => {
+      const names = new Set();
+      (clip.tracks || []).forEach(t => {
+        const i = (t.name || '').indexOf('.');
+        if (i > 0) names.add(t.name.slice(0, i));
+      });
+      if (!names.size) return null;
+      const v = new THREE.Vector3();
+      let n = 0;
+      out.set(0, 0, 0);
+      gltf.scene.traverse(o => {
+        if (!names.has(o.name)) return;
+        if (DEBRIS_BONE_RE.test(o.name || '') || ANCHOR_BONE_RE.test(o.name || '')) return;
+        o.getWorldPosition(v);
+        if (!isFinite(v.x) || !isFinite(v.y) || !isFinite(v.z)) return;
+        out.add(v); n++;
+      });
+      if (!n) return null;
+      out.multiplyScalar(1 / n);
+      return out;
+    };
+
     function measureCameraFlip() {
       if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
       const saved = capturePose(gltf.scene);
@@ -2475,7 +2501,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             probe.clipAction(camClip).play();
             probe.setTime(dur * frac);
             gltf.scene.updateMatrixWorld(true);
-            if (rigCenter(focusMesh, center, focusBone)) {
+            // 그 클립이 움직이는 본을 먼저 본다. 없으면 예전처럼 focusMesh 로.
+            if (clipBoneCenter(modelClip, center) || rigCenter(focusMesh, center, focusBone)) {
               node.matrixWorld.decompose(pos, quat, scl);
               toModel.copy(center).sub(pos);
               if (toModel.lengthSq() > 1e-8) {
