@@ -1568,8 +1568,9 @@ function clipSoloPartsFor(bossKey, name) {
     if (!o.boss.test(bossKey || '')) continue;
     const m = (name || '').match(o.clip);
     if (!m) continue;
-    if (o.show) return { show: o.show };
-    if (o.hide) return { hide: o.hide };
+    // show 와 hide 를 같이 적을 수 있다 — "전부 켜되 이것만 빼고" 를 쓰려면
+    // 둘을 같이 넘겨야 한다. 예전에는 show 만 있으면 hide 를 버리고 돌려줬다.
+    if (o.show || o.hide) return { show: o.show || null, hide: o.hide || null };
     return { group: o.group, keep: o.keep(m) };
   }
   return null;
