@@ -1295,6 +1295,8 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
   // 애니힐리오 - 전환 연출 두 개(12phase_appeanrance, xbga03_2phase_appearance)를
   // 2페이즈 쪽에 모은다. 이어지는 한 연출이라 흩어 놓으면 순서를 알기 어렵다.
+  // 1페이즈에는 등장과 대기만 남는다. 자동 전환은 쓰지 않는다 —
+  // 전환 연출이 2페이즈 목록에 있으니 거기서 순서대로 보면 된다.
   { re: /_12phase_appeanrance$/i, boss: /^xba003/i, phase: '2' },
   // 그레이브 디거 - 등장은 1페이즈에서, 사망은 3페이즈에서만 나온다.
   { re: /^mbg002_appearance$/i, boss: /^mbg002/i, phase: '1' },
@@ -1571,9 +1573,6 @@ function isAppearanceClip(name) {
 // 모델 칩을 넘기고, 에고비스타는 한 모델 안이라 페이즈 칩을 넘긴다.
 const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
-  // 애니힐리오 - 1·2페이즈가 파일이 갈려 있다. 전환 연출(12phase_appeanrance)은
-  // 1페이즈 파일에 들어 있어서, 그게 끝나면 2페이즈 모델로 넘어간다.
-  { boss: /^xba003/i, from: '1', by: 'phase' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
