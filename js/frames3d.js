@@ -3086,7 +3086,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         return true;
       }
       // 타임라인 배치가 어긋난 연출은 모델 클립 시각을 맞춰 준다.
+      // 카메라가 시계인 경우 모델 액션은 스스로 진행하지 않게 세워 두고
+      // (안 그러면 모델이 먼저 끝나서 다음 클립으로 넘어간다) 시간만 얹는다.
       if (cinematic.timeOffset && currentAction && cinematic.action) {
+        if (camIsClock() && !currentAction.paused) currentAction.paused = true;
         const want = cinematic.action.time + cinematic.timeOffset;
         const dur = currentAction.getClip().duration;
         const t = Math.max(0, Math.min(dur, want));
@@ -3536,7 +3539,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 연출 카메라 클립도 같은 믹서에서 돌아서 자기 몫의 finished 를 한 번 더 쏜다.
       // 그대로 두면 묶음의 다음 클립이 큐에서 빠진 직후 두 번째 신호가 들어와
       // 그 클립을 idle 로 덮어쓴다 — 베히모스 take2 다음 take3 가 그렇게 잘렸다.
-      if (e && e.action && e.action.getClip() !== (currentAction && currentAction.getClip())) return;
+      // 다만 카메라가 시계 노릇을 하는 연출은 모델 액션을 세워 두기 때문에
+      // 모델 쪽 finished 가 아예 안 온다. 그때는 카메라의 신호를 받는다.
+      if (e && e.action) {
+        const isModel = e.action.getClip() === (currentAction && currentAction.getClip());
+        const isClock = camIsClock() && cinematic && e.action === cinematic.action;
+        if (!isModel && !isClock) return;
+      }
       if (seqQueue.length) {
         const step = seqQueue.shift();
         pendingNext = () => playClipObject(step.clip, { repeat: step.repeat, keepQueue: true });
@@ -3912,6 +3921,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function seekToRatio(ratio) {
       if (!currentAction) return;
+      if (camIsClock()) {
+        const cd = cinematic.action.getClip().duration || 0;
+        const ct = Math.max(0, Math.min(cd, cd * ratio));
+        cinematic.action.time = ct;
+        cinematic.action.paused = false;
+        cinematic.action.enabled = true;
+        aimCutPrev.valid = false;
+        if (mixer) mixer.update(0);
+        syncBar();
+        return;
+      }
       const dur = currentAction.getClip().duration || 0;
       const t = Math.max(0, Math.min(dur, dur * ratio));
       currentAction.time = t;
@@ -4123,10 +4143,26 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       };
     }
 
+    // 카메라 클립이 모델보다 길게 놓인 연출은 카메라가 시계 노릇을 한다.
+    // 애니힐리오 1페 등장은 타임라인에서 카메라 0~8.033 초, 모델 3.033~8.033 초다
+    // (하늘에서 떨어지는 연출이라 앞 3 초는 카메라만 움직인다). 모델 클립 길이인
+    // 5 초로 재생하면 뒤 3 초가 통째로 잘린다.
+    function camIsClock() {
+      return !!(cinematic && cinematic.action && cinematic.timeOffset < 0);
+    }
+    function clockDuration() {
+      if (camIsClock()) return cinematic.action.getClip().duration || 0;
+      return currentAction ? (currentAction.getClip().duration || 0) : 0;
+    }
+    function clockTime() {
+      if (camIsClock()) return cinematic.action.time;
+      return currentAction ? currentAction.time : 0;
+    }
+
     function syncBar() {
       if (!currentAction) return;
-      const dur = currentAction.getClip().duration || 0;
-      const t = dur ? (currentAction.time % dur) : 0;
+      const dur = clockDuration();
+      const t = dur ? (clockTime() % dur) : 0;
       const pct = dur ? (t / dur) * 100 : 0;
       if (fillEl) fillEl.style.width = pct + '%';
       if (codeEl) codeEl.textContent = t.toFixed(2) + ' / ' + dur.toFixed(2);
