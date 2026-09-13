@@ -268,6 +268,31 @@ const PART_LABELS = {
     // "난쟁이의 보물 I~IV" 가 있고 개수도 맞지만, 어느 메쉬가 몇 번인지
     // 잇는 데이터가 없다(MonsterPartsPrefab 의 Skin 이 2페이즈를 안 가리킨다).
   },
+  // 온리 원 - 소환수 셋의 이름이 게임 로케일에 있다. 유대 신화에서 리바이어던은
+  // 바다, 베히모스는 땅, 지즈는 하늘의 짐승이라 메쉬와 그대로 이어진다.
+  xbg003: {
+    'leviathan_skin': '바다의 마수',
+    'behamoth_skin': '땅의 마수',
+    'ziz_skin': '하늘의 마수',
+  },
+  // 에고비스타 - 메쉬 이름이 영어 그대로다(pauldron = 견갑, coverts = 날개덮깃).
+  xbg005: {
+    'l_pauldrons_skin': '견갑 L',
+    'r_pauldrons_skin': '견갑 R',
+    'l_coverts_skin': '날개 견갑 L',
+    'r_coverts_skin': '날개 견갑 R',
+  },
+  // 미러 컨테이너 - 1페이즈 파츠는 좌우와 번호가 로케일과 그대로 맞는다.
+  // 2페이즈 넷(dl/dr/ul/ur)은 "유리 구두 I~IV" 와 개수만 맞고 순서를 모른다 - 비워 둔다.
+  xba001: {
+    'cube_skin': '하모니 큐브 파편',
+    '1phase_parts_l01_skin': '레플리카 유리 구두 L Ⅰ',
+    '1phase_parts_l02_skin': '레플리카 유리 구두 L Ⅱ',
+    '1phase_parts_l03_skin': '레플리카 유리 구두 L Ⅲ',
+    '1phase_parts_r01_skin': '레플리카 유리 구두 R Ⅰ',
+    '1phase_parts_r02_skin': '레플리카 유리 구두 R Ⅱ',
+    '1phase_parts_r03_skin': '레플리카 유리 구두 R Ⅲ',
+  },
   xbg004: {
     'helm_01_skin': '성녀의 후광 1',
     'helm_02_skin': '성녀의 후광 2',
