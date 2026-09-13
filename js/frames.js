@@ -370,7 +370,7 @@
   }
 
   // ===== 전용 BGM =====
-  // 표에는 유튜브 주소나 mp3 주소를 넣는다. 페이즈별로 여러 곡이면 [{제목, 링크}] 배열로
+  // 표에는 유튜브 주소를 넣는다. 페이즈별로 여러 곡이면 [{제목, 링크}] 배열로
   // 넣을 수 있게 해서, 곡이 늘어도 열을 새로 만들지 않아도 되게 한다.
   function bgmEntries(item) {
     const raw = item && item['BGM'];
@@ -423,42 +423,33 @@
     return (+(hms[1] || 0)) * 3600 + (+(hms[2] || 0)) * 60 + (+(hms[3] || 0));
   }
 
+  // 전용 BGM 은 유튜브만 받는다. 저작권 때문에 음원을 직접 올리지 않기로 했다 —
+  // 주소가 유튜브가 아니면 목록에서 뺀다.
   function renderFramesBgm(item) {
     const box = document.getElementById('frames-bgm');
     if (!box) return;
-    const list = bgmEntries(item);
+    const list = bgmEntries(item)
+      .map(e => ({ ...e, id: youtubeId(e.url) }))
+      .filter(e => e.id);
 
     if (!list.length) {
       box.innerHTML = '<div class="frames-bgm-empty">등록된 BGM이 없습니다.</div>';
       return;
     }
 
+    // 서랍을 열자마자 통째로 불러오면 느리다. 표지만 먼저 보여주고 누를 때
+    // iframe 을 끼운다. 표지 그림도 서랍이 접혀 있는 동안은 안 받아오게 둔다.
     box.innerHTML = list.map((e, i) => {
       const title = escapeHtml(e.title || (list.length > 1 ? `트랙 ${i + 1}` : (item['보스'] || '전용 BGM')));
-      const url = escapeHtml(e.url);
-      const id = youtubeId(e.url);
-
-      // 유튜브는 서랍을 열자마자 통째로 불러오면 느리다. 표지만 먼저 보여주고
-      // 누를 때 iframe 을 끼운다. 표지 그림도 서랍이 접혀 있는 동안은 안 받아오게 둔다.
-      if (id) {
-        return `<div class="frames-bgm-item">
-          <div class="frames-bgm-title">${title}</div>
-          <div class="frames-bgm-yt" data-yt="${id}" data-start="${youtubeStart(e.url)}"
-               role="button" tabindex="0" aria-label="${title} 재생">
-            <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy">
-            <span class="frames-bgm-play"><i class="fas fa-play"></i></span>
-          </div>
-        </div>`;
-      }
-
       return `<div class="frames-bgm-item">
         <div class="frames-bgm-title">${title}</div>
-        <audio class="frames-bgm-audio" controls preload="none" src="${url}"></audio>
+        <div class="frames-bgm-yt" data-yt="${e.id}" data-start="${youtubeStart(e.url)}"
+             role="button" tabindex="0" aria-label="${title} 재생">
+          <img src="https://i.ytimg.com/vi/${e.id}/hqdefault.jpg" alt="" loading="lazy">
+          <span class="frames-bgm-play"><i class="fas fa-play"></i></span>
+        </div>
       </div>`;
     }).join('');
-
-    // mp3 쪽도 같은 음량에서 시작한다. volume 은 속성으로 못 적어서 여기서 건다.
-    box.querySelectorAll('.frames-bgm-audio').forEach(a => { a.volume = BGM_VOLUME / 100; });
   }
 
   // 재생 중이던 BGM 을 멈춘다. iframe 을 걷어내면 소리도 같이 끊긴다 —

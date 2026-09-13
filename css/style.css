@@ -5795,8 +5795,6 @@
 
   .frames-bgm-link:hover { color: var(--text-heading); text-decoration: underline; }
 
-  .frames-bgm-audio { width: 100%; }
-
 
   /* 목록으로 버튼과 검색란을 한 덩이로 묶어 같이 고정한다.
      서랍 안쪽 여백(12px)만큼 음수로 올려야 위가 안 뜬다. */
