@@ -889,6 +889,26 @@ const CUTSCENE_ANCHOR_ON = [
 // 세로 화각이 1.155 배 넓어지고 점유가 0.87 배로 줄었다.
 const GAME_ASPECT = 16 / 9;
 
+// 비교용 스위치. 주소에 ?gate=0 을 붙이면 게이트핏을 끄고 파일 화각을 그대로
+// 쓴다. 화면에 다 들어오는 대신 보스가 작아진다 - 어느 쪽이 인게임에 가까운지
+// 보스마다 갈려서, 눈으로 대보라고 열어 둔다.
+const GATEFIT_OFF = (() => {
+  try { return /[?&]gate=0(?:&|$)/.test(location.search); } catch (e) { return false; }
+})();
+
+// 이쪽도 켜진 걸 모르면 엉뚱한 데를 고치게 된다. 띠를 붙인다.
+if (GATEFIT_OFF && !RAW_MODE) {
+  try {
+    const tag = document.createElement('div');
+    tag.id = 'f3d-gate-tag';
+    tag.textContent = '화각 비교 모드 — 파일 화각 그대로(게이트핏 꺼짐)';
+    tag.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);'
+      + 'z-index:9999;padding:5px 12px;border-radius:999px;font:700 12px/1.4 system-ui;'
+      + 'color:#fff;background:#2c6fb5;box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
+    (document.body || document.documentElement).appendChild(tag);
+  } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
+}
+
 function gateFitFov(fovDeg, aspect) {
   const a = (aspect > 1e-6) ? aspect : 1;
   const halfW = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
@@ -3012,7 +3032,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 클립이 끝나면 원래 값으로 돌려놓는다.
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        const want = gateFitFov(node.fov, GAME_ASPECT);
+        const want = GATEFIT_OFF ? node.fov : gateFitFov(node.fov, GAME_ASPECT);
         if (Math.abs(camera.fov - want) > 1e-4) {
           camera.fov = want;
           camera.updateProjectionMatrix();
