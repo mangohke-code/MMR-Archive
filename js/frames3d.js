@@ -847,7 +847,6 @@ if (RAW_MODE) {
 const CUTSCENE_ANCHOR_ON = [
   /^xbg002_appearance_camera$/i,
   /^xbg002_dead_camera$/i,
-  /^xbg003_appear_camera$/i,
   /^ebg001_phase002_appearance_camera$/i,
   /^mbg002_dead_camera$/i,
   /^harvester_dead_scene_camera$/i,
@@ -872,6 +871,11 @@ const CUTSCENE_ANCHOR_ON = [
 //
 // 상수를 박지 않고 캔버스 비율에서 유도한다. 창 모양이 바뀌어도 게임과 같이
 // 가로 화각을 지키고 세로만 따라 움직인다.
+// 화면비는 게임 기준으로 고정한다. 캔버스 비율을 쓰면 창 모양에 따라 보스
+// 크기가 달라져서 인게임과 대조할 수가 없다 - 창이 1.539 일 때 16:9 보다
+// 세로 화각이 1.155 배 넓어지고 점유가 0.87 배로 줄었다.
+const GAME_ASPECT = 16 / 9;
+
 function gateFitFov(fovDeg, aspect) {
   const a = (aspect > 1e-6) ? aspect : 1;
   const halfW = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
@@ -2995,7 +2999,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 클립이 끝나면 원래 값으로 돌려놓는다.
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        const want = gateFitFov(node.fov, camera.aspect);
+        const want = gateFitFov(node.fov, GAME_ASPECT);
         if (Math.abs(camera.fov - want) > 1e-4) {
           camera.fov = want;
           camera.updateProjectionMatrix();
