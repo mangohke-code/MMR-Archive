@@ -866,9 +866,9 @@ function cutsceneAnchorOf(node) {
   return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, a[12], a[13], a[14], 1];
 }
 
-const CAMERA_FIX = [
-  { boss: /^xbg002/i, aim: true },
-];
+// 뷰어가 연출 카메라에 손대는 보정은 이제 없다. 화면은 파일 값과
+// cutsceneAnchor 평행이동만으로 정해진다.
+const CAMERA_FIX = [];
 
 // 인게임 카메라가 바라보는 대상. Cinemachine 은 위치(Body)와 겨냥(Aim)을 따로
 // 계산하는데, 내보내기에 겨냥 결과가 안 실려 오는 연출이 있다 — 미러 컨테이너
@@ -889,19 +889,7 @@ function cameraLookAtFor(bossKey, clipName) {
 }
 
 // 같은 보스 안에서 그 연출 하나만 따로 손봐야 할 때. 보스 설정 위에 덧씌운다.
-const CLIP_CAMERA_FIX = [
-  // 그레이브 디거 등장 - 보는 방향은 정면이 맞는데 화면이 기울어 있다.
-  // 게임 값은 2.67초 컷을 경계로 부호가 바뀐다(앞 -1.7~-11.5도, 뒤 +20.3~24.6도).
-  // 구간을 나누지 않고 클립 전체에 같은 값을 건다.
-  // rollDeg - 연출 카메라 화면을 굴릴 각도(도). 측정한 기울기 값에 그대로
-  //   더해진다 — -21.1 을 주면 5초대 +21.1 도가 0 도가 된다.
-  // rollFrom / rollTo - 걸릴 구간(초). 안 적으면 클립 전체.
-  { boss: /^mbg002/i, clip: /_appearance$/i, rollDeg: -21.1 },
-  // 아일랜드 이터 2페이즈 등장 - 게임 카메라가 보스를 화면 왼쪽으로 밀어 놓는다
-  // (화면 가로 중앙이 0.5 여야 하는데 0.23~0.37, 6초대에는 양옆으로 넘친다).
-  // 위치는 그대로 두고 시선만 보스에 맞춘다 — 카메라 워크와 거리는 유지된다.
-  { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, lookAtFocus: true },
-];
+const CLIP_CAMERA_FIX = [];
 
 function cameraFixFor(bossKey, clipName) {
   const base = CAMERA_FIX.find(o => o.boss.test(bossKey || '')) || {};
