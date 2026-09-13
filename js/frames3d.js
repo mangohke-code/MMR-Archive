@@ -848,25 +848,26 @@ const CUTSCENE_ANCHOR_ON = [
   /^xbg002_appearance_camera$/i,
   /^xbg002_dead_camera$/i,
   /^xbg003_appear_camera$/i,
-  /^ebg001_dead_scene_camera$/i,
   /^ebg001_phase002_appearance_camera$/i,
   /^mbg002_dead_camera$/i,
   /^harvester_dead_scene_camera$/i,
 ];
 
+// 홀더에서 평행이동만 꺼내 쓴다. 회전 성분까지 넣으면 카메라 무빙이 파일 값과
+// 달라지는데, 인게임 영상과 대조해 보면 무빙 자체는 파일 값이 이미 맞다.
+// 실측(겨냥 각도, 중앙값): 프로비던스 등장 19.7° -> 10.4°,
+// 아일랜드 이터 2페 등장 33.3° -> 16.7°, 그레이브 디거 사망 27.5° -> 27.1°.
+// 나머지 3개는 홀더에 회전이 없어 결과가 같다.
 function cutsceneAnchorOf(node) {
   if (RAW_MODE || !node || !node.userData) return null;
   if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
   const a = node.userData.cutsceneAnchorNoMirror || node.userData.cutsceneAnchor;
-  return (Array.isArray(a) && a.length === 16) ? a : null;
+  if (!Array.isArray(a) || a.length !== 16) return null;
+  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, a[12], a[13], a[14], 1];
 }
 
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
-  // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
-  // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
-  { boss: /^xbg003/i, noCamera: true },
 ];
 
 // 인게임 카메라가 바라보는 대상. Cinemachine 은 위치(Body)와 겨냥(Aim)을 따로
@@ -2016,10 +2017,6 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       ? pairCameraClips(gltf.animations || [], camNodes)
       : { cams: [], byModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
-    // 목록에서 감추는 건 그대로 두고 재생만 막는다
-    // noCamera - 연출 카메라를 아예 안 쓰는 보스(온리 원). 원본 확인 모드에서는
-    // 파일에 든 카메라를 그대로 봐야 하므로 이 버리기도 건너뛴다.
-    if (!RAW_MODE && cameraFixFor(bossKey).noCamera) camPairs.byModel = new Map();
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
     let cinematic = null;
     const focusOverride = focusOverrideFor(bossKey);
@@ -2887,7 +2884,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       const node = cinematic.node;
       node.updateWorldMatrix(true, false);
-      // 홀더를 쓰는 연출은 카메라의 지역 변환 앞에 홀더를 끼운다.
+      // 홀더를 쓰는 연출은 카메라의 지역 변환 앞에 홀더(평행이동)를 끼운다.
       // 월드 행렬 앞에 곱하면 안 된다 — 홀더 값은 파일 원시 단위인데 뷰어는
       // 모델을 정규화(균일 축소)해서 얹어 놓기 때문에 축척이 어긋난다.
       // 부모(정규화 그룹) 아래, 카메라 지역 변환 위에 넣어야 같은 단위가 된다.
