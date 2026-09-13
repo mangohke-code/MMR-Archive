@@ -826,6 +826,41 @@ if (RAW_MODE) {
   } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
 }
 
+// 연출 홀더(cutsceneAnchor)를 적용할 카메라.
+//
+// 게임은 연출마다 "홀더" 노드를 두고 그 아래에서 카메라를 움직인다. 추출본의
+// 카메라 커브가 그 홀더를 반영한 것도 있고 아닌 것도 있는데, 어느 쪽인지
+// 파일이 말해주지 않는다(추출 쪽에서 구조적 근거를 못 찾았다).
+//
+// 그래서 연출별로 적어 둔다. 홀더 행렬 자체는 게임 값이고
+// (extras.cutsceneAnchorNoMirror), 여기서 정하는 건 "적용할지 말지" 뿐이다.
+// 41개 카메라를 적용/미적용 두 상태로 재서, 인게임 영상과 맞는 쪽을 골랐다.
+//   프로비던스 등장  거리/세로 12.32 -> 4.40,  화면 점유 11% -> 28%
+//   프로비던스 사망           13.57 -> 4.39,            9% -> 31%
+//   온리 원 등장               6.66 -> 1.63,           22% -> 79%
+//   그레이브 디거 사망  겨냥 83.4도 -> 25.5도
+//   아일랜드 이터 2페 등장   136.9도 -> 33.3도
+//   아일랜드 이터 사망        48.0도 -> 22.7도
+//   사치스러운 거미 사망     171.6도 -> 98.1도 (아직 이상하지만 나아진다)
+//
+// 나머지 34개는 적용하면 오히려 무너진다(겨냥이 100도 넘게 튄다).
+const CUTSCENE_ANCHOR_ON = [
+  /^xbg002_appearance_camera$/i,
+  /^xbg002_dead_camera$/i,
+  /^xbg003_appear_camera$/i,
+  /^ebg001_dead_scene_camera$/i,
+  /^ebg001_phase002_appearance_camera$/i,
+  /^mbg002_dead_camera$/i,
+  /^harvester_dead_scene_camera$/i,
+];
+
+function cutsceneAnchorOf(node) {
+  if (RAW_MODE || !node || !node.userData) return null;
+  if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
+  const a = node.userData.cutsceneAnchorNoMirror || node.userData.cutsceneAnchor;
+  return (Array.isArray(a) && a.length === 16) ? a : null;
+}
+
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
@@ -2769,6 +2804,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camWorldPos = new THREE.Vector3();
     const camWorldQuat = new THREE.Quaternion();
     const camWorldScl = new THREE.Vector3();
+    const camAnchorMat = new THREE.Matrix4();
+    const camAnchorOut = new THREE.Matrix4();
     const camFwd = new THREE.Vector3();
     const camPull = new THREE.Vector3();
     let savedFov = null;
@@ -2850,7 +2887,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       const node = cinematic.node;
       node.updateWorldMatrix(true, false);
-      node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
+      // 홀더를 쓰는 연출은 카메라의 지역 변환 앞에 홀더를 끼운다.
+      // 월드 행렬 앞에 곱하면 안 된다 — 홀더 값은 파일 원시 단위인데 뷰어는
+      // 모델을 정규화(균일 축소)해서 얹어 놓기 때문에 축척이 어긋난다.
+      // 부모(정규화 그룹) 아래, 카메라 지역 변환 위에 넣어야 같은 단위가 된다.
+      const anchorArr = cutsceneAnchorOf(node);
+      if (anchorArr) {
+        camAnchorMat.fromArray(anchorArr);
+        camAnchorOut.multiplyMatrices(camAnchorMat, node.matrix);
+        if (node.parent) camAnchorOut.premultiply(node.parent.matrixWorld);
+        camAnchorOut.decompose(camWorldPos, camWorldQuat, camWorldScl);
+      } else {
+        node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
+      }
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
