@@ -675,6 +675,38 @@ function focusBonesOf(mesh) {
 //  - boneFilter 가 정규식이면: 스켈레톤 전체에서 그 본들만 평균낸다(보스별 지정).
 //  - 'all' 이면: 기준 메쉬에 매달린 본 전부(메쉬를 이름으로 지정한 경우).
 //  - 없으면: 기준 메쉬의 본 중 중심축 -> 전체 순으로 물러난다.
+// 겨냥 보정(AIM_CUT/AIM_ALL)이 쓰는 중심. rigCenter 는 메쉬 하나의 본 "평균"이라
+// 본이 한쪽에 몰린 보스에서는 눈에 보이는 한가운데와 어긋난다. 프로비던스 등장
+// 6.22초에서 그 차이가 화면 가로로 0.47 이나 났다. 여기서는 보이는 메쉬 전부의
+// 본을 모아 bbox 한가운데를 쓴다 - 화면에 잡히는 덩어리의 중앙에 가깝다.
+function visualCenter(meshes, out) {
+  const v = new THREE.Vector3();
+  let n = 0;
+  let mnx = Infinity, mny = Infinity, mnz = Infinity;
+  let mxx = -Infinity, mxy = -Infinity, mxz = -Infinity;
+  const seen = new Set();
+  for (const m of meshes) {
+    if (!m.isSkinnedMesh || !m.skeleton || !m.visible) continue;
+    if (/_fx(_\d+)?$/i.test(m.name || '')) continue;
+    for (const b of m.skeleton.bones) {
+      if (seen.has(b)) continue;
+      seen.add(b);
+      const name = b.name || '';
+      if (DEBRIS_BONE_RE.test(name) || ANCHOR_BONE_RE.test(name)) continue;
+      if (!isBoneVisible(b)) continue;
+      b.getWorldPosition(v);
+      if (!isFinite(v.x) || !isFinite(v.y) || !isFinite(v.z)) continue;
+      if (v.x < mnx) mnx = v.x; if (v.x > mxx) mxx = v.x;
+      if (v.y < mny) mny = v.y; if (v.y > mxy) mxy = v.y;
+      if (v.z < mnz) mnz = v.z; if (v.z > mxz) mxz = v.z;
+      n++;
+    }
+  }
+  if (!n) return null;
+  out.set((mnx + mxx) / 2, (mny + mxy) / 2, (mnz + mxz) / 2);
+  return out;
+}
+
 function rigCenter(mesh, out, boneFilter) {
   if (!mesh || !mesh.skeleton) return null;
   const v = new THREE.Vector3();
@@ -3035,6 +3067,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           }
         }
         hasAim = true;
+      } else if ((AIM_ALL || AIM_CUT) && cinematic.lookAtFocus) {
+        hasAim = !!visualCenter(meshes, camPull);
       } else if ((cinematic.lookAtFocus || cinematic.idleAngle) && focusMesh) {
         hasAim = rigCenter(focusMesh, camPull, focusBone);
       }
