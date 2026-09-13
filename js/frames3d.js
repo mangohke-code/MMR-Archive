@@ -2181,8 +2181,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     //     터렛 다섯은 아예 태그가 없다. 둘 다 2페이즈에서만 쓴다.
     // 파일을 합치기 전에는 "파일 하나가 곧 페이즈" 라 안 걸렸던 문제다.
     const MESH_PHASE_FIX = [
-      { boss: /^xba003/i, re: /^xba003_1phase_magiccarpet_skin$/i, phase: '2' },
-      { boss: /^xba003/i, re: /^xba003_turret\d+$/i, phase: '2' },
+      // 재질별로 갈린 메쉬는 뒤에 _1 _2 가 붙는다. 그것까지 받아야 한다.
+      { boss: /^xba003/i, re: /^xba003_1phase_magiccarpet_skin(_\d+)?$/i, phase: '2' },
+      { boss: /^xba003/i, re: /^xba003_turret\d+(_\d+)?$/i, phase: '2' },
     ];
     const meshPhase = (name) => {
       const fix = MESH_PHASE_FIX.find(
