@@ -1561,6 +1561,9 @@ function isAppearanceClip(name) {
 // 모델 칩을 넘기고, 에고비스타는 한 모델 안이라 페이즈 칩을 넘긴다.
 const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
+  // 애니힐리오 - 1·2페이즈가 파일이 갈려 있다. 전환 연출(12phase_appeanrance)은
+  // 1페이즈 파일에 들어 있어서, 그게 끝나면 2페이즈 모델로 넘어간다.
+  { boss: /^xba003/i, from: '1', by: 'model' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
