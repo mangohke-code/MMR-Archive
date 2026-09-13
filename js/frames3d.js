@@ -1516,8 +1516,9 @@ const CLIP_SOLO_PARTS = [
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
   // 애니힐리오도 같다. 앞 컷(12phase_appeanrance)은 1페이즈 본만 움직이는데
   // 2페이즈 목록에 두었더니 1페이즈 몸이 통째로 숨어 화면이 비었다.
-  { boss: /^xba003/i, clip: /_12phase_appeanrance$/i, show: /./ },
-  { boss: /^xba003/i, clip: /^xbga03_2phase_appearance$/i, show: /./ },
+  // 마녀의 까마귀 다섯은 전환 연출 내내 꺼져 있다.
+  { boss: /^xba003/i, clip: /_12phase_appeanrance$/i, show: /./, hide: /_turret\d+(_\d+)?$/i },
+  { boss: /^xba003/i, clip: /^xbga03_2phase_appearance$/i, show: /./, hide: /_turret\d+(_\d+)?$/i },
 ];
 
 // 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
@@ -2734,9 +2735,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (clipSolo) {
           // 이 연출에서만 켜는 파츠 — 평소 꺼둔 것을 되살린다.
           if (clipSolo.show && clipSolo.show.test(m.name)) on = true;
-          else if (on && clipSolo.hide) on = !clipSolo.hide.test(m.name);
-          else if (on && clipSolo.group
-                   && clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
+          // show 로 켠 뒤에도 hide 는 따로 본다. 둘을 같이 적어서 "전부 켜되
+          // 이것만 빼고" 를 쓸 수 있어야 한다 — 애니힐리오 전환 연출이 그렇다.
+          if (on && clipSolo.hide && clipSolo.hide.test(m.name)) on = false;
+          if (on && clipSolo.group
+              && clipSolo.group.test(m.name) && !clipSolo.keep.test(m.name)) on = false;
         }
         // 이 연출에서만 켜지는 발광 파츠 — 평소 꺼둔 것을 잠깐 되살린다
         if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
