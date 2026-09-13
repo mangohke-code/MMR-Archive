@@ -3714,6 +3714,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         // dead / death 표기가 보스마다 다르다
         const isSolo = c => /(^|_)(dead|death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
+        // 연출 길이. 카메라 클립이 모델보다 길게 놓인 연출은 카메라가 시계라서
+        // (애니힐리오 1페 등장은 카메라 8.00초 / 모델 5.00초) 그쪽 길이를 적는다.
+        // 재생바도 같은 값을 쓴다 - 버튼만 5초라고 적히면 헷갈린다.
+        const playDur = c => {
+          const pair = camPairs.byModel.get(c.name);
+          if (!pair || !pair.node || !pair.node.userData) return c.duration;
+          const u = pair.node.userData;
+          if (typeof u.timelineStart !== 'number'
+            || typeof u.pairedClipTimelineStart !== 'number') return c.duration;
+          if (u.timelineStart >= u.pairedClipTimelineStart) return c.duration;
+          return (pair.clip && pair.clip.duration) || c.duration;
+        };
         const secs = n => n.toFixed(2) + 's';
         const inSeq = new Set();
         seqs.forEach(sq => { if (!sq.synthetic) sq.steps.forEach(st => inSeq.add(st.clip.name)); });
@@ -3793,7 +3805,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           // 1) 대기 동작
           clips.filter(c => isIdle(c) && inCurrentPhase(c.name))
             .forEach(c => push(c.name,
-              mkBtn(c.name, labelOf(c.name, label(c.name)), secs(c.duration))));
+              mkBtn(c.name, labelOf(c.name, label(c.name)), secs(playDur(c)))));
           // 2) 묶음 + 소속 클립
           seqs.forEach(sq => {
             if (!inCurrentPhase(sq.steps[0].clip.name)) return;
@@ -3820,11 +3832,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             if (trio) {
               // 머리 셋이 동시에 나오는 연출
               push(c.name,
-                mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(c.duration), 'is-seq'));
+                mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(playDur(c)), 'is-seq'));
               return;
             }
             push(c.name,
-              mkBtn(c.name, labelOf(c.name, label(c.name)), secs(c.duration),
+              mkBtn(c.name, labelOf(c.name, label(c.name)), secs(playDur(c)),
                 isSolo(c) ? '' : 'is-extra'),
               seqNo(c.name));
           });
