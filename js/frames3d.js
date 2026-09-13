@@ -908,11 +908,26 @@ const AIM_ALL = (() => {
   try { return /[?&]aim=1(?:&|$)/.test(location.search); } catch (e) { return false; }
 })();
 
-if (AIM_ALL && !RAW_MODE) {
+// 컷 단위 겨냥 보정. ?aim=2 로 켠다.
+//
+// ?aim=1(매 프레임 겨냥)은 구도를 맞추지만 카메라가 보스를 계속 따라다녀서
+// 무빙이 죽는다. 게임 연출은 컷 안에서 방향이 고정돼 있고 컷이 바뀔 때 튄다.
+// 그래서 컷이 시작될 때 한 번만 "보스가 화면 중앙에 오는 회전"과 파일 회전의
+// 차이를 재서, 그 컷 동안 같은 값을 계속 더한다.
+//   - 컷 안에서는 파일 회전 그대로 움직인다(무빙 유지)
+//   - 구도는 컷 머리에서 맞춰진다
+// 컷은 카메라 위치가 한 프레임에 크게 튀는 지점으로 잡는다. 프로비던스 등장은
+// 3.30초까지 카메라가 완전히 정지해 있다가 3.40초에 거리 7.19 -> 4.34 로 뛴다.
+const AIM_CUT = (() => {
+  try { return /[?&]aim=2(?:&|$)/.test(location.search); } catch (e) { return false; }
+})();
+
+if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {
   try {
     const tag = document.createElement('div');
     tag.id = 'f3d-aim-tag';
-    tag.textContent = '겨냥 비교 모드 — 카메라가 보스 중심을 본다';
+    tag.textContent = AIM_CUT ? '겨냥 비교 모드 — 컷 머리에서만 맞춘다'
+      : '겨냥 비교 모드 — 카메라가 보스 중심을 본다';
     tag.style.cssText = 'position:fixed;left:50%;top:' + (GATEFIT_OFF ? '38px' : '8px')
       + ';transform:translateX(-50%);z-index:9999;padding:5px 12px;border-radius:999px;'
       + 'font:700 12px/1.4 system-ui;color:#fff;background:#2e7d52;'
@@ -2875,6 +2890,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     const camAnchorOut = new THREE.Matrix4();
     const camFwd = new THREE.Vector3();
     const camPull = new THREE.Vector3();
+    // 컷 단위 겨냥 보정(AIM_CUT)이 컷 사이에 들고 가는 값
+    const aimCutOff = new THREE.Quaternion();
+    const aimCutFile = new THREE.Quaternion();
+    const aimCutPrev = { pos: new THREE.Vector3(), span: 1, time: 0, clip: null, valid: false };
     let savedFov = null;
 
     // 연출 카메라가 보스를 못 담는 프레임만 되돌린다.
@@ -3028,7 +3047,32 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       // 매 프레임 기준점을 향하게 다시 잡는다. 위치와 화각은 건드리지 않으므로
       // 게임의 카메라 워크는 그대로 남는다.
-      if (hasAim) camera.lookAt(camPull);
+      if (hasAim) {
+        if (!AIM_CUT) {
+          camera.lookAt(camPull);
+        } else {
+          // 컷이 바뀌었으면 이 프레임에서 오프셋을 다시 잰다.
+          // 클립이 바뀌거나 되감으면 앞 컷의 값을 들고 가면 안 된다.
+          const now = cinematic.action ? cinematic.action.time : 0;
+          const rewound = now + 1e-4 < aimCutPrev.time;
+          const jumped = !aimCutPrev.valid || rewound
+            || aimCutPrev.clip !== (cinematic.action && cinematic.action._clip)
+            || camera.position.distanceTo(aimCutPrev.pos) > aimCutPrev.span * 0.25;
+          if (jumped) {
+            aimCutFile.copy(camera.quaternion);
+            camera.lookAt(camPull);
+            // 파일 회전 -> 겨냥 회전으로 가는 차이만 떼어 둔다.
+            aimCutOff.copy(aimCutFile).invert().premultiply(camera.quaternion);
+          } else {
+            camera.quaternion.multiply(aimCutOff);
+          }
+          aimCutPrev.pos.copy(camera.position);
+          aimCutPrev.span = Math.max(0.35, camera.position.distanceTo(camPull));
+          aimCutPrev.time = now;
+          aimCutPrev.clip = cinematic.action && cinematic.action._clip;
+          aimCutPrev.valid = true;
+        }
+      }
       // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
       if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
       // 화면 기울기 보정. rotateZ 는 카메라 로컬 Z(시선축) 기준이라 위치·거리·
@@ -3317,7 +3361,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           rollFrom: fix.rollFrom || 0,
           rollTo: (typeof fix.rollTo === 'number') ? fix.rollTo : Infinity,
           flip: camNeedsFlip(clip.name),
-          lookAtFocus: AIM_ALL || !!fix.lookAtFocus,
+          lookAtFocus: AIM_ALL || AIM_CUT || !!fix.lookAtFocus,
           lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
           dist: fix.dist || 1, fixDist: fix.fixDist || 0,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
