@@ -922,11 +922,22 @@ const AIM_CUT = (() => {
   try { return /[?&]aim=2(?:&|$)/.test(location.search); } catch (e) { return false; }
 })();
 
+// 컷 안에서 겨냥이 대상을 따라가는 속도(초). 클수록 느리게 붙는다.
+// 0 이면 컷 머리에서만 맞추고 그 뒤로는 안 따라간다.
+// 주소에 ?d=0.8 처럼 붙여 바꿀 수 있다. 게임 쪽 CinemachineComposer 의
+// m_HorizontalDamping / m_VerticalDamping 이 둘 다 0.5 라 그 값을 기본으로 둔다.
+const AIM_DAMP = (() => {
+  try {
+    const m = /[?&]d=([\d.]+)(?:&|$)/.exec(location.search);
+    return m ? Math.max(0, parseFloat(m[1]) || 0) : 0.5;
+  } catch (e) { return 0.5; }
+})();
+
 if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {
   try {
     const tag = document.createElement('div');
     tag.id = 'f3d-aim-tag';
-    tag.textContent = AIM_CUT ? '겨냥 비교 모드 — 컷 머리에서만 맞춘다'
+    tag.textContent = AIM_CUT ? ('겨냥 비교 모드 — 컷 머리 + 추종 ' + AIM_DAMP + '초')
       : '겨냥 비교 모드 — 카메라가 보스 중심을 본다';
     tag.style.cssText = 'position:fixed;left:50%;top:' + (GATEFIT_OFF ? '38px' : '8px')
       + ';transform:translateX(-50%);z-index:9999;padding:5px 12px;border-radius:999px;'
@@ -2893,6 +2904,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 컷 단위 겨냥 보정(AIM_CUT)이 컷 사이에 들고 가는 값
     const aimCutOff = new THREE.Quaternion();
     const aimCutFile = new THREE.Quaternion();
+    const aimCutWant = new THREE.Quaternion();
     const aimCutPrev = { pos: new THREE.Vector3(), span: 1, time: 0, clip: null, valid: false };
     let savedFov = null;
 
@@ -3058,14 +3070,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           const jumped = !aimCutPrev.valid || rewound
             || aimCutPrev.clip !== (cinematic.action && cinematic.action._clip)
             || camera.position.distanceTo(aimCutPrev.pos) > aimCutPrev.span * 0.25;
-          if (jumped) {
-            aimCutFile.copy(camera.quaternion);
-            camera.lookAt(camPull);
-            // 파일 회전 -> 겨냥 회전으로 가는 차이만 떼어 둔다.
-            aimCutOff.copy(aimCutFile).invert().premultiply(camera.quaternion);
-          } else {
-            camera.quaternion.multiply(aimCutOff);
+          // 이 프레임에서 "보스가 화면 중앙에 오는" 오프셋을 구한다.
+          aimCutFile.copy(camera.quaternion);
+          camera.lookAt(camPull);
+          aimCutWant.copy(aimCutFile).invert().premultiply(camera.quaternion);
+          if (jumped || AIM_DAMP <= 0 && !aimCutPrev.valid) {
+            // 컷 머리에서는 즉시 맞춘다.
+            aimCutOff.copy(aimCutWant);
+          } else if (AIM_DAMP > 0) {
+            // 컷 안에서는 천천히 따라간다. 모델이 움직여도 화면에서 밀려나지
+            // 않으면서, 카메라 워크(위치)는 파일 값 그대로 남는다.
+            const k = 1 - Math.exp(-Math.max(1e-4, dt || 1 / 60) / AIM_DAMP);
+            aimCutOff.slerp(aimCutWant, k);
           }
+          camera.quaternion.copy(aimCutFile).multiply(aimCutOff);
           aimCutPrev.pos.copy(camera.position);
           aimCutPrev.span = Math.max(0.35, camera.position.distanceTo(camPull));
           aimCutPrev.time = now;
