@@ -958,6 +958,17 @@ const AIM_CUT = (() => {
 // 0 이면 컷 머리에서만 맞추고 그 뒤로는 안 따라간다.
 // 주소에 ?d=0.8 처럼 붙여 바꿀 수 있다. 게임 쪽 CinemachineComposer 의
 // m_HorizontalDamping / m_VerticalDamping 이 둘 다 0.5 라 그 값을 기본으로 둔다.
+// 겨냥 보정을 기본으로 켜는 보스. 인게임 스크린샷과 대조해 맞는 것을 확인한
+// 것만 올린다. 나머지는 주소에 ?aim=2 를 붙여야 켜진다.
+//   프로비던스 - 등장 0.77/0.90/3.90/6.22초 네 지점을 인게임과 대조했다.
+const AIM_CUT_BOSS = [
+  /^xbg002/i,
+];
+
+function aimCutForBoss(bossKey) {
+  return AIM_CUT_BOSS.some(re => re.test(bossKey || ''));
+}
+
 const AIM_DAMP = (() => {
   try {
     const m = /[?&]d=([\d.]+)(?:&|$)/.exec(location.search);
@@ -965,7 +976,7 @@ const AIM_DAMP = (() => {
   } catch (e) { return 0.5; }
 })();
 
-if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {
+if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {   // 주소로 켰을 때만 띠를 붙인다
   try {
     const tag = document.createElement('div');
     tag.id = 'f3d-aim-tag';
@@ -3107,7 +3118,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           }
         }
         hasAim = true;
-      } else if ((AIM_ALL || AIM_CUT) && cinematic.lookAtFocus) {
+      } else if (cinematic.aimMode && cinematic.lookAtFocus) {
         hasAim = !!visualCenter(meshes, camPull);
       } else if ((cinematic.lookAtFocus || cinematic.idleAngle) && focusMesh) {
         hasAim = rigCenter(focusMesh, camPull, focusBone);
@@ -3134,7 +3145,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 매 프레임 기준점을 향하게 다시 잡는다. 위치와 화각은 건드리지 않으므로
       // 게임의 카메라 워크는 그대로 남는다.
       if (hasAim) {
-        if (!AIM_CUT) {
+        if (cinematic.aimMode !== 'cut') {
           camera.lookAt(camPull);
         } else {
           // 컷이 바뀌었으면 이 프레임에서 오프셋을 다시 잰다.
@@ -3473,7 +3484,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           rollFrom: fix.rollFrom || 0,
           rollTo: (typeof fix.rollTo === 'number') ? fix.rollTo : Infinity,
           flip: camNeedsFlip(clip.name),
-          lookAtFocus: AIM_ALL || AIM_CUT || !!fix.lookAtFocus,
+          lookAtFocus: AIM_ALL || AIM_CUT || aimCutForBoss(bossKey) || !!fix.lookAtFocus,
+          // 'all' 은 매 프레임 겨냥, 'cut' 은 컷 머리에서 맞추고 천천히 따라가기.
+          aimMode: AIM_ALL ? 'all' : ((AIM_CUT || aimCutForBoss(bossKey)) ? 'cut' : null),
           lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
           dist: fix.dist || 1, fixDist: fix.fixDist || 0,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
