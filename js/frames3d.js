@@ -1593,6 +1593,12 @@ function isOneShot(name) {
 // 색만 갈아 끼운다.
 const liveStates = new Set();
 
+// 솔로 레이드 탭을 벗어나면 뷰어를 재우고, 돌아오면 깨운다.
+document.addEventListener('mmr:tab-change', ev => {
+  const on = !!(ev.detail && ev.detail.tab === 'frames');
+  liveStates.forEach(st => { st.offscreen = !on; });
+});
+
 function panelColor() {
   return getComputedStyle(document.body).getPropertyValue('--bg-panel').trim();
 }
@@ -1680,6 +1686,10 @@ let loadSeq = 0;
 
 function setLoadingBar(seq, pct, sub) {
   if (seq !== loadSeq) return;
+  // 페이즈 자동 전환으로 넘어오는 길에는 막대를 띄우지 않는다. 연출이 이어져야
+  // 하는데 중간에 로딩 화면이 끼면 흐름이 끊긴다. 앞 페이즈 화면이 그대로
+  // 남아 있다가 다음 모델로 바뀐다.
+  if (autoPhasePending) return;
   const box = document.getElementById('f3d-loading');
   if (!box) return;
   box.classList.remove('hidden');
@@ -4212,6 +4222,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     function animate() {
       if (container.__framesModel3D !== state) return; // dispose됨
       state.rafId = requestAnimationFrame(animate);
+      // 다른 탭에 가 있는 동안은 한 프레임도 그리지 않는다. 안 보이는 곳에서
+      // 계속 돌면 배터리와 GPU 만 먹는다. getDelta 는 버려서 돌아왔을 때
+      // 그동안 흐른 시간이 한꺼번에 밀려들지 않게 한다.
+      if (state.offscreen) { clock.getDelta(); return; }
       state.step(clock.getDelta());
     }
     animate();

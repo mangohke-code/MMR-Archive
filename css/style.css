@@ -5798,11 +5798,23 @@
   .frames-bgm-audio { width: 100%; }
 
 
-  #f3d-drawer #f3d-back-home {
+  /* 목록으로 버튼과 검색란을 한 덩이로 묶어 같이 고정한다.
+     서랍 안쪽 여백(12px)만큼 음수로 올려야 위가 안 뜬다. */
+  #f3d-drawer-head {
     position: sticky;
     top: -12px;
     z-index: 5;
+    margin: -12px -12px 10px;
+    padding: 12px 12px 10px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
+
+  #f3d-drawer-head #f3d-back-home { width: 100%; }
+  #f3d-drawer-head #frames-search-drawer { width: 100%; margin: 0; }
 
   #f3d-drawer-selector {
     display: flex;
@@ -5870,7 +5882,7 @@
   }
 
   #f3d-drawer #frames-boss-name {
-    font-size: 22px;
+    font-size: 25px;
     font-weight: 700;
     line-height: 1.25;
     letter-spacing: -0.01em;
@@ -5879,9 +5891,9 @@
 
   #f3d-drawer #frames-season-label {
     display: inline-block;
-    margin-top: 6px;
-    padding: 2px 9px;
-    font-size: 12px;
+    margin-top: 7px;
+    padding: 3px 10px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text-secondary);
@@ -5901,10 +5913,10 @@
     border: 1px solid var(--border-subtle);
   }
 
-  #f3d-drawer #frames-attr .frames-attr-icon { height: 21px; }
+  #f3d-drawer #frames-attr .frames-attr-icon { height: 24px; }
 
   #f3d-drawer #frames-attr .frames-attr-name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     letter-spacing: -0.01em;
   }
@@ -5927,8 +5939,10 @@
 
   #f3d-drawer .frames-info-label {
     width: auto;
-    margin-bottom: 4px;
-    font-size: 11px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     color: var(--text-muted);
   }
 
@@ -5938,8 +5952,14 @@
     overflow: visible;
     text-overflow: clip;
     word-break: keep-all;
-    line-height: 1.6;
+    line-height: 1.65;
+    font-size: 14px;
   }
+
+  /* 아래로 공간이 남으니 줄 간격과 글자를 넉넉하게 쓴다 */
+  #f3d-drawer .frames-info-row { margin-bottom: 18px; }
+  #f3d-drawer .frames-date-item { gap: 8px; line-height: 1.65; }
+  #f3d-drawer .frames-date-order { font-size: 14px; }
   #f3d-drawer .info-handle { display: none; }
 
   #f3d-drawer-tiers.hidden { display: none; }

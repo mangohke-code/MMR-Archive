@@ -173,8 +173,8 @@
         if (pane) pane.classList.toggle('hidden', !on);
       });
       if (drawer) drawer.classList.toggle('hidden', !openId);
-      // 서랍을 접으면 재생 중이던 BGM 도 멈춘다 — 화면에서 사라졌는데 소리만 남는다.
-      if (openId !== 'frames-drawer-bgm') stopFramesBgm();
+      // 서랍을 접어도 BGM 은 그대로 둔다 — 틀어 놓고 다른 정보를 보는 쪽이 낫다.
+      // 소리가 남으면 곤란한 경우(탭 이동·보스 변경)는 각자 자리에서 끊는다.
     }
 
     Object.keys(panes).forEach(btnId => {
@@ -448,7 +448,6 @@
             <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy">
             <span class="frames-bgm-play"><i class="fas fa-play"></i></span>
           </div>
-          <a class="frames-bgm-link" href="${url}" target="_blank" rel="noopener">유튜브에서 열기</a>
         </div>`;
       }
 

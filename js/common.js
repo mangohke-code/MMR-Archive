@@ -97,6 +97,9 @@ document.addEventListener('contextmenu', e => {
 
   document.addEventListener('mouseover', e => {
     const target = e.target.closest('[data-tooltip]');
+    if (target && target.closest('[data-tooltip-off]')) return;
+    // 툴팁을 끈 구역(보스 서랍 목록처럼 촘촘한 곳)에서는 안 띄운다.
+    if (target && target.closest('[data-tooltip-off]')) return;
     if (!target || !target.dataset.tooltip) return;
     currentTarget = target;
     tooltip.textContent = target.dataset.tooltip;
