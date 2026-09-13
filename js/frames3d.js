@@ -2567,6 +2567,20 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       clipGlowKey = key;
     }
 
+    // meshActivation 이 지금 켜 두라고 한 메쉬 이름. null 이면 규칙이 없다.
+    let clipMeshOn = null;
+    let clipMeshKey = null;
+    // 이 연출의 활성 구간 표에 이름이 오른 메쉬 전부. 여기 없는 메쉬는 손대지 않는다.
+    let meshActNames = new Set();
+
+    function clearClipMeshAct() {
+      if (!clipMeshOn && !meshActNames.size) return;
+      clipMeshOn = null;
+      clipMeshKey = null;
+      meshActNames = new Set();
+      applyVisibility();
+    }
+
     function applyVisibility() {
       meshes.forEach(m => {
         let on = enabledMeshes.has(m.partKey);
@@ -2579,6 +2593,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         }
         // 이 연출에서만 켜지는 발광 파츠 — 평소 꺼둔 것을 잠깐 되살린다
         if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
+        // 게임 타임라인의 메쉬 활성 구간. 여기 이름이 오르는 메쉬는 그 구간에만
+        // 보인다 — 온리 원 등장은 소환수와 2페 날개를 2.5 초까지만 켠다.
+        if (clipMeshOn && meshActNames.has(m.name)) on = clipMeshOn.has(m.name);
         m.visible = on;
       });
     }
@@ -3045,6 +3062,29 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         controls.target.copy(camera.position).addScaledVector(camFwd, 2);
         return true;
       }
+      // 타임라인 배치가 어긋난 연출은 모델 클립 시각을 맞춰 준다.
+      if (cinematic.timeOffset && currentAction && cinematic.action) {
+        const want = cinematic.action.time + cinematic.timeOffset;
+        const dur = currentAction.getClip().duration;
+        const t = Math.max(0, Math.min(dur, want));
+        if (Math.abs(currentAction.time - t) > 1e-4) {
+          currentAction.time = t;
+          if (mixer) mixer.update(0);
+        }
+      }
+      // 메쉬 활성 구간. 켜지고 꺼지는 항목이 바뀔 때만 다시 칠한다.
+      if (cinematic.meshAct) {
+        const tl = cinematic.camStart + cinematic.action.time;
+        let key = '';
+        for (const o of cinematic.meshAct) {
+          if (tl >= o.start - 1e-6 && tl < o.end - 1e-6) key += o.name + '|';
+        }
+        if (key !== clipMeshKey) {
+          clipMeshKey = key;
+          clipMeshOn = new Set(key ? key.slice(0, -1).split('|') : []);
+          applyVisibility();
+        }
+      }
       if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
       // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
       let hasAim = false;
@@ -3385,6 +3425,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 이 클립에 인게임 카메라가 붙어 있으면 같이 재생하고, 그동안 시점을 그쪽에 맡긴다.
       const camPair = camPairs.byModel.get(clip.name);
       cinematic = null;
+      clearClipMeshAct();
       if (camPair) {
         const camAct = mixer.clipAction(camPair.clip);
         camAct.setLoop(THREE.LoopOnce, 1);
@@ -3406,7 +3447,26 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           return { bones, from: la.from || 0, blend: la.blend || 0, fixDist: la.fixDist || 0 };
         }).filter(o => o.bones.length);
         const fix = cameraFixFor(bossKey, clip.name);
+        // 타임라인 배치. 카메라와 모델 클립이 타임라인에서 서로 다른 시각에
+        // 놓인 연출이 있다 - 애니힐리오 1페 등장은 모델이 3.033 초 늦게
+        // 시작한다. glb 는 둘 다 로컬 0 부터 굽기 때문에 그 차이를 여기서 낸다.
+        //   모델 로컬 = 카메라 로컬 + (timelineStart - pairedClipTimelineStart)
+        const cex = (camPair.node && camPair.node.userData) || {};
+        const tlOff = (typeof cex.timelineStart === 'number'
+          && typeof cex.pairedClipTimelineStart === 'number')
+          ? cex.timelineStart - cex.pairedClipTimelineStart : 0;
+        // 메쉬별 활성 구간(타임라인 기준). 연출 내내 켜져 있는 항목은 버린다.
+        const maDur = cex.timelineDuration || 0;
+        const meshAct = Array.isArray(cex.meshActivation)
+          ? cex.meshActivation.filter(o => o && o.name
+              && !(o.start <= 1e-6 && o.end >= maDur - 1e-6))
+          : [];
+        meshActNames = new Set(meshAct.map(o => String(o.name)));
+        clipMeshOn = null;
+        clipMeshKey = null;
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
+          timeOffset: tlOff, meshAct: meshAct.length ? meshAct : null,
+          camStart: (typeof cex.timelineStart === 'number') ? cex.timelineStart : 0,
           zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
           near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
           rollDeg: fix.rollDeg || 0,
