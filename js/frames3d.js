@@ -828,29 +828,6 @@ if (RAW_MODE) {
 
 const CAMERA_FIX = [
   { boss: /^xbg002/i, aim: true },
-  // 미러 컨테이너: 연출 카메라의 방향이 통째로 어긋난다. 뼈대 루트(*_var)에 걸린
-  // 좌우 180도가 뼈대에만 걸리고 카메라 노드에는 안 걸려서, 보스만 홀로 뒤돌아
-  // 있는 꼴이다. 그래서 방향은 기본 시점과 같게 잡고, 대상까지의 거리만 게임 값을
-  // 따른다 — 다가오고 물러나는 카메라 워크는 그대로 남는다.
-  // dist - 대상까지의 거리에 곱하는 값. 게임 값보다 조금 당겨 본다.
-  { boss: /^xba001/i, idleAngle: true, dist: 0.85 },
-  // 베히모스: 카메라 위치·화각은 게임 값이 맞는데 겨냥이 어긋난다(미러 컨테이너와
-  // 같은 증상). 겨냥만 매 프레임 본체 중심으로 다시 잡는다.
-  { boss: /^mbg003/i, lookAtFocus: true },
-  // 스톰브링어: 등장 초반에 보스가 y 12.6 상공에 떠 있는데 카메라는 지상
-  // (y 0.1)에 수평으로 서 있다. 겨냥이 75도까지 어긋나서 보스가 화면 위로
-  // 통째로 빠진다. 위치·화각은 게임 값 그대로 두고 겨냥만 매 프레임 다시 잡는다.
-  { boss: /^eba001/i, lookAtFocus: true },
-  // 퀸 001: 사망 카메라는 보스 중심에서 0.3~1.2초 18~35도, 2.4초 뒤로는
-  // 40~92도까지 벗어난다. 위치·화각은 게임 값을 두고 겨냥만 다시 잡는다.
-  // (등장은 아래 CAMERA_LOOK_AT 의 단계 겨냥이 이기므로 이 값이 안 쓰인다.)
-  { boss: /^xba002/i, lookAtFocus: true },
-  // 앨트루이아: 등장·사망 카메라가 보스 뒤에 선다(등장 dz -3.15 ~ -2.17, idle 은 +2.25).
-  // 방향은 기본 시점과 같게 두고 거리만 게임 값을 따른다.
-  { boss: /^xbg004/i, lookAtFocus: true, idleAngle: true },
-  // 에고비스타도 같다 — 등장 담김 0~99% 로 널뛰고 사망은 내내 0% 였다.
-  // flip - 기본 시점의 반대편에서 잡는다. 등장·사망이 뒷모습이라 뒤집었다.
-  { boss: /^xbg005/i, lookAtFocus: true, idleAngle: true, rescue: true },
   // 온리 원: 등장·사망 카메라가 모델을 관통하고 사망은 시작부터 뒤를 비춘다.
   // 되돌려 보정해도 원래 구도가 아니라, 아예 쓰지 않고 뷰어 시점으로 본다.
   // 카메라 클립은 목록에서 계속 감춘다 — 혼자 틀 게 아니다.
@@ -866,34 +843,6 @@ const CAMERA_FIX = [
 //   사각 부품(xba001_head)이 그 카메라들이 따라다니는 대상이다.
 // clip 을 적지 않으면 그 보스의 연출 카메라 전부에 걸린다.
 const CAMERA_LOOK_AT = [
-  // 퀸 001 등장. 원본 카메라는 겨냥이 안 실려 있다 — 어느 본을 재도 28~82도
-  // 벗어난다. 그래서 겨냥만 우리가 잡는데, 한 지점으로 고정하면 안 된다:
-  // 척추·목·머리(사람 형태)는 y 5.8 이고 보스 전체는 y 10 이라, 처음부터
-  // 상반신을 잡으면 7~8초에 카메라가 미리 아래로 내려간다.
-  // 사람 형태가 드러나는 8.3초부터만 그쪽을 잡는다.
-  { boss: /^xba002/i, clip: /_appearance$/i, bone: /./, from: 0 },
-  { boss: /^xba002/i, clip: /_appearance$/i, bone: /_(spine_0\d|neck|head)$/i,
-    from: 8.3, blend: 0.6 },
-  { boss: /^xba001/i, bone: /^[a-z]{2,4}\d{3}_head$/i },
-  // 베히모스 1페이즈 등장 앞컷은 크레인이 주인공인데, 본체(y -2.09)와 크레인
-  // (y -1.04)이 1 만큼 떨어져 있어서 본체를 중심에 두면 크레인이 화면 위끝
-  // (화면 y +0.88)에 걸린다. 크레인 본 뭉치를 겨눈다.
-  { boss: /^mbg003/i, clip: /_1phase_take1$/i, bone: /_exc_head_/i },
-  // 뒷컷은 조립이 끝난 굴착기(1phase_ar_skin)가 주인공이다. 이 메쉬가 쓰는 본은
-  // exc_body 계열이라 이름만으로는 본체와 안 갈린다 — 메쉬로 지정한다.
-  { boss: /^mbg003/i, clip: /_1phase_take2$/i, mesh: /_1phase_ar_skin/i },
-  // 에고비스타 사망은 도중에 겨냥이 바뀐다(인게임 확인) — 처음에는 몸통을
-  // 잡다가, 대검이 땅에 꽂히는 순간부터 대검으로 넘어간다. 몸통은 body_skin 의
-  // 척추·골반 본으로 잡는다. core 본은 1.8초부터 화면 밖(y 1.11)으로 튀고,
-  // body_skin 전체 본(119개)을 쓰면 흩어지는 파편을 따라가 중심이 흔들린다. 본체 리그가 흩어지는
-  // 클립이라 lookAtFocus 로는 둘 다 못 잡는다(카메라가 y -1.57 까지 내려가는데
-  // 대검은 y +0.63 에 멈춰 있어 화면 위 -1.25 로 벗어났다).
-  // 대검이 꽂히는 시점은 실측했다 — 1.6초에 y 3.12, 1.8초에 y 0.70, 그 뒤로는
-  // 클립이 끝날 때까지 한 프레임도 안 움직인다.
-  { boss: /^xbg005/i, clip: /_death$/i,
-    bone: /^xbg005_(pelvis|spine_0[1-4])$/i, fixDist: 3 },
-  { boss: /^xbg005/i, clip: /_death$/i, bone: /^xbg005_greatsword_(0[12]|parts_0[12])$/i,
-    from: 1.7, blend: 0.5, fixDist: 2.5 },
 ];
 
 // 한 클립에 여러 줄을 두면 시간순 단계가 된다. from 이 없으면 0초부터다.
@@ -912,25 +861,10 @@ const CLIP_CAMERA_FIX = [
   //   더해진다 — -21.1 을 주면 5초대 +21.1 도가 0 도가 된다.
   // rollFrom / rollTo - 걸릴 구간(초). 안 적으면 클립 전체.
   { boss: /^mbg002/i, clip: /_appearance$/i, rollDeg: -21.1 },
-  // 베히모스 페이즈 전환 뒤 두 컷은 카메라가 반대편에서 뒷모습을 잡는다.
-  // 방향은 기본 시점과 같게 두고, 거리는 게임 값에서 조금 당긴다.
-  { boss: /^mbg003/i, clip: /_2phase_take[23]$/i, idleAngle: true, dist: 0.6 },
-  // 사망 첫 컷은 너무 붙어 있어서 뒤 컷과 크기가 안 맞는다. 물린다.
-  { boss: /^mbg003/i, clip: /_dead$/i, dist: 2 },
-  // 에고비스타 사망은 몸이 조각나 흩어진다. 구제 보정을 두면 그 파편까지 담으려고
-  // 카메라가 10 이상 물러나서 본체가 점만 해진다. 이 클립만 끈다.
-  { boss: /^xbg005/i, clip: /_death$/i, rescue: false },
   // 아일랜드 이터 2페이즈 등장 - 게임 카메라가 보스를 화면 왼쪽으로 밀어 놓는다
   // (화면 가로 중앙이 0.5 여야 하는데 0.23~0.37, 6초대에는 양옆으로 넘친다).
   // 위치는 그대로 두고 시선만 보스에 맞춘다 — 카메라 워크와 거리는 유지된다.
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, lookAtFocus: true },
-  // 1페이즈 컷신도 카메라가 반대편에서 뒷모습을 잡는다. 방향은 기본 시점과 같게,
-  // 거리는 게임 값에서 당긴다.
-  { boss: /^mbg003/i, clip: /_1phase_take2$/i, idleAngle: true, dist: 0.7 },
-  // take1 은 크레인이 본체와 따로 논다 — 정점 절반은 본체(y -1.9)에, 절반은
-  // 격자 높이(y 0.1~0.36)에 떠 있다. 겨냥 높이를 격자(y 0)로 고정해 크레인 쪽을
-  // 잡고, 흩어진 부품이 다 들어오게 거리를 물린다.
-  { boss: /^mbg003/i, clip: /_1phase_take1$/i, idleAngle: true, dist: 0.9, aimY: 0 },
 ];
 
 function cameraFixFor(bossKey, clipName) {
@@ -2048,7 +1982,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       : { cams: [], byModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
     // 목록에서 감추는 건 그대로 두고 재생만 막는다
-    if (cameraFixFor(bossKey).noCamera) camPairs.byModel = new Map();
+    // noCamera - 연출 카메라를 아예 안 쓰는 보스(온리 원). 원본 확인 모드에서는
+    // 파일에 든 카메라를 그대로 봐야 하므로 이 버리기도 건너뛴다.
+    if (!RAW_MODE && cameraFixFor(bossKey).noCamera) camPairs.byModel = new Map();
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
     let cinematic = null;
     const focusOverride = focusOverrideFor(bossKey);
