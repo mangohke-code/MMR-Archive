@@ -1293,6 +1293,9 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_death$/i, boss: /^xbg005/i, phase: '2' },
   // 전환 연출은 넘어가기 전 페이즈에 둔다 — 1페이즈에서 눌러 2페이즈로 간다.
   { re: /_phase_change$/i, boss: /^xbg005/i, phase: '1' },
+  // 애니힐리오 - 전환 연출 두 개(12phase_appeanrance, xbga03_2phase_appearance)를
+  // 2페이즈 쪽에 모은다. 이어지는 한 연출이라 흩어 놓으면 순서를 알기 어렵다.
+  { re: /_12phase_appeanrance$/i, boss: /^xba003/i, phase: '2' },
   // 그레이브 디거 - 등장은 1페이즈에서, 사망은 3페이즈에서만 나온다.
   { re: /^mbg002_appearance$/i, boss: /^mbg002/i, phase: '1' },
   { re: /^mbg002_dead$/i, boss: /^mbg002/i, phase: '3' },
@@ -2204,9 +2207,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
     let cinematic = null;
     const focusOverride = focusOverrideFor(bossKey);
-    const focusMesh = pickFocusMesh(meshes, focusOverride);
+    // 기준 메쉬는 페이즈에 따라 다시 고른다. 한 파일에 페이즈가 둘 다 들어 있으면
+    // "본이 가장 많은 메쉬" 가 다른 페이즈 것일 수 있다 - 애니힐리오를 합친 뒤
+    // 1페이즈를 보는데 2페이즈 몸체(본 253 대 98)가 기준이 됐다.
+    let focusMesh = pickFocusMesh(meshes, focusOverride);
     // 본 패턴이 있으면 그게 우선. 메쉬만 지정했으면 그 메쉬 전체가 기준이라는 뜻이다.
-    const focusBone = focusOverride
+    let focusBone = focusOverride
       ? (focusOverride.bone || (focusOverride.mesh && focusMesh ? 'all' : null))
       : null;
 
@@ -2611,6 +2617,15 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       return Number(p) <= Number(current); // cumulative
     };
 
+    // 지금 페이즈에 보이는 메쉬 중에서 기준 메쉬를 다시 고른다.
+    function refreshFocusMesh() {
+      const pool = meshes.filter(m => isPhaseVisible(phaseOf(m.name), currentPhase));
+      focusMesh = pickFocusMesh(pool.length ? pool : meshes, focusOverride);
+      focusBone = focusOverride
+        ? (focusOverride.bone || (focusOverride.mesh && focusMesh ? 'all' : null))
+        : null;
+    }
+
     // 그 페이즈에서 처음 보여줄 파츠. 초기화 버튼이 이걸 다시 쓴다 —
     // "처음 열었을 때" 가 아니라 "지금 페이즈의 기본" 으로 돌아가야 한다.
     const defaultPartKeys = phase => meshes
@@ -2620,6 +2635,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         && isPhaseVisible(phaseOf(m.name), phase))
       .map(m => m.partKey);
 
+    refreshFocusMesh();
     const enabledMeshes = new Set(defaultPartKeys(currentPhase));
 
     // 지금 도는 클립이 한 부위만 내보내는 연출이면 여기에 그 규칙이 들어온다.
@@ -2817,6 +2833,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             currentPhase = btn.dataset.phase;
+            refreshFocusMesh();
             phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
