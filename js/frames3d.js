@@ -1104,20 +1104,33 @@ const CLIP_CAM_MOVE = [
   // 빼면 거의 모든 지점이 음수다. 카메라를 왼쪽으로 밀어 보스를 오른쪽으로 옮긴다.
   //   -0.35 로 재 보니 평균이 +0.073 으로 넘어가서 -0.29 로 줄였다.
   { boss: /^bbg008/i, re: /_death$/i, x: -0.29 },
-  // 검은 뱀 등장 take2 - 끊기는 컷 없이 카메라가 각도를 오른쪽으로 돌리는 한 컷이라,
-  // 보스가 화면 오른쪽(앞 3.4초)에서 왼쪽(그 뒤)으로 흘러간다. 마지막 프레임의
-  // 카메라 로컬 가로 좌표가 -0.36 이라 그만큼 밀어 끝을 가운데로 맞춘다.
-  // back 은 거리를 벌리면서 앞부분이 오른쪽으로 더 밀리는 것도 같이 눌러 준다
-  // (화면상의 치우침은 거리에 반비례한다).
-  { boss: /^bbg008/i, re: /_appearance_take2$/i, x: -0.36, back: 1.4 },
+  // 검은 뱀 등장 take2 - 카메라가 3.43초에 각도를 오른쪽으로 돌린다. 그 앞뒤로
+  // 원하는 그림이 달라서 구간을 갈랐다. 한 값으로는 둘 다 못 맞춘다.
+  //   앞  얼굴 옆모습 클로즈업(인게임은 머리가 화면을 가득 채우고 가운데에 온다)
+  //   뒤  몸 전체가 보이고 마지막에 가운데에 선다
+  { boss: /^bbg008/i, re: /_appearance_take2$/i, to: 3.43 },
+  { boss: /^bbg008/i, re: /_appearance_take2$/i, from: 3.43, x: -0.36, back: 1.4 },
   { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
     back: 1.66, pivot: /^(Pelvis|body_bone\d+|head_bone\d+)$/i },
 ];
 
+// 한 클립에 여러 줄을 두면 시간순 구간이 된다(from·to, 클립 로컬 초).
+// 안 적으면 연출 전체다. 여러 줄이 겹치면 먼저 걸리는 줄이 이긴다.
 function clipCamMoveFor(bossKey, clipName) {
   if (RAW_MODE) return null;
-  return CLIP_CAM_MOVE.find(
-    o => o.boss.test(bossKey || '') && o.re.test(clipName || '')) || null;
+  const hit = CLIP_CAM_MOVE.filter(
+    o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
+  if (!hit.length) return null;
+  return hit.slice().sort((a, b) => (a.from || 0) - (b.from || 0));
+}
+
+// 지금 시각에 걸리는 구간을 고른다.
+function clipCamMoveAt(list, t) {
+  if (!list) return null;
+  for (const o of list) {
+    if (t >= (o.from || 0) && t < (typeof o.to === 'number' ? o.to : Infinity)) return o;
+  }
+  return null;
 }
 
 // 연출 카메라를 파일 값 그대로 쓰는 보스. 이 보스에만 ?raw=1 을 상시로 걸어 둔
@@ -3385,8 +3398,9 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       // 연출별 카메라 밀기. 원본 갈래로 빠지는 연출에도 걸리도록 여기서 한다.
-      if (cinematic.move) {
-        const mv = cinematic.move;
+      const mv = clipCamMoveAt(cinematic.move,
+        cinematic.action ? cinematic.action.time : 0);
+      if (mv) {
         if (mv.x) camera.translateX(mv.x);
         if (mv.y) camera.translateY(mv.y);
         if (mv.z) camera.translateZ(mv.z);
