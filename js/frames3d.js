@@ -1067,6 +1067,8 @@ function gateFitOffFor(bossKey) {
 // 카메라 로컬 기준이다 - x 는 화면 오른쪽, y 는 화면 위, z 는 뒤.
 // ?raw=1 에는 안 걸린다.
 //
+// spin - 모델을 지나는 세로축 기준으로 카메라 리그를 통째로 돌린다(도).
+//   추출본에 카메라 위치가 반대편으로 들어온 연출을 되돌리는 데 쓴다.
 // roll - 화면 기울기(도). 양수면 화면이 반시계로 돈다.
 // back - 시선축을 따라 뒤로 물리는 배율. RAW_CAM_BOSS 의 back 과 같은 방식이다.
 //   z 로 고정값을 주면 안 되는 연출에 쓴다 - 컷마다 거리가 크게 달라지는 연출은
@@ -1127,7 +1129,7 @@ const CLIP_CAM_MOVE = [
   // 사치스러운 거미 사망 - 홀더를 뺀 뒤에도 카메라가 시체에 바짝 붙어 있다.
   // 격자를 빼고 재면 연출 내내 화면 밖으로 잘리고, 4초부터는 화면을 90% 가까이
   // 채운다. 이 연출은 뒤집기가 걸려 있어서 위의 f 가 부호를 맞춰 준다.
-  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, back: 2.0 },
+  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, back: 1.6, y: -0.12, spin: 180 },
   // 검은 뱀 등장 take2 - 카메라가 3.43초에 각도를 오른쪽으로 돌린다. 그 앞뒤로
   // 원하는 그림이 달라서 구간을 갈랐다. 한 값으로는 둘 다 못 맞춘다.
   //   앞  얼굴 옆모습 클로즈업(인게임은 머리가 화면을 가득 채우고 가운데에 온다)
@@ -3361,6 +3363,8 @@ function noFollowClip(bossKey, name) {
     const camAnchorOut = new THREE.Matrix4();
     const camFwd = new THREE.Vector3();
     const camPull = new THREE.Vector3();
+    const AXIS_Y = new THREE.Vector3(0, 1, 0);
+    const camSpinQ = new THREE.Quaternion();
     // 컷 단위 겨냥 보정(AIM_CUT)이 컷 사이에 들고 가는 값
     const aimCutOff = new THREE.Quaternion();
     const aimCutFile = new THREE.Quaternion();
@@ -3465,6 +3469,18 @@ function noFollowClip(bossKey, name) {
       const mv = clipCamMoveAt(cinematic.move,
         cinematic.action ? cinematic.action.time : 0);
       if (mv) {
+        // spin - 모델을 지나는 세로축(월드 Y) 기준으로 카메라 리그를 통째로 돌린다.
+        // 위치와 방향을 같이 돌리므로 보스를 보는 것은 그대로고 보는 쪽만 바뀐다.
+        //
+        // 추출본에 카메라 "위치" 가 반대편으로 들어온 연출이 있다. 뒤집기는 제자리
+        // 회전이라 보스를 향하게는 해 주지만 여전히 뒤에서 보게 된다.
+        // 사치스러운 거미 사망이 그렇다 - 정면 대비 카메라 각이 165~178도였다
+        // (등장·대기는 0~4도로 정상이다).
+        if (mv.spin) {
+          camSpinQ.setFromAxisAngle(AXIS_Y, THREE.MathUtils.degToRad(mv.spin));
+          camera.position.applyQuaternion(camSpinQ);
+          camera.quaternion.premultiply(camSpinQ);
+        }
         // 뒤집기(CAM_FLIP)는 카메라 로컬 Y 축 180도라 그 뒤로 x·z 축이 반대가 된다.
         // 이 밀기는 뒤집기보다 먼저 걸리므로, 뒤집히는 연출에서는 부호를 미리
         // 뒤집어 둬야 표에 적은 대로 화면이 움직인다. y 축은 뒤집혀도 그대로다.
