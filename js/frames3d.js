@@ -1062,6 +1062,14 @@ function gateFitOffFor(bossKey) {
 // 회전·화각·카메라 워크는 그대로 남고 구도만 옮겨진다.
 // 카메라 로컬 기준이다 - x 는 화면 오른쪽, y 는 화면 위, z 는 뒤.
 // ?raw=1 에는 안 걸린다.
+//
+// back - 시선축을 따라 뒤로 물리는 배율. RAW_CAM_BOSS 의 back 과 같은 방식이다.
+//   z 로 고정값을 주면 안 되는 연출에 쓴다 - 컷마다 거리가 크게 달라지는 연출은
+//   같은 값이 먼 컷에서는 조금, 가까운 컷에서는 과하게 먹는다.
+//   pivot 은 물리는 "양" 을 재는 기준 본이다(방향은 늘 시선축이라 대충 맞으면 된다).
+//
+// 주의 - 파일 값을 얹은 직후, 뒤집기(cinematic.flip) 앞에서 적용된다. 뒤집기가
+// 걸리는 연출에 쓰면 앞뒤·좌우가 반대로 먹으니 그때는 눈으로 확인하고 부호를 뒤집을 것.
 const CLIP_CAM_MOVE = [
   // 아일랜드 이터 2페이즈 등장 - 보스가 화면 오른쪽으로 치우쳐 있다.
   // 카메라를 오른쪽으로 밀면 보스가 가운데로 온다. 7.8초 기준으로 맞췄다.
@@ -1071,7 +1079,11 @@ const CLIP_CAM_MOVE = [
   // core_bone001 0.216 / head_bone001 0.219 / frame_bone001 0.218 /
   // phase002·003_skin 바운딩 중심 0.212 · 0.218). 그만큼 밀면 0 이 된다.
   // 화면비와 무관한 값이라 창 크기가 달라져도 가운데에 선다.
-  { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216 },
+  //
+  // 거리 - 연출 내내 보스가 화면을 가득 채운다(가로·세로 점유가 계속 100%).
+  // 카메라가 1.60 에서 0.44 까지 붙었다 떨어졌다 해서 z 고정값으로는 못 맞춘다.
+  { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216,
+    back: 1.35, pivot: /^(Pelvis|body_bone\d+|head_bone\d+)$/i },
 ];
 
 function clipCamMoveFor(bossKey, clipName) {
@@ -3347,6 +3359,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (mv.x) camera.translateX(mv.x);
         if (mv.y) camera.translateY(mv.y);
         if (mv.z) camera.translateZ(mv.z);
+        // 거리에 비례해 뒤로. 기준점은 양을 재는 데만 쓰고 방향은 시선축이다.
+        if (mv.back && mv.back !== 1
+            && rigCenter(focusMesh, camPull, mv.pivot || 'all')) {
+          camera.translateZ(camera.position.distanceTo(camPull) * (mv.back - 1));
+        }
       }
       // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
       // RAW_CAM_BOSS 에 든 보스는 주소에 아무것도 안 붙여도 이쪽으로 온다.
