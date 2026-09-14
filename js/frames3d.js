@@ -1046,6 +1046,10 @@ function gateFitOffFor(bossKey) {
 //   흔들리지 않는 몸통 본만 골라 쓴다.
 const RAW_CAM_BOSS = [
   { boss: /^xbg005/i, back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head)$/i },
+  // 앨트루이아 - 등장·사망 둘 다 원본이 인게임에 가깝다. 거리는 그대로 두고
+  // (back 없음) 보정만 끈다. 이쪽도 홀더·잘라내기·감추기·눈높이·카메라 보정
+  // 표가 전부 비어 있고 타임라인도 안 어긋난다(tlStart = pairStart = 0).
+  { boss: /^xbg004/i },
 ];
 
 function rawCamFor(bossKey) {
