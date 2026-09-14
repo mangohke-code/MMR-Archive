@@ -1035,12 +1035,21 @@ function gateFitOffFor(bossKey) {
 //   타임라인 배치도 어긋나지 않는다(timelineStart = pairedClipTimelineStart = 0)
 //   메쉬 활성 구간도 연출 내내 켜짐이라 걸러져 남는 게 없다
 // 그래서 여기서 끄는 결과가 ?raw=1 로 본 화면과 정확히 같다.
+// back - 원본 카메라를 모델 중심 기준으로 뒤로 물리는 배율(1 이면 파일 그대로).
+//   중심에서 카메라로 뻗은 선 위에서만 움직이므로 회전과 화각은 손대지 않는다.
+//   그래서 카메라 워크도, 보스가 화면에 잡히는 자리도 그대로고 크기만 줄어든다.
+//   거리에 비례하니 가까이 붙는 컷도 같은 비율로 물러난다.
+//   ?raw=1 에는 걸지 않는다 - 그쪽은 파일 값을 그대로 보는 기준선이어야 한다.
+// pivot - 물러날 기준점을 낼 본. 이 본들의 평균이 중심이다.
+//   몸 전체 바운딩으로 잡으면 안 된다 - 사망 연출은 파츠가 사방으로 흩어져서
+//   중심이 카메라 코앞까지 끌려오고, 그러면 물러나는 양이 거의 0 이 된다.
+//   흔들리지 않는 몸통 본만 골라 쓴다.
 const RAW_CAM_BOSS = [
-  /^xbg005/i,
+  { boss: /^xbg005/i, back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head)$/i },
 ];
 
 function rawCamFor(bossKey) {
-  return RAW_CAM_BOSS.some(re => re.test(bossKey || ''));
+  return RAW_CAM_BOSS.find(o => o.boss.test(bossKey || '')) || null;
 }
 
 const AIM_DAMP = (() => {
@@ -3247,6 +3256,14 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             camera.fov = node.fov;
             camera.updateProjectionMatrix();
           }
+        }
+        // 파일 값이 너무 가까운 보스는 여기서 뒤로만 물린다. 몸통 중심에서
+        // 카메라로 뻗은 선 위에서만 움직이므로 회전과 화각은 손대지 않는다 -
+        // 카메라 워크도, 보스가 화면에 잡히는 자리도 그대로고 크기만 준다.
+        // 거리에 비례해서 가까이 붙는 컷도 같은 비율로 물러난다.
+        const back = (!RAW_MODE && rawCam && rawCam.back) || 1;
+        if (back !== 1 && rigCenter(focusMesh, camPull, rawCam.pivot || 'all')) {
+          camera.position.sub(camPull).multiplyScalar(back).add(camPull);
         }
         camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
         controls.target.copy(camera.position).addScaledVector(camFwd, 2);
