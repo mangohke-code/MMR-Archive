@@ -3253,7 +3253,28 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       controls.target.y += d;
     }
 
-    // 카메라 추적 — 등장·사망 연출은 리그를 통째로 옮긴다. 게임에서도 카메라가 같이
+    // 시점 추적을 아예 끄는 연출.
+//
+// 리그가 통째로 부서져 바닥 아래로 떨어지는 클립은 따라가면 안 된다 - 화면이
+// 파편을 쫓아 땅으로 꺾인다. 그레이브 디거 페이즈 전환이 그렇다.
+// phase001_destroy 3.3초 기준 평균 높이:
+//   1phase_skin  0.67 -> -5.85      1phase_parts_left  0.70 -> -5.19
+//   1phase_sawtooth 0.79 -> -5.76   1phase_parts_right 0.69 -> -4.00
+// 기준 본을 골라서 피하려 해도 안 된다 - 그 메쉬의 본이 전부 같이 떨어진다
+// (Bone_BD_D_* 만 평균내도 -2.49 였다).
+// 기준 메쉬를 차체(body_skin, 0.38 -> 0.37 로 꼼짝 안 한다)로 바꾸는 것도 해
+// 봤는데 기본 시점이 통째로 어긋났다(보스가 화면 아래로 내려가고 9% 로 작아짐).
+// 이 연출에서만 추적을 멈추는 것이 가장 좁은 고침이다.
+const NO_FOLLOW_CLIPS = [
+  { boss: /^mbg002/i, re: /_phase00[12]_destroy$/i },
+];
+
+function noFollowClip(bossKey, name) {
+  return NO_FOLLOW_CLIPS.some(
+    o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+}
+
+// 카메라 추적 — 등장·사망 연출은 리그를 통째로 옮긴다. 게임에서도 카메라가 같이
     // 움직여서 본체를 잡기 때문에 성립하는 연출이다.
     // 중심의 "절대 위치" 가 아니라 "처음 대비 변위" 를 따라가므로, 제자리에서만 움직이는
     // 기존 보스는 변위가 0 이라 아무 영향이 없다.
@@ -3633,6 +3654,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 클립이 끝날 때까지 남았다.
     function updateFollow() {
       if (!followEnabled || userDragging || !followReady || !focusMesh) return;
+      // 부서져 떨어지는 연출은 따라가지 않는다. 시점을 그대로 둔다.
+      if (noFollowClip(bossKey, state.currentClip)) return;
       let ok = true;
       if (followPin) {
         // start 구간은 loop 가 시작될 자리에 시점을 고정한다. 이렇게 해야
