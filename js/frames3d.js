@@ -963,7 +963,6 @@ const CUTSCENE_ANCHOR_ON = [
   /^xbg002_dead_camera$/i,
   /^ebg001_phase002_appearance_camera$/i,
   /^mbg002_dead_camera$/i,
-  /^harvester_dead_scene_camera$/i,
 ];
 
 // 홀더에서 수평 평행이동(x, z)만 꺼내 쓴다.
@@ -1123,6 +1122,8 @@ const CLIP_CAM_MOVE = [
   //   뒤 컷에서 +20.5도쯤 기울어 있어서 그걸 상쇄한다. 2.683초 컷을 경계로 파일
   //   기울기가 반대라(앞 컷 -7 ~ -11.6도) 앞 컷은 그만큼 더 기운 채로 남는다.
   { boss: /^mbg002/i, re: /^mbg002_appearance$/i, back: 2.00, roll: -20.5 },
+  // 사치스러운 거미 등장 - 너무 가깝다. 보스가 화면 가로를 계속 꽉 채운다.
+  { boss: /^bbg001_rich/i, re: /^bbg001_appearance$/i, back: 1.5 },
   // 검은 뱀 등장 take2 - 카메라가 3.43초에 각도를 오른쪽으로 돌린다. 그 앞뒤로
   // 원하는 그림이 달라서 구간을 갈랐다. 한 값으로는 둘 다 못 맞춘다.
   //   앞  얼굴 옆모습 클로즈업(인게임은 머리가 화면을 가득 채우고 가운데에 온다)
@@ -1624,11 +1625,22 @@ const HIDDEN_CLIPS = [
 
 // 앞부분을 잘라내고 쓰는 연출. 게임에서는 그 구간을 이펙트가 채우는데
 // 내보내기에는 그게 없어서 볼 게 없는 구간에 쓴다.
-//   from - 몇 초부터 쓸지(초).
+//   from - 몇 초부터 쓸지(초). to - 몇 초까지 쓸지(초). 둘 다 선택이다.
 const CLIP_TRIM = [
   // 스톰브링어 등장 - 3.5초까지는 보스가 y 12.6 상공에 멈춰 있고
   // 카메라도 안 움직인다(거리 13.0 고정, 화면 높이의 10%).
   { boss: /^eba001/i, re: /^eba001_appearance$/i, from: 3.5 },
+  // 사치스러운 거미 사망 - 5.5초부터 카메라가 시체를 뚫고 지나가 딴 데를 본다.
+  // 겨냥이 100도를 넘고 화면 점유가 1.6% -> 0.3% 로 떨어져 끝까지 빈 화면이다.
+  // 볼 게 없는 1초를 잘라낸다(6.57초 -> 5.5초).
+  //
+  // 이 보스는 카메라를 두 줄로 따로 적어야 한다. applyClipTrim 은 짝인 카메라를
+  // "모델클립이름_camera" 로 찾는데, 여기는 모델이 bbg001_dead_01 이고 카메라가
+  // harvester_dead_scene_camera 라 이름이 안 이어진다. 게다가 이 연출은 카메라가
+  // 시계라(timelineStart 0 / pairedClipTimelineStart 5.55e-16 로 timeOffset 이
+  // 음수) 카메라를 안 자르면 길이가 그대로다.
+  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, to: 5.5 },
+  { boss: /^bbg001_rich/i, re: /^harvester_dead_scene$/i, to: 5.5 },
 ];
 
 // gltf.animations 를 제자리에서 바꿄다. 이름은 그대로 두어서 이름으로 물린 표
@@ -1646,7 +1658,8 @@ function applyClipTrim(clips, bossKey) {
       if (!rule.re.test(base)) return;
       // fps 를 1000 으로 두고 밀리초 단위로 자른다.
       const cut = THREE.AnimationUtils.subclip(
-        c, c.name, Math.round(rule.from * 1000), 1e9, 1000);
+        c, c.name, Math.round((rule.from || 0) * 1000),
+        (typeof rule.to === 'number') ? Math.round(rule.to * 1000) : 1e9, 1000);
       if (!cut.tracks.length) return;
       clips[i] = cut;
       if (!isCam) done.push({ name: c.name, src: c, from: rule.from });
