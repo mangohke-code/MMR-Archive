@@ -428,6 +428,9 @@ const PART_GROUP_OVERRIDES = [
   // 퀸 001 - 메쉬 하나를 재질로 나눈 것이라 부위가 아니다. 한 구역에 모은다.
   { boss: /^xba002/i, re: /./, group: '몸통' },
   { boss: /^mbg002/i, re: /(^|_)\dphase_skin(_|\d|$)/i, group: '몸통' },
+  // 에고비스타 - 이름은 feather 라 날개로 걸리지만 2페이즈 것은 등에 달린 깃이
+  // 아니라 무기에 붙는 파츠다(인게임 확인). 1페이즈 것은 날개가 맞다.
+  { boss: /^xbg005/i, re: /_phase2_feather(_|\d|$)/i, group: '무기' },
 ];
 
 function partGroupLabel(bossKey, name) {
@@ -1020,6 +1023,24 @@ const GATEFIT_OFF_BOSS = [
 
 function gateFitOffFor(bossKey) {
   return GATEFIT_OFF_BOSS.some(re => re.test(bossKey || ''));
+}
+
+// 연출 카메라를 파일 값 그대로 쓰는 보스. 이 보스에만 ?raw=1 을 상시로 걸어 둔
+// 것과 같다 - 뒤집기·겨냥·거리·기울기·구조·확대·물림·게이트핏·타임라인 배치를
+// 전부 건너뛰고 위치·회전·화각을 파일에서 읽은 그대로 쓴다.
+//
+// 에고비스타는 등장·사망 둘 다 보정을 얹은 쪽보다 원본이 인게임에 가깝다
+// (인게임 영상 대조). 이 보스만 따로 끄면 되는 이유는 아래가 전부 비어 있어서다.
+//   CUTSCENE_ANCHOR_ON · CLIP_TRIM · HIDDEN_CLIPS · CLIP_CAM_LIFT · CAMERA_FIX
+//   타임라인 배치도 어긋나지 않는다(timelineStart = pairedClipTimelineStart = 0)
+//   메쉬 활성 구간도 연출 내내 켜짐이라 걸러져 남는 게 없다
+// 그래서 여기서 끄는 결과가 ?raw=1 로 본 화면과 정확히 같다.
+const RAW_CAM_BOSS = [
+  /^xbg005/i,
+];
+
+function rawCamFor(bossKey) {
+  return RAW_CAM_BOSS.some(re => re.test(bossKey || ''));
 }
 
 const AIM_DAMP = (() => {
@@ -3205,7 +3226,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 월드 행렬 앞에 곱하면 안 된다 — 홀더 값은 파일 원시 단위인데 뷰어는
       // 모델을 정규화(균일 축소)해서 얹어 놓기 때문에 축척이 어긋난다.
       // 부모(정규화 그룹) 아래, 카메라 지역 변환 위에 넣어야 같은 단위가 된다.
-      const anchorArr = cutsceneAnchorOf(node);
+      const rawCam = rawCamFor(bossKey);
+      const anchorArr = rawCam ? null : cutsceneAnchorOf(node);
       if (anchorArr) {
         camAnchorMat.fromArray(anchorArr);
         camAnchorOut.multiplyMatrices(camAnchorMat, node.matrix);
@@ -3217,7 +3239,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
       // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
-      if (RAW_MODE) {
+      // RAW_CAM_BOSS 에 든 보스는 주소에 아무것도 안 붙여도 이쪽으로 온다.
+      if (RAW_MODE || rawCam) {
         if (node.isPerspectiveCamera) {
           if (savedFov === null) savedFov = camera.fov;
           if (Math.abs(camera.fov - node.fov) > 1e-4) {
