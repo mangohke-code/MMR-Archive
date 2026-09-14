@@ -1068,6 +1068,7 @@ function gateFitOffFor(bossKey) {
 // 카메라 로컬 기준이다 - x 는 화면 오른쪽, y 는 화면 위, z 는 뒤.
 // ?raw=1 에는 안 걸린다.
 //
+// roll - 화면 기울기(도). 양수면 화면이 반시계로 돈다.
 // back - 시선축을 따라 뒤로 물리는 배율. RAW_CAM_BOSS 의 back 과 같은 방식이다.
 //   z 로 고정값을 주면 안 되는 연출에 쓴다 - 컷마다 거리가 크게 달라지는 연출은
 //   같은 값이 먼 컷에서는 조금, 가까운 컷에서는 과하게 먹는다.
@@ -1110,7 +1111,9 @@ const CLIP_CAM_MOVE = [
   //   맞추기 전   가로 45.1%  세로 61.9%
   //   맞춘 뒤     가로 10.4%  세로 16.9%
   // 세로까지 같이 맞는 것으로 보아 각도 차이로 보이던 것도 거리 때문이었다.
-  { boss: /^mbg002/i, re: /^mbg002_appearance$/i, back: 3.76 },
+  //   인게임에 맞춘 값은 back 3.76 인데, 그보다 조금 가깝게 보고 싶다고 해서
+  //   3.30 으로 낮췄다(가로 10.6% -> 12% 안팎). roll 은 화면을 반시계로 5도.
+  { boss: /^mbg002/i, re: /^mbg002_appearance$/i, back: 3.30, roll: 5 },
   // 검은 뱀 등장 take2 - 카메라가 3.43초에 각도를 오른쪽으로 돌린다. 그 앞뒤로
   // 원하는 그림이 달라서 구간을 갈랐다. 한 값으로는 둘 다 못 맞춘다.
   //   앞  얼굴 옆모습 클로즈업(인게임은 머리가 화면을 가득 채우고 가운데에 온다)
@@ -3423,6 +3426,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             && rigCenter(focusMesh, camPull, mv.pivot || 'all')) {
           camera.translateZ(camera.position.distanceTo(camPull) * (mv.back - 1));
         }
+        // 화면 기울기. 시선축(카메라 로컬 Z) 기준이라 위치·거리·겨냥은 그대로다.
+        // 평행이동 뒤에 건다 - 먼저 돌리면 x·y 가 기울어진 축을 따라간다.
+        // 부호는 CAMERA_FIX 의 rollDeg 와 같다. 양수 = 화면이 반시계로 돈다.
+        if (mv.roll) camera.rotateZ(-THREE.MathUtils.degToRad(mv.roll));
       }
       // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
       // RAW_CAM_BOSS 에 든 보스는 주소에 아무것도 안 붙여도 이쪽으로 온다.
