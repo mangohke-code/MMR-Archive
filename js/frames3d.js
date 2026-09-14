@@ -1058,6 +1058,28 @@ function gateFitOffFor(bossKey) {
   return GATEFIT_OFF_BOSS.some(re => re.test(bossKey || ''));
 }
 
+// 연출 카메라를 그 자리에서 밀어 두는 자리. 파일 값 위에 얹는 평행이동이라
+// 회전·화각·카메라 워크는 그대로 남고 구도만 옮겨진다.
+// 카메라 로컬 기준이다 - x 는 화면 오른쪽, y 는 화면 위, z 는 뒤.
+// ?raw=1 에는 안 걸린다.
+const CLIP_CAM_MOVE = [
+  // 아일랜드 이터 2페이즈 등장 - 보스가 화면 오른쪽으로 치우쳐 있다.
+  // 카메라를 오른쪽으로 밀면 보스가 가운데로 온다. 7.8초 기준으로 맞췄다.
+  //
+  // 값은 그 시각의 "카메라 기준 가로 좌표" 를 그대로 적은 것이다. 7.8초에서
+  // 보스 본들의 카메라 로컬 x 가 전부 0.216 근처였다(body_bone001 0.216 /
+  // core_bone001 0.216 / head_bone001 0.219 / frame_bone001 0.218 /
+  // phase002·003_skin 바운딩 중심 0.212 · 0.218). 그만큼 밀면 0 이 된다.
+  // 화면비와 무관한 값이라 창 크기가 달라져도 가운데에 선다.
+  { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216 },
+];
+
+function clipCamMoveFor(bossKey, clipName) {
+  if (RAW_MODE) return null;
+  return CLIP_CAM_MOVE.find(
+    o => o.boss.test(bossKey || '') && o.re.test(clipName || '')) || null;
+}
+
 // 연출 카메라를 파일 값 그대로 쓰는 보스. 이 보스에만 ?raw=1 을 상시로 걸어 둔
 // 것과 같다 - 뒤집기·겨냥·거리·기울기·구조·확대·물림·게이트핏·타임라인 배치를
 // 전부 건너뛰고 위치·회전·화각을 파일에서 읽은 그대로 쓴다.
@@ -1098,6 +1120,9 @@ const RAW_CAM_BOSS = [
   // 완전히 같지는 않다. CLIP_TRIM(등장 앞 3.5초)과 HIDDEN_CLIPS(idle_2 · shot_*)
   // 가 남아 있어서다. 둘 다 카메라를 건드리지 않으므로 구도는 원본 그대로다.
   { boss: /^eba001/i },
+  // 아일랜드 이터 - 1페이즈 등장과 사망만 원본이다. 2페이즈 등장은 홀더
+  // (CUTSCENE_ANCHOR_ON)를 쓰므로 여기 넣으면 안 된다.
+  { boss: /^ebg001_island/i, clip: /^ebg001_(?:phase001_appearance|island_dead)$/i },
 ];
 
 // clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
@@ -1509,7 +1534,10 @@ const HIDDEN_CLIPS = [
   { boss: /^bbg001_rich/i, re: /^bbg001_shot_/i },
   { boss: /^ebg001_island/i, re: /^ebg001_phase001_idle2$/i },
   { boss: /^ebg001_island/i, re: /^ebg001_phase003_appearance$/i },
-  { boss: /^ebg001_island/i, re: /^ebg001_island_dead$/i },
+  // 사망이 두 벌 들어 있다(ebg001_dead / ebg001_island_dead, 둘 다 6.67초).
+  // 연출 카메라(ebg001_dead_scene_camera)가 짝으로 가리키는 쪽이 island_dead 라
+  // 그쪽만 남긴다. 예전에는 반대로 감춰서, 보이는 dead 에는 카메라가 안 붙었다.
+  { boss: /^ebg001_island/i, re: /^ebg001_dead$/i },
 ];
 
 // 앞부분을 잘라내고 쓰는 연출. 게임에서는 그 구간을 이펙트가 채우는데
@@ -1554,6 +1582,8 @@ function isHiddenClip(bossKey, name) {
 const CLIP_LABEL_FIX = [
   // 짝인 take1 을 목록에서 뺐으니 꼬리표도 뗀다
   { boss: /^xba001/i, re: /_appearance_take2$/i, label: 'appearance' },
+  // 짝인 ebg001_dead 를 목록에서 뺐으니 꼬리표도 뗀다
+  { boss: /^ebg001_island/i, re: /_island_dead$/i, label: 'dead' },
   // 나머지 스킬은 묶음이라 페이즈 태그가 떨어진다. 낱개인 03 만 남아서 맞춰 준다.
   { boss: /^xba001/i, re: /_1phase_skill_03$/i, label: 'skill_03' },
   { boss: /^xba001/i, re: /_2phase_parts$/i, label: '2phase_parts' },
@@ -3311,6 +3341,13 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       }
       camera.position.copy(camWorldPos);
       camera.quaternion.copy(camWorldQuat);
+      // 연출별 카메라 밀기. 원본 갈래로 빠지는 연출에도 걸리도록 여기서 한다.
+      if (cinematic.move) {
+        const mv = cinematic.move;
+        if (mv.x) camera.translateX(mv.x);
+        if (mv.y) camera.translateY(mv.y);
+        if (mv.z) camera.translateZ(mv.z);
+      }
       // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
       // RAW_CAM_BOSS 에 든 보스는 주소에 아무것도 안 붙여도 이쪽으로 온다.
       if (RAW_MODE || rawCam) {
@@ -3758,6 +3795,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           flip: camNeedsFlip(clip.name),
           // 이 연출을 파일 값 그대로 쓸지. 클립 단위로 갈리므로 여기서 정해 둔다.
           raw: rawCamFor(bossKey, clip.name),
+          move: clipCamMoveFor(bossKey, clip.name),
           lookAtFocus: AIM_ALL || AIM_CUT || aimCutForBoss(bossKey) || !!fix.lookAtFocus,
           // 'all' 은 매 프레임 겨냥, 'cut' 은 컷 머리에서 맞추고 천천히 따라가기.
           aimMode: AIM_ALL ? 'all' : ((AIM_CUT || aimCutForBoss(bossKey)) ? 'cut' : null),
