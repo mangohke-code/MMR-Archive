@@ -885,19 +885,18 @@ function restorePose(list) {
 // (기존 보스 9개 클립 전부에 대해 결과가 달라지지 않는 것을 확인했다)
 const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_.+)?$/i;
 
-// 게임에는 있는데 전용 클립이 없는 스킬. 거대 질량체 05 번은 04 번 클립을 잘라 쓴다 —
-// 타임라인이 skill_loop_04 를 1.17 초 지점부터, 이어서 skill_fire_04 를 통째로 얹는다.
-// 그래서 파일에 *_05 라는 이름의 AnimationClip 이 아예 없다.
-const SYNTHETIC_SEQUENCES = [
-  {
-    boss: /^eba004/i,
-    key: 'skill_05',
-    steps: [
-      { re: /_skill_loop_04$/i, from: 1.17 },
-      { re: /_skill_fire_04$/i },
-    ],
-  },
-];
+// 게임에는 있는데 전용 클립이 없는 스킬을 원본 클립을 잘라 만들어 끼우는 자리.
+// 지금은 비어 있다.
+//
+// 거대 질량체 05 번이 여기 있었다. 파일에 *_05 라는 이름의 AnimationClip 이 아예
+// 없고(01·02·03·04·06·07·08·09·10 만 있다), 게임 타임라인이 skill_loop_04 를
+// 1.17 초 지점부터, 이어서 skill_fire_04 를 통째로 얹어 쓴다. 그걸 그대로 재현해
+// 목록에 skill_05 로 끼워 넣었었다(잘린 loop 가 1.663 초, 합쳐서 4.97 초).
+// 원본 클립이 아니라 우리가 이어 붙인 것이라 목록에서 뺐다 — 되살리려면
+// 아래 배열에 이 한 덩어리를 다시 넣으면 된다.
+//   { boss: /^eba004/i, key: 'skill_05',
+//     steps: [{ re: /_skill_loop_04$/i, from: 1.17 }, { re: /_skill_fire_04$/i }] }
+const SYNTHETIC_SEQUENCES = [];
 
 // 내보내기가 인게임 카메라를 같이 넣어 준다 — 카메라 노드 하나에 등장·사망용
 // 카메라 클립이 붙는다. 클립이 자기 트랜스폼을 직접 움직이므로 커브 값이 곧 카메라
@@ -1095,6 +1094,10 @@ const RAW_CAM_BOSS = [
     clip: /^mbg003_(?:1phase_take[12]|2phase_b1_take1_a|2phase_take[23])$/i,
     back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head(_\d+)?)$/i },
   { boss: /^mbg003/i },
+  // 스톰브링어 - 여기도 원본이 인게임에 가깝다. 다만 이 보스는 ?raw=1 과
+  // 완전히 같지는 않다. CLIP_TRIM(등장 앞 3.5초)과 HIDDEN_CLIPS(idle_2 · shot_*)
+  // 가 남아 있어서다. 둘 다 카메라를 건드리지 않으므로 구도는 원본 그대로다.
+  { boss: /^eba001/i },
 ];
 
 // clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
