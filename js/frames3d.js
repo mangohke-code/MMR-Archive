@@ -1124,6 +1124,10 @@ const CLIP_CAM_MOVE = [
   { boss: /^mbg002/i, re: /^mbg002_appearance$/i, back: 2.00, roll: -20.5 },
   // 사치스러운 거미 등장 - 너무 가깝다. 보스가 화면 가로를 계속 꽉 채운다.
   { boss: /^bbg001_rich/i, re: /^bbg001_appearance$/i, back: 1.5 },
+  // 사치스러운 거미 사망 - 홀더를 뺀 뒤에도 카메라가 시체에 바짝 붙어 있다.
+  // 격자를 빼고 재면 연출 내내 화면 밖으로 잘리고, 4초부터는 화면을 90% 가까이
+  // 채운다. 이 연출은 뒤집기가 걸려 있어서 위의 f 가 부호를 맞춰 준다.
+  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, back: 2.0 },
   // 검은 뱀 등장 take2 - 카메라가 3.43초에 각도를 오른쪽으로 돌린다. 그 앞뒤로
   // 원하는 그림이 달라서 구간을 갈랐다. 한 값으로는 둘 다 못 맞춘다.
   //   앞  얼굴 옆모습 클로즈업(인게임은 머리가 화면을 가득 채우고 가운데에 온다)
@@ -3461,18 +3465,24 @@ function noFollowClip(bossKey, name) {
       const mv = clipCamMoveAt(cinematic.move,
         cinematic.action ? cinematic.action.time : 0);
       if (mv) {
-        if (mv.x) camera.translateX(mv.x);
+        // 뒤집기(CAM_FLIP)는 카메라 로컬 Y 축 180도라 그 뒤로 x·z 축이 반대가 된다.
+        // 이 밀기는 뒤집기보다 먼저 걸리므로, 뒤집히는 연출에서는 부호를 미리
+        // 뒤집어 둬야 표에 적은 대로 화면이 움직인다. y 축은 뒤집혀도 그대로다.
+        // (사치스러운 거미 사망이 그런 연출이다 - 안 뒤집으면 back 이 뒤가 아니라
+        //  앞으로 먹어서 카메라가 시체를 뚫고 지나간다)
+        const f = cinematic.flip ? -1 : 1;
+        if (mv.x) camera.translateX(mv.x * f);
         if (mv.y) camera.translateY(mv.y);
-        if (mv.z) camera.translateZ(mv.z);
+        if (mv.z) camera.translateZ(mv.z * f);
         // 거리에 비례해 뒤로. 기준점은 양을 재는 데만 쓰고 방향은 시선축이다.
         if (mv.back && mv.back !== 1
             && rigCenter(focusMesh, camPull, mv.pivot || 'all')) {
-          camera.translateZ(camera.position.distanceTo(camPull) * (mv.back - 1));
+          camera.translateZ(camera.position.distanceTo(camPull) * (mv.back - 1) * f);
         }
         // 화면 기울기. 시선축(카메라 로컬 Z) 기준이라 위치·거리·겨냥은 그대로다.
         // 평행이동 뒤에 건다 - 먼저 돌리면 x·y 가 기울어진 축을 따라간다.
         // 부호는 CAMERA_FIX 의 rollDeg 와 같다. 양수 = 화면이 반시계로 돈다.
-        if (mv.roll) camera.rotateZ(-THREE.MathUtils.degToRad(mv.roll));
+        if (mv.roll) camera.rotateZ(-THREE.MathUtils.degToRad(mv.roll) * f);
       }
       // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
       // RAW_CAM_BOSS 에 든 보스는 주소에 아무것도 안 붙여도 이쪽으로 온다.
