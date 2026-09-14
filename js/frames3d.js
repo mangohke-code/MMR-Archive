@@ -194,6 +194,20 @@ const MESH_RENAME = [
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
+
+  // 베히모스 2페이즈 - 여기도 노드가 이름을 먼저 차지해서 머신건에 _1 이 붙는다.
+  // 그 꼬리표 때문에 이름표도, 3페이즈 기본 꺼짐 규칙도 안 걸렸다.
+  // 프리미티브가 하나뿐이라 꼬리표만 떼면 된다(몸통 넷과 rl 둘은 여럿이라 그대로).
+  { boss: /^mbg003/i, re: /^(mbg003_behemoth_[lr]_vulcan_skin)(_\d+)?$/i, bySuffix: {} },
+
+  // 미러 컨테이너 - 노드가 메쉬와 같은 이름을 먼저 차지해서 모든 메쉬에 _1 이 붙는다.
+  // 그 꼬리표 하나 때문에 파츠 이름표가 통째로 안 붙고 있었다(cube_skin_1 은
+  // 표의 cube_skin 과 안 맞는다). 프리미티브가 하나뿐인 메쉬만 꼬리표를 뗀다.
+  // 2phase_parts 넷과 몸통(xba001_skin)은 프리미티브가 여럿이라 빼 둔다 -
+  // 꼬리표를 떼면 셋이 같은 이름이 돼서 목록이 "... 1 / ... 2" 로 갈린다.
+  { boss: /^xba001/i,
+    re: /^(xba001_(?:cube_skin|weapon_[lr]\d+_skin|1phase_parts_[lr]\d+_skin))(_\d+)?$/i,
+    bySuffix: {} },
 ];
 
 function meshMatName(m) {
@@ -293,6 +307,13 @@ const PART_LABELS = {
     '1phase_parts_r02_skin': '레플리카 유리 구두 R Ⅱ',
     '1phase_parts_r03_skin': '레플리카 유리 구두 R Ⅲ',
   },
+  // 베히모스 - 파일이 페이즈별로 갈려 있어도 PART_LABELS 는 보스 코드로 찾으므로
+  // 한 표에 1·2페이즈 파츠를 같이 적는다.
+  mbg003: {
+    '1phase_ar_skin': '개틀링 건',
+    'behemoth_l_vulcan_skin': '머신건 L',
+    'behemoth_r_vulcan_skin': '머신건 R',
+  },
   xbg004: {
     'helm_01_skin': '성녀의 후광 1',
     'helm_02_skin': '성녀의 후광 2',
@@ -361,6 +382,10 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^bbg001_rich/i, re: /_egg_skin$/i },
   // 애니힐리오 마녀의 까마귀 III - 파츠는 있지만 보스전에서 나온 적이 없다.
   { boss: /^xba003/i, re: /_turret03$/i },
+  // 베히모스 머신건 좌우 - 3페이즈에서는 떨어져 나가서 달려 있지 않다.
+  // 2페이즈 파일에 3페이즈가 같이 들어 있고 이 파츠에는 페이즈 꼬리표가 없어서,
+  // 페이즈를 조건으로 단 줄이 필요하다.
+  { boss: /^mbg003/i, re: /_vulcan_skin$/i, phase: '3' },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -388,8 +413,17 @@ function isPhasePartOff(bossKey, phase, name) {
   return !!o && o.re.some(re => re.test(name || ''));
 }
 
-function isDefaultOffMesh(bossKey, name) {
-  return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+// phase 를 적은 줄은 그 페이즈에서만 꺼진다. 안 적은 줄은 예전처럼 늘 꺼진다.
+function isDefaultOffMesh(bossKey, name, phase) {
+  return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(name || '')
+    && (!o.phase || o.phase === String(phase)));
+}
+
+// 페이즈를 조건으로 꺼 두는 줄이 걸린 파츠인가. 페이즈를 바꿀 때 되살릴지
+// 정하는 데 쓴다 - 조건 없이 꺼 둔 파츠는 페이즈를 넘겨도 꺼진 채로 둬야 한다.
+function isPhaseScopedOff(bossKey, name) {
+  return DEFAULT_OFF_MESHES.some(
+    o => o.phase && o.boss.test(bossKey || '') && o.re.test(name || ''));
 }
 
 // 파츠 목록 정렬 키. 좌우 파츠가 바로 붙어 나오도록 세운다 — 왼쪽 다음 오른쪽.
@@ -1044,16 +1078,31 @@ function gateFitOffFor(bossKey) {
 //   몸 전체 바운딩으로 잡으면 안 된다 - 사망 연출은 파츠가 사방으로 흩어져서
 //   중심이 카메라 코앞까지 끌려오고, 그러면 물러나는 양이 거의 0 이 된다.
 //   흔들리지 않는 몸통 본만 골라 쓴다.
+// clip - 그 보스 안에서 이 연출만 따로 잡을 때. 적으면 보스 한 줄보다 먼저 걸린다.
 const RAW_CAM_BOSS = [
   { boss: /^xbg005/i, back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head)$/i },
   // 앨트루이아 - 등장·사망 둘 다 원본이 인게임에 가깝다. 거리는 그대로 두고
   // (back 없음) 보정만 끈다. 이쪽도 홀더·잘라내기·감추기·눈높이·카메라 보정
   // 표가 전부 비어 있고 타임라인도 안 어긋난다(tlStart = pairStart = 0).
   { boss: /^xbg004/i },
+  // 퀸 001 · 거대 질량체(원종/Q) · 미러 컨테이너 - 위와 같은 조건이다.
+  { boss: /^xba002/i },
+  { boss: /^eba004/i },
+  { boss: /^xba001/i },
+  // 베히모스 - 페이즈 전환 다섯 컷만 조금 물린다. 등장·사망은 파일 값 그대로.
+  //   1페이즈 take1 · take2, 2페이즈 b1_take1_a · take2 · take3
+  { boss: /^mbg003/i,
+    clip: /^mbg003_(?:1phase_take[12]|2phase_b1_take1_a|2phase_take[23])$/i,
+    back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head(_\d+)?)$/i },
+  { boss: /^mbg003/i },
 ];
 
-function rawCamFor(bossKey) {
-  return RAW_CAM_BOSS.find(o => o.boss.test(bossKey || '')) || null;
+// clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
+function rawCamFor(bossKey, clipName) {
+  return RAW_CAM_BOSS.find(
+      o => o.boss.test(bossKey || '') && o.clip && o.clip.test(clipName || ''))
+    || RAW_CAM_BOSS.find(o => o.boss.test(bossKey || '') && !o.clip)
+    || null;
 }
 
 const AIM_DAMP = (() => {
@@ -2714,7 +2763,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // "처음 열었을 때" 가 아니라 "지금 페이즈의 기본" 으로 돌아가야 한다.
     const defaultPartKeys = phase => meshes
       .filter(m => !isSkillOnlyEffect(m.name)
-        && !isDefaultOffMesh(bossKey, m.name)
+        && !isDefaultOffMesh(bossKey, m.name, phase)
         && !isPhasePartOff(bossKey, phase, m.name)
         && isPhaseVisible(phaseOf(m.name), phase))
       .map(m => m.partKey);
@@ -2938,7 +2987,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             meshes.forEach(m => {
               if (partTable) {
                 if (isPhasePartOff(bossKey, currentPhase, m.name)
-                    || isSkillOnlyEffect(m.name) || isDefaultOffMesh(bossKey, m.name)) {
+                    || isSkillOnlyEffect(m.name)
+                    || isDefaultOffMesh(bossKey, m.name, currentPhase)) {
                   enabledMeshes.delete(m.partKey);
                 } else {
                   enabledMeshes.add(m.partKey);
@@ -2946,10 +2996,17 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
                 return;
               }
               const p = phaseOf(m.name);
-              if (p === null) return;
               // 평소 꺼 두는 파츠(마녀의 까마귀 III 처럼)는 페이즈를 바꿔도 그대로 둔다.
-              if (isSkillOnlyEffect(m.name) || isDefaultOffMesh(bossKey, m.name)) {
+              if (isSkillOnlyEffect(m.name)
+                  || isDefaultOffMesh(bossKey, m.name, currentPhase)) {
                 enabledMeshes.delete(m.partKey);
+                return;
+              }
+              if (p === null) {
+                // 페이즈 꼬리표가 없는 공용 파츠는 건드리지 않는다. 다만 페이즈를
+                // 조건으로 꺼 두는 줄이 걸린 파츠는 그 페이즈를 벗어나면 되살린다 -
+                // 베히모스 머신건은 3페이즈에서만 빠진다.
+                if (isPhaseScopedOff(bossKey, m.name)) enabledMeshes.add(m.partKey);
                 return;
               }
               if (isPhaseVisible(p, currentPhase)) enabledMeshes.add(m.partKey);
@@ -3239,7 +3296,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 월드 행렬 앞에 곱하면 안 된다 — 홀더 값은 파일 원시 단위인데 뷰어는
       // 모델을 정규화(균일 축소)해서 얹어 놓기 때문에 축척이 어긋난다.
       // 부모(정규화 그룹) 아래, 카메라 지역 변환 위에 넣어야 같은 단위가 된다.
-      const rawCam = rawCamFor(bossKey);
+      const rawCam = cinematic.raw;
       const anchorArr = rawCam ? null : cutsceneAnchorOf(node);
       if (anchorArr) {
         camAnchorMat.fromArray(anchorArr);
@@ -3261,13 +3318,21 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
             camera.updateProjectionMatrix();
           }
         }
-        // 파일 값이 너무 가까운 보스는 여기서 뒤로만 물린다. 몸통 중심에서
-        // 카메라로 뻗은 선 위에서만 움직이므로 회전과 화각은 손대지 않는다 -
-        // 카메라 워크도, 보스가 화면에 잡히는 자리도 그대로고 크기만 준다.
-        // 거리에 비례해서 가까이 붙는 컷도 같은 비율로 물러난다.
+        // 파일 값이 너무 가까운 보스는 여기서 뒤로만 물린다. 회전도 화각도
+        // 손대지 않으므로 카메라 워크는 그대로 남고 크기만 준다.
+        //
+        // 방향은 시선축(카메라 로컬 +Z)이다. 기준점에서 카메라로 뻗은 선을 쓰면
+        // 기준점이 엉뚱한 데 잡힌 보스에서 엉뚱한 쪽으로 밀린다 - 베히모스
+        // 1페이즈는 본 416개가 전부 exc_body_ 라 평균이 격자 아래(y -1.74)로
+        // 내려가고, 그쪽을 기준으로 밀면 뒤가 아니라 위로 올라간다.
+        // 시선축이면 기준점이 얼마나 어긋나든 "뒤로" 는 늘 맞고, 화면 한가운데에
+        // 있던 것이 그 자리에 그대로 남는다.
+        //
+        // 물리는 양만 기준점까지의 거리에 비례시킨다 - 가까이 붙는 컷은 그만큼
+        // 덜 물러난다. 여기는 대충 맞기만 하면 되므로 기준점이 조금 어긋나도 된다.
         const back = (!RAW_MODE && rawCam && rawCam.back) || 1;
         if (back !== 1 && rigCenter(focusMesh, camPull, rawCam.pivot || 'all')) {
-          camera.position.sub(camPull).multiplyScalar(back).add(camPull);
+          camera.translateZ(camera.position.distanceTo(camPull) * (back - 1));
         }
         camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
         controls.target.copy(camera.position).addScaledVector(camFwd, 2);
@@ -3688,6 +3753,8 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           rollFrom: fix.rollFrom || 0,
           rollTo: (typeof fix.rollTo === 'number') ? fix.rollTo : Infinity,
           flip: camNeedsFlip(clip.name),
+          // 이 연출을 파일 값 그대로 쓸지. 클립 단위로 갈리므로 여기서 정해 둔다.
+          raw: rawCamFor(bossKey, clip.name),
           lookAtFocus: AIM_ALL || AIM_CUT || aimCutForBoss(bossKey) || !!fix.lookAtFocus,
           // 'all' 은 매 프레임 겨냥, 'cut' 은 컷 머리에서 맞추고 천천히 따라가기.
           aimMode: AIM_ALL ? 'all' : ((AIM_CUT || aimCutForBoss(bossKey)) ? 'cut' : null),
