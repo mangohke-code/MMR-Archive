@@ -382,6 +382,11 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^bbg001_rich/i, re: /_egg_skin$/i },
   // 애니힐리오 마녀의 까마귀 III - 파츠는 있지만 보스전에서 나온 적이 없다.
   { boss: /^xba003/i, re: /_turret03$/i },
+  // 온리 원 소환수 셋 - 프리팹에서 꺼진 채 시작한다. 보스 프리팹의 GameObject
+  // m_IsActive 를 읽어 보면 ziz_skin / behamoth_skin / leviathan_skin 만
+  // False 고 나머지 스킨은 전부 True 다. 나오는 연출에서만 CLIP_SOLO_PARTS 가
+  // 켠다.
+  { boss: /^xbg003/i, re: /_(ziz|behamoth|leviathan)_skin(_\d+)?$/i },
   // 베히모스 머신건 좌우 - 3페이즈에서는 떨어져 나가서 달려 있지 않다.
   // 2페이즈 파일에 3페이즈가 같이 들어 있고 이 파츠에는 페이즈 꼬리표가 없어서,
   // 페이즈를 조건으로 단 줄이 필요하다.
@@ -1561,7 +1566,10 @@ function stripPhaseTail(name) {
 // 목록에 낼지 말지만 여기서 가른다 — 자세·카메라 계산은 건드리지 않는다.
 const CLIP_PHASE_OVERRIDES = [
   // 온리 원·미러 컨테이너 - 1페이즈로 등장해서 2페이즈에서 죽는다
-  { re: /_appearance(_take\d+)?$/i, boss: /^(xbg003|xba001)/i, phase: '1' },
+  // 묶음은 **첫 단계 클립의 이름**으로 페이즈를 가린다(묶음 키가 아니다).
+  // 그래서 온리 원 등장 묶음은 take01 을 적어야 한다 - 안 적으면 페이즈 태그가
+  // 없는 이름이라 1·2페이즈 양쪽에 다 나온다.
+  { re: /_(appearance(_take\d+)?|take01)$/i, boss: /^(xbg003|xba001)/i, phase: '1' },
   { re: /_death$/i, boss: /^(xbg003|xba001)/i, phase: '2' },
   // 미러 컨테이너 포신 사격은 1페이즈 파츠를 쓴다
   { re: /_shot_(?:start|fire|end)_[lr]\d+_\d+$/i, boss: /^xba001/i, phase: '1' },
@@ -1771,6 +1779,26 @@ const CLIP_SOLO_PARTS = [
   // 마녀의 까마귀 다섯은 전환 연출 내내 꺼져 있다.
   { boss: /^xba003/i, clip: /_12phase_appeanrance$/i, show: /./, hide: /_turret\d+(_\d+)?$/i },
   { boss: /^xba003/i, clip: /^xbga03_2phase_appearance$/i, show: /./, hide: /_turret\d+(_\d+)?$/i },
+  // 온리 원 소환수 셋. 애니메이션 클립에는 켜고 끄는 커브가 없다 - 클립
+  // 바인딩 1141개가 전부 Transform(위치·회전·크기)이다. 대신 루트 뼈의
+  // 크기로 접었다 편다. 0.10 이 접힌 상태, 0.60~1.00 이 나온 상태다.
+  // 그래서 크기가 0.10 이 아닌 클립에서만 켠다.
+  //   death                       하늘 0.10->0.70 · 땅 0.72 · 바다 0.10->1.00
+  //   skill_ziz_?phase_*_03       하늘 0.19~0.70
+  //   skill_behemoth_?phase_*_03  땅 0.60
+  //   skill_leviathan_?phase_*_03 바다 0.60
+  //   take01                      하늘 1.00 -> 0.20  (meshActivation 이 켠다)
+  //   그 밖의 클립 전부           셋 다 0.10
+  // 켜 둔 클립 안에서 나타나고 사라지는 타이밍은 그 크기 곡선이 알아서 낸다 -
+  // 사망은 바다가 0.57 초에 걸쳐 0.10 에서 1.00 으로 커지며 나온다.
+  { boss: /^xbg003/i, clip: /_death$/i,
+    show: /_(ziz|behamoth|leviathan)_skin(_\d+)?$/i },
+  { boss: /^xbg003/i, clip: /_skill_ziz_\dphase_/i,
+    show: /_ziz_skin(_\d+)?$/i },
+  { boss: /^xbg003/i, clip: /_skill_behemoth_\dphase_/i,
+    show: /_behamoth_skin(_\d+)?$/i },
+  { boss: /^xbg003/i, clip: /_skill_leviathan_\dphase_/i,
+    show: /_leviathan_skin(_\d+)?$/i },
 ];
 
 // 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
@@ -2974,6 +3002,18 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 이 연출의 활성 구간 표에 이름이 오른 메쉬 전부. 여기 없는 메쉬는 손대지 않는다.
     let meshActNames = new Set();
 
+    // 파일이 적어 준 이름과 three.js 가 붙인 이름이 다를 수 있다. 같은 이름의
+    // 뼈가 있으면 메쉬 쪽에 _1 이 붙고(온리 원은 ziz/behamoth/leviathan/
+    // 2phase_wings 넷이 다 그렇다 - 뼈와 메쉬가 같은 이름이다), 프리미티브가
+    // 여럿인 메쉬는 _2 _3 으로 갈린다. 그래서 <이름> 과 <이름>_숫자 를 한
+    // 항목으로 본다 - 안 그러면 activationTrack 이 아무것도 못 걸고 조용히
+    // 넘어간다(온리 원 등장이 그랬다).
+    function meshActKey(names, meshName) {
+      if (names.has(meshName)) return meshName;
+      const base = String(meshName || '').replace(/_\d+$/, '');
+      return names.has(base) ? base : null;
+    }
+
     function clearClipMeshAct() {
       if (!clipMeshOn && !meshActNames.size) return;
       clipMeshOn = null;
@@ -2998,7 +3038,10 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
         if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
         // 게임 타임라인의 메쉬 활성 구간. 여기 이름이 오르는 메쉬는 그 구간에만
         // 보인다 — 온리 원 등장은 소환수와 2페 날개를 2.5 초까지만 켠다.
-        if (clipMeshOn && meshActNames.has(m.name)) on = clipMeshOn.has(m.name);
+        if (clipMeshOn && meshActNames.size) {
+          const k = meshActKey(meshActNames, m.name);
+          if (k) on = clipMeshOn.has(k);
+        }
         m.visible = on;
       });
     }
