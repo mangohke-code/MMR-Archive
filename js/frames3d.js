@@ -191,6 +191,12 @@ const MESH_RENAME = [
     mat: 'xba003_phase02_body2', to: 'xba003_2phase_body_skin' },
   // 애니힐리오 2페이즈 - 노드와 메쉬가 이름을 나눠 가져 붙는 꼬리표를 뗀다.
   { boss: /^xba003/i, re: /^(xba003_1phase_magiccarpet_skin)(_\d+)?$/i, bySuffix: {} },
+  // 온리 원 - 소환수 셋과 2페 날개는 뼈와 메쉬가 같은 이름이라 메쉬 쪽에 _1 이
+  // 붙는다. 그 꼬리표 때문에 PART_LABELS 의 이름표(하늘·땅·바다의 마수)가
+  // 안 걸렸다. 넷 다 프리미티브가 하나뿐이라 꼬리표만 떼면 된다.
+  { boss: /^xbg003/i,
+    re: /^(xbg003_(?:ziz_skin|behamoth_skin|leviathan_skin|2phase_wings_skin))(_\d+)?$/i,
+    bySuffix: {} },
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
