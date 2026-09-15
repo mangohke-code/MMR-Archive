@@ -1159,6 +1159,16 @@ const CLIP_CAM_MOVE = [
   //   뒤  몸 전체가 보이고 마지막에 가운데에 선다
   { boss: /^bbg008/i, re: /_appearance_take2$/i, to: 3.43 },
   { boss: /^bbg008/i, re: /_appearance_take2$/i, from: 3.43, x: -0.36, back: 1.4 },
+  // 온리 원 등장 - 파일이 스스로 만드는 줌이 인게임보다 훨씬 약하다.
+  // 카메라-보스 거리가 190 -> 136 -> 186 으로 1.39 배밖에 안 움직이는데,
+  // 인게임은 중간 구간에서 받침대가 안 보일 만큼 바짝 붙는다.
+  // 시작과 끝은 이미 인게임과 맞으므로(10초 세로 점유 39% 대 39%) 중간만
+  // 당긴다. 열쇠 프레임으로 이어서 카메라가 도는 중에 툭 끊기지 않게 한다.
+  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 0,   back: 1 },
+  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 3,   back: 1 },
+  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 5,   back: 0.45 },
+  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 6.5, back: 0.45 },
+  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 8.5, back: 1 },
   // 온리 원 take01 - 홀더를 켜면 구도는 안정되는데 너무 가깝다. 뒤로 뺀다.
   { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8, y: 0.27 },
   { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
@@ -1172,12 +1182,51 @@ function clipCamMoveFor(bossKey, clipName) {
   const hit = CLIP_CAM_MOVE.filter(
     o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
   if (!hit.length) return null;
-  return hit.slice().sort((a, b) => (a.from || 0) - (b.from || 0));
+  return hit.slice().sort(
+    (a, b) => camMoveTime(a) - camMoveTime(b));
 }
 
+function camMoveTime(o) {
+  return (typeof o.at === 'number') ? o.at : (o.from || 0);
+}
+
+// 보간할 수 있는 값들. back 만 기본값이 1 이고 나머지는 0 이다.
+const CAM_MOVE_KEYS = ['x', 'y', 'z', 'back', 'roll', 'spin'];
+const camMoveLerp = {};
+
 // 지금 시각에 걸리는 구간을 고른다.
+// 두 가지 적는 법이 있다.
+//
+//   from / to  구간이다. 그 구간에 들어오면 값이 그대로 걸린다. 경계에서 값이
+//              툭 바뀌므로 화면이 한 번 튄다 - 컷이 있는 자리에만 쓴다.
+//   at         열쇠 프레임이다. 사이 값을 부드럽게 이어 준다. 카메라가 도는
+//              도중에 거리를 바꿔야 하는 연출은 이쪽이다.
+//
+// 한 클립 안에서 둘을 섞지 말 것. at 을 적은 줄이 하나라도 있으면 그 클립은
+// 전부 열쇠 프레임으로 읽는다.
 function clipCamMoveAt(list, t) {
   if (!list) return null;
+  if (typeof list[0].at === 'number') {
+    let i = 0;
+    while (i + 1 < list.length && t >= list[i + 1].at) i++;
+    const a = list[i], b = list[i + 1];
+    if (!b || t <= a.at) return a;
+    // 양 끝에서 기울기가 0 이 되는 곡선. 그냥 직선으로 이으면 열쇠 프레임마다
+    // 속도가 꺾여서 카메라가 덜컹거린다.
+    const r = (t - a.at) / (b.at - a.at);
+    const w = r * r * (3 - 2 * r);
+    const out = camMoveLerp;
+    for (const k in out) delete out[k];
+    out.pivot = a.pivot || b.pivot;
+    CAM_MOVE_KEYS.forEach(k => {
+      if (typeof a[k] !== 'number' && typeof b[k] !== 'number') return;
+      const d = (k === 'back') ? 1 : 0;
+      const va = (typeof a[k] === 'number') ? a[k] : d;
+      const vb = (typeof b[k] === 'number') ? b[k] : d;
+      out[k] = va + (vb - va) * w;
+    });
+    return out;
+  }
   for (const o of list) {
     if (t >= (o.from || 0) && t < (typeof o.to === 'number' ? o.to : Infinity)) return o;
   }
