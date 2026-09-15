@@ -972,6 +972,8 @@ const CUTSCENE_ANCHOR_ON = [
   // x z 를 넣으면 -4.5 +- 0.8 도로 고정되고 크기도 화면 높이의 90~130% 가 된다.
   // 홀더 평행이동 x 0.0 / y -4.8 / z +125.9, 회전 X축 25.0도(회전·y 는 안 쓴다).
   /^xbg003_take01_camera$/i,
+  // 온리 원 등장 - 위 설명과 같다. RAW_CAM_BOSS 의 holder 와 짝이다.
+  /^xbg003_appear_camera$/i,
 ];
 
 // 홀더에서 수평 평행이동(x, z)만 꺼내 쓴다.
@@ -1290,7 +1292,7 @@ const RAW_CAM_BOSS = [
   // 온리 원 등장 - 인게임 카메라 값만으로 어떻게 보이는지 확인하는 중이다.
   // 이 줄이 있으면 겨냥 보정(CAMERA_LOOK_AT)과 뒤따르는 단계가 전부 꺼진다.
   // take01 은 여기 없으므로 홀더와 CLIP_CAM_MOVE 가 그대로 걸린다.
-  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, back: 0.15 },
+  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, holder: 0.85 },
 ];
 
 // clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
@@ -1341,12 +1343,21 @@ function gateFitFov(fovDeg, aspect) {
   return THREE.MathUtils.radToDeg(2 * Math.atan(halfW / a));
 }
 
-function cutsceneAnchorOf(node) {
+// scale 은 홀더를 얼마나 끼울지다(기본 1 = 통째로).
+//
+// 홀더는 거리를 재는 원점을 옮기기 때문에, 끼우는 양이 카메라가 당겨지는
+// "비율" 을 바꾼다. 온리 원 등장으로 재보면 이렇다.
+//   0     거리 190 -> 136   1.39 배   (파일 값 그대로. 인게임보다 한참 약하다)
+//   0.85  거리  77 ->  23   3.4 배
+//   1     거리  57 -> 3.9   14 배     (지나쳐서 카메라가 보스 안으로 들어간다)
+// back 은 거리에 곱하는 값이라 이 비율을 못 바꾼다 - 여기서만 된다.
+function cutsceneAnchorOf(node, scale) {
   if (RAW_MODE || !node || !node.userData) return null;
   if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
   const a = node.userData.cutsceneAnchorNoMirror || node.userData.cutsceneAnchor;
   if (!Array.isArray(a) || a.length !== 16) return null;
-  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, a[12], 0, a[14], 1];
+  const k = (typeof scale === 'number') ? scale : 1;
+  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, a[12] * k, 0, a[14] * k, 1];
 }
 
 // 뷰어가 연출 카메라에 손대는 보정은 이제 없다. 화면은 파일 값과
@@ -3607,7 +3618,15 @@ function noFollowClip(bossKey, name) {
       // 모델을 정규화(균일 축소)해서 얹어 놓기 때문에 축척이 어긋난다.
       // 부모(정규화 그룹) 아래, 카메라 지역 변환 위에 넣어야 같은 단위가 된다.
       const rawCam = cinematic.raw;
-      const anchorArr = rawCam ? null : cutsceneAnchorOf(node);
+      // 파일 값 그대로 쓰는 연출(RAW_CAM_BOSS)은 홀더도 같이 끈다 - 홀더는
+      // 뷰어가 얹는 보정이기 때문이다. 다만 holder 를 적어 둔 줄은 예외다.
+      // 홀더가 있어야 카메라 워크가 성립하는 연출이 있다 - 온리 원 등장은
+      // 홀더 없이는 거리가 190 -> 136 으로 1.39 배밖에 안 당겨지는데,
+      // 홀더를 끼우면 57 -> 3.9 로 인게임처럼 확 파고든다. 홀더의 z(+133.4)가
+      // 거리를 재는 원점을 옮겨서 당겨지는 비율 자체를 바꾸기 때문이다.
+      // back 은 거리에 곱하는 값이라 이 비율을 못 바꾼다 - 홀더로만 된다.
+      const anchorArr = (rawCam && !rawCam.holder)
+        ? null : cutsceneAnchorOf(node, rawCam ? rawCam.holder : 1);
       if (anchorArr) {
         camAnchorMat.fromArray(anchorArr);
         camAnchorOut.multiplyMatrices(camAnchorMat, node.matrix);
