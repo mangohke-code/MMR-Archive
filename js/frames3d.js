@@ -1424,8 +1424,11 @@ const MANUAL_SEQUENCES = [
   // take01 2.5초를 마치면 곧바로 appearance 로 넘어간다.
   //
   // 묶어야 하는 또 다른 이유 - appearance 에는 소환수 크기 트랙이 아예 없어서
-  // 직전 클립이 남긴 크기를 물려받는다. take01 이 하늘(ziz)을 0.20 -> 1.00 으로
-  // 키우므로, 이어서 재생해야 등장 내내 하늘이 나온 상태가 된다.
+  // 직전 클립이 남긴 크기를 물려받는다. take01 이 하늘(ziz)을 1.00 으로 들고
+  // 있다가 1.83 초부터 접어 2.33 초에 0.20 으로 끝내므로, 이어서 재생해야
+  // appearance 가 접힌 상태에서 시작한다. 카메라 extras 의 meshActivation 도
+  // ziz_skin / 2phase_wings_skin 을 타임라인 0 ~ 2.5 초(= take01 구간)에만
+  // 켠다고 적어 두었다 - 같은 얘기다.
   {
     key: 'xbg003_appearance_all',
     steps: [/^xbg003_take01$/i, /^xbg003_appearance$/i],
