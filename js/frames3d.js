@@ -1164,11 +1164,12 @@ const CLIP_CAM_MOVE = [
   // 인게임은 중간 구간에서 받침대가 안 보일 만큼 바짝 붙는다.
   // 시작과 끝은 이미 인게임과 맞으므로(10초 세로 점유 39% 대 39%) 중간만
   // 당긴다. 열쇠 프레임으로 이어서 카메라가 도는 중에 툭 끊기지 않게 한다.
-  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 0,   back: 1 },
-  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 3,   back: 1 },
-  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 5,   back: 0.45 },
-  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 6.5, back: 0.45 },
-  { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 8.5, back: 1 },
+  // (지금은 뺐다 - 파일 값만으로 보는 중. 되살리려면 주석을 벗기면 된다)
+  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 0,   back: 1 },
+  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 3,   back: 1 },
+  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 5,   back: 0.45 },
+  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 6.5, back: 0.45 },
+  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 8.5, back: 1 },
   // 온리 원 take01 - 홀더를 켜면 구도는 안정되는데 너무 가깝다. 뒤로 뺀다.
   { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8, y: 0.27 },
   { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
@@ -1286,6 +1287,10 @@ const RAW_CAM_BOSS = [
   // 마지막 프레임 기준 보스 가로 폭이 45.1% -> 2.8% 가 되는데 인게임은 10.4%다.
   // 이 보스의 등장 홀더는 쓰지 않는다.
   { boss: /^mbg002/i, clip: /^mbg002_appearance$/i },
+  // 온리 원 등장 - 인게임 카메라 값만으로 어떻게 보이는지 확인하는 중이다.
+  // 이 줄이 있으면 겨냥 보정(CAMERA_LOOK_AT)과 뒤따르는 단계가 전부 꺼진다.
+  // take01 은 여기 없으므로 홀더와 CLIP_CAM_MOVE 가 그대로 걸린다.
+  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i },
 ];
 
 // clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
@@ -1364,7 +1369,8 @@ const CAMERA_LOOK_AT = [
   //   t     0     2     4    4.77    6    6.43    7     8    10
   //   머리 -1.0   0.8   2.3   0.2   -6.9  -10.5  -7.7  -3.6  -2.7   (도)
   // 나머지 구간은 +-3.6 도라 겨냥을 다시 잡아도 크게 안 변한다.
-  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, bone: /^xbag03_head_01$/i },
+  // (지금은 뺐다 - RAW_CAM_BOSS 로 파일 값만 쓰는 중이라 어차피 안 걸린다)
+  // { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, bone: /^xbag03_head_01$/i },
 ];
 
 // 한 클립에 여러 줄을 두면 시간순 단계가 된다. from 이 없으면 0초부터다.
