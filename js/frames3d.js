@@ -1413,6 +1413,23 @@ const MANUAL_SEQUENCES = [
     key: 'xba001_2phase_parts',
     steps: [/^xba001_2phase_parts_rebirth$/i, /^xba001_2phase_parts_Destruction_01$/i],
   },
+  // 온리 원 등장 - 타임라인상 take01 다음에 appearance 가 바로 이어진다.
+  //   take01      슬롯 0      ~ 2.8333   클립 2.5
+  //   appearance  슬롯 2.8333 ~ 12.8333  클립 10
+  // 두 슬롯이 소수점 끝까지 맞물린다(2.8333 x 60 = 170프레임).
+  //
+  // 슬롯은 2.8333 인데 클립은 2.5 라 0.333초(20프레임)가 남는데, 그 여백은
+  // 타임라인 메타데이터에만 있고 애니메이션 데이터에는 없다(카메라 클립도 2.5초다).
+  // 여기는 클립을 차례로 끝까지 재생하는 방식이라 그 여백은 재생되지 않는다 -
+  // take01 2.5초를 마치면 곧바로 appearance 로 넘어간다.
+  //
+  // 묶어야 하는 또 다른 이유 - appearance 에는 소환수 크기 트랙이 아예 없어서
+  // 직전 클립이 남긴 크기를 물려받는다. take01 이 하늘(ziz)을 0.20 -> 1.00 으로
+  // 키우므로, 이어서 재생해야 등장 내내 하늘이 나온 상태가 된다.
+  {
+    key: 'xbg003_appearance_all',
+    steps: [/^xbg003_take01$/i, /^xbg003_appearance$/i],
+  },
   // 베히모스 - 페이즈 전환 연출의 뒤 두 컷
   {
     key: 'mbg003_2phase_take',
@@ -1705,6 +1722,7 @@ const CLIP_LABEL_FIX = [
   { boss: /^mbg003/i, re: /_dead_all$/i, label: 'dead' },
   { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
   { boss: /^mbg003/i, re: /_1phase_take$/i, label: '1phase_take1+2' },
+  { boss: /^xbg003/i, re: /_appearance_all$/i, label: 'take01+appearance' },
   // 사치스러운 거미 - 짝이던 idle_02 / dead_01_2 를 뺐고 cc 는 start·end 가
   // 하나씩뿐이라, 뒤에 붙은 번호가 더는 아무것도 안 가른다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_01$/i, label: 'idle' },
