@@ -1791,6 +1791,12 @@ const CLIP_SOLO_PARTS = [
   //   그 밖의 클립 전부           셋 다 0.10
   // 켜 둔 클립 안에서 나타나고 사라지는 타이밍은 그 크기 곡선이 알아서 낸다 -
   // 사망은 바다가 0.57 초에 걸쳐 0.10 에서 1.00 으로 커지며 나온다.
+  // 온리 원 take01 - 인간형(rp_skin)을 감춘다. 이건 파일이 시킨 게 아니다.
+  // 등장 타임라인(xbg003_appearance_model)의 ActivationTrack 일곱 개를 전부
+  // 풀어 봤는데 rp_skin 을 묶은 트랙이 아예 없다 - 프리팹 상태(켜짐) 그대로다.
+  // 인게임에서 안 보이는 건 물 아래에 잠겨 있어서다. 뷰어에는 물이 없어서
+  // 그대로 드러나므로 여기서 감춘다.
+  { boss: /^xbg003/i, clip: /_take01$/i, hide: /_rp_skin(_\d+)?$/i },
   { boss: /^xbg003/i, clip: /_death$/i,
     show: /_(ziz|behamoth|leviathan)_skin(_\d+)?$/i },
   { boss: /^xbg003/i, clip: /_skill_ziz_\dphase_/i,
