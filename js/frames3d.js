@@ -582,7 +582,6 @@ function catalogFitBase(bossKey, bossCode, isCatalogExport, labelPhase) {
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
 const CLIP_CAM_LIFT = [
-  { boss: /^xbg003/i, re: /_take01$/i, y: 0.6 }, // 온리 원 take01
 ];
 
 function getBossTransform(bossCode, isCatalogExport) {
@@ -968,6 +967,11 @@ const CUTSCENE_ANCHOR_ON = [
   /^xbg002_dead_camera$/i,
   /^ebg001_phase002_appearance_camera$/i,
   /^mbg002_dead_camera$/i,
+  // 온리 원 take01 - 홀더 없이는 세로 중심이 클립 내내 -13.8 -> -1.7 도로
+  // 12도를 훑고 지나간다(게이트핏 세로 반각이 8.6도라 앞부분이 화면 밖이다).
+  // x z 를 넣으면 -4.5 +- 0.8 도로 고정되고 크기도 화면 높이의 90~130% 가 된다.
+  // 홀더 평행이동 x 0.0 / y -4.8 / z +125.9, 회전 X축 25.0도(회전·y 는 안 쓴다).
+  /^xbg003_take01_camera$/i,
 ];
 
 // 홀더에서 수평 평행이동(x, z)만 꺼내 쓴다.
@@ -1155,6 +1159,8 @@ const CLIP_CAM_MOVE = [
   //   뒤  몸 전체가 보이고 마지막에 가운데에 선다
   { boss: /^bbg008/i, re: /_appearance_take2$/i, to: 3.43 },
   { boss: /^bbg008/i, re: /_appearance_take2$/i, from: 3.43, x: -0.36, back: 1.4 },
+  // 온리 원 take01 - 홀더를 켜면 구도는 안정되는데 너무 가깝다. 뒤로 뺀다.
+  { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8 },
   { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
     back: 1.66, pivot: /^(Pelvis|body_bone\d+|head_bone\d+)$/i },
 ];
