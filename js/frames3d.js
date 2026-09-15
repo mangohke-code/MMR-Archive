@@ -1290,7 +1290,7 @@ const RAW_CAM_BOSS = [
   // 온리 원 등장 - 인게임 카메라 값만으로 어떻게 보이는지 확인하는 중이다.
   // 이 줄이 있으면 겨냥 보정(CAMERA_LOOK_AT)과 뒤따르는 단계가 전부 꺼진다.
   // take01 은 여기 없으므로 홀더와 CLIP_CAM_MOVE 가 그대로 걸린다.
-  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, back: 0.5 },
+  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, back: 0.35 },
 ];
 
 // clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
