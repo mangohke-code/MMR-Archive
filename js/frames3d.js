@@ -1160,7 +1160,7 @@ const CLIP_CAM_MOVE = [
   { boss: /^bbg008/i, re: /_appearance_take2$/i, to: 3.43 },
   { boss: /^bbg008/i, re: /_appearance_take2$/i, from: 3.43, x: -0.36, back: 1.4 },
   // 온리 원 take01 - 홀더를 켜면 구도는 안정되는데 너무 가깝다. 뒤로 뺀다.
-  { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8 },
+  { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8, y: 0.27 },
   { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
     back: 1.66, pivot: /^(Pelvis|body_bone\d+|head_bone\d+)$/i },
 ];
