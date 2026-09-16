@@ -55,9 +55,77 @@ JOBS = [
     # 두 파일은 노드·클립·메쉬 이름이 하나도 안 겹쳐서 그냥 붙이면 된다.
     (['추출프로그램 업데이트 이후/xba003_애니힐리오 D.M.T.R.glb',
       '추출프로그램 업데이트 이후/xba003_애니힐리오 D.M.T.R_xba003_dmtr.glb'], 'xba003'),
+    # 리버렐리오 바디는 리그가 셋이다 - 1페이즈 몸, 2페이즈 몸, 해파리.
+    # 2페이즈 전환이 셋을 같은 6.667 초에 동시에 돌리므로 한 파일로 합친다.
+    # 해파리는 노드·클립·메쉬 이름이 나머지 둘과 하나도 안 겹친다.
+    # 애니힐리오와 달리 1·2페이즈끼리는 63개가 겹치는데, 겹치는 것은 전부
+    # 뼈와 fx 노드(parts_col_01~15 등)라 화면에 영향이 없다. 진짜 문제는
+    # 카메라 하나뿐이고 그건 RENAMES 가 처리한다.
+    (['추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A.glb',
+      '추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A_eba002_hsta.glb',
+      '추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A_eba002_jellyfish_obj_var.glb'],
+     'eba002'),
 ]
 
+# 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
+#
+# 리버렐리오 2페이즈 등장 카메라가 양쪽 파일에 같은 이름으로 한 번씩 실린다.
+# 추출 규칙이 "카메라는 짝이 그 파일에 있을 때만 담는다" 인데, 전환 연출이 리그
+# 둘을 동시에 돌려서 짝이 양쪽에 하나씩 있기 때문이다. 값은 201프레임 전부
+# 똑같고 pairedClip 만 다르다(01 = 1페이즈 몸, 02 = 2페이즈 몸).
+#
+# 그대로 합치면 노드 이름도 클립 이름도 겹쳐서 three.js 가 뒤엣것에 _1 을 붙이고,
+# 그러면 어느 카메라 클립이 어느 카메라 노드인지 못 가른다(cameraClipTarget 이
+# 트랙 이름의 앞머리로 찾는다). 2페이즈 쪽 이름을 갈아 둔다.
+#
+# 짝짓기는 extras.pairedClip 을 먼저 보므로 이름을 바꿔도 짝은 안 어긋난다.
+RENAMES = {
+    '추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A_eba002_hsta.glb': {
+        'eba002_2phase_intro_camera': 'eba002_2phase_intro_02_camera',
+    },
+}
+
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
+
+
+def rename_in_glb(src, dst, table):
+    """노드·애니메이션 이름만 바꿔 새 파일로 쓴다.
+
+    인덱스는 건드리지 않는다 - glTF 애니메이션 채널은 노드를 번호로 가리키므로
+    이름을 바꿔도 대상은 그대로다. three.js 는 불러올 때 노드 이름으로 트랙
+    이름을 만들기 때문에, 노드와 클립 이름을 같이 갈아 주면 짝짓기가 맞는다.
+    """
+    with open(src, 'rb') as f:
+        struct.unpack('<III', f.read(12))
+        chunks = []
+        while True:
+            hdr = f.read(8)
+            if len(hdr) < 8:
+                break
+            ln, ty = struct.unpack('<II', hdr)
+            chunks.append([ty, f.read(ln)])
+    doc = json.loads(chunks[0][1].decode('utf-8'))
+    hit = 0
+    for key in ('nodes', 'animations'):
+        for item in doc.get(key) or []:
+            fixed = table.get(item.get('name'))
+            if fixed:
+                item['name'] = fixed
+                hit += 1
+    # 노드 하나 + 클립 하나가 짝이다. 수가 안 맞으면 원본이 바뀐 것이니 멈춘다.
+    if hit != 2 * len(table):
+        raise RuntimeError('이름 바꾸기 대상이 %d개다(%d개여야 한다): %s'
+                           % (hit, 2 * len(table), os.path.basename(src)))
+    raw = json.dumps(doc, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    raw += b' ' * ((4 - len(raw) % 4) % 4)
+    chunks[0][1] = raw
+    body = b''
+    for ty, data in chunks:
+        pad = b'\x00' if ty == 0x004E4942 else b' '
+        data = data + pad * ((4 - len(data) % 4) % 4)
+        body += struct.pack('<II', len(data), ty) + data
+    with open(dst, 'wb') as f:
+        f.write(struct.pack('<III', 0x46546C67, 2, 12 + len(body)) + body)
 
 
 def merge_scenes(path):
@@ -116,6 +184,13 @@ def main():
             if missing:
                 print('건너뜀(원본 없음):', missing[0])
                 continue
+            # 합치기 전에 겹치는 이름을 갈아 둔다
+            for i, r in enumerate(rels):
+                table = RENAMES.get(r)
+                if table:
+                    fixed = os.path.join(tmp, 'ren%d.glb' % i)
+                    rename_in_glb(srcs[i], fixed, table)
+                    srcs[i] = fixed
             a = os.path.join(tmp, 'a.glb')
             b = os.path.join(tmp, 'b.glb')
             c = os.path.join(tmp, 'c.glb')
