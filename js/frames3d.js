@@ -700,20 +700,6 @@ function applyFresnelGlow(mat) {
 // 사망 연출에서 떨어져 나가는 파편 본. 화면 잡기·카메라 추적 기준에서 뺀다.
 const DEBRIS_BONE_RE = /twp/i;
 
-// 크기 맞추기(정규화)에서 뺄 메쉬. 보스 몸에서 멀찍이 떨어져 떠 있는 딴 개체가
-// 상자를 부풀려서 보스가 작게 잡히는 것을 막는다. 파츠를 꺼도 소용없다 -
-// 정규화는 뼈 위치로만 재기 때문에 보이고 안 보이고와 무관하다.
-//
-// 리버렐리오 바디의 해파리가 그렇다. 보스에서 z 로 0.9 유닛 떨어져 떠 있는데
-// 보스 몸은 0.21 밖에 안 돼서, 상자가 1.0 이 되고 보스가 제 크기의 1/5 로 잡혔다.
-const FIT_SKIP_MESHES = [
-  { boss: /^eba002/i, re: /_jellyfish_[lr]$/i },
-];
-
-function fitSkipMesh(bossKey, name) {
-  return FIT_SKIP_MESHES.some(
-    o => o.boss.test(bossKey || '') && o.re.test(name || ''));
-}
 
 // 몸통 중심축 본. 3ds Max Biped 표준 이름 + body/bust/neck 계열.
 // 파츠가 떨어져 나가는 연출에서 파츠까지 평균 내면 본체와 파편 사이 빈 공간을 잡는다.
@@ -3427,17 +3413,42 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       normGroup.scale.setScalar(1);
       normGroup.updateWorldMatrix(true, true);
 
-      const nb = new THREE.Box3();
+      // 뼈를 씬 루트별로 묶어서 상자를 따로 잰다. 보스 몸에서 뚝 떨어져 떠 있는
+      // 딴 개체가 상자를 부풀리면 보스가 그만큼 작게 잡히기 때문이다 -
+      // 리버렐리오 바디는 해파리를 넣으면 229, 빼면 50.8 이라 보스가 제 크기의
+      // 1/5 로 잡혔다. 파츠를 꺼도 소용없다. 정규화는 뼈 위치로만 재기 때문에
+      // 보이고 안 보이고와 무관하다.
+      //
+      // 배포된 16종으로 대조해 보니 리버렐리오 말고는 값이 소수점까지 그대로다.
+      // 대부분 리그가 하나뿐이라 아무 일도 안 하고, 둘인 애니힐리오는 두 뭉치가
+      // 맞닿아 있어 둘 다 남는다.
+      const fitGroups = new Map();
       const nv = new THREE.Vector3();
       meshes.forEach(m => {
         if (!m.isSkinnedMesh || !m.skeleton) return;
-        if (fitSkipMesh(bossKey, m.name)) return;
         m.skeleton.bones.forEach(b => {
           if (DEBRIS_BONE_RE.test(b.name || '')) return;
+          let root = b;
+          while (root.parent && root.parent !== gltf.scene) root = root.parent;
+          let gbox = fitGroups.get(root);
+          if (!gbox) { gbox = new THREE.Box3(); fitGroups.set(root, gbox); }
           b.getWorldPosition(nv);
-          nb.expandByPoint(normGroup.worldToLocal(nv.clone()));
+          gbox.expandByPoint(normGroup.worldToLocal(nv.clone()));
         });
       });
+      const nb = new THREE.Box3();
+      if (fitGroups.size) {
+        const gs = new THREE.Vector3();
+        const widest = box => Math.max(box.getSize(gs).x, gs.y, gs.z);
+        let main = null, mainMax = -1;
+        fitGroups.forEach(gbox => {
+          const w = widest(gbox);
+          if (w > mainMax) { mainMax = w; main = gbox; }
+        });
+        // 가장 큰 뭉치에 그 크기의 절반만큼 여유를 주고, 거기 안 닿는 뭉치는 뺀다.
+        const reach = main.clone().expandByScalar(mainMax * 0.5);
+        fitGroups.forEach(gbox => { if (gbox.intersectsBox(reach)) nb.union(gbox); });
+      }
       if (!nb.isEmpty()) {
         const ns = nb.getSize(new THREE.Vector3());
         const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
