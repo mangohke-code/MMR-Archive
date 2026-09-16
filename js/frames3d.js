@@ -2069,12 +2069,17 @@ const PHASE_SWITCH_CLIPS = [
   /^mbg003_3phase_intro$/i,       // 2 -> 3페이즈 전환
   /^mbg002_phase001_destroy$/i,   // 그레이브 디거 1 -> 2페이즈
   /^mbg002_phase002_destroy$/i,   // 그레이브 디거 2 -> 3페이즈
+  // 리버렐리오 바디 - 이름은 intro 지만 1 -> 2페이즈 전환이다.
+  // 진짜 등장은 1phase_intro 쪽이다(아래 APPEARANCE_CLIPS).
+  /^eba002_2phase_intro_01$/i,
 ];
 
 // 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
 //   베히모스 1페이즈는 take1(부품이 날아옴) + take2(조립 완료)가 이어진 등장이다.
 const APPEARANCE_CLIPS = [
   /^mbg003_1phase_take[12]?$/i,
+  // 리버렐리오 바디 - 이름에 appearance 가 안 들어간 등장 연출.
+  /^eba002_1phase_intro$/i,
 ];
 
 function isAppearanceClip(name) {
