@@ -15,7 +15,6 @@ import tempfile
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(BASE, '이미지', '보스')
 UPLOAD = os.path.join(BASE, '업로드용 보스 3D')
-LOCAL = os.path.join(BASE, '정보모음-web', 'img', 'boss')
 WEBP = os.path.join(BASE, '정보모음-web', 'tools', 'glb_webp.py')
 
 # (원본 상대경로, 출력 이름)
@@ -206,7 +205,6 @@ def main():
             run(GT + ['draco', b, c])
             dst = os.path.join(UPLOAD, out + '.glb')
             run([sys.executable, WEBP, c, dst])
-            shutil.copyfile(dst, os.path.join(LOCAL, out + '.glb'))
             print('%-16s %7.1f MB -> %5.1f MB' % (
                 out, sum(os.path.getsize(p) for p in srcs) / 1e6,
                 os.path.getsize(dst) / 1e6))
