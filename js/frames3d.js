@@ -39,6 +39,10 @@ const PHASE_MODE_OVERRIDES = {
   // 애니힐리오 - 1·2페이즈 파일을 합쳐 두었다. 변신하면 1페이즈 몸체는
   // 통째로 사라지고 2페이즈 파츠만 남는다.
   xba003: { mode: 'exclusive' },
+  // 리버렐리오 바디 - 1·2페이즈 몸이 리그부터 다르다. 변신하면 1페이즈 몸은
+  // 통째로 사라진다. 해파리는 페이즈 태그가 없어서 양쪽에 다 남는다(맞다 -
+  // 1페 등장·전환·사망 세 연출에 다 나온다).
+  eba002: { mode: 'exclusive' },
   // 아일랜드 이터 - 1페이즈는 전체 파츠, 2페이즈는 phase002·003 파츠 10개.
   ebg001_island: { mode: 'phase1-all', merge: { 3: 2 } },
   // 그레이브 디거 - phase001/002/003 사이에 phase0025 가 끼어 있다.
@@ -84,6 +88,9 @@ const PART_GROUPS = [
   // 등장·사망·특정 스킬에서만 펼쳐지는 연출/투사체 덩어리다.
   // idle 에서는 (0, 17.4, 8.8) 한 점에 접혀 있어서 크기가 0.1 유닛뿐이고,
   // death 에서 F_skin 이 1329, appearance 에서 C_skin 이 674 까지 펼쳐진다.
+  // 리버렐리오 바디(eba002) — 좌우 해파리는 보스 몸이 아니라 따로 노는 개체다.
+  // 리그가 아예 달라서 파일도 따로 나온다.
+  ['해파리', /(^|_)jellyfish/i],
   // 온리 원(xbg003)
   ['촉수', /(^|_)tentacle/i],
   ['가시', /(^|_)thorn/i],
@@ -114,6 +121,19 @@ const MESH_RENAME = [
   { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_thorn', to: 'xba002_thorn_skin' },
   { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_parts', nth: 0, to: 'xba002_parts_01_skin' },
   { boss: /^xba002/i, re: /^xba002_face_skin(_\d+)?$/i, mat: 'xba002_parts', nth: 1, to: 'xba002_parts_02_skin' },
+  // 리버렐리오 바디 — 1페이즈 몸이 페이즈 태그 없이 eba002_skin 이다. 그대로 두면
+  // 페이즈가 2 하나로만 잡혀서 페이즈 단추가 아예 안 나온다(페이즈는 메쉬 이름의
+  // 태그로 센다). 프리미티브 둘을 재질로 갈라 머리·몸통으로 나눈다.
+  { boss: /^eba002/i, re: /^eba002_skin(_\d+)?$/i,
+    mat: 'eba002_hsta_head', to: 'eba002_1phase_head_skin' },
+  { boss: /^eba002/i, re: /^eba002_skin(_\d+)?$/i,
+    mat: 'eba002_hsta_body', to: 'eba002_1phase_body_skin' },
+  // 2페이즈 몸도 프리미티브 둘이다. 하나는 1페이즈와 같은 재질(hsta_body)을 쓰고
+  // 하나만 2페이즈 전용(phase2_body)이라 재질로 갈린다.
+  { boss: /^eba002/i, re: /^eba002_2phase_skin(_\d+)?$/i,
+    mat: 'eba002_hsta_body', to: 'eba002_2phase_body_skin' },
+  { boss: /^eba002/i, re: /^eba002_2phase_skin(_\d+)?$/i,
+    mat: 'eba002_phase2_body', to: 'eba002_2phase_body2_skin' },
   // 프로비던스 팔 — 한 메쉬의 프리미티브 넷. 본체는 꼬리표 없이, 발광은 _1.
   { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'xbg002_arm', to: 'xbg002_arm_l_skin' },
   { boss: /^xbg002/i, re: /^xbg002_arm_l_skin(_\d+)?$/i, mat: 'fx_xbg002_part_fresnel_purple', to: 'xbg002_arm_l_skin_1' },
