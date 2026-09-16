@@ -700,6 +700,21 @@ function applyFresnelGlow(mat) {
 // 사망 연출에서 떨어져 나가는 파편 본. 화면 잡기·카메라 추적 기준에서 뺀다.
 const DEBRIS_BONE_RE = /twp/i;
 
+// 크기 맞추기(정규화)에서 뺄 메쉬. 보스 몸에서 멀찍이 떨어져 떠 있는 딴 개체가
+// 상자를 부풀려서 보스가 작게 잡히는 것을 막는다. 파츠를 꺼도 소용없다 -
+// 정규화는 뼈 위치로만 재기 때문에 보이고 안 보이고와 무관하다.
+//
+// 리버렐리오 바디의 해파리가 그렇다. 보스에서 z 로 0.9 유닛 떨어져 떠 있는데
+// 보스 몸은 0.21 밖에 안 돼서, 상자가 1.0 이 되고 보스가 제 크기의 1/5 로 잡혔다.
+const FIT_SKIP_MESHES = [
+  { boss: /^eba002/i, re: /_jellyfish_[lr]$/i },
+];
+
+function fitSkipMesh(bossKey, name) {
+  return FIT_SKIP_MESHES.some(
+    o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+}
+
 // 몸통 중심축 본. 3ds Max Biped 표준 이름 + body/bust/neck 계열.
 // 파츠가 떨어져 나가는 연출에서 파츠까지 평균 내면 본체와 파편 사이 빈 공간을 잡는다.
 // 머리 본. 몸통이 흩어져도 머리를 잡아야 하는 보스에서 쓴다(검은 뱀).
@@ -1695,6 +1710,8 @@ const CLIP_PHASE_OVERRIDES = [
   // 그레이브 디거 - 등장은 1페이즈에서, 사망은 3페이즈에서만 나온다.
   { re: /^mbg002_appearance$/i, boss: /^mbg002/i, phase: '1' },
   { re: /^mbg002_dead$/i, boss: /^mbg002/i, phase: '3' },
+  // 리버렐리오 바디 - 전환 연출도 넘어가기 전 페이즈에 둔다.
+  { re: /^eba002_2phase_intro_01$/i, boss: /^eba002/i, phase: '1' },
   // 아일랜드 이터 - 2페이즈 등장은 1->2 전환 연출이라 넘어가기 전 페이즈에 둔다.
   { re: /_phase002_appearance$/i, boss: /^ebg001_island/i, phase: '1' },
   // 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
@@ -1776,6 +1793,12 @@ const HIDDEN_CLIPS = [
   // 연출 카메라(ebg001_dead_scene_camera)가 짝으로 가리키는 쪽이 island_dead 라
   // 그쪽만 남긴다. 예전에는 반대로 감춰서, 보이는 dead 에는 카메라가 안 붙었다.
   { boss: /^ebg001_island/i, re: /^ebg001_dead$/i },
+  // 리버렐리오 바디 - 위 SIMUL_CLIPS 가 대표 클립과 같이 돌리는 딸림 클립들.
+  // 혼자 재생하면 나머지 몸이 가만히 있어서 연출이 반쪽이 된다.
+  { boss: /^eba002/i, re: /^eba002_1phase_jelly$/i },
+  { boss: /^eba002/i, re: /^eba002_2phase_intro_02$/i },
+  { boss: /^eba002/i, re: /^eba002_2phase_intro_03jelly$/i },
+  { boss: /^eba002/i, re: /^eba002_2phase_death_jelly$/i },
 ];
 
 // 앞부분을 잘라내고 쓰는 연출. 게임에서는 그 구간을 이펙트가 채우는데
@@ -1821,6 +1844,42 @@ function applyClipTrim(clips, bossKey) {
     });
   });
   return done;
+}
+
+// 한 연출을 몸 여러 벌이 나눠 맡는 보스. 대표 클립을 재생할 때 딸림 클립을
+// 같은 믹서에 같이 얹는다.
+//
+// 검은 뱀(playTrio)과는 경우가 다르다. 그쪽은 같은 몸 하나를 복제해서 좌·우
+// 머리를 만드는 것이고, 여기는 서로 다른 리그가 이미 한 파일에 다 들어 있다.
+// 복제할 게 없으니 액션만 하나 더 얹으면 된다 - 클립끼리 건드리는 뼈가 하나도
+// 안 겹치므로 서로 싸우지 않는다.
+//
+// 리버렐리오 바디는 몸이 세 벌이다(1페이즈 · 2페이즈 · 해파리). 실측한 길이와
+// 대상 리그는 이렇다.
+//   1페 등장    8.400초  1phase_intro(1페)      + 1phase_jelly(해파리)
+//   페이즈 전환 6.667초  2phase_intro_01(1페)   + 2phase_intro_02(2페)
+//                                              + 2phase_intro_03jelly(해파리)
+//   사망        3.500초  2phase_death(2페)      + 2phase_death_jelly(해파리)
+// 길이가 정확히 같아서 시각을 따로 맞출 필요가 없다.
+//
+// 대표 클립은 연출 카메라가 붙은 쪽으로 고른다 - 카메라·자동 넘김·목록 표시가
+// 전부 대표 클립 이름을 기준으로 돌아간다.
+const SIMUL_CLIPS = [
+  { boss: /^eba002/i, main: /^eba002_1phase_intro$/i,
+    with: [/^eba002_1phase_jelly$/i] },
+  { boss: /^eba002/i, main: /^eba002_2phase_intro_01$/i,
+    with: [/^eba002_2phase_intro_02$/i, /^eba002_2phase_intro_03jelly$/i] },
+  { boss: /^eba002/i, main: /^eba002_2phase_death$/i,
+    with: [/^eba002_2phase_death_jelly$/i] },
+];
+
+function simulClipsFor(bossKey, name, clips) {
+  const o = SIMUL_CLIPS.find(
+    x => x.boss.test(bossKey || '') && x.main.test(name || ''));
+  if (!o) return null;
+  const out = o.with.map(re => (clips || []).find(c => re.test(c.name || '')))
+    .filter(Boolean);
+  return out.length ? out : null;
 }
 
 function isHiddenClip(bossKey, name) {
@@ -1879,6 +1938,9 @@ const CLIP_SOLO_PARTS = [
   // 숨어 있다 나오거나 화면 밖으로 빠지는 연출이기 때문이다.
   // 에고비스타 phase_change 에서 1·2페이즈 깃털 조인트 28개가 전부 트랙을 갖는 것이
   // 그 증거다 — 갈아 끼울 대상이 아니다.
+  // 리버렐리오 바디 - 페이즈 전환은 1·2페이즈 몸이 같이 나온다. 페이즈 방식이
+  // exclusive 라 그냥 두면 2페이즈 목록에서 1페이즈 몸이 숨겨진다.
+  { boss: /^eba002/i, clip: /^eba002_2phase_intro_01$/i, show: /./ },
   { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
   // 애니힐리오도 같다. 앞 컷(12phase_appeanrance)은 1페이즈 본만 움직이는데
@@ -3369,6 +3431,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       const nv = new THREE.Vector3();
       meshes.forEach(m => {
         if (!m.isSkinnedMesh || !m.skeleton) return;
+        if (fitSkipMesh(bossKey, m.name)) return;
         m.skeleton.bones.forEach(b => {
           if (DEBRIS_BONE_RE.test(b.name || '')) return;
           b.getWorldPosition(nv);
@@ -4094,6 +4157,17 @@ function noFollowClip(bossKey, name) {
       }
       action.play();
       currentAction = action;
+      // 같은 연출을 나눠 맡는 다른 몸들. 대표 클립과 길이가 같고 건드리는 뼈가
+      // 안 겹치므로 같은 믹서에 그대로 얹으면 된다. finished 는 대표 클립 것만
+      // 받으므로(onClipFinished 가 클립으로 가른다) 다음 클립 넘김도 안 꼬인다.
+      (simulClipsFor(bossKey, clip.name, gltf.animations) || []).forEach(c => {
+        const a = mixer.clipAction(c);
+        if (opts.repeat) {
+          a.setLoop(opts.repeat === 1 ? THREE.LoopOnce : THREE.LoopRepeat, opts.repeat);
+          a.clampWhenFinished = true;
+        }
+        a.play();
+      });
       // 새 클립을 시작할 때는 시점을 홈으로 되돌린다.
       // 리그가 망가진 채 끝나는 클립이 있다 — 거대 질량체 death 는 본을 25 유닛
       // 흩뿌리고, 그러면 추적이 마지막 성한 자리에 시점을 붙들어 둔다. 그 상태가
