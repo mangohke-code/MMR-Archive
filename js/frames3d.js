@@ -627,7 +627,7 @@ function catalogFitBase(bossKey, bossCode, isCatalogExport, labelPhase) {
 // 각도·눈높이는 그대로 두고 거리만 바꾼다.
 //   리버렐리오 바디 - 2페이즈 몸이 1페이즈보다 작아서 같은 거리면 멀어 보인다.
 const PHASE_CAM_DIST = [
-  { boss: /^eba002/i, phase: '2', scale: 0.8 },
+  { boss: /^eba002/i, phase: '2', scale: 0.7 },
 ];
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -2105,6 +2105,7 @@ function isAppearanceClip(name) {
 //   에고비스타: 1페이즈 phase_change -> 2페이즈
 //   아일랜드 이터: 1페이즈 phase002_appearance -> 2페이즈
 //   그레이브 디거: 1페이즈 phase001_destroy -> 2, 2페이즈 phase002_destroy -> 3
+//   리버렐리오 바디: 1페이즈 2phase_intro_01 -> 2페이즈
 // from - 토글을 낼 페이즈. 여럿이면 배열로 적는다.
 // by - 페이즈를 무엇으로 넘기는가. 베히모스는 페이즈마다 모델 항목이 따로라
 // 모델 칩을 넘기고, 에고비스타는 한 모델 안이라 페이즈 칩을 넘긴다.
@@ -2113,6 +2114,9 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^xbg005/i, from: '1', by: 'phase' },
   { boss: /^ebg001_island/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
+  // 리버렐리오 바디: 1페이즈 2phase_intro_01 -> 2페이즈.
+  // 한 모델 안에 두 페이즈가 다 들어 있어 페이즈 칩을 넘긴다.
+  { boss: /^eba002/i, from: '1', by: 'phase' },
 ];
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
