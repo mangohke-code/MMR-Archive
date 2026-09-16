@@ -397,7 +397,13 @@ const TRANSLUCENT_MATERIALS = [
   //   화면을 덮는다. 해파리(jellyfish, 512x512)도 알파 0 이 74.1% 다.
   //   내보내기가 이 둘에 _BloomIntensity 를 실어 준 것도 같은 얘기다
   //   (phase2_body 0.55 · jelly 0.7 - 게임이 블룸으로 번지게 하는 재질이다).
-  { boss: /^eba002/i, mat: /^eba002_(phase2_body|phase2_parts|jelly)$/i },
+  //
+  //   phase2_parts 는 여기 넣지 않는다. 같은 텍스처를 쓰지만 UV 가 불투명한
+  //   구역에 얹혀 있는 머리 장식이고(뼈 26개짜리 작은 메쉬다), 반투명으로 돌리면
+  //   깊이를 안 적어서 뒤에 있는 망토가 그 위에 덧칠된다 - 보는 각도에 따라
+  //   머리가 가려졌다 나왔다 한다. 흩날리는 사각 조각은 이 메쉬가 아니라
+  //   2페이즈 몸(2phase_body2_skin, 뼈 278개)에 들어 있다.
+  { boss: /^eba002/i, mat: /^eba002_(phase2_body|jelly)$/i },
 ];
 
 function isTranslucentMaterial(bossKey, matName) {
@@ -616,6 +622,13 @@ function catalogFitBase(bossKey, bossCode, isCatalogExport, labelPhase) {
     || CATALOG_FIT_BASE[bossCode + '@' + labelPhase]
     || CATALOG_FIT_BASE[bossCode] || {};
 }
+
+// 페이즈마다 기본 시점 거리가 달라야 하는 보스. 배수로 적는다(1 이 공용 거리).
+// 각도·눈높이는 그대로 두고 거리만 바꾼다.
+//   리버렐리오 바디 - 2페이즈 몸이 1페이즈보다 작아서 같은 거리면 멀어 보인다.
+const PHASE_CAM_DIST = [
+  { boss: /^eba002/i, phase: '2', scale: 0.8 },
+];
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
@@ -3384,6 +3397,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
           btn.addEventListener('click', () => {
             currentPhase = btn.dataset.phase;
             refreshFocusMesh();
+            applyPhaseCamDist(currentPhase);
             phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
@@ -3551,6 +3565,25 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     homeCamPos = camera.position.clone();
     homeTarget = controls.target.clone();
     initialTarget = controls.target.clone();
+
+    // 페이즈마다 기본 거리가 다른 보스. 시선은 그대로 두고 거리만 늘였다 줄인다.
+    let phaseCamScale = 1;
+    function applyPhaseCamDist(phase) {
+      if (!homeCamPos || !homeTarget) return;
+      const rule = PHASE_CAM_DIST.find(
+        o => o.boss.test(bossKey || '') && o.phase === String(phase));
+      const want = (rule && rule.scale) || 1;
+      if (want === phaseCamScale) return;
+      const k = want / phaseCamScale;
+      phaseCamScale = want;
+      homeCamPos.sub(homeTarget).multiplyScalar(k).add(homeTarget);
+      // 사용자가 직접 돌려 둔 시점은 건드리지 않는다(추적을 끈 상태다).
+      if (followEnabled) {
+        camera.position.sub(controls.target).multiplyScalar(k).add(controls.target);
+        controls.update();
+      }
+    }
+    applyPhaseCamDist(currentPhase);
 
     // 클립 하나만 눈높이가 다른 경우(온리 원 take01). 기준점까지 같이 올려서
     // 추적도, 시점 초기화도 올라간 자리를 기준으로 돌게 한다.
