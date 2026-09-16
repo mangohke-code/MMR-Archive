@@ -390,6 +390,14 @@ function partLabelOf(bossCode, m, fallback) {
 //   불투명하게 그리면 게임에서 살짝 비치는 방패가 판때기로 보인다.
 const TRANSLUCENT_MATERIALS = [
   { boss: /^eba001/i, mat: /_shield_01_anmi$/i },
+  //   리버렐리오 바디 - 1024x1024 텍스처 eba002_phase2_body 의 알파가 0 이 48.5%,
+  //   1~127 이 26.8%, 128~254 가 20.9% 고 255 는 3.8% 뿐이다. 거의 전부가
+  //   반투명이라는 뜻이다. 이 재질을 2페이즈 망토와 사각 파츠가 같이 쓰는데,
+  //   불투명하게 그리면 인게임에서 희미하게 흩날리는 조각이 파랑·보라 덩어리로
+  //   화면을 덮는다. 해파리(jellyfish, 512x512)도 알파 0 이 74.1% 다.
+  //   내보내기가 이 둘에 _BloomIntensity 를 실어 준 것도 같은 얘기다
+  //   (phase2_body 0.55 · jelly 0.7 - 게임이 블룸으로 번지게 하는 재질이다).
+  { boss: /^eba002/i, mat: /^eba002_(phase2_body|phase2_parts|jelly)$/i },
 ];
 
 function isTranslucentMaterial(bossKey, matName) {
