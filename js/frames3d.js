@@ -413,6 +413,10 @@ const DEFAULT_OFF_MESHES = [
   // False 고 나머지 스킨은 전부 True 다. 나오는 연출에서만 CLIP_SOLO_PARTS 가
   // 켠다.
   { boss: /^xbg003/i, re: /_(ziz|behamoth|leviathan)_skin(_\d+)?$/i },
+  // 리버렐리오 바디 해파리 - 연출에만 나오는 개체다. 평소에는 보스 뒤쪽 멀찍이
+  // 떨어진 자리에 가만히 떠 있어서 화면만 어지럽힌다.
+  // 아래 CLIP_SOLO_PARTS 가 등장·전환·사망에서만 켠다.
+  { boss: /^eba002/i, re: /_jellyfish_[lr]$/i },
   // 베히모스 머신건 좌우 - 3페이즈에서는 떨어져 나가서 달려 있지 않다.
   // 2페이즈 파일에 3페이즈가 같이 들어 있고 이 파츠에는 페이즈 꼬리표가 없어서,
   // 페이즈를 조건으로 단 줄이 필요하다.
@@ -1926,7 +1930,11 @@ const CLIP_SOLO_PARTS = [
   // 그 증거다 — 갈아 끼울 대상이 아니다.
   // 리버렐리오 바디 - 페이즈 전환은 1·2페이즈 몸이 같이 나온다. 페이즈 방식이
   // exclusive 라 그냥 두면 2페이즈 목록에서 1페이즈 몸이 숨겨진다.
+  // 해파리도 여기서 같이 켜진다(show 가 전부라서).
   { boss: /^eba002/i, clip: /^eba002_2phase_intro_01$/i, show: /./ },
+  // 등장과 사망은 해파리만 되살린다.
+  { boss: /^eba002/i, clip: /^eba002_(1phase_intro|2phase_death)$/i,
+    show: /_jellyfish_[lr]$/i },
   { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
   // 애니힐리오도 같다. 앞 컷(12phase_appeanrance)은 1페이즈 본만 움직이는데
@@ -4043,6 +4051,21 @@ function noFollowClip(bossKey, name) {
     }
 
     let currentAction = null;
+    // 같은 연출을 나눠 맡는 다른 몸들의 액션(SIMUL_CLIPS). 재생바나 프레임 이동으로
+    // 시각을 옮길 때 이쪽도 같이 옮겨야 한다 - 안 그러면 대표 몸만 움직이고
+    // 나머지는 그 자리에 멈춰 있다.
+    let simulActions = [];
+
+    function syncSimulTime() {
+      if (!simulActions.length || !currentAction) return;
+      const t = currentAction.time;
+      simulActions.forEach(a => {
+        const d = a.getClip().duration || 0;
+        a.time = Math.max(0, Math.min(d, t));
+        a.paused = false;
+        a.enabled = true;
+      });
+    }
 
     // 옆 머리(좌·우)를 그릴 복제본. 쓸 일이 있을 때 한 번만 만든다.
     // 스킨드메쉬는 그냥 clone() 하면 뼈대가 원본을 가리켜서 같이 움직인다.
@@ -4171,13 +4194,14 @@ function noFollowClip(bossKey, name) {
       // 같은 연출을 나눠 맡는 다른 몸들. 대표 클립과 길이가 같고 건드리는 뼈가
       // 안 겹치므로 같은 믹서에 그대로 얹으면 된다. finished 는 대표 클립 것만
       // 받으므로(onClipFinished 가 클립으로 가른다) 다음 클립 넘김도 안 꼬인다.
-      (simulClipsFor(bossKey, clip.name, gltf.animations) || []).forEach(c => {
+      simulActions = (simulClipsFor(bossKey, clip.name, gltf.animations) || []).map(c => {
         const a = mixer.clipAction(c);
         if (opts.repeat) {
           a.setLoop(opts.repeat === 1 ? THREE.LoopOnce : THREE.LoopRepeat, opts.repeat);
           a.clampWhenFinished = true;
         }
         a.play();
+        return a;
       });
       // 새 클립을 시작할 때는 시점을 홈으로 되돌린다.
       // 리그가 망가진 채 끝나는 클립이 있다 — 거대 질량체 death 는 본을 25 유닛
@@ -4702,6 +4726,7 @@ function noFollowClip(bossKey, name) {
       currentAction.time = t;
       currentAction.paused = false;
       currentAction.enabled = true;
+      syncSimulTime();
       // 연출 카메라가 붙어 있으면 같이 옮긴다. 안 그러면 모델만 움직이고
       // 화면은 그대로라 재생바가 안 먹는 것처럼 보인다. 카메라 클립이 모델보다
       // 길거나 짧은 연출이 있어서(애니힐리오 1페는 카메라 8.00초 / 모델 5.00초)
@@ -4889,6 +4914,7 @@ function noFollowClip(bossKey, name) {
       if (!currentAction) return;
       const dur = currentAction.getClip().duration || 0;
       currentAction.time = Math.max(0, Math.min(dur, currentAction.time + delta));
+      syncSimulTime();
       state.paused = true;
       const pb = document.getElementById('frames-spine-pause');
       if (pb) pb.innerHTML = '<i class="fas fa-play"></i>';
