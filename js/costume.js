@@ -912,5 +912,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    setupL2dSideToggle('costume-spine-wrap', 'costume-side-toggle');
     waitForSpine(loadCostumeData);
   });

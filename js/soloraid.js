@@ -195,6 +195,32 @@
       });
     }
 
+    // 전체화면(몰입) 모드. 좌우 판·아래 재생바·위 탭 줄을 접고 그림만 남긴다.
+    // 접는 일은 CSS 가 하고, 여기서는 표시만 바꾼다.
+    const immBtn = document.getElementById('sr3d-immersive');
+    function setImmersive(on) {
+      document.body.classList.toggle('sr3d-immersive', on);
+      if (!immBtn) return;
+      immBtn.setAttribute('aria-pressed', String(on));
+      immBtn.title = on ? '전체화면 나가기 (Esc)' : '전체화면 (Esc 로 나가기)';
+      const icon = immBtn.querySelector('i');
+      if (icon) icon.className = on ? 'fas fa-compress' : 'fas fa-expand';
+    }
+    if (immBtn) {
+      immBtn.addEventListener('click', () => {
+        setImmersive(!document.body.classList.contains('sr3d-immersive'));
+      });
+    }
+    // Esc 로 나간다. 뷰어를 닫거나 다른 탭으로 나갈 때도 원래대로 돌린다.
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.body.classList.contains('sr3d-immersive')) {
+        e.stopPropagation();
+        setImmersive(false);
+      }
+    });
+    document.addEventListener('mmr:tab-change', () => setImmersive(false));
+    window.exitSoloRaidImmersive = () => setImmersive(false);
+
     const backBtn = document.getElementById('sr3d-back-home');
     if (backBtn) backBtn.addEventListener('click', collapseBoss);
 
@@ -236,6 +262,7 @@
       history.go(-back);
     }
     currentBoss = null;
+    document.body.classList.remove('sr3d-immersive');
     clearSoloRaidSpine();
     showSoloRaidHome(true);
     

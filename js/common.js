@@ -172,6 +172,20 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
   });
 }
 
+// L2D 뷰어(유니크 코스튬·미실장)의 왼쪽 조작판 접기. 솔로 레이드 뷰어와 같은 감각으로
+// 손잡이 하나만 남기고 판을 접는다. 판이 그림 칸의 형제라서 접으면 그림이 그만큼 넓어진다.
+function setupL2dSideToggle(wrapId, toggleId) {
+  const wrap = document.getElementById(wrapId);
+  const btn = document.getElementById(toggleId);
+  if (!wrap || !btn || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
+  btn.addEventListener('click', () => {
+    const closed = wrap.classList.toggle('is-side-closed');
+    btn.setAttribute('aria-expanded', String(!closed));
+    btn.title = closed ? '조작판 펴기' : '조작판 접기';
+  });
+}
+
 // 이름이 칸을 넘칠 때만 좌우로 스크롤되는 애니메이션 적용 (픽업 기록 탭의 니케 카드/
 // 몰아보기 니케 이름). CSS keyframe만으로는 실제 텍스트 폭을 알 수 없어서 정해진
 // 거리만큼 무조건 움직이게 되는데, 그러면 칸이 넉넉해서 필요 없을 때도 움직이거나,
@@ -241,7 +255,13 @@ function setupSpinePanZoom(container, wrapEl) {
   let dragging = false, dragMoved = false;
   let dragStartX = 0, dragStartY = 0, startOffsetX = 0, startOffsetY = 0;
 
+  // 조작판은 그림 칸과 같은 상자 안에 들어 있다. 판 위에서 끌거나 굴린 것을
+  // 그림 옮기기로 받으면 버튼을 누르다가 캐릭터가 따라 움직인다.
+  const fromPanel = e =>
+    !!(e.target && e.target.closest && e.target.closest('.l2d-side, .l2d-side-toggle'));
+
   const onMouseDown = e => {
+    if (fromPanel(e)) return;
     e.preventDefault();
     dragging = true;
     dragMoved = false;
@@ -271,6 +291,7 @@ function setupSpinePanZoom(container, wrapEl) {
   // 드래그 직후 발생하는 click은 캐릭터의 액션 애니메이션 재생으로 넘어가지 않도록 차단
   // — capture 단계라 canvas까지 이벤트가 내려가기 전에 먼저 실행됨
   const onClickCapture = e => {
+    if (fromPanel(e)) return;
     if (e.target.closest && e.target.closest('.spine-reset-btn')) return;
     if (justDragged) {
       e.stopPropagation();
@@ -280,6 +301,7 @@ function setupSpinePanZoom(container, wrapEl) {
   };
 
   const onWheel = e => {
+    if (fromPanel(e)) return;   // 판 안에서는 목록을 굴려야 한다
     e.preventDefault();
     const rect = wrapEl.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -598,9 +620,12 @@ function hoursUntil(target, now = new Date()) {
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60)));
 }
 
-// 시간까지 같이 적어 줄 구간. 이틀보다 멀면 "733시간" 처럼 읽어도 와닿지 않는
+// 시간까지 같이 적어 줄 구간. 하루보다 멀면 "733시간" 처럼 읽어도 와닿지 않는
 // 수가 되므로 D-n 만 적는다. 곧 바뀌는 것만 시간으로 말해 주면 된다.
-const HOUR_DETAIL_LIMIT = 48;
+//
+// 경계는 "남은 시간이 24시간 안쪽인가" 하나로 본다. 내일 05시에 끝나는 것을
+// 오늘 04시에 보면 25시간이 남아 D-1, 오늘 06시에 보면 23시간이라 시간으로 적힌다.
+const HOUR_DETAIL_LIMIT = 24;
 
 // 배지에 넣을 문구. kind 는 'start' 또는 'end'.
 // 시간 정보가 있는 값(이벤트·코스튬·솔로 레이드)은 몇 시간 남았는지도 같이 적는다.

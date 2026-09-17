@@ -886,4 +886,7 @@
     } catch(e) {}
   }
 
-  document.addEventListener('DOMContentLoaded', loadUnreleasedData);
+  document.addEventListener('DOMContentLoaded', () => {
+    setupL2dSideToggle('unreleased-spine-wrap', 'unreleased-side-toggle');
+    loadUnreleasedData();
+  });

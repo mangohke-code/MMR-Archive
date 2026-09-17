@@ -987,28 +987,7 @@
     z-index: 6;
   }
 
-  /* 유니크 코스튬 뷰어는 모델 고르기와 표정을 왼쪽 위에 세로로 쌓는다.
-     따로 띄워 두면 표정 목록이 펼쳐질 때 모델 칸을 덮어서, 한 칸에 넣고
-     흐름대로 쌓이게 했다. 미실장 탭에는 모델 고르기가 없어서 그대로 둔다. */
-  .spine-ctl-stack {
-    position: absolute;
-    top: 14px;
-    left: 14px;
-    z-index: 6;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
 
-  /* 칸 안에서는 흐름대로 쌓이면 되므로 각자 붙잡고 있던 자리를 푼다.
-     표정 목록(.expr-panel)이 토글 기준으로 떠야 해서 relative 는 남긴다. */
-  .spine-ctl-stack .spine-expression {
-    position: relative;
-    top: auto;
-    left: auto;
-    z-index: auto;
-  }
 
   .expr-toggle {
     display: flex;
@@ -2756,8 +2735,146 @@
     overflow: hidden;
     position: relative;
     display: flex;
+    align-items: stretch;
+  }
+
+  /* ===== L2D 뷰어 조작판 =====
+     유니크 코스튬과 미실장 캐릭터 뷰어가 같이 쓴다. 모델·동작·표정·파츠를
+     그림 위에 흩어 놓는 대신 왼쪽 판 하나에 모으고, 판째로 접었다 편다
+     (솔로 레이드 보스 뷰어와 같은 구조).
+
+     판은 그림 칸의 형제라 접으면 그림이 그만큼 넓어진다. 넓이를 0 으로 줄이는
+     방식이라 접는 동안 그림도 같이 부드럽게 늘어난다. */
+  .l2d-wrap {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .l2d-stage {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .l2d-side {
+    flex: none;
+    width: 264px;
+    padding: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-subtle);
+    transition: width 0.28s ease, padding 0.28s ease, opacity 0.2s ease;
+  }
+
+  .l2d-wrap.is-side-closed .l2d-side {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    border-right-color: transparent;
+  }
+
+  .l2d-side h2 {
+    font-size: 12px;
+    margin: 16px 0 7px;
+    letter-spacing: .05em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .l2d-side h2:first-of-type { margin-top: 0; }
+
+  /* 내용이 비면 라벨만 남아 허전하다. 빈 구역과 그 앞 제목을 같이 감춘다. */
+  .l2d-side h2:has(+ div:empty),
+  .l2d-side div:empty { display: none; }
+
+  .l2d-side-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  .l2d-btn {
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 5px 9px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-body);
+    color: var(--text-secondary);
+  }
+
+  .l2d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+
+  /* 접기 손잡이. 판 오른쪽 끝에 붙어 같이 움직인다. */
+  .l2d-side-toggle {
+    position: absolute;
+    top: 14px;
+    left: 264px;
+    z-index: 7;
+    width: 26px;
+    height: 34px;
+    display: flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid var(--border-subtle);
+    border-left: 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--bg-panel-active);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: left 0.28s ease;
+  }
+
+  .l2d-side-toggle:hover { color: var(--text-heading); }
+
+  .l2d-wrap.is-side-closed .l2d-side-toggle { left: 0; }
+
+  .l2d-wrap.is-side-closed .l2d-side-toggle i { transform: rotate(180deg); }
+
+  /* 판 안에서는 모델 고르기와 표정이 떠 있을 이유가 없다. 흐름대로 쌓는다. */
+  .l2d-side .spine-variation,
+  .l2d-side .spine-expression {
+    position: static;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .l2d-side .spine-variation { display: flex; flex-direction: column; gap: 4px; }
+
+  /* 판 자체가 접히므로 표정의 이중 접기는 뺀다 */
+  .l2d-side .expr-toggle { display: none; }
+
+  .l2d-side .spine-expression .expr-panel,
+  .l2d-side .spine-expression.is-collapsed .expr-panel {
+    position: static;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    pointer-events: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .l2d-side .spine-variation .variation-title { display: none; }
+
+  /* 동작·파츠 칸도 판 안에서는 제 배경을 쓰지 않는다 */
+  .l2d-side .anim-toggle,
+  .l2d-side .parts-toggle {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
   }
 
   #costume-spine-player {
@@ -2779,7 +2896,6 @@
     background-color: transparent !important;
   }
 
-  /* 왼쪽 위는 모델 고르기와 표정이 쓰므로 새로고침은 좌하단으로 내린다. */
   .spine-reset-btn {
     position: absolute;
     bottom: 14px;
@@ -2798,12 +2914,6 @@
     cursor: pointer;
     font-size: 14px;
     transition: all 0.15s;
-  }
-
-  /* 미실장 뷰어는 그림이 둘인 캐릭터에서 아래에 앞/뒤 네비 줄(47px)이 붙는다.
-     그 줄이 있을 때만 새로고침을 그 위로 올린다. */
-  #unreleased-spine-nav:not(.hidden) ~ .spine-reset-btn {
-    bottom: 61px;
   }
 
   .spine-reset-btn:hover {
@@ -3751,8 +3861,9 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     position: relative;
+    /* 왼쪽 조작판 | 그림+네비. 세로 쌓기는 .l2d-stage 가 맡는다. */
     display: flex;
-    flex-direction: column;
+    align-items: stretch;
   }
 
   #unreleased-spine-player {
@@ -5237,6 +5348,77 @@
 
   #sr3d-side-toggle:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
   #sr3d-side-toggle i { transition: transform .18s ease; }
+
+  /* ===== 전체화면(몰입) 모드 =====
+     좌우 판과 아래 재생바, 위 탭 줄을 폭·높이 0 으로 줄여서 접는다. display:none
+     으로 지우면 순간이동처럼 사라져서, 줄어드는 과정이 보이도록 크기를 준다.
+     그림 칸은 flex 로 남은 자리를 먹으므로 접히는 만큼 같이 늘어난다. */
+  #sr3d-immersive {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 8;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill, 999px);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-panel-active);
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-card-hover);
+    cursor: pointer;
+    font-size: 15px;
+    transition: color .15s, background .15s;
+  }
+
+  #sr3d-immersive:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
+
+  #sr3d-side,
+  #sr3d-rail,
+  #sr3d-drawer {
+    transition: width .3s ease, padding .3s ease, opacity .22s ease;
+  }
+
+  #sr3d-bar,
+  body.app-mode #tab-nav {
+    overflow: hidden;
+    transition: height .3s ease, padding .3s ease, opacity .22s ease;
+  }
+
+  body.sr3d-immersive #tab-nav {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    border-bottom-color: transparent;
+  }
+
+  body.sr3d-immersive #sr3d-side,
+  body.sr3d-immersive #sr3d-rail,
+  body.sr3d-immersive #sr3d-drawer {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    overflow: hidden;
+    border-left-color: transparent;
+    border-right-color: transparent;
+  }
+
+  body.sr3d-immersive #sr3d-side-toggle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  body.sr3d-immersive #sr3d-bar {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    border-top-color: transparent;
+  }
 
   #sr3d-app.side-collapsed #sr3d-side { display: none; }
   #sr3d-app.side-collapsed #sr3d-side-toggle { left: 0; }

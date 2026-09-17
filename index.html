@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=140">
+  <link rel="stylesheet" href="css/style.css?v=142">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -247,19 +247,40 @@
           <!-- 스파인 플레이어 + 정보 -->
           <div id="costume-top" class="hidden">
             <div class="costume-spine-col">
-              <div id="costume-spine-wrap">
-                <div id="costume-spine-player"></div>
-                <button id="costume-spine-reset" class="spine-reset-btn" type="button" aria-label="화면 초기화" title="화면 초기화"><i class="fas fa-rotate-right"></i></button>
-                <!-- 모델 고르기가 위, 표정이 아래. 표정 목록은 아래로 펼쳐지므로
-                     이 순서라야 모델 칸을 덮지 않는다. -->
-                <div class="spine-ctl-stack">
+              <!-- 조작은 전부 왼쪽 판에 모은다(솔로 레이드 뷰어와 같은 구조).
+                   판을 접으면 그림만 남는다. -->
+              <div id="costume-spine-wrap" class="l2d-wrap">
+                <button type="button" id="costume-side-toggle" class="l2d-side-toggle"
+                        aria-expanded="true" title="조작판 접기">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+
+                <div id="costume-side" class="l2d-side">
+                  <h2>모델</h2>
                   <div id="costume-variation" class="spine-variation hidden"></div>
+
+                  <h2>동작</h2>
+                  <div id="costume-anim-toggle" class="anim-toggle hidden"></div>
+
+                  <h2>표정</h2>
                   <div id="costume-expression" class="spine-expression hidden"></div>
+
+                  <h2>파츠</h2>
+                  <div id="costume-parts-toggle" class="parts-toggle hidden"></div>
+
+                  <h2>추가 파츠</h2>
+                  <div id="costume-extra-parts-toggle" class="parts-toggle hidden"></div>
+
+                  <h2>보기</h2>
+                  <div class="l2d-side-row">
+                    <button id="costume-spine-reset" class="l2d-btn" type="button">시점 초기화</button>
+                  </div>
+                </div>
+
+                <div class="l2d-stage">
+                  <div id="costume-spine-player"></div>
                 </div>
               </div>
-              <div id="costume-anim-toggle" class="anim-toggle hidden"></div>
-              <div id="costume-parts-toggle" class="parts-toggle hidden"></div>
-              <div id="costume-extra-parts-toggle" class="parts-toggle hidden"></div>
             </div>
             <div id="costume-info">
               <div class="info-handle"><i class="fas fa-circle-info"></i></div>
@@ -358,21 +379,37 @@
           <!-- 상세 패널 -->
           <div id="unreleased-detail" class="hidden">
             <div class="unreleased-spine-col">
-              <div id="unreleased-spine-wrap">
-                <div id="unreleased-spine-player"></div>
-                <div id="unreleased-expression" class="spine-expression hidden"></div>
-                <div id="unreleased-spine-nav" class="hidden">
-                  <button id="unreleased-spine-prev">◀</button>
-                  <span id="unreleased-spine-label"></span>
-                  <button id="unreleased-spine-next">▶</button>
+              <div id="unreleased-spine-wrap" class="l2d-wrap">
+                <button type="button" id="unreleased-side-toggle" class="l2d-side-toggle"
+                        aria-expanded="true" title="조작판 접기">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+
+                <div id="unreleased-side" class="l2d-side">
+                  <h2>동작</h2>
+                  <div id="unreleased-anim-toggle" class="anim-toggle hidden"></div>
+
+                  <h2>표정</h2>
+                  <div id="unreleased-expression" class="spine-expression hidden"></div>
+
+                  <h2>파츠</h2>
+                  <div id="unreleased-parts-toggle" class="parts-toggle hidden"></div>
+
+                  <h2>보기</h2>
+                  <div class="l2d-side-row">
+                    <button id="unreleased-spine-reset" class="l2d-btn" type="button">시점 초기화</button>
+                  </div>
                 </div>
-                <!-- 새로고침은 네비 줄 뒤에 둔다. 자리를 잡는 건 position:absolute 라
-                     순서가 화면을 바꾸지 않고, 대신 CSS 가 "네비가 떠 있으면" 을
-                     형제 선택자로 알아볼 수 있게 된다. -->
-                <button id="unreleased-spine-reset" class="spine-reset-btn" type="button" aria-label="화면 초기화" title="화면 초기화"><i class="fas fa-rotate-right"></i></button>
+
+                <div class="l2d-stage">
+                  <div id="unreleased-spine-player"></div>
+                  <div id="unreleased-spine-nav" class="hidden">
+                    <button id="unreleased-spine-prev">◀</button>
+                    <span id="unreleased-spine-label"></span>
+                    <button id="unreleased-spine-next">▶</button>
+                  </div>
+                </div>
               </div>
-              <div id="unreleased-anim-toggle" class="anim-toggle hidden"></div>
-              <div id="unreleased-parts-toggle" class="parts-toggle hidden"></div>
             </div>
             <div id="unreleased-detail-info">
               <div class="info-handle"><i class="fas fa-circle-info"></i></div>
@@ -508,6 +545,11 @@
               <div class="sr3d-loading-track"><div class="sr3d-loading-fill"></div></div>
               <div class="sr3d-loading-sub"></div>
             </div>
+            <!-- 누르면 좌우 판·아래 재생바·위 탭 줄이 접히고 그림만 남는다 -->
+            <button type="button" id="sr3d-immersive" aria-pressed="false"
+                    title="전체화면 (Esc 로 나가기)">
+              <i class="fas fa-expand"></i>
+            </button>
           </div>
           <div id="sr3d-bar">
             <button id="soloraid-spine-restart" type="button" title="처음부터"><i class="fas fa-rotate-left"></i></button>
@@ -644,11 +686,11 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=48"></script>
+  <script src="js/common.js?v=49"></script>
   <script src="js/main.js?v=17"></script>
   <script src="js/pickup.js?v=39"></script>
-  <script src="js/costume.js?v=39"></script>
-  <script src="js/unreleased.js?v=29"></script>
+  <script src="js/costume.js?v=40"></script>
+  <script src="js/unreleased.js?v=30"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">
   {
@@ -659,7 +701,7 @@
   }
   </script>
   <script type="module" src="js/soloraid3d.js?v=335"></script>
-  <script src="js/soloraid.js?v=34"></script>
+  <script src="js/soloraid.js?v=35"></script>
   <script src="js/stage.js?v=9"></script>
 
   <script>
