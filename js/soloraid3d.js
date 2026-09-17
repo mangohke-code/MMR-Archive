@@ -4427,9 +4427,11 @@ function noFollowClip(bossKey, name) {
       // 태그가 붙은 클립과 안 붙은 클립이 섞여 있으면 태그를 남겨야 한다.
       // (프로비던스: air_idle_01 과 2phase_air_idle_01 이 둘 다 "air_idle_01" 로 보였다)
       const multiPhase = new Set(clips.map(c => clipPhase(c.name))).size > 1;
+      // 코드 뒤에 공백이 끼는 클립이 있다("xbg004 _skill_start_03", "xbg004 _death_camera").
+      // 밑줄만 보고 떼면 그런 이름은 앞머리가 그대로 남아서 목록에 코드가 노출된다.
       const stripCodeRe = multiPhase
-        ? /^[a-z]{2,4}\d{3}_/i
-        : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
+        ? /^[a-z]{2,4}\d{3}\s*_/i
+        : /^[a-z]{2,4}\d{3}\s*_(\d?\d?phase_)?/i;
       const label = name => String(name).replace(stripCodeRe, '');
       // 손으로 정해 둔 이름이 있으면 그쪽이 이긴다
       const labelOf = (raw, fallback) => {
