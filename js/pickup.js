@@ -364,6 +364,23 @@
     });
   }
 
+  // 한 이벤트에 신규와 복각이 같이 묶이는데, 복각 줄의 시즌이 신규와 다를 수 있다
+  // (지난 시즌 니케를 데려오니까). 이벤트 이름 옆에 붙는 시즌은 그 이벤트가 무슨
+  // 시즌이었는지를 말하는 것이므로 신규 픽업 쪽을 따라야 한다. 필터로 신규 줄이
+  // 걸러진 뒤에도 같은 값이 나오도록 전체 자료에서 미리 뽑아 둔다.
+  let eventSeasonMap = null;
+  function eventSeason(eventName, fallback) {
+    if (!eventSeasonMap) {
+      eventSeasonMap = {};
+      (allPickupData || []).forEach(p => {
+        const ev = p['이벤트'];
+        if (!ev || p['복각']) return;
+        if (!eventSeasonMap[ev]) eventSeasonMap[ev] = p['시즌'];
+      });
+    }
+    return eventSeasonMap[eventName] || fallback;
+  }
+
   function renderPickupTimeline() {
     const data = getFilteredData();
     const timeline = document.getElementById('pickup-timeline');
@@ -380,7 +397,7 @@
       const eventKey = p['이벤트'];
       if (!byYear[year][eventKey]) {
         byYear[year][eventKey] = {
-          season: p['시즌'],
+          season: eventSeason(eventKey, p['시즌']),
           month: new Date(p['시작일']).getMonth() + 1,
           rangeStart: p['시작일'],
           rangeEnd: p['종료일'],

@@ -25,12 +25,30 @@
       container.innerHTML = '';
       return;
     }
-    container.innerHTML = log.map(item => `
+    // 내역이 길어지면 첫 화면을 다 잡아먹는다. 최근 다섯 줄만 두고 나머지는 접는다.
+    const SHOWN = 5;
+    const row = item => `
       <div class="update-log-item">
         <span class="update-log-date">${formatLogDate(item.date)}</span>
         <span class="update-log-note">${item.note || ''}</span>
-      </div>
-    `).join('');
+      </div>`;
+    const head = log.slice(0, SHOWN).map(row).join('');
+    const rest = log.slice(SHOWN).map(row).join('');
+    container.innerHTML = head
+      + (rest ? `<div class="update-log-rest hidden">${rest}</div>
+                 <button type="button" class="update-log-more" aria-expanded="false">
+                   더보기 <em>${log.length - SHOWN}</em>
+                 </button>` : '');
+
+    const more = container.querySelector('.update-log-more');
+    if (more) {
+      const restBox = container.querySelector('.update-log-rest');
+      more.addEventListener('click', () => {
+        const open = restBox.classList.toggle('hidden') === false;
+        more.setAttribute('aria-expanded', String(open));
+        more.innerHTML = open ? '접기' : `더보기 <em>${log.length - SHOWN}</em>`;
+      });
+    }
   }
 
   function formatLogDate(date) {

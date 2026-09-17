@@ -683,7 +683,24 @@
      줄바꿈을 허용하면 이름이 긴 카드만 키가 커지는데, 한 줄에 같이 있을 때는
      줄 높이에 묻혀 안 보이다가 그 카드가 혼자 다음 줄로 밀리면 크기가 달라 보인다.
      실제로 넘치는 카드에만 JS 가 is-scrolling 을 붙인다. */
-  .pickup-name-wrap { overflow: hidden; }
+  .update-log-more {
+    margin-top: 6px;
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .update-log-more:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+  .update-log-more em { font-style: normal; color: var(--text-muted); }
+
+  /* min-width:0 이 없으면 격자·flex 칸 안에서 상자가 글자 너비만큼 벌어져서
+     "넘쳤는지" 를 재도 늘 0 이 나온다 - 긴 이름이 안 흐르던 까닭이다. */
+  .pickup-name-wrap { overflow: hidden; min-width: 0; }
 
   /* 마스크는 실제로 흐르는 이름에만. 안 넘치는 이름까지 씌우면 멀쩡한 글자
      끝이 뿌옇게 보인다(JS 가 is-scroll-wrap 을 붙인다). */
@@ -2740,8 +2757,8 @@
   }
 
   #costume-spine-wrap {
-    height: calc(100vh - 150px);
-    min-height: 640px;
+    height: calc(100vh - 96px);
+    min-height: 700px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -2769,6 +2786,8 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    /* 팬·줌으로 커진 캔버스가 조작판 위를 덮지 않게 제 칸 안에서 잘라 낸다 */
+    overflow: hidden;
   }
 
   /* 그림 칸은 재생바를 뺀 나머지를 먹는다. height:100% 로 두면 재생바만큼
@@ -2864,6 +2883,67 @@
   .l2d-wrap.is-side-closed .l2d-side-toggle { left: 0; }
 
   .l2d-wrap.is-side-closed .l2d-side-toggle i { transform: rotate(180deg); }
+
+  /* 오른쪽 정보 판. 왼쪽 조작판과 같은 방식으로 자리를 나눠 갖고 손잡이로 편다.
+     예전에는 그림 위에 떠서 마우스를 올리면 펴졌는데 왼쪽과 감각이 달랐다.
+     옛 규칙이 아이디 선택자라 우선순위로 이기므로 여기서도 아이디로 덮는다. */
+  #costume-info.l2d-side-right,
+  #unreleased-detail-info.l2d-side-right {
+    position: static;
+    top: auto; right: auto; bottom: auto;
+    width: 0;
+    height: auto;
+    padding: 14px 0;
+    opacity: 0;
+    border-radius: 0;
+    border-right: 0;
+    border-left: 1px solid transparent;
+    box-shadow: none;
+    overflow: hidden;
+    transition: width 0.26s ease, padding 0.26s ease, opacity 0.2s ease;
+  }
+
+  .l2d-wrap.is-info-open #costume-info.l2d-side-right,
+  .l2d-wrap.is-info-open #unreleased-detail-info.l2d-side-right {
+    width: 340px;
+    padding-left: 14px;
+    padding-right: 14px;
+    opacity: 1;
+    border-left-color: var(--border-subtle);
+    overflow-y: auto;
+  }
+
+  /* 접힌 폭에 맞춰 글자가 꾸겨지지 않게 내용 폭을 고정한다 */
+  #costume-info.l2d-side-right > *:not(.l2d-side-toggle),
+  #unreleased-detail-info.l2d-side-right > *:not(.l2d-side-toggle) {
+    flex-shrink: 0;
+    width: 312px;
+    opacity: 1;
+  }
+
+  #costume-info.l2d-side-right .info-handle,
+  #unreleased-detail-info.l2d-side-right .info-handle { display: none; }
+
+  /* 손잡이는 내용 폭 고정 규칙에서 빼야 한다(옛 아이디 규칙이 372px 을 먹인다) */
+  #costume-info.l2d-side-right > .l2d-side-toggle,
+  #unreleased-detail-info.l2d-side-right > .l2d-side-toggle {
+    width: 26px;
+    flex: none;
+  }
+
+  .l2d-side-toggle.is-right {
+    left: auto;
+    right: 0;
+    border-left: 1px solid var(--border-subtle);
+    border-right: 0;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    width: 26px;
+    transition: right 0.26s ease;
+  }
+
+  .l2d-wrap.is-info-open .l2d-side-toggle.is-right { right: 340px; }
+
+  .l2d-wrap.is-info-open .l2d-side-toggle.is-right i { transform: rotate(180deg); }
 
   /* 판 안에서는 모델 고르기와 표정이 떠 있을 이유가 없다. 흐름대로 쌓는다. */
   .l2d-side .spine-variation,
@@ -4000,8 +4080,8 @@
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     margin-bottom: 2rem;
-    height: calc(100vh - 150px);
-    min-height: 640px;
+    height: calc(100vh - 96px);
+    min-height: 700px;
   }
 
   .unreleased-spine-col {

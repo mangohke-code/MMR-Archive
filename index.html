@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=149">
+  <link rel="stylesheet" href="css/style.css?v=151">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -287,9 +287,8 @@
                     <button type="button" class="l2d-bar-btn" data-act="immersive" aria-pressed="false" title="전체화면 (Esc 로 나가기)"><i class="fas fa-expand"></i></button>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div id="costume-info">
+
+                <div id="costume-info" class="l2d-side l2d-side-right"><button type="button" id="costume-info-toggle" class="l2d-side-toggle is-right" aria-expanded="false" title="정보 펴기"><i class="fas fa-chevron-right"></i></button>
               <div class="info-handle"><i class="fas fa-circle-info"></i></div>
 
               <div id="costume-info-header">
@@ -319,6 +318,8 @@
                 <div id="costume-rerun-date"></div>
               </div>
 
+            </div>
+              </div>
             </div>
           </div>
 
@@ -423,14 +424,19 @@
                     <button type="button" class="l2d-bar-btn" data-act="immersive" aria-pressed="false" title="전체화면 (Esc 로 나가기)"><i class="fas fa-expand"></i></button>
                   </div>
                 </div>
+
+                <div id="unreleased-detail-info" class="l2d-side l2d-side-right">
+                  <button type="button" id="unreleased-info-toggle" class="l2d-side-toggle is-right"
+                          aria-expanded="false" title="정보 펴기">
+                    <i class="fas fa-chevron-right"></i>
+                  </button>
+                  <div class="info-handle"><i class="fas fa-circle-info"></i></div>
+                  <div id="unreleased-detail-name"></div>
+                  <div id="unreleased-detail-affil"></div>
+                  <div id="unreleased-detail-squad"></div>
+                  <div id="unreleased-detail-appears"></div>
+                </div>
               </div>
-            </div>
-            <div id="unreleased-detail-info">
-              <div class="info-handle"><i class="fas fa-circle-info"></i></div>
-              <div id="unreleased-detail-name"></div>
-              <div id="unreleased-detail-affil"></div>
-              <div id="unreleased-detail-squad"></div>
-              <div id="unreleased-detail-appears"></div>
             </div>
           </div>
 
@@ -700,11 +706,11 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=55"></script>
-  <script src="js/main.js?v=17"></script>
-  <script src="js/pickup.js?v=39"></script>
-  <script src="js/costume.js?v=44"></script>
-  <script src="js/unreleased.js?v=33"></script>
+  <script src="js/common.js?v=56"></script>
+  <script src="js/main.js?v=18"></script>
+  <script src="js/pickup.js?v=40"></script>
+  <script src="js/costume.js?v=45"></script>
+  <script src="js/unreleased.js?v=34"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">
   {

@@ -16,7 +16,7 @@ const APP_DATA = {
 // 메인 페이지와 픽업 기록이 같은 기준으로 봐야 해서 여기 한 군데에 둔다 - 예전에는
 // main.js 와 pickup.js 에 따로 복사돼 있어서 시즌이 늘 때 한쪽만 고쳐질 수 있었다.
 // (두 파일 다 최상위 스크립트라 같은 이름을 각자 const 로 선언하면 아예 안 돈다.)
-const LIMITED_SEASONS = ['콜라보', '여름', '할로윈', '크리스마스'];
+const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
 
 // 로드 완료 후 실행할 콜백 목록
 const _onReadyCallbacks = [];
@@ -241,16 +241,26 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange, opts) {
 
 // L2D 뷰어(유니크 코스튬·미실장)의 왼쪽 조작판 접기. 솔로 레이드 뷰어와 같은 감각으로
 // 손잡이 하나만 남기고 판을 접는다. 판이 그림 칸의 형제라서 접으면 그림이 그만큼 넓어진다.
-function setupL2dSideToggle(wrapId, toggleId) {
+function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
   const wrap = document.getElementById(wrapId);
   const btn = document.getElementById(toggleId);
-  if (!wrap || !btn || btn.dataset.wired) return;
-  btn.dataset.wired = '1';
-  btn.addEventListener('click', () => {
-    const closed = wrap.classList.toggle('is-side-closed');
-    btn.setAttribute('aria-expanded', String(!closed));
-    btn.title = closed ? '조작판 펴기' : '조작판 접기';
-  });
+  if (wrap && btn && !btn.dataset.wired) {
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => {
+      const closed = wrap.classList.toggle('is-side-closed');
+      btn.setAttribute('aria-expanded', String(!closed));
+      btn.title = closed ? '조작판 펴기' : '조작판 접기';
+    });
+  }
+  const info = infoToggleId && document.getElementById(infoToggleId);
+  if (wrap && info && !info.dataset.wired) {
+    info.dataset.wired = '1';
+    info.addEventListener('click', () => {
+      const open = wrap.classList.toggle('is-info-open');
+      info.setAttribute('aria-expanded', String(open));
+      info.title = open ? '정보 접기' : '정보 펴기';
+    });
+  }
 }
 
 // ===== 구성요소(슬롯) 끄고 켜기 =====
@@ -535,7 +545,7 @@ function setupSpinePanZoom(container, wrapEl) {
   // 조작판은 그림 칸과 같은 상자 안에 들어 있다. 판 위에서 끌거나 굴린 것을
   // 그림 옮기기로 받으면 버튼을 누르다가 캐릭터가 따라 움직인다.
   const fromPanel = e =>
-    !!(e.target && e.target.closest && e.target.closest('.l2d-side, .l2d-side-toggle'));
+    !!(e.target && e.target.closest && e.target.closest('.l2d-side, .l2d-side-toggle, .l2d-bar'));
 
   const onMouseDown = e => {
     if (fromPanel(e)) return;

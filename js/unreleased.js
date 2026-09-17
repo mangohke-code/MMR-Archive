@@ -917,7 +917,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    setupL2dSideToggle('unreleased-spine-wrap', 'unreleased-side-toggle');
+    setupL2dSideToggle('unreleased-spine-wrap', 'unreleased-side-toggle', 'unreleased-info-toggle');
     setupL2dBar('unreleased-bar', () => unreleasedSpinePlayer);
     loadUnreleasedData();
   });
