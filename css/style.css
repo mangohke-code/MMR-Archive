@@ -3097,37 +3097,31 @@
   }
 
   /* ===== L2D 전체화면(몰입) 모드 =====
-     주변 것들의 높이를 0 으로 줄여서 접는다. 그림 상자는 남는 높이를 먹으므로
-     접히는 만큼 늘어난다. */
-  body.l2d-immersive header,
-  body.l2d-immersive #site-footer,
-  body.l2d-immersive #tab-nav,
-  body.l2d-immersive #costume-selector,
-  body.l2d-immersive #costume-info,
-  body.l2d-immersive #unreleased-detail-info,
-  body.l2d-immersive #unreleased-container > .section-title,
-  body.l2d-immersive #scroll-btns {
-    height: 0;
-    min-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    opacity: 0;
-    overflow: hidden;
-    border: 0;
-    transition: height 0.3s ease, padding 0.3s ease, margin 0.3s ease, opacity 0.22s ease;
-  }
+     뷰어 상자를 화면에 고정해서 통째로 덮는다.
+     예전에는 상자를 흐름에 둔 채 높이만 100vh 로 늘렸는데, 그러면 페이지가
+     그대로 굴러가서 스크롤 위치에 따라 화면이 반쯤 잘려 보였다. 게다가 주변을
+     접는 목록에 정보 판까지 들어 있어서(이제는 뷰어 안의 오른쪽 판이다)
+     전체화면으로 들어가면 오른쪽 판이 찌그러졌다.
+     고정으로 덮으면 뒤는 어차피 안 보이므로 따로 접을 것이 없다. */
+  body.l2d-immersive { overflow: hidden; }
 
   body.l2d-immersive #costume-spine-wrap,
   body.l2d-immersive #unreleased-spine-wrap {
-    height: 100vh;
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
     min-height: 0;
+    z-index: 200;
     border-radius: 0;
+    box-shadow: none;
+    animation: l2d-immersive-in 0.22s ease;
   }
 
-  body.l2d-immersive main { padding: 0; margin: 0; max-width: none; }
-  body.l2d-immersive .tab-content { padding: 0; }
+  @keyframes l2d-immersive-in {
+    from { opacity: 0.5; transform: scale(0.985); }
+    to   { opacity: 1;   transform: none; }
+  }
 
   #costume-spine-player {
     width: 100%;
