@@ -683,8 +683,14 @@
      줄바꿈을 허용하면 이름이 긴 카드만 키가 커지는데, 한 줄에 같이 있을 때는
      줄 높이에 묻혀 안 보이다가 그 카드가 혼자 다음 줄로 밀리면 크기가 달라 보인다.
      실제로 넘치는 카드에만 JS 가 is-scrolling 을 붙인다. */
+  /* 접힌 줄을 감싼 상자가 flex 항목 하나로 묶이면서, 그 안쪽 줄끼리는 목록의
+     gap 이 안 먹어 펼쳤을 때 간격이 달라졌다. display:contents 로 감싼 상자를
+     레이아웃에서 비켜 세워 안쪽 줄이 바로 목록의 항목이 되게 한다.
+     (접을 때는 .hidden 의 display:none !important 가 이긴다) */
+  .update-log-rest { display: contents; }
+
   .update-log-more {
-    margin-top: 6px;
+    align-self: flex-start;
     padding: 4px 10px;
     font: inherit;
     font-size: 13px;
