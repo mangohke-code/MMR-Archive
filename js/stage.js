@@ -275,9 +275,13 @@
         return;
       }
       const r = tableWrap.getBoundingClientRect();
-      const margin = 40;
+      // 단추가 표 밖으로 나가지 않게, 제 높이의 절반만큼 위아래로 여유를 둔다.
+      // 예전에는 40px 로 못 박아서 단추가 그보다 크면 위아래로 삐져나왔다.
+      const half = overlay.offsetHeight / 2 + 8;
       let top = window.innerHeight / 2 - r.top;
-      top = Math.max(margin, Math.min(r.height - margin, top));
+      const lo = half;
+      const hi = r.height - half;
+      top = (hi < lo) ? r.height / 2 : Math.max(lo, Math.min(hi, top));
       overlay.style.top = top + 'px';
     };
     followScroll();

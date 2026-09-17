@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=147">
+  <link rel="stylesheet" href="css/style.css?v=149">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -272,7 +272,7 @@
                 </div>
 
                 <button type="button" id="costume-side-toggle" class="l2d-side-toggle"
-                        aria-pressed="false" title="조작판 고정">
+                        aria-expanded="true" title="조작판 접기">
                   <i class="fas fa-chevron-left"></i>
                 </button>
 
@@ -283,7 +283,7 @@
                     <button type="button" class="l2d-bar-btn" data-act="playpause" title="일시정지"><i class="fas fa-pause"></i></button>
                     <div class="l2d-timeline"><div class="l2d-timeline-fill"></div></div>
                     <span class="l2d-timecode">0.00 / 0.00</span>
-                    <button type="button" class="l2d-bar-btn" id="costume-spine-reset" title="시점 초기화"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="l2d-bar-btn" id="costume-spine-reset" title="시점 초기화"><i class="fas fa-crosshairs"></i></button>
                     <button type="button" class="l2d-bar-btn" data-act="immersive" aria-pressed="false" title="전체화면 (Esc 로 나가기)"><i class="fas fa-expand"></i></button>
                   </div>
                 </div>
@@ -397,10 +397,13 @@
                   <h2>파츠</h2>
                   <div id="unreleased-parts-toggle" class="parts-toggle hidden"></div>
 
+                  <h2>구성요소</h2>
+                  <div id="unreleased-slot-toggle" class="parts-toggle hidden"></div>
+
                 </div>
 
                 <button type="button" id="unreleased-side-toggle" class="l2d-side-toggle"
-                        aria-pressed="false" title="조작판 고정">
+                        aria-expanded="true" title="조작판 접기">
                   <i class="fas fa-chevron-left"></i>
                 </button>
 
@@ -416,7 +419,7 @@
                     <button type="button" class="l2d-bar-btn" data-act="playpause" title="일시정지"><i class="fas fa-pause"></i></button>
                     <div class="l2d-timeline"><div class="l2d-timeline-fill"></div></div>
                     <span class="l2d-timecode">0.00 / 0.00</span>
-                    <button type="button" class="l2d-bar-btn" id="unreleased-spine-reset" title="시점 초기화"><i class="fas fa-rotate-right"></i></button>
+                    <button type="button" class="l2d-bar-btn" id="unreleased-spine-reset" title="시점 초기화"><i class="fas fa-crosshairs"></i></button>
                     <button type="button" class="l2d-bar-btn" data-act="immersive" aria-pressed="false" title="전체화면 (Esc 로 나가기)"><i class="fas fa-expand"></i></button>
                   </div>
                 </div>
@@ -697,11 +700,11 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=52"></script>
+  <script src="js/common.js?v=55"></script>
   <script src="js/main.js?v=17"></script>
   <script src="js/pickup.js?v=39"></script>
-  <script src="js/costume.js?v=43"></script>
-  <script src="js/unreleased.js?v=32"></script>
+  <script src="js/costume.js?v=44"></script>
+  <script src="js/unreleased.js?v=33"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">
   {
@@ -713,7 +716,7 @@
   </script>
   <script type="module" src="js/soloraid3d.js?v=335"></script>
   <script src="js/soloraid.js?v=36"></script>
-  <script src="js/stage.js?v=10"></script>
+  <script src="js/stage.js?v=11"></script>
 
   <script>
   // 이미지 전용 캐시. 자세한 이유는 sw.js 위쪽 주석 참고.

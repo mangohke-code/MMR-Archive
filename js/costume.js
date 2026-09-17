@@ -227,86 +227,6 @@
     if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // ===== 구성요소(슬롯) 끄고 켜기 =====
-  //
-  // 뷰어에 뜨는 것은 다 조립된 완성본이다. 그 안의 낱개(머리카락 한 가닥, 치마,
-  // 소품 …)를 빼고 보고 싶을 때 쓴다. 스파인에서 그 낱개 하나가 슬롯 하나다.
-  //
-  // 슬롯은 300개쯤 되고 이름이 hair_side_r14 처럼 잘게 쪼개져 있어서 그대로
-  // 늘어놓으면 못 쓴다. 이름 앞머리로 묶어서 묶음 단위로 켜고 끄되, 묶음을
-  // 펴면 낱개도 따로 만질 수 있게 한다(보스 뷰어의 파츠 칸과 같은 방식).
-  const SLOT_GROUP_LABELS = {
-    hair: '머리카락', f: '얼굴', hand: '손', arm: '팔', leg: '다리', foot: '발',
-    body: '몸', breast: '가슴', hip: '허리', armpit: '겨드랑이', skirt: '치마',
-    ex: '이펙트', bg: '배경', smoke: '연기', flower: '꽃', sweat: '땀',
-    earing: '귀걸이', mirror: '거울',
-  };
-
-  function slotGroupKey(name) {
-    const m = String(name).match(/^[a-zA-Z]+/);
-    return m ? m[0] : name;
-  }
-
-  function renderCostumeSlotToggles(skeletonData, offSlots, onChange) {
-    const box = document.getElementById('costume-slot-toggle');
-    if (!box) return;
-
-    const groups = [];
-    const byKey = new Map();
-    skeletonData.slots.forEach(sl => {
-      const key = slotGroupKey(sl.name);
-      let g = byKey.get(key);
-      if (!g) { g = { key, label: SLOT_GROUP_LABELS[key] || key, items: [] }; byKey.set(key, g); groups.push(g); }
-      g.items.push(sl.name);
-    });
-    if (!groups.length) { box.innerHTML = ''; box.classList.add('hidden'); return; }
-    groups.sort((a, b) => b.items.length - a.items.length);
-
-    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const draw = () => {
-      box.classList.remove('hidden');
-      box.innerHTML = groups.map((g, gi) => {
-        const on = g.items.filter(n => !offSlots.has(n)).length;
-        const state = on === g.items.length ? ' active' : (on ? ' partial' : '');
-        const rows = g.items.map(n => `
-          <div class="toggle-switch-wrap part-toggle-item${offSlots.has(n) ? '' : ' active'}" data-slot="${esc(n)}">
-            <div class="toggle-switch"></div>
-            <span class="toggle-label">${esc(n)}</span>
-          </div>`).join('');
-        return `
-          <div class="part-group">
-            <div class="part-group-head${state}" data-group="${gi}">
-              <div class="toggle-switch"></div>
-              <span class="toggle-label">${esc(g.label)}</span>
-              <em>${on}/${g.items.length}</em>
-            </div>
-            <div class="part-group-body">${rows}</div>
-          </div>`;
-      }).join('');
-
-      box.querySelectorAll('.part-group-head').forEach(head => {
-        head.addEventListener('click', ev => {
-          // 제목을 누르면 그 묶음을 통째로 켜고 끈다. 이미 다 켜져 있으면 전부 끈다.
-          if (ev.target.closest('.part-group-body')) return;
-          const g = groups[Number(head.dataset.group)];
-          const allOn = g.items.every(n => !offSlots.has(n));
-          g.items.forEach(n => { if (allOn) offSlots.add(n); else offSlots.delete(n); });
-          draw();
-          onChange();
-        });
-      });
-      box.querySelectorAll('.part-toggle-item[data-slot]').forEach(el => {
-        el.addEventListener('click', () => {
-          const n = el.dataset.slot;
-          if (offSlots.has(n)) offSlots.delete(n); else offSlots.add(n);
-          draw();
-          onChange();
-        });
-      });
-    };
-    draw();
-  }
-
   function closeCostumeDetail() {
     document.querySelectorAll('.costume-portrait-item').forEach(el => el.classList.remove('active'));
     document.getElementById('costume-top').classList.add('hidden');
@@ -875,20 +795,10 @@
           // defaultSkin에서 복사해오기 때문에 꺼지지 않는 버그가 생김 — 그래서 매번 새
           // Skin 객체를 만들어 복사만 해오고, 원본 defaultSkin은 절대 mutate하지 않는다.
           const combined = new spine.Skin('combined');
-          // 꺼 둔 구성요소(슬롯)는 아예 안 베껴 온다. 스파인은 애니메이션이 지정한
-          // attachment 이름을 "지금 스킨"에서 찾으므로, 스킨에 없으면 그냥 안 그려진다.
-          // 매 프레임 지우는 것보다 확실하고, 재생 중에도 계속 꺼진 채로 남는다.
-          const slotNames = skeleton.data.slots.map(sl => sl.name);
-          const copyInto = src => {
-            src.getAttachments().forEach(e => {
-              if (offSlots.has(slotNames[e.slotIndex])) return;
-              combined.setAttachment(e.slotIndex, e.name, e.attachment);
-            });
-          };
           const defaultSkin = skeleton.data.findSkin('default');
-          if (defaultSkin) copyInto(defaultSkin);
+          if (defaultSkin) combined.addSkin(defaultSkin);
           partSkins.forEach(skin => {
-            if (enabledParts.has(skin.name)) copyInto(skin);
+            if (enabledParts.has(skin.name)) combined.addSkin(skin);
           });
           skeleton.setSkin(combined);
           skeleton.setToSetupPose();
@@ -898,9 +808,10 @@
           if (player2.animationState) player2.animationState.apply(skeleton);
           skeleton.updateWorldTransform();
         };
+        applySlotHiding(skeleton, offSlots);
         rebuildSkin();
         renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
-        renderCostumeSlotToggles(skeleton.data, offSlots, rebuildSkin);
+        renderSlotToggles('costume-slot-toggle', skeleton.data, offSlots, rebuildSkin);
 
         costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl);
 

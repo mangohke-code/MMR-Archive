@@ -683,8 +683,11 @@
      줄바꿈을 허용하면 이름이 긴 카드만 키가 커지는데, 한 줄에 같이 있을 때는
      줄 높이에 묻혀 안 보이다가 그 카드가 혼자 다음 줄로 밀리면 크기가 달라 보인다.
      실제로 넘치는 카드에만 JS 가 is-scrolling 을 붙인다. */
-  .pickup-name-wrap {
-    overflow: hidden;
+  .pickup-name-wrap { overflow: hidden; }
+
+  /* 마스크는 실제로 흐르는 이름에만. 안 넘치는 이름까지 씌우면 멀쩡한 글자
+     끝이 뿌옇게 보인다(JS 가 is-scroll-wrap 을 붙인다). */
+  .pickup-name-wrap.is-scroll-wrap {
     mask-image: linear-gradient(
       to right,
       transparent 0px,
@@ -1997,8 +2000,9 @@
     overflow: hidden;
   }
 
-  .group-nikke-name-wrap {
-    overflow: hidden;
+  .group-nikke-name-wrap { overflow: hidden; }
+
+  .group-nikke-name-wrap.is-scroll-wrap {
     mask-image: linear-gradient(
       to right,
       transparent 0px,
@@ -2736,8 +2740,8 @@
   }
 
   #costume-spine-wrap {
-    height: calc(100vh - 240px);
-    min-height: 520px;
+    height: calc(100vh - 150px);
+    min-height: 640px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -2776,32 +2780,26 @@
     min-height: 0;
   }
 
-  /* 판은 그림 칸 위로 떠 있다. 예전처럼 자리를 나눠 가지면 판을 펼 때마다 그림이
-     좁아졌다 넓어졌다 해서 보기 불편하다. 평소에는 손잡이 너비만 남기고 왼쪽으로
-     숨어 있다가, 그 위에 마우스를 올리면 미끄러져 나온다. */
+  /* 보스 뷰어와 같은 형태 - 판이 그림 칸과 자리를 나눠 갖고, 손잡이로 접는다.
+     판 전체가 하나로 굴러가므로 구성요소처럼 긴 목록도 판 스크롤로 훑는다. */
   .l2d-side {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 6;
+    flex: none;
     width: 264px;
     padding: 14px;
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--bg-panel);
     border-right: 1px solid var(--border-subtle);
-    box-shadow: var(--shadow-card-hover);
-    transform: translateX(calc(-100% + 26px));
-    transition: transform 0.26s ease;
+    transition: width 0.26s ease, padding 0.26s ease, opacity 0.2s ease;
   }
 
-  /* 손잡이 너비만 남긴 상태에서는 내용이 비쳐 보이면 지저분하다 */
-  .l2d-side > * { transition: opacity 0.18s ease; }
-  .l2d-wrap:not(.is-side-open) .l2d-side:not(:hover) > * { opacity: 0; }
-
-  .l2d-side:hover,
-  .l2d-wrap.is-side-open .l2d-side { transform: translateX(0); }
+  .l2d-wrap.is-side-closed .l2d-side {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    border-right-color: transparent;
+  }
 
   /* 구역마다 실선을 긋고 사이를 띄운다. 제목만으로는 어디까지가 한 묶음인지
      눈에 안 들어와서, 동작·표정·파츠가 한 덩어리처럼 보였다. */
@@ -2840,11 +2838,11 @@
 
   .l2d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
-  /* 고정 핀. 눌러 두면 마우스를 떼도 판이 펴진 채로 남는다. 판과 함께 움직인다. */
+  /* 접기 손잡이. 판 오른쪽 끝에 붙어 같이 움직인다. */
   .l2d-side-toggle {
     position: absolute;
     top: 14px;
-    left: 0;
+    left: 264px;
     z-index: 7;
     width: 26px;
     height: 34px;
@@ -2863,12 +2861,9 @@
 
   .l2d-side-toggle:hover { color: var(--text-heading); }
 
-  .l2d-side:hover ~ .l2d-side-toggle,
-  .l2d-wrap.is-side-open .l2d-side-toggle { left: 264px; }
+  .l2d-wrap.is-side-closed .l2d-side-toggle { left: 0; }
 
-  .l2d-wrap.is-side-open .l2d-side-toggle { color: var(--accent); }
-
-  .l2d-wrap.is-side-open .l2d-side-toggle i { transform: rotate(180deg); }
+  .l2d-wrap.is-side-closed .l2d-side-toggle i { transform: rotate(180deg); }
 
   /* 판 안에서는 모델 고르기와 표정이 떠 있을 이유가 없다. 흐름대로 쌓는다. */
   .l2d-side .spine-variation,
@@ -2914,23 +2909,38 @@
     border-radius: 0;
   }
 
-  /* 구성요소(슬롯) 칸은 목록이 길어서 제 높이를 가두고 따로 굴린다 */
-  #costume-slot-toggle {
-    max-height: 260px;
-    overflow-y: auto;
+  /* 구성요소(슬롯) 칸. 제 스크롤을 따로 두지 않고 판 전체와 같이 굴러간다.
+     낱개 목록은 마우스를 올리는 것이 아니라 화살표를 눌러야 펴진다 - 지나가다
+     제멋대로 펴지면 누르려던 것이 밀려난다. */
+  #costume-slot-toggle .part-group-body,
+  #unreleased-slot-toggle .part-group-body {
+    display: none;
   }
 
-  #costume-slot-toggle .part-group-body {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.2s ease;
+  #costume-slot-toggle .part-group.is-open .part-group-body,
+  #unreleased-slot-toggle .part-group.is-open .part-group-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 10px;
   }
 
-  #costume-slot-toggle .part-group:hover .part-group-body,
-  #costume-slot-toggle .part-group-head.partial + .part-group-body {
-    max-height: 420px;
-    overflow-y: auto;
+  .part-group-arrow {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 10px;
   }
+
+  .part-group-arrow:hover { color: var(--text-heading); }
 
   /* 버튼 칩으로 그린 파츠 칸(추가 파츠) */
   .parts-toggle.is-button-style {
@@ -3990,8 +4000,8 @@
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     margin-bottom: 2rem;
-    height: calc(100vh - 240px);
-    min-height: 520px;
+    height: calc(100vh - 150px);
+    min-height: 640px;
   }
 
   .unreleased-spine-col {
@@ -4004,9 +4014,11 @@
 
   #unreleased-spine-wrap {
     width: 100%;
-    /* 코스튬 페이지 뷰어와 같은 높이로 맞춘다 */
-    height: calc(100vh - 240px);
-    min-height: 520px;
+    /* 바깥 상자(#unreleased-detail)가 이미 높이를 들고 있다. 여기서 같은 높이를
+       또 잡으면 안쪽 상자가 바깥 여백을 넘어서서 "상자 속 상자" 처럼 보인다.
+       남는 자리를 채우게만 한다. */
+    flex: 1;
+    min-height: 0;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);

@@ -87,12 +87,9 @@ function switchTab(tabName, pushHistory = true) {
   document.dispatchEvent(new CustomEvent('mmr:tab-change', { detail: { tab: tabName } }));
 }
 
-// 브라우저 뒤로가기/앞으로가기 키로 탭 이동이 되도록 지원
-window.addEventListener('popstate', e => {
-  // 주소창에서 # 만 직접 고친 경우에는 state 가 없으므로 # 를 대신 본다.
-  const tabName = (e.state && e.state.tab) || tabFromHash() || 'main';
-  switchTab(tabName, false);
-});
+// 뒤로 가기는 탭을 바꾸지 않는다. 탭 이동이 기록을 안 쌓으므로, 기록에 적힌
+// tab 값은 그때 찍힌 흔적일 뿐이고 그걸 따라가면 엉뚱한 탭으로 튄다.
+// 탭 안에서 연 단계를 닫는 일은 각 탭의 popstate 처리가 맡는다.
 
 // ===== 탭 안에서만 도는 뒤로가기 =====
 //
@@ -118,6 +115,35 @@ function popInTabState(key) {
   } catch (e) {}
   return false;
 }
+
+// 뒤로 가기가 사이트 밖으로 나가지 않도록 여분 항목을 하나 얹어 둔다.
+//
+// 탭 이동이 기록을 안 쌓게 한 뒤로도, 탭 안에서 연 것이 없으면 뒤로 가기 한 번에
+// 사이트를 떠나 버렸다(브라우저가 그 전에 보던 페이지로 간다). 바닥에 도달하면
+// 같은 자리를 다시 얹어서 그 탭에 머물게 한다.
+let _backGuardArmed = false;
+
+function currentTabName() {
+  const el = document.querySelector('.tab-content.active');
+  return el ? el.id.replace(/^tab-/, '') : 'main';
+}
+
+function armBackGuard() {
+  if (_backGuardArmed) return;
+  try {
+    _backGuardArmed = true;
+    const tab = currentTabName();
+    history.pushState({ tab, mmrGuard: true }, '', tabUrl(tab));
+  } catch (e) { _backGuardArmed = false; }
+}
+
+window.addEventListener('popstate', e => {
+  const st = e.state || {};
+  if (st.mmrStep) return;          // 탭 안에서 연 단계가 남아 있다
+  _backGuardArmed = false;
+  // 각 탭의 popstate 처리(상세 닫기 등)가 먼저 돌 시간을 준 뒤 되민다
+  setTimeout(armBackGuard, 0);
+});
 
 function onError(err) {
   console.error('데이터 로드 실패:', err);
@@ -221,10 +247,117 @@ function setupL2dSideToggle(wrapId, toggleId) {
   if (!wrap || !btn || btn.dataset.wired) return;
   btn.dataset.wired = '1';
   btn.addEventListener('click', () => {
-    const open = wrap.classList.toggle('is-side-open');
-    btn.setAttribute('aria-pressed', String(open));
-    btn.title = open ? '고정 풀기' : '조작판 고정';
+    const closed = wrap.classList.toggle('is-side-closed');
+    btn.setAttribute('aria-expanded', String(!closed));
+    btn.title = closed ? '조작판 펴기' : '조작판 접기';
   });
+}
+
+// ===== 구성요소(슬롯) 끄고 켜기 =====
+//
+// 뷰어에 뜨는 것은 다 조립된 완성본이다. 그 안의 낱개(머리카락 한 가닥, 치마,
+// 소품 …)를 빼고 보고 싶을 때 쓴다. 스파인에서 그 낱개 하나가 슬롯 하나다.
+//
+// 슬롯은 300개쯤 되고 이름이 hair_side_r14 처럼 잘게 쪼개져 있어서 그대로
+// 늘어놓으면 못 쓴다. 이름 앞머리로 묶어서 묶음 단위로 켜고 끄되, 묶음 제목을
+// 누르면 낱개도 펼쳐 볼 수 있게 한다.
+const SLOT_GROUP_LABELS = {
+  hair: '머리카락', f: '얼굴', face: '얼굴', hand: '손', arm: '팔', leg: '다리',
+  foot: '발', body: '몸', breast: '가슴', hip: '허리', armpit: '겨드랑이',
+  skirt: '치마', ex: '이펙트', bg: '배경', smoke: '연기', flower: '꽃',
+  sweat: '땀', earing: '귀걸이', mirror: '거울', cloth: '옷', acc: '장식',
+};
+
+function slotGroupKey(name) {
+  const m = String(name).match(/^[a-zA-Z]+/);
+  return m ? m[0] : name;
+}
+
+function renderSlotToggles(containerId, skeletonData, offSlots, onChange) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+
+  const groups = [];
+  const byKey = new Map();
+  skeletonData.slots.forEach(sl => {
+    const key = slotGroupKey(sl.name);
+    let g = byKey.get(key);
+    if (!g) { g = { key, label: SLOT_GROUP_LABELS[key] || key, items: [] }; byKey.set(key, g); groups.push(g); }
+    g.items.push(sl.name);
+  });
+  if (!groups.length) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+  groups.sort((a, b) => b.items.length - a.items.length);
+
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const opened = new Set();
+
+  const draw = () => {
+    box.classList.remove('hidden');
+    box.innerHTML = groups.map((g, gi) => {
+      const on = g.items.filter(n => !offSlots.has(n)).length;
+      const state = on === g.items.length ? ' active' : (on ? ' partial' : '');
+      const rows = g.items.map(n => `
+        <div class="toggle-switch-wrap part-toggle-item${offSlots.has(n) ? '' : ' active'}" data-slot="${esc(n)}">
+          <div class="toggle-switch"></div>
+          <span class="toggle-label">${esc(n)}</span>
+        </div>`).join('');
+      return `
+        <div class="part-group${opened.has(gi) ? ' is-open' : ''}">
+          <div class="part-group-head${state}" data-group="${gi}">
+            <button type="button" class="part-group-arrow" data-open="${gi}" title="낱개 보기">
+              <i class="fas fa-chevron-${opened.has(gi) ? 'down' : 'right'}"></i>
+            </button>
+            <div class="toggle-switch"></div>
+            <span class="toggle-label">${esc(g.label)}</span>
+            <em>${on}/${g.items.length}</em>
+          </div>
+          <div class="part-group-body">${rows}</div>
+        </div>`;
+    }).join('');
+
+    // 화살표는 펼치기, 제목 나머지는 묶음 통째로 켜고 끄기
+    box.querySelectorAll('.part-group-arrow').forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const gi = Number(btn.dataset.open);
+        if (opened.has(gi)) opened.delete(gi); else opened.add(gi);
+        draw();
+      });
+    });
+    box.querySelectorAll('.part-group-head').forEach(head => {
+      head.addEventListener('click', () => {
+        const g = groups[Number(head.dataset.group)];
+        const allOn = g.items.every(n => !offSlots.has(n));
+        g.items.forEach(n => { if (allOn) offSlots.add(n); else offSlots.delete(n); });
+        draw();
+        onChange();
+      });
+    });
+    box.querySelectorAll('.part-toggle-item[data-slot]').forEach(el => {
+      el.addEventListener('click', () => {
+        const n = el.dataset.slot;
+        if (offSlots.has(n)) offSlots.delete(n); else offSlots.add(n);
+        draw();
+        onChange();
+      });
+    });
+  };
+  draw();
+}
+
+// 꺼 둔 슬롯이 실제로 안 그려지게 한다.
+//
+// 스킨에서 빼는 것만으로는 안 된다 - 스파인의 getAttachment 는 지금 스킨에 없으면
+// data.defaultSkin 에서 다시 찾기 때문에 결국 붙어 버린다. 스켈레톤의 그 함수를
+// 감싸서, 꺼 둔 슬롯이면 아무것도 안 돌려주게 한다. 애니메이션의 attachment
+// 타임라인도 이 함수를 거치므로 재생 중에도 꺼진 채로 남는다.
+function applySlotHiding(skeleton, offSlots) {
+  if (!skeleton || skeleton.__slotHideWired) return;
+  skeleton.__slotHideWired = true;
+  const names = skeleton.data.slots.map(sl => sl.name);
+  const orig = skeleton.getAttachment.bind(skeleton);
+  skeleton.getAttachment = (slotIndex, name) =>
+    (offSlots.has(names[slotIndex]) ? null : orig(slotIndex, name));
 }
 
 // ===== L2D 뷰어 재생바 =====
@@ -340,13 +473,17 @@ function syncNameScrollAnimations(root, wrapSelector, nameSelector) {
     const nameEl = wrap.querySelector(nameSelector);
     if (!nameEl) return;
     nameEl.classList.remove('is-scrolling');
+    wrap.classList.remove('is-scroll-wrap');
     nameEl.style.removeProperty('--scroll-distance');
     const overflow = nameEl.scrollWidth - wrap.clientWidth;
-    if (overflow > 1) toAnimate.push({ nameEl, overflow });
+    if (overflow > 1) toAnimate.push({ wrap, nameEl, overflow });
   });
-  toAnimate.forEach(({ nameEl, overflow }) => {
+  toAnimate.forEach(({ wrap, nameEl, overflow }) => {
     nameEl.style.setProperty('--scroll-distance', `-${overflow}px`);
     nameEl.classList.add('is-scrolling');
+    // 양 끝을 흐리는 마스크는 실제로 흐르는 이름에만 씌운다. 안 넘치는 이름까지
+    // 씌우면 멀쩡한 글자 끝이 뿌옇게 보인다.
+    wrap.classList.add('is-scroll-wrap');
   });
 }
 
@@ -974,6 +1111,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const startTab = tabFromHash() || 'main';
   if (startTab !== 'main') switchTab(startTab, false);
   history.replaceState({ tab: startTab }, '', tabUrl(startTab));
+  // 뒤로 가기가 사이트 밖으로 나가지 않게 여분 항목을 하나 얹어 둔다
+  armBackGuard();
 
   // 테마 토글 (기본 라이트, 다크는 선택 시 localStorage에 저장)
   const themeToggle = document.getElementById('theme-toggle');
