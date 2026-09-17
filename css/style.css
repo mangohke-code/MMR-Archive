@@ -585,6 +585,12 @@
   .pickup-card {
     position: relative;
     width: 560px;
+    /* 배너가 없는 카드도 줄 높이에 맞춰 늘어난다. 그대로 두면 글자만 맨 위에
+       뜨는데, 그림 있는 카드는 글자가 아래에 있어서 나란히 놓으면 어긋나 보인다.
+       세로 flex 로 아래에 붙여 둘의 글자 줄을 맞춘다. */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -1090,7 +1096,8 @@
      같은 표정끼리 가로로 나란히 오게 한다. */
   .spine-expression .expr-grid {
     display: grid;
-    grid-template-columns: repeat(var(--expr-cols, 1), 96px);
+    /* minmax(0,1fr) 이라야 이름이 긴 표정이 열을 밀어내지 않는다 */
+    grid-template-columns: repeat(var(--expr-cols, 1), minmax(0, 1fr));
     gap: 4px;
   }
 
@@ -2668,7 +2675,9 @@
     align-items: center;
     margin-left: 6px;
     padding: 2px 7px;
-    font-size: 13px;
+    /* 진행중 배지(.pickup-remaining-badge)와 같은 크기로 맞춘다. 나란히 놓이는
+       자리는 없지만 탭을 오가며 보면 글자 크기가 들쭉날쭉해 보였다. */
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0.04em;
     border-radius: var(--radius-sm);
@@ -2777,15 +2786,23 @@
     border-right-color: transparent;
   }
 
+  /* 구역마다 실선을 긋고 사이를 띄운다. 제목만으로는 어디까지가 한 묶음인지
+     눈에 안 들어와서, 동작·표정·파츠가 한 덩어리처럼 보였다. */
   .l2d-side h2 {
     font-size: 12px;
-    margin: 16px 0 7px;
+    margin: 18px 0 9px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
     letter-spacing: .05em;
     color: var(--text-muted);
     white-space: nowrap;
   }
 
-  .l2d-side h2:first-of-type { margin-top: 0; }
+  .l2d-side h2:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
 
   /* 내용이 비면 라벨만 남아 허전하다. 빈 구역과 그 앞 제목을 같이 감춘다. */
   .l2d-side h2:has(+ div:empty),
@@ -2875,6 +2892,13 @@
     background: none;
     box-shadow: none;
     border-radius: 0;
+  }
+
+  /* 버튼 칩으로 그린 파츠 칸(추가 파츠) */
+  .parts-toggle.is-button-style {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
   }
 
   #costume-spine-player {
@@ -5435,12 +5459,18 @@
 
   #sr3d-side h2 {
     font-size: 12px;
-    margin: 16px 0 7px;
+    margin: 18px 0 9px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
     letter-spacing: .05em;
     color: var(--text-muted);
   }
 
-  #sr3d-side h2:first-child { margin-top: 0; }
+  #sr3d-side h2:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
 
   /* 내용이 비면 라벨만 남아 허전하다. :has 로 빈 구역과 그 앞 제목을 같이 감춘다. */
   #sr3d-side h2:has(+ .sr3d-row:empty),

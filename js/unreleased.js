@@ -318,15 +318,39 @@
     });
 
     document.getElementById('survey-confirm-btn').addEventListener('click', () => {
-      document.getElementById('unreleased-survey').classList.add('hidden');
-      document.getElementById('unreleased-main').classList.remove('hidden');
+      showUnreleasedList(true);
       renderUnreleasedMain();
     });
 
     document.getElementById('unreleased-survey-btn').addEventListener('click', () => {
-      document.getElementById('unreleased-main').classList.add('hidden');
-      document.getElementById('unreleased-survey').classList.remove('hidden');
+      // 설문으로 돌아가는 것은 뒤로 가기 한 칸과 같은 뜻이다
+      if (!popInTabState('list')) showUnreleasedList(false);
     });
+
+    // 뒤로 가기: 상세 -> 목록 -> 설문 순으로 한 단계씩 되돌린다.
+    window.addEventListener('popstate', ev => {
+      const step = ev.state && ev.state.mmrStep;
+      if (step === 'detail') return;
+      const detail = document.getElementById('unreleased-detail');
+      if (detail && !detail.classList.contains('hidden')) {
+        closeUnreleasedDetail();
+        if (step === 'list') return;
+      }
+      if (step !== 'list') showUnreleasedList(false);
+    });
+  }
+
+  // 설문 화면 <-> 목록 화면
+  function showUnreleasedList(on) {
+    document.getElementById('unreleased-survey').classList.toggle('hidden', on);
+    document.getElementById('unreleased-main').classList.toggle('hidden', !on);
+    if (on) pushInTabState('list');
+  }
+
+  function closeUnreleasedDetail() {
+    document.querySelectorAll('.unreleased-card').forEach(el => el.classList.remove('active'));
+    document.getElementById('unreleased-detail').classList.add('hidden');
+    clearSpinePlayer();
   }
 
   // ===== 표시 가능 여부 판별 =====
@@ -497,10 +521,12 @@
     // 이미 펼쳐진 항목을 다시 클릭하면 L2D 표시를 접는다(토글)
     const alreadyActive = document.querySelector(`.unreleased-card[data-row-idx="${rowIdx}"]`)?.classList.contains('active');
     if (alreadyActive) {
-      document.querySelectorAll('.unreleased-card').forEach(el => el.classList.remove('active'));
-      document.getElementById('unreleased-detail').classList.add('hidden');
-      clearSpinePlayer();
+      if (!popInTabState('detail')) closeUnreleasedDetail();
       return;
+    }
+    // 목록에서 처음 들어올 때만 기록을 쌓는다. 항목끼리 옮길 때는 이미 쌓여 있다.
+    if (document.getElementById('unreleased-detail').classList.contains('hidden')) {
+      pushInTabState('detail');
     }
 
     // active 표시: data-row-idx 기준

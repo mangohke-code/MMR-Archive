@@ -168,17 +168,12 @@
 
     // 이미 펼쳐진 항목을 다시 클릭하면 L2D 표시를 접는다(토글)
     if (allowToggleClose && alreadyActive) {
-      document.querySelectorAll('.costume-portrait-item').forEach(el => el.classList.remove('active'));
-      document.getElementById('costume-top').classList.add('hidden');
-      currentCostume = null;
-      clearCostumeSpinePlayer();
-      // 바리에이션 줄은 모델을 다시 불러올 때마다 지우면 안 된다(고르는 순간 사라진다).
-      // 코스튬을 접을 때만 치운다.
-      const varBox = document.getElementById('costume-variation');
-      if (varBox) { varBox.innerHTML = ''; varBox.classList.add('hidden'); }
+      if (!popInTabState('costume')) closeCostumeDetail();
       return;
     }
 
+    // 목록에서 처음 들어올 때만 기록을 쌓는다. 코스튬끼리 옮길 때는 이미 쌓여 있다.
+    if (!currentCostume) pushInTabState('costume');
     currentCostume = costume;
 
     document.getElementById('costume-top').classList.remove('hidden');
@@ -231,6 +226,24 @@
     const top = document.getElementById('costume-top');
     if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  function closeCostumeDetail() {
+    document.querySelectorAll('.costume-portrait-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('costume-top').classList.add('hidden');
+    currentCostume = null;
+    clearCostumeSpinePlayer();
+    // 바리에이션 줄은 모델을 다시 불러올 때마다 지우면 안 된다(고르는 순간 사라진다).
+    // 코스튬을 접을 때만 치운다.
+    const varBox = document.getElementById('costume-variation');
+    if (varBox) { varBox.innerHTML = ''; varBox.classList.add('hidden'); }
+  }
+
+  // 뒤로 가기로 코스튬 상세를 닫는다. 탭 이동은 기록을 안 쌓으므로 이 탭 안에서만 돈다.
+  window.addEventListener('popstate', ev => {
+    if (!currentCostume) return;
+    if (ev.state && ev.state.mmrStep === 'costume') return;   // 코스튬끼리 옮긴 경우
+    closeCostumeDetail();
+  });
 
   // 같은 코스튬의 다른 모델 고르기. 표정 고르기 바로 아래에 둔다.
   function renderCostumeVariations(costume) {
@@ -850,12 +863,13 @@
       // 스킨을 다시 합칠 필요 없이 레이어 div를 통째로 보이기/숨기기만 하면 된다.
       const extraPartLabels = extraParts.map((p, i) => ({ name: `추가 파츠 ${i + 1}` }));
       const enabledExtraParts = new Set(extraPartLabels.map(p => p.name)); // 기본값: 전부 켜짐
+      // 추가 파츠는 보통 한둘뿐이라 스위치 줄보다 버튼 칩이 자리를 덜 먹는다.
       renderPartsToggle('costume-extra-parts-toggle', extraPartLabels, enabledExtraParts, () => {
         extraLayerDivs.forEach((layerDiv, i) => {
           if (!layerDiv) return;
           layerDiv.style.display = enabledExtraParts.has(extraPartLabels[i].name) ? '' : 'none';
         });
-      });
+      }, { style: 'button' });
     }
   }
 

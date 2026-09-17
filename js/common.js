@@ -42,8 +42,15 @@ function tabFromHash() {
   return document.querySelector('.tab-btn[data-tab="' + name + '"]') ? name : null;
 }
 
-// pushHistory=false는 popstate(뒤로/앞으로가기)에 반응해서 탭만 바꿀 때 쓴다 —
-// 안 그러면 뒤로가기로 전환한 탭이 다시 history에 쌓여서 무한히 앞으로 못 가는 상태가 된다.
+// 탭 이동은 방문 기록을 쌓지 않는다(주소의 # 만 갈아 끼운다).
+//
+// 예전에는 탭마다 기록을 쌓아서, 메인->픽업->유니크 로 옮긴 뒤 뒤로 가기를 누르면
+// 유니크->픽업->메인 으로 탭이 되돌아갔다. 보던 탭 안에서 뒤로 가려던 사람에게는
+// 갑자기 다른 탭으로 튀는 셈이라 어리둥절하다. 이제 기록은 탭 "안"에서 연 것
+// (보스 상세, 코스튬 상세, 미실장 상세)만 쌓는다. 그래서 뒤로 가기는 늘 지금
+// 보고 있는 탭 안에서만 움직인다.
+//
+// pushHistory 는 이름을 남겨 둔다 - 부르는 곳이 여럿이고, false 면 주소도 안 건드린다.
 function switchTab(tabName, pushHistory = true) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -68,7 +75,11 @@ function switchTab(tabName, pushHistory = true) {
   }
 
   if (pushHistory) {
-    history.pushState({ tab: tabName }, '', tabUrl(tabName));
+    // 탭 안에서 열어 둔 단계(mmrStep)는 그대로 들고 간다. 안 그러면 보스를 열어
+    // 둔 채 다른 탭에 갔다 오면 그 기록이 지워져서 뒤로 가기가 목록이 아니라
+    // 사이트 밖으로 나가 버린다.
+    const prev = history.state || {};
+    history.replaceState({ ...prev, tab: tabName }, '', tabUrl(tabName));
   }
 
   // 탭이 바뀐 것을 알린다. 솔로 레이드의 전용 BGM 처럼, 안 보이는 곳에서 계속
@@ -82,6 +93,31 @@ window.addEventListener('popstate', e => {
   const tabName = (e.state && e.state.tab) || tabFromHash() || 'main';
   switchTab(tabName, false);
 });
+
+// ===== 탭 안에서만 도는 뒤로가기 =====
+//
+// 탭 안에서 뭔가를 열 때(보스 상세·코스튬 상세·미실장 상세) 기록을 하나 쌓아 두고,
+// 뒤로 가기로 그 기록이 빠지면 닫는다. 탭 이동은 기록을 안 쌓으므로 뒤로 가기가
+// 탭을 넘나들지 않는다.
+//
+// key 는 상태를 알아보는 이름이다. 같은 단계를 두 번 쌓지 않도록, 지금 항목이 이미
+// 그 단계면 아무것도 안 한다.
+function pushInTabState(key) {
+  try {
+    if (history.state && history.state.mmrStep === key) return false;
+    history.pushState({ tab: tabFromHash() || 'main', mmrStep: key }, '', location.href);
+    return true;
+  } catch (e) { return false; }
+}
+
+// 열려 있던 단계를 우리 쪽에서 닫을 때(닫기 단추). 쌓아 둔 기록이 지금 항목이면
+// 그것만 물린다. 탭을 오간 뒤라도 탭 이동은 기록을 안 쌓으므로 엉뚱한 데로 안 간다.
+function popInTabState(key) {
+  try {
+    if (history.state && history.state.mmrStep === key) { history.back(); return true; }
+  } catch (e) {}
+  return false;
+}
 
 function onError(err) {
   console.error('데이터 로드 실패:', err);
@@ -140,7 +176,9 @@ function pickSpineAnimation(skeletonData) {
 
 // L2D 파츠(스킨) on/off 토글 UI — costume.js/unreleased.js 공용
 // skins: default를 제외한 spine.Skin 배열, enabledSet: 현재 켜져있는 스킨 이름 Set
-function renderPartsToggle(containerId, skins, enabledSet, onChange) {
+// opts.style 이 'button' 이면 스위치 줄 대신 버튼 칩으로 그린다. 항목이 한둘뿐인
+// 곳(코스튬 추가 파츠)은 줄 하나씩 차지하는 스위치보다 칩이 자리를 덜 먹는다.
+function renderPartsToggle(containerId, skins, enabledSet, onChange, opts) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -153,14 +191,17 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange) {
   // 3D 뷰어에는 이름이 겹치는 메쉬가 있는 보스가 있어서(앨트루이아 helm_01~09 등)
   // 이름 대신 partKey 로 구분한다. Spine 쪽 호출부는 partKey 가 없으니 이름으로 떨어진다.
   const keyOf = skin => skin.partKey || skin.name;
+  const asButton = !!(opts && opts.style === 'button');
 
   container.classList.remove('hidden');
-  container.innerHTML = skins.map(skin => `
-    <div class="toggle-switch-wrap part-toggle-item${enabledSet.has(keyOf(skin)) ? ' active' : ''}" data-skin="${keyOf(skin)}">
+  container.classList.toggle('is-button-style', asButton);
+  container.innerHTML = skins.map(skin => asButton
+    ? `<button type="button" class="anim-btn part-toggle-item${enabledSet.has(keyOf(skin)) ? ' active' : ''}" data-skin="${keyOf(skin)}">${skin.label || skin.name}</button>`
+    : `<div class="toggle-switch-wrap part-toggle-item${enabledSet.has(keyOf(skin)) ? ' active' : ''}" data-skin="${keyOf(skin)}">
       <div class="toggle-switch"></div>
       <span class="toggle-label">${skin.label || skin.name}</span>
-    </div>
-  `).join('');
+    </div>`
+  ).join('');
 
   container.querySelectorAll('.part-toggle-item').forEach(el => {
     el.addEventListener('click', () => {

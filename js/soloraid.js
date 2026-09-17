@@ -245,22 +245,19 @@
 
   // 뒤로 가기로 보스 선택 화면에 돌아올 수 있게, 보스를 열 때 방문 기록을 하나
   // 쌓는다. 안 그러면 브라우저가 솔로 레이드 탭 이전 페이지로 바로 나가 버린다.
-  let bossHistoryDepth = 0;
-
   window.addEventListener('popstate', ev => {
     if (!currentBoss) return;
-    if (ev.state && ev.state.mmrBoss) return;   // 보스에서 보스로 옮긴 경우
-    bossHistoryDepth = 0;
+    if (ev.state && ev.state.mmrStep === 'boss') return;   // 보스에서 보스로 옮긴 경우
     collapseBoss({ fromHistory: true });
   });
 
   function collapseBoss(opts) {
     // 우리가 쌓아 둔 기록을 되돌린다. 뒤로 가기로 들어온 길이면 이미 빠진 뒤다.
-    if (!(opts && opts.fromHistory) && bossHistoryDepth > 0) {
-      const back = bossHistoryDepth;
-      bossHistoryDepth = 0;
-      history.go(-back);
-    }
+    //
+    // 예전에는 "쌓은 개수만큼 go(-n)" 이었는데, 그 사이에 탭을 오가면 탭 기록이
+    // 끼어들어서 뒤로 한 칸이 보스 목록이 아니라 직전에 보던 다른 탭이 됐다.
+    // 이제는 지금 항목이 우리가 쌓은 그 항목일 때만 물린다.
+    if (!(opts && opts.fromHistory)) popInTabState('boss');
     currentBoss = null;
     document.body.classList.remove('sr3d-immersive');
     clearSoloRaidSpine();
@@ -279,12 +276,7 @@
     // 이미 펼쳐진 보스를 다시 누르면 접는다
     if (currentBoss === item) { collapseBoss(); return; }
     // 목록에서 처음 들어올 때만 기록을 쌓는다. 보스끼리 옮길 때는 이미 쌓여 있다.
-    try {
-      if (!currentBoss) {
-        history.pushState({ mmrBoss: true }, '', location.href);
-        bossHistoryDepth = 1;
-      }
-    } catch (e) { /* 기록을 못 쌓아도 화면은 그대로 동작한다 */ }
+    if (!currentBoss) pushInTabState('boss');
     currentBoss = item;
     showSoloRaidHome(false);
 
