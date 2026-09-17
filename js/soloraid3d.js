@@ -1,6 +1,6 @@
 // 역대 테두리 탭: FBX -> glTF/Draco 변환 결과물(.glb)을 표시하는 3D 뷰어.
-// Spine(L2D) 런타임과는 완전히 별개 스택(Three.js)이라 frames.js(classic script)와
-// 분리된 모듈로 두고, window에 진입점만 노출해서 frames.js에서 호출한다.
+// Spine(L2D) 런타임과는 완전히 별개 스택(Three.js)이라 soloraid.js(classic script)와
+// 분리된 모듈로 두고, window에 진입점만 노출해서 soloraid.js에서 호출한다.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
@@ -987,7 +987,7 @@ const RAW_MODE = (() => {
 if (RAW_MODE) {
   try {
     const tag = document.createElement('div');
-    tag.id = 'f3d-raw-tag';
+    tag.id = 'sr3d-raw-tag';
     tag.textContent = '원본 확인 모드 — 뷰어 보정 꺼짐';
     tag.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);'
       + 'z-index:9999;padding:5px 12px;border-radius:999px;font:700 12px/1.4 system-ui;'
@@ -1371,7 +1371,7 @@ const AIM_DAMP = (() => {
 if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {   // 주소로 켰을 때만 띠를 붙인다
   try {
     const tag = document.createElement('div');
-    tag.id = 'f3d-aim-tag';
+    tag.id = 'sr3d-aim-tag';
     tag.textContent = AIM_CUT ? ('겨냥 비교 모드 — 컷 머리 + 추종 ' + AIM_DAMP + '초')
       : '겨냥 비교 모드 — 카메라가 보스 중심을 본다';
     tag.style.cssText = 'position:fixed;left:50%;top:' + (GATEFIT_OFF ? '38px' : '8px')
@@ -1386,7 +1386,7 @@ if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {   // 주소로 켰을 때만 띠를 붙
 if (GATEFIT_OFF && !RAW_MODE) {
   try {
     const tag = document.createElement('div');
-    tag.id = 'f3d-gate-tag';
+    tag.id = 'sr3d-gate-tag';
     tag.textContent = '화각 비교 모드 — 파일 화각 그대로(게이트핏 꺼짐)';
     tag.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);'
       + 'z-index:9999;padding:5px 12px;border-radius:999px;font:700 12px/1.4 system-ui;'
@@ -2141,7 +2141,7 @@ const liveStates = new Set();
 
 // 솔로 레이드 탭을 벗어나면 뷰어를 재우고, 돌아오면 깨운다.
 document.addEventListener('mmr:tab-change', ev => {
-  const on = !!(ev.detail && ev.detail.tab === 'frames');
+  const on = !!(ev.detail && ev.detail.tab === 'soloraid');
   liveStates.forEach(st => { st.offscreen = !on; });
 });
 
@@ -2167,7 +2167,7 @@ function watchTheme() {
 }
 
 function disposeState(container) {
-  const state = container.__framesModel3D;
+  const state = container.__soloRaidModel3D;
   if (!state) return;
   if (state.rafId) cancelAnimationFrame(state.rafId);
   if (state.resizeObserver) state.resizeObserver.disconnect();
@@ -2175,25 +2175,25 @@ function disposeState(container) {
 
   // 다음 로드가 새로 연결하기 전까지, 이전(디스포즈된) 인스턴스를 가리키는
   // 핸들러가 남아있으면 클릭 시 에러가 나므로 항상 비워둔다.
-  const resetBtn = document.getElementById('frames-spine-reset');
+  const resetBtn = document.getElementById('soloraid-spine-reset');
   if (resetBtn) resetBtn.onclick = null;
-  const pauseBtn = document.getElementById('frames-spine-pause');
+  const pauseBtn = document.getElementById('soloraid-spine-pause');
   if (pauseBtn) {
     pauseBtn.onclick = null;
     pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
   }
-  const phaseToggleEl = document.getElementById('frames-phase-toggle');
+  const phaseToggleEl = document.getElementById('soloraid-phase-toggle');
   if (phaseToggleEl) {
     phaseToggleEl.innerHTML = '';
     phaseToggleEl.classList.add('hidden');
   }
-  ['frames-anim-toggle'].forEach(id => {
+  ['soloraid-anim-toggle'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
   });
-  const barEl = document.getElementById('frames-playbar');
+  const barEl = document.getElementById('soloraid-playbar');
   if (barEl) barEl.classList.add('hidden');
-  const restartBtn = document.getElementById('frames-spine-restart');
+  const restartBtn = document.getElementById('soloraid-spine-restart');
   if (restartBtn) restartBtn.onclick = null;
 
   if (state.renderer) {
@@ -2218,10 +2218,10 @@ function disposeState(container) {
     });
   }
   liveStates.delete(state);
-  container.__framesModel3D = null;
+  container.__soloRaidModel3D = null;
 }
 
-window.disposeFramesModel3D = disposeState;
+window.disposeSoloRaidModel3D = disposeState;
 
 // ── 불러오기 진행 막대 ─────────────────────────────────────────
 // 보스를 고르면 큰 파일을 내려받는 동안 무대가 한참 비어 있다. 무슨 일이 일어나는지
@@ -2236,25 +2236,25 @@ function setLoadingBar(seq, pct, sub) {
   // 하는데 중간에 로딩 화면이 끼면 흐름이 끊긴다. 앞 페이즈 화면이 그대로
   // 남아 있다가 다음 모델로 바뀐다.
   if (autoPhasePending) return;
-  const box = document.getElementById('f3d-loading');
+  const box = document.getElementById('sr3d-loading');
   if (!box) return;
   box.classList.remove('hidden');
   box.classList.toggle('indeterminate', pct === null);
-  const fill = box.querySelector('.f3d-loading-fill');
+  const fill = box.querySelector('.sr3d-loading-fill');
   if (fill && pct !== null) fill.style.width = pct + '%';
-  const el = box.querySelector('.f3d-loading-sub');
+  const el = box.querySelector('.sr3d-loading-sub');
   if (el) el.textContent = sub || '';
 }
 
 function hideLoadingBar(seq) {
   if (seq !== loadSeq) return;
-  const box = document.getElementById('f3d-loading');
+  const box = document.getElementById('sr3d-loading');
   if (box) box.classList.add('hidden');
 }
 
 const MB = 1024 * 1024;
 
-window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, options = {}) {
+window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, options = {}) {
   const { onError, onLoaded } = options;
 
   disposeState(container);
@@ -2275,7 +2275,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   // 서랍을 여닫으면 무대 폭이 바뀌는데, 캔버스는 로드 시점 크기로 고정돼 있어서
   // 옆 칸(사이드바·서랍)을 덮어버렸다. 컨테이너를 지켜보다 같이 줄이고 늘린다.
   const resizeObserver = new ResizeObserver(() => {
-    const st = container.__framesModel3D;
+    const st = container.__soloRaidModel3D;
     if (!st || st.renderer !== renderer) return;
     const w = container.clientWidth, h = container.clientHeight;
     if (!w || !h) return;
@@ -2351,7 +2351,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   }
 
   const state = { renderer, scene, camera, controls, rafId: null, paused: false, resizeObserver };
-  container.__framesModel3D = state;
+  container.__soloRaidModel3D = state;
   liveStates.add(state);
   watchTheme();
 
@@ -2370,7 +2370,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
   let initialTarget = null;
 
   loader.load(modelUrl, (gltf) => {
-    if (container.__framesModel3D !== state) return; // 그 사이 다른 보스로 전환됨
+    if (container.__soloRaidModel3D !== state) return; // 그 사이 다른 보스로 전환됨
 
     const meshNamesForBossCode = [];
     gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
@@ -2450,7 +2450,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 슬라이더 기본값은 이 보스의 보정값으로 맞춰 둔다. 사용자가 만지면 그 값이 이긴다.
     const SL = {};
     ['yaw', 'pitch', 'roll', 'px', 'py', 'pz', 'sc'].forEach(k => {
-      SL[k] = document.getElementById('f3d-' + k);
+      SL[k] = document.getElementById('sr3d-' + k);
     });
     if (SL.yaw) {
       SL.yaw.value = yawDeg; SL.pitch.value = pitchDeg; SL.roll.value = rollDeg;
@@ -2482,11 +2482,11 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       yawGroup.position.set(+SL.px.value, +SL.py.value, +SL.pz.value);
       yawGroup.scale.setScalar(+SL.sc.value);
       Object.keys(SL).forEach(k => {
-        const b = document.getElementById('f3d-' + k + 'v');
+        const b = document.getElementById('sr3d-' + k + 'v');
         if (b) b.textContent = SL[k].value;
       });
       markFaceButtons();
-      const out = document.getElementById('f3d-out');
+      const out = document.getElementById('sr3d-out');
       if (out) {
         out.value = 'rotation: [' + SL.pitch.value + ', ' + SL.yaw.value + ', ' + SL.roll.value + '],\n'
           + 'position: [' + SL.px.value + ', ' + SL.py.value + ', ' + SL.pz.value + '],\n'
@@ -2496,12 +2496,12 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     Object.values(SL).forEach(el => {
       if (!el) return;
-      el.oninput = () => { if (container.__framesModel3D === state) applySliders(); };
+      el.oninput = () => { if (container.__soloRaidModel3D === state) applySliders(); };
     });
 
-    document.querySelectorAll('.f3d-face').forEach(btn => {
+    document.querySelectorAll('.sr3d-face').forEach(btn => {
       btn.onclick = () => {
-        if (container.__framesModel3D !== state || !SL.yaw) return;
+        if (container.__soloRaidModel3D !== state || !SL.yaw) return;
         SL.yaw.value = btn.dataset.yaw;
         applySliders();
       };
@@ -2510,7 +2510,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     // 지금 yaw 와 맞는 방향 버튼에 불을 켠다. 슬라이더를 직접 돌려 어긋나면 다 꺼진다.
     function markFaceButtons() {
       const cur = SL.yaw ? Number(SL.yaw.value) : null;
-      document.querySelectorAll('.f3d-face').forEach(b => {
+      document.querySelectorAll('.sr3d-face').forEach(b => {
         b.classList.toggle('active', cur !== null && Number(b.dataset.yaw) === cur);
       });
     }
@@ -2552,7 +2552,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (!el) return;
       el.classList.toggle('active', get());
       el.onclick = () => {
-        if (container.__framesModel3D !== state) return;
+        if (container.__soloRaidModel3D !== state) return;
         set(!get());
         el.classList.toggle('active', get());
         applyLookFlags();
@@ -3258,7 +3258,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
     function renderToggleUI() {
       if (!meshes.length) return;
-      const box = document.getElementById('frames-parts-toggle');
+      const box = document.getElementById('soloraid-parts-toggle');
       if (!box) return;
 
       // 부위별로 묶는다. 프로비던스처럼 팔·다리·어깨가 좌우로 나뉜 보스는
@@ -3336,7 +3336,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       if (resetBtn) {
         resetBtn.addEventListener('click', ev => {
           ev.stopPropagation();
-          if (container.__framesModel3D !== state) return;
+          if (container.__soloRaidModel3D !== state) return;
           enabledMeshes.clear();
           defaultPartKeys(currentPhase).forEach(k => enabledMeshes.add(k));
           applyVisibility();
@@ -3348,7 +3348,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       const allHead = box.querySelector('.part-all');
       if (allHead) {
         allHead.addEventListener('click', () => {
-          if (container.__framesModel3D !== state) return;
+          if (container.__soloRaidModel3D !== state) return;
           const pool = meshes.filter(m => isPhaseVisible(phaseOf(m.name), currentPhase));
           const allOn = pool.every(m => enabledMeshes.has(m.partKey));
           pool.forEach(m => {
@@ -3363,7 +3363,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
       // 묶음 제목: 하나라도 꺼져 있으면 전부 켜고, 다 켜져 있으면 전부 끈다
       box.querySelectorAll('.part-group-head[data-group]').forEach(head => {
         head.addEventListener('click', () => {
-          if (container.__framesModel3D !== state) return;
+          if (container.__soloRaidModel3D !== state) return;
           const items = groups[+head.dataset.group].items;
           const allOn = items.every(m => enabledMeshes.has(m.partKey));
           items.forEach(m => {
@@ -3377,7 +3377,7 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
 
       box.querySelectorAll('.part-toggle-item').forEach(el => {
         el.addEventListener('click', () => {
-          if (container.__framesModel3D !== state) return;
+          if (container.__soloRaidModel3D !== state) return;
           const key = el.dataset.skin;
           if (enabledMeshes.has(key)) enabledMeshes.delete(key);
           else enabledMeshes.add(key);
@@ -3390,19 +3390,19 @@ window.loadFramesModel3D = function loadFramesModel3D(container, modelUrl, optio
     applyVisibility();
     renderToggleUI();
 
-    const phaseToggleEl = document.getElementById('frames-phase-toggle');
+    const phaseToggleEl = document.getElementById('soloraid-phase-toggle');
     if (phaseToggleEl) {
       if (phaseKeys.length > 1 && !lockedPhase) {
         phaseToggleEl.classList.remove('hidden');
         phaseToggleEl.innerHTML = phaseKeys.map(p => `
-          <button type="button" class="filter-chip frames-phase-btn${p === currentPhase ? ' active' : ''}" data-phase="${p}">${p}페이즈</button>
+          <button type="button" class="filter-chip soloraid-phase-btn${p === currentPhase ? ' active' : ''}" data-phase="${p}">${p}페이즈</button>
         `).join('');
-        phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(btn => {
+        phaseToggleEl.querySelectorAll('.soloraid-phase-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             currentPhase = btn.dataset.phase;
             refreshFocusMesh();
             applyPhaseCamDist(currentPhase);
-            phaseToggleEl.querySelectorAll('.frames-phase-btn').forEach(b => {
+            phaseToggleEl.querySelectorAll('.soloraid-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
             // 프리셋 적용: 페이즈 태그가 있는 파츠만 보스별 모드(누적/배타)에 맞게 다시
@@ -4386,8 +4386,8 @@ function noFollowClip(bossKey, name) {
     function goToNextPhase() {
       const byPhase = autoPhaseRule && autoPhaseRule.by === 'phase';
       const btns = [].slice.call(document.querySelectorAll(
-        byPhase ? '#frames-phase-toggle .frames-phase-btn'
-                : '#frames-model-toggle .frames-model-btn'));
+        byPhase ? '#soloraid-phase-toggle .soloraid-phase-btn'
+                : '#soloraid-model-toggle .soloraid-model-btn'));
       const at = btns.findIndex(b => b.classList.contains('active'));
       if (at < 0 || at + 1 >= btns.length) return false;
       // 모델을 새로 불러오는 쪽만 대기표가 필요하다. 페이즈 칩은 그 자리에서
@@ -4435,10 +4435,10 @@ function noFollowClip(bossKey, name) {
       playSingle(findIdleClipForPhase(currentPhase));
     }
 
-    const resetBtn = document.getElementById('frames-spine-reset');
+    const resetBtn = document.getElementById('soloraid-spine-reset');
     if (resetBtn) {
       resetBtn.onclick = () => {
-        if (container.__framesModel3D !== state) return;
+        if (container.__soloRaidModel3D !== state) return;
         camera.position.copy(homeCamPos);
         controls.target.copy(homeTarget);
         // 팬으로 옮겨둔 추적 기준도 홈으로 되돌린다
@@ -4448,10 +4448,10 @@ function noFollowClip(bossKey, name) {
       };
     }
 
-    const pauseBtn = document.getElementById('frames-spine-pause');
+    const pauseBtn = document.getElementById('soloraid-spine-pause');
     if (pauseBtn) {
       pauseBtn.onclick = () => {
-        if (container.__framesModel3D !== state) return;
+        if (container.__soloRaidModel3D !== state) return;
         state.paused = !state.paused;
         pauseBtn.innerHTML = state.paused
           ? '<i class="fas fa-play"></i>'
@@ -4468,7 +4468,7 @@ function noFollowClip(bossKey, name) {
 
     function markActiveClip(key) {
       if (key !== undefined) activeMainKey = key;
-      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(b => {
+      document.querySelectorAll('#soloraid-anim-toggle .soloraid-anim-btn').forEach(b => {
         b.classList.toggle('active',
           activeMainKey !== null && b.dataset.key === activeMainKey && seqMatch(b));
       });
@@ -4476,14 +4476,14 @@ function noFollowClip(bossKey, name) {
 
     // 지금 실제로 도는 클립. 묶음을 재생하면 소속 클립에 차례로 불이 들어온다.
     function markPlayingClip(name) {
-      document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(b => {
+      document.querySelectorAll('#soloraid-anim-toggle .soloraid-anim-btn').forEach(b => {
         const on = b.dataset.key === name && seqMatch(b);
         b.classList.toggle('playing', on);
         if (!on) b.style.removeProperty('--anim-progress');
       });
     }
 
-    const animEl = document.getElementById('frames-anim-toggle');
+    const animEl = document.getElementById('soloraid-anim-toggle');
     if (animEl) {
       const seqs = findSequences(gltf.animations || [], bossKey);
       buildSyntheticSequences(seqs);
@@ -4550,7 +4550,7 @@ function noFollowClip(bossKey, name) {
         seqs.forEach(sq => { if (!sq.synthetic) sq.steps.forEach(st => inSeq.add(st.clip.name)); });
 
         const mkBtn = (key, text, time, cls, seq) =>
-          `<button type="button" class="f3d-btn frames-anim-btn${cls ? ' ' + cls : ''}"`
+          `<button type="button" class="sr3d-btn soloraid-anim-btn${cls ? ' ' + cls : ''}"`
           + ` data-key="${key}"${seq ? ` data-seq="${seq}"` : ''}>`
           + `<span class="anim-name">${text}</span><span class="anim-time">${time}</span></button>`;
 
@@ -4689,7 +4689,7 @@ function noFollowClip(bossKey, name) {
             let head = `<span class="anim-group-label">${g}</span>`;
             if (g === '페이즈 전환' && autoPhaseAvailable()) {
               head = `<div class="anim-group-head">${head}`
-                + `<div class="toggle-switch-wrap anim-auto-phase frames-auto-phase`
+                + `<div class="toggle-switch-wrap anim-auto-phase soloraid-auto-phase`
                 + `${autoPhaseChain ? ' active' : ''}" role="switch"`
                 + ` aria-checked="${autoPhaseChain}" title="전환 연출이 끝나면 다음 페이즈로 이어서 재생">`
                 + `<span class="toggle-label">자동 전환</span>`
@@ -4700,19 +4700,19 @@ function noFollowClip(bossKey, name) {
 
           animEl.innerHTML = parts.join('');
 
-          const autoBtn = animEl.querySelector('.frames-auto-phase');
+          const autoBtn = animEl.querySelector('.soloraid-auto-phase');
           if (autoBtn) {
             autoBtn.addEventListener('click', () => {
-              if (container.__framesModel3D !== state) return;
+              if (container.__soloRaidModel3D !== state) return;
               autoPhaseChain = !autoPhaseChain;
               autoBtn.classList.toggle('active', autoPhaseChain);
               autoBtn.setAttribute('aria-checked', String(autoPhaseChain));
             });
           }
 
-          document.querySelectorAll('#frames-anim-toggle .frames-anim-btn').forEach(btn => {
+          document.querySelectorAll('#soloraid-anim-toggle .soloraid-anim-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-              if (container.__framesModel3D !== state) return;
+              if (container.__soloRaidModel3D !== state) return;
               const key = btn.dataset.key;
               if (key.endsWith('#trio')) {
                 const t = trioByCenter.get(key.slice(0, -5));
@@ -4751,15 +4751,15 @@ function noFollowClip(bossKey, name) {
     }
 
     // 조작 패널에서 비어 있는 그룹(라벨만 남은 줄)을 감춘다
-    if (window.syncFramesCtlGroups) window.syncFramesCtlGroups();
+    if (window.syncSoloRaidCtlGroups) window.syncSoloRaidCtlGroups();
 
     if (onLoaded) onLoaded({ meshCount: meshes.length });
 
     // ── 재생바 ────────────────────────────────────────────────────
-    const barEl = document.getElementById('frames-playbar');
-    const lineEl = document.getElementById('frames-timeline');
-    const fillEl = document.getElementById('frames-timeline-fill');
-    const codeEl = document.getElementById('frames-timecode');
+    const barEl = document.getElementById('soloraid-playbar');
+    const lineEl = document.getElementById('soloraid-timeline');
+    const fillEl = document.getElementById('soloraid-timeline-fill');
+    const codeEl = document.getElementById('soloraid-timecode');
 
     if (barEl) barEl.classList.toggle('hidden', !(gltf.animations && gltf.animations.length));
 
@@ -4809,12 +4809,12 @@ function noFollowClip(bossKey, name) {
       lineEl.addEventListener('pointerdown', ev => {
         scrubbing = true;
         lineEl.setPointerCapture(ev.pointerId);
-        const st = container.__framesModel3D;
+        const st = container.__soloRaidModel3D;
         if (st && st.seekToRatio) st.seekToRatio(ratioAt(ev));
       });
       lineEl.addEventListener('pointermove', ev => {
         if (!scrubbing) return;
-        const st = container.__framesModel3D;
+        const st = container.__soloRaidModel3D;
         if (st && st.seekToRatio) st.seekToRatio(ratioAt(ev));
       });
       const stop = () => { scrubbing = false; };
@@ -4898,22 +4898,22 @@ function noFollowClip(bossKey, name) {
         }
         mt.needsUpdate = true;
       });
-      document.querySelectorAll('#frames-glow-toggle .f3d-btn')
+      document.querySelectorAll('#soloraid-glow-toggle .sr3d-btn')
         .forEach(b => b.classList.toggle('active', b.dataset.glow === glowMode));
     }
 
-    const glowEl = document.getElementById('frames-glow-toggle');
+    const glowEl = document.getElementById('soloraid-glow-toggle');
     if (glowEl) {
       if (!glowMats.length) {
         glowEl.innerHTML = '';
       } else {
         glowEl.innerHTML = glowPresetsFor(bossCode).map(p =>
-          `<button type="button" class="f3d-btn f3d-glow-btn${p.key === 'off' ? ' active' : ''}" data-glow="${p.key}">`
+          `<button type="button" class="sr3d-btn sr3d-glow-btn${p.key === 'off' ? ' active' : ''}" data-glow="${p.key}">`
           + (p.css ? `<i style="background:${p.css}"></i>` : '') + p.label + '</button>'
         ).join('');
-        glowEl.querySelectorAll('.f3d-btn').forEach(b => {
+        glowEl.querySelectorAll('.sr3d-btn').forEach(b => {
           b.addEventListener('click', () => {
-            if (container.__framesModel3D !== state) return;
+            if (container.__soloRaidModel3D !== state) return;
             glowMode = b.dataset.glow;
             applyGlow();
           });
@@ -4926,25 +4926,25 @@ function noFollowClip(bossKey, name) {
     // 조작 패널 토글 연결
     applySliders();
     applyLookFlags();
-    bindToggle('f3d-wire', () => optWire, v => { optWire = v; });
-    bindToggle('f3d-alpha', () => optAlpha, v => { optAlpha = v; });
-    bindToggle('f3d-single', () => optSingle, v => { optSingle = v; });
+    bindToggle('sr3d-wire', () => optWire, v => { optWire = v; });
+    bindToggle('sr3d-alpha', () => optAlpha, v => { optAlpha = v; });
+    bindToggle('sr3d-single', () => optSingle, v => { optSingle = v; });
 
-    const gridBtn = document.getElementById('f3d-grid');
+    const gridBtn = document.getElementById('sr3d-grid');
     if (gridBtn) {
       gridBtn.classList.toggle('active', gridHelper.visible);
       gridBtn.onclick = () => {
-        if (container.__framesModel3D !== state) return;
+        if (container.__soloRaidModel3D !== state) return;
         gridHelper.visible = !gridHelper.visible;
         gridBtn.classList.toggle('active', gridHelper.visible);
       };
     }
 
-    const followBtn = document.getElementById('f3d-follow');
+    const followBtn = document.getElementById('sr3d-follow');
     if (followBtn) {
       followBtn.classList.toggle('active', followEnabled);
       followBtn.onclick = () => {
-        if (container.__framesModel3D !== state) return;
+        if (container.__soloRaidModel3D !== state) return;
         followEnabled = !followEnabled;
         followBtn.classList.toggle('active', followEnabled);
         syncPanLock();
@@ -4952,10 +4952,10 @@ function noFollowClip(bossKey, name) {
     }
     syncPanLock();
 
-    const zeroBtn = document.getElementById('f3d-zero');
+    const zeroBtn = document.getElementById('sr3d-zero');
     if (zeroBtn) {
       zeroBtn.onclick = () => {
-        if (container.__framesModel3D !== state || !SL.yaw) return;
+        if (container.__soloRaidModel3D !== state || !SL.yaw) return;
         const t = getBossTransform(bossCode, isCatalogExport);
         SL.yaw.value = t.rotation[1]; SL.pitch.value = t.rotation[0]; SL.roll.value = t.rotation[2];
         SL.px.value = t.position[0]; SL.py.value = t.position[1]; SL.pz.value = t.position[2];
@@ -4971,20 +4971,20 @@ function noFollowClip(bossKey, name) {
       currentAction.time = Math.max(0, Math.min(dur, currentAction.time + delta));
       syncSimulTime();
       state.paused = true;
-      const pb = document.getElementById('frames-spine-pause');
+      const pb = document.getElementById('soloraid-spine-pause');
       if (pb) pb.innerHTML = '<i class="fas fa-play"></i>';
       if (mixer) mixer.update(0);
       syncBar();
     }
-    const backBtn = document.getElementById('frames-step-back');
-    if (backBtn) backBtn.onclick = () => { if (container.__framesModel3D === state) stepFrames(-1 / 30); };
-    const fwdBtn = document.getElementById('frames-step-fwd');
-    if (fwdBtn) fwdBtn.onclick = () => { if (container.__framesModel3D === state) stepFrames(1 / 30); };
+    const backBtn = document.getElementById('soloraid-step-back');
+    if (backBtn) backBtn.onclick = () => { if (container.__soloRaidModel3D === state) stepFrames(-1 / 30); };
+    const fwdBtn = document.getElementById('soloraid-step-fwd');
+    if (fwdBtn) fwdBtn.onclick = () => { if (container.__soloRaidModel3D === state) stepFrames(1 / 30); };
 
-    const restartBtn = document.getElementById('frames-spine-restart');
+    const restartBtn = document.getElementById('soloraid-spine-restart');
     if (restartBtn) {
       restartBtn.onclick = () => {
-        if (container.__framesModel3D !== state) return;
+        if (container.__soloRaidModel3D !== state) return;
         seekToRatio(0);
       };
     }
@@ -5014,7 +5014,7 @@ function noFollowClip(bossKey, name) {
       if (codeEl) codeEl.textContent = t.toFixed(2) + ' / ' + dur.toFixed(2);
 
       // 지금 도는 클립 버튼도 재생바처럼 색이 차오른다. 글자색만으로는 눈에 안 띈다.
-      const pb = document.querySelector('#frames-anim-toggle .frames-anim-btn.playing');
+      const pb = document.querySelector('#soloraid-anim-toggle .soloraid-anim-btn.playing');
       if (pb) pb.style.setProperty('--anim-progress', pct.toFixed(1) + '%');
     }
 
@@ -5035,7 +5035,7 @@ function noFollowClip(bossKey, name) {
     };
 
     function animate() {
-      if (container.__framesModel3D !== state) return; // dispose됨
+      if (container.__soloRaidModel3D !== state) return; // dispose됨
       state.rafId = requestAnimationFrame(animate);
       // 다른 탭에 가 있는 동안은 한 프레임도 그리지 않는다. 안 보이는 곳에서
       // 계속 돌면 배터리와 GPU 만 먹는다. getDelta 는 버려서 돌아왔을 때

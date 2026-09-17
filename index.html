@@ -33,7 +33,7 @@
     <button class="tab-btn" data-tab="costume">유니크 코스튬</button>
     <button class="tab-btn" data-tab="unreleased">미실장 캐릭터</button>
     <button class="tab-btn" data-tab="souvenir">기념품 목록</button>
-    <button class="tab-btn" data-tab="frames">솔로 레이드</button>
+    <button class="tab-btn" data-tab="soloraid">솔로 레이드</button>
     <button class="tab-btn" data-tab="stage">스테이지 정보</button>
   </nav>
 
@@ -428,141 +428,141 @@
       </div>
     </div>
 
-    <div id="tab-frames" class="tab-content">
+    <div id="tab-soloraid" class="tab-content">
       <!-- 테스트 뷰어(boss3d-test.html)와 같은 배치.
            왼쪽 사이드바 = 조작, 가운데 = 3D + 재생바, 오른쪽 = 보스 목록/상세 서랍. -->
       <!-- 보스를 고르기 전: 예전처럼 바둑판으로 보스만 늘어놓는다 -->
-      <div id="f3d-home">
+      <div id="sr3d-home">
         <div class="section-title">역대 솔로 레이드</div>
-        <div id="frames-toolbar">
-          <input type="search" id="frames-search" placeholder="보스 이름 · 시즌 검색" autocomplete="off">
-          <button id="frames-sort-btn" type="button"
+        <div id="soloraid-toolbar">
+          <input type="search" id="soloraid-search" placeholder="보스 이름 · 시즌 검색" autocomplete="off">
+          <button id="soloraid-sort-btn" type="button"
                   data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
         </div>
-        <div id="frames-selector"></div>
-        <p id="frames-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
+        <div id="soloraid-selector"></div>
+        <p id="soloraid-empty" class="hidden">아직 등록된 테두리 정보가 없습니다.</p>
       </div>
 
-      <div id="f3d-app" class="hidden">
+      <div id="sr3d-app" class="hidden">
 
-        <button type="button" id="f3d-side-toggle" aria-expanded="true" title="조작판 접기">
+        <button type="button" id="sr3d-side-toggle" aria-expanded="true" title="조작판 접기">
           <i class="fas fa-chevron-left"></i>
         </button>
 
-        <div id="f3d-side">
+        <div id="sr3d-side">
           <h2>페이즈</h2>
-          <div class="f3d-row" id="frames-model-toggle"></div>
-          <div class="f3d-row" id="frames-phase-toggle"></div>
+          <div class="sr3d-row" id="soloraid-model-toggle"></div>
+          <div class="sr3d-row" id="soloraid-phase-toggle"></div>
 
           <h2>애니메이션</h2>
-          <div class="f3d-col" id="frames-anim-toggle"></div>
+          <div class="sr3d-col" id="soloraid-anim-toggle"></div>
 
           <h2>방향 · 위치</h2>
-          <div class="f3d-row" style="margin-bottom:6px">
-            <button type="button" class="f3d-btn f3d-face" data-yaw="180">앞</button>
-            <button type="button" class="f3d-btn f3d-face" data-yaw="270">우</button>
-            <button type="button" class="f3d-btn f3d-face" data-yaw="0">뒤</button>
-            <button type="button" class="f3d-btn f3d-face" data-yaw="90">좌</button>
+          <div class="sr3d-row" style="margin-bottom:6px">
+            <button type="button" class="sr3d-btn sr3d-face" data-yaw="180">앞</button>
+            <button type="button" class="sr3d-btn sr3d-face" data-yaw="270">우</button>
+            <button type="button" class="sr3d-btn sr3d-face" data-yaw="0">뒤</button>
+            <button type="button" class="sr3d-btn sr3d-face" data-yaw="90">좌</button>
           </div>
-          <label class="f3d-sl"><span>yaw</span><input type="range" id="f3d-yaw" min="0" max="360" step="1" value="180"><b id="f3d-yawv">180</b></label>
-          <label class="f3d-sl"><span>pitch</span><input type="range" id="f3d-pitch" min="-90" max="90" step="1" value="0"><b id="f3d-pitchv">0</b></label>
-          <label class="f3d-sl"><span>roll</span><input type="range" id="f3d-roll" min="-180" max="180" step="1" value="0"><b id="f3d-rollv">0</b></label>
-          <label class="f3d-sl"><span>X</span><input type="range" id="f3d-px" min="-1" max="1" step="0.005" value="0"><b id="f3d-pxv">0</b></label>
-          <label class="f3d-sl"><span>Y</span><input type="range" id="f3d-py" min="-1" max="1" step="0.005" value="0"><b id="f3d-pyv">0</b></label>
-          <label class="f3d-sl"><span>Z</span><input type="range" id="f3d-pz" min="-1" max="1" step="0.005" value="0"><b id="f3d-pzv">0</b></label>
-          <label class="f3d-sl"><span>배율</span><input type="range" id="f3d-sc" min="0.2" max="3" step="0.01" value="1"><b id="f3d-scv">1</b></label>
+          <label class="sr3d-sl"><span>yaw</span><input type="range" id="sr3d-yaw" min="0" max="360" step="1" value="180"><b id="sr3d-yawv">180</b></label>
+          <label class="sr3d-sl"><span>pitch</span><input type="range" id="sr3d-pitch" min="-90" max="90" step="1" value="0"><b id="sr3d-pitchv">0</b></label>
+          <label class="sr3d-sl"><span>roll</span><input type="range" id="sr3d-roll" min="-180" max="180" step="1" value="0"><b id="sr3d-rollv">0</b></label>
+          <label class="sr3d-sl"><span>X</span><input type="range" id="sr3d-px" min="-1" max="1" step="0.005" value="0"><b id="sr3d-pxv">0</b></label>
+          <label class="sr3d-sl"><span>Y</span><input type="range" id="sr3d-py" min="-1" max="1" step="0.005" value="0"><b id="sr3d-pyv">0</b></label>
+          <label class="sr3d-sl"><span>Z</span><input type="range" id="sr3d-pz" min="-1" max="1" step="0.005" value="0"><b id="sr3d-pzv">0</b></label>
+          <label class="sr3d-sl"><span>배율</span><input type="range" id="sr3d-sc" min="0.2" max="3" step="0.01" value="1"><b id="sr3d-scv">1</b></label>
 
           <h2>보기</h2>
-          <div class="f3d-row">
-            <button type="button" class="f3d-btn" id="f3d-zero">값 초기화</button>
-            <button type="button" class="f3d-btn" id="f3d-grid">격자</button>
-            <button type="button" class="f3d-btn active" id="f3d-follow">카메라 추적</button>
-            <button type="button" class="f3d-btn" id="frames-spine-reset">시점 초기화</button>
+          <div class="sr3d-row">
+            <button type="button" class="sr3d-btn" id="sr3d-zero">값 초기화</button>
+            <button type="button" class="sr3d-btn" id="sr3d-grid">격자</button>
+            <button type="button" class="sr3d-btn active" id="sr3d-follow">카메라 추적</button>
+            <button type="button" class="sr3d-btn" id="soloraid-spine-reset">시점 초기화</button>
           </div>
-          <div class="f3d-row f3d-grid3" style="margin-top:5px">
-            <button type="button" class="f3d-btn" id="f3d-wire">와이어프레임</button>
-            <button type="button" class="f3d-btn" id="f3d-alpha">알파컷 켜기</button>
-            <button type="button" class="f3d-btn" id="f3d-single">단면 표시</button>
+          <div class="sr3d-row sr3d-grid3" style="margin-top:5px">
+            <button type="button" class="sr3d-btn" id="sr3d-wire">와이어프레임</button>
+            <button type="button" class="sr3d-btn" id="sr3d-alpha">알파컷 켜기</button>
+            <button type="button" class="sr3d-btn" id="sr3d-single">단면 표시</button>
           </div>
-          <textarea id="f3d-out" readonly></textarea>
+          <textarea id="sr3d-out" readonly></textarea>
 
           <h2>발광색</h2>
-          <div class="f3d-row" id="frames-glow-toggle"></div>
+          <div class="sr3d-row" id="soloraid-glow-toggle"></div>
 
           <h2>파츠</h2>
-          <div id="frames-parts-toggle"></div>
+          <div id="soloraid-parts-toggle"></div>
         </div>
 
-        <div id="f3d-stage">
-          <div id="f3d-view">
-            <div id="frames-spine-player"></div>
-            <div id="f3d-hud" class="hidden"></div>
-            <div id="f3d-loading" class="hidden">
-              <div class="f3d-loading-label">모델 불러오는 중</div>
-              <div class="f3d-loading-track"><div class="f3d-loading-fill"></div></div>
-              <div class="f3d-loading-sub"></div>
+        <div id="sr3d-stage">
+          <div id="sr3d-view">
+            <div id="soloraid-spine-player"></div>
+            <div id="sr3d-hud" class="hidden"></div>
+            <div id="sr3d-loading" class="hidden">
+              <div class="sr3d-loading-label">모델 불러오는 중</div>
+              <div class="sr3d-loading-track"><div class="sr3d-loading-fill"></div></div>
+              <div class="sr3d-loading-sub"></div>
             </div>
           </div>
-          <div id="f3d-bar">
-            <button id="frames-spine-restart" type="button" title="처음부터"><i class="fas fa-rotate-left"></i></button>
-            <button id="frames-spine-pause" type="button" title="일시정지"><i class="fas fa-pause"></i></button>
-            <div id="frames-timeline"><div id="frames-timeline-fill"></div></div>
-            <span id="frames-timecode">0.00 / 0.00</span>
-            <button id="frames-step-back" type="button" title="한 프레임 뒤로">◀</button>
-            <button id="frames-step-fwd" type="button" title="한 프레임 앞으로">▶</button>
+          <div id="sr3d-bar">
+            <button id="soloraid-spine-restart" type="button" title="처음부터"><i class="fas fa-rotate-left"></i></button>
+            <button id="soloraid-spine-pause" type="button" title="일시정지"><i class="fas fa-pause"></i></button>
+            <div id="soloraid-timeline"><div id="soloraid-timeline-fill"></div></div>
+            <span id="soloraid-timecode">0.00 / 0.00</span>
+            <button id="soloraid-step-back" type="button" title="한 프레임 뒤로">◀</button>
+            <button id="soloraid-step-fwd" type="button" title="한 프레임 앞으로">▶</button>
           </div>
         </div>
 
         <!-- 오른쪽: 보스 목록 / 상세 정보 서랍 -->
-        <div id="f3d-rail">
-          <button id="frames-drawer-list" type="button" aria-expanded="true">
+        <div id="sr3d-rail">
+          <button id="soloraid-drawer-list" type="button" aria-expanded="true">
             <i class="fas fa-list"></i><span>보스 목록</span>
           </button>
-          <button id="frames-drawer-info" type="button" aria-expanded="false">
+          <button id="soloraid-drawer-info" type="button" aria-expanded="false">
             <i class="fas fa-circle-info"></i><span>상세 정보</span>
           </button>
-          <button id="frames-drawer-tiers" type="button" aria-expanded="false">
+          <button id="soloraid-drawer-tiers" type="button" aria-expanded="false">
             <i class="fas fa-award"></i><span>프레임</span>
           </button>
-          <button id="frames-drawer-bgm" type="button" aria-expanded="false">
+          <button id="soloraid-drawer-bgm" type="button" aria-expanded="false">
             <i class="fas fa-music"></i><span>전용 BGM</span>
           </button>
         </div>
 
-        <div id="f3d-drawer">
-          <div id="f3d-drawer-list" class="hidden">
-            <div id="f3d-drawer-head">
-              <button type="button" class="f3d-btn" id="f3d-back-home">
+        <div id="sr3d-drawer">
+          <div id="sr3d-drawer-list" class="hidden">
+            <div id="sr3d-drawer-head">
+              <button type="button" class="sr3d-btn" id="sr3d-back-home">
                 <i class="fas fa-table-cells"></i> 목록으로
               </button>
-              <input type="search" id="frames-search-drawer" placeholder="보스 검색" autocomplete="off">
+              <input type="search" id="soloraid-search-drawer" placeholder="보스 검색" autocomplete="off">
             </div>
-            <div id="f3d-drawer-selector" data-tooltip-off></div>
+            <div id="sr3d-drawer-selector" data-tooltip-off></div>
           </div>
 
-          <div id="f3d-drawer-info" class="hidden">
-            <div id="frames-info">
-              <div id="frames-info-header">
-                <div id="frames-boss-name"></div>
-                <div id="frames-season-label"></div>
+          <div id="sr3d-drawer-info" class="hidden">
+            <div id="soloraid-info">
+              <div id="soloraid-info-header">
+                <div id="soloraid-boss-name"></div>
+                <div id="soloraid-season-label"></div>
               </div>
-              <div class="frames-info-row">
-                <div class="frames-info-label">진행 기간</div>
-                <div id="frames-date"></div>
+              <div class="soloraid-info-row">
+                <div class="soloraid-info-label">진행 기간</div>
+                <div id="soloraid-date"></div>
               </div>
-              <div class="frames-info-row">
-                <div class="frames-info-label">약점 속성</div>
-                <div id="frames-attr"></div>
+              <div class="soloraid-info-row">
+                <div class="soloraid-info-label">약점 속성</div>
+                <div id="soloraid-attr"></div>
               </div>
             </div>
           </div>
 
-          <div id="f3d-drawer-tiers" class="hidden">
-            <div id="frames-tiers"></div>
+          <div id="sr3d-drawer-tiers" class="hidden">
+            <div id="soloraid-tiers"></div>
           </div>
 
-          <div id="f3d-drawer-bgm" class="hidden">
-            <div id="frames-bgm"></div>
+          <div id="sr3d-drawer-bgm" class="hidden">
+            <div id="soloraid-bgm"></div>
           </div>
         </div>
 
@@ -638,7 +638,7 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=43"></script>
+  <script src="js/common.js?v=44"></script>
   <script src="js/main.js?v=15"></script>
   <script src="js/pickup.js?v=37"></script>
   <script src="js/costume.js?v=38"></script>
@@ -652,8 +652,8 @@
     }
   }
   </script>
-  <script type="module" src="js/frames3d.js?v=334"></script>
-  <script src="js/frames.js?v=33"></script>
+  <script type="module" src="js/soloraid3d.js?v=334"></script>
+  <script src="js/soloraid.js?v=33"></script>
   <script src="js/stage.js?v=9"></script>
 
   <script>

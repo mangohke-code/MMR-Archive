@@ -1,29 +1,29 @@
-  let allFramesData = [];
-  let currentFrame = null;
-  let framesSpinePlayer = null;
-  let framesPanZoom = null;
+  let allSoloRaidData = [];
+  let currentBoss = null;
+  let soloRaidSpinePlayer = null;
+  let soloRaidPanZoom = null;
 
-  function loadFramesData() {
+  function loadSoloRaidData() {
     onAppDataReady(() => {
-      initFrames(APP_DATA.frames || []);
+      initSoloRaid(APP_DATA.soloraid || []);
     });
   }
 
-  function initFrames(data) {
-    allFramesData = data;
+  function initSoloRaid(data) {
+    allSoloRaidData = data;
 
     if (!data || data.length === 0) {
-      document.getElementById('frames-empty').classList.remove('hidden');
+      document.getElementById('soloraid-empty').classList.remove('hidden');
       return;
     }
 
-    renderFramesSelector(data);
+    renderSoloRaidSelector(data);
     // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
-    collapseFrame();
-    document.getElementById('frames-sort-btn').addEventListener('click', toggleFramesAttrSort);
-    wireFramesDrawers();
-    wireFramesSearch();
-    wireFramesBgm();
+    collapseBoss();
+    document.getElementById('soloraid-sort-btn').addEventListener('click', toggleSoloRaidAttrSort);
+    wireSoloRaidDrawers();
+    wireSoloRaidSearch();
+    wireSoloRaidBgm();
   }
 
   // 보스의 약점 속성 아이콘. 니케 쪽에서 쓰는 우월코드 아이콘을 그대로 재사용한다
@@ -34,22 +34,22 @@
     const url = (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[code];
     const inner = url
       ? `<img src="${url}" alt="${code}">`
-      : `<span class="frames-item-weak-text">${code}</span>`;
-    return `<div class="frames-item-weak code-${code}" data-tooltip="약점 ${code}">${inner}</div>`;
+      : `<span class="soloraid-item-weak-text">${code}</span>`;
+    return `<div class="soloraid-item-weak code-${code}" data-tooltip="약점 ${code}">${inner}</div>`;
   }
 
-  function framesItemHtml(item) {
-    const idx = allFramesData.indexOf(item);
+  function soloRaidItemHtml(item) {
+    const idx = allSoloRaidData.indexOf(item);
     const imgUrl = item['보스 이미지'];
     return `
-      <div class="frames-item" data-idx="${idx}" onclick="selectFrame(allFramesData[${idx}])">
-        <div class="frames-item-img">
+      <div class="soloraid-item" data-idx="${idx}" onclick="selectBoss(allSoloRaidData[${idx}])">
+        <div class="soloraid-item-img">
           ${imgUrl ? `<img src="${imgUrl}" alt="${item['보스']}">` : item['보스']}
           ${weaknessIconHtml(item)}
         </div>
-        <div class="frames-item-text">
-          <div class="frames-item-season">시즌 ${item['시즌']}</div>
-          <div class="frames-item-boss">${item['보스']}</div>
+        <div class="soloraid-item-text">
+          <div class="soloraid-item-season">시즌 ${item['시즌']}</div>
+          <div class="soloraid-item-boss">${item['보스']}</div>
         </div>
       </div>
     `;
@@ -57,11 +57,11 @@
 
   // 약점 속성별로 열을 나눠서 보여주는 모드. 순서는 사이트 다른 곳(우월코드 필터/몰아보기)
   // 에서 쓰는 순서와 맞춘다.
-  const FRAMES_ATTR_ORDER = ['작열', '철갑', '풍압', '전격', '수냉'];
-  let framesSortByAttr = false;
+  const SOLORAID_ATTR_ORDER = ['작열', '철갑', '풍압', '전격', '수냉'];
+  let soloRaidSortByAttr = false;
 
-  function framesAttrColumnsHtml(sorted) {
-    const byAttr = new Map(FRAMES_ATTR_ORDER.map(a => [a, []]));
+  function soloRaidAttrColumnsHtml(sorted) {
+    const byAttr = new Map(SOLORAID_ATTR_ORDER.map(a => [a, []]));
     const etc = [];
     sorted.forEach(item => {
       const attr = item['약점 속성'];
@@ -76,90 +76,90 @@
       .map(([attr, items]) => {
         const url = (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[attr];
         return `
-          <div class="frames-attr-col">
-            <div class="frames-attr-col-head">
+          <div class="soloraid-attr-col">
+            <div class="soloraid-attr-col-head">
               ${url ? `<img src="${url}" alt="${attr}">` : ''}
               <span>${attr}</span><em>${items.length}</em>
             </div>
-            <div class="frames-attr-col-body">${items.map(framesItemHtml).join('')}</div>
+            <div class="soloraid-attr-col-body">${items.map(soloRaidItemHtml).join('')}</div>
           </div>`;
       }).join('');
   }
 
-  function renderFramesSelector(data) {
-    const container = document.getElementById('frames-selector');
+  function renderSoloRaidSelector(data) {
+    const container = document.getElementById('soloraid-selector');
 
     // 최신 시즌부터 먼저 보여준다
     const sorted = [...data].sort((a, b) => Number(b['시즌']) - Number(a['시즌']));
 
-    container.classList.toggle('is-attr-sorted', framesSortByAttr);
-    container.innerHTML = framesSortByAttr
-      ? framesAttrColumnsHtml(sorted)
-      : sorted.map(framesItemHtml).join('');
+    container.classList.toggle('is-attr-sorted', soloRaidSortByAttr);
+    container.innerHTML = soloRaidSortByAttr
+      ? soloRaidAttrColumnsHtml(sorted)
+      : sorted.map(soloRaidItemHtml).join('');
 
     // 오른쪽 서랍에도 같은 목록을 세로로 깔아 둔다(뷰어를 보면서 바로 고를 수 있게)
-    const drawerList = document.getElementById('f3d-drawer-selector');
-    if (drawerList) drawerList.innerHTML = sorted.map(framesItemHtml).join('');
+    const drawerList = document.getElementById('sr3d-drawer-selector');
+    if (drawerList) drawerList.innerHTML = sorted.map(soloRaidItemHtml).join('');
 
-    applyFramesFilter();
+    applySoloRaidFilter();
 
     // 다시 그리면 고른 표시가 지워지니 되살린다(정렬만 바꿨을 때 선택이 풀리면 안 된다)
-    if (currentFrame) {
-      document.querySelectorAll('.frames-item').forEach(el => {
-        el.classList.toggle('active', allFramesData[el.dataset.idx] === currentFrame);
+    if (currentBoss) {
+      document.querySelectorAll('.soloraid-item').forEach(el => {
+        el.classList.toggle('active', allSoloRaidData[el.dataset.idx] === currentBoss);
       });
     }
   }
 
   // 보스 이름 · 시즌으로 걸러 낸다. 두 검색창(바둑판 홈 / 오른쪽 서랍)이 같이 움직인다.
-  let framesQuery = '';
+  let soloRaidQuery = '';
 
-  function applyFramesFilter() {
-    const q = framesQuery.trim().toLowerCase();
-    document.querySelectorAll('#f3d-home .frames-item, #f3d-drawer-selector .frames-item').forEach(el => {
-      const name = (el.querySelector('.frames-item-boss') || {}).textContent || '';
-      const season = (el.querySelector('.frames-item-season') || {}).textContent || '';
+  function applySoloRaidFilter() {
+    const q = soloRaidQuery.trim().toLowerCase();
+    document.querySelectorAll('#sr3d-home .soloraid-item, #sr3d-drawer-selector .soloraid-item').forEach(el => {
+      const name = (el.querySelector('.soloraid-item-boss') || {}).textContent || '';
+      const season = (el.querySelector('.soloraid-item-season') || {}).textContent || '';
       const hit = !q || (name + ' ' + season).toLowerCase().includes(q);
       el.classList.toggle('is-filtered-out', !hit);
     });
     // 속성별 정렬에서는 통째로 비는 열이 생긴다. 그 열도 같이 감춘다.
-    document.querySelectorAll('#f3d-home .frames-attr-col').forEach(col => {
-      const any = col.querySelector('.frames-item:not(.is-filtered-out)');
+    document.querySelectorAll('#sr3d-home .soloraid-attr-col').forEach(col => {
+      const any = col.querySelector('.soloraid-item:not(.is-filtered-out)');
       col.classList.toggle('is-filtered-out', !any);
     });
   }
 
-  function wireFramesSearch() {
-    ['frames-search', 'frames-search-drawer'].forEach(id => {
+  function wireSoloRaidSearch() {
+    ['soloraid-search', 'soloraid-search-drawer'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('input', () => {
-        framesQuery = el.value;
+        soloRaidQuery = el.value;
         // 다른 쪽 검색창도 같은 값으로 맞춘다
-        ['frames-search', 'frames-search-drawer'].forEach(other => {
+        ['soloraid-search', 'soloraid-search-drawer'].forEach(other => {
           const o = document.getElementById(other);
-          if (o && o !== el) o.value = framesQuery;
+          if (o && o !== el) o.value = soloRaidQuery;
         });
-        applyFramesFilter();
+        applySoloRaidFilter();
       });
     });
   }
 
-  function toggleFramesAttrSort() {
-    framesSortByAttr = !framesSortByAttr;
-    document.getElementById('frames-sort-btn').classList.toggle('active', framesSortByAttr);
-    renderFramesSelector(allFramesData);
+  function toggleSoloRaidAttrSort() {
+    soloRaidSortByAttr = !soloRaidSortByAttr;
+    document.getElementById('soloraid-sort-btn').classList.toggle('active', soloRaidSortByAttr);
+    renderSoloRaidSelector(allSoloRaidData);
   }
 
   // 보스 목록과 상세 정보는 평소에 접어 두고 오른쪽 세로 버튼으로 연다.
   // 둘 다 열면 3D 구역이 너무 좁아져서 한 번에 하나만 열리게 한다.
-  function wireFramesDrawers() {
-    const drawer = document.getElementById('f3d-drawer');
+  function wireSoloRaidDrawers() {
+    const drawer = document.getElementById('sr3d-drawer');
     const panes = {
-      'frames-drawer-list': 'f3d-drawer-list',
-      'frames-drawer-info': 'f3d-drawer-info',
-      'frames-drawer-tiers': 'f3d-drawer-tiers',
-      'frames-drawer-bgm': 'f3d-drawer-bgm',
+      'soloraid-drawer-list': 'sr3d-drawer-list',
+      'soloraid-drawer-info': 'sr3d-drawer-info',
+      'soloraid-drawer-tiers': 'sr3d-drawer-tiers',
+      'soloraid-drawer-bgm': 'sr3d-drawer-bgm',
     };
     // 기본은 전부 접힘 — 3D 가 화면을 최대한 넓게 쓴다
     let openId = null;
@@ -186,18 +186,18 @@
       });
     });
 
-    const sideBtn = document.getElementById('f3d-side-toggle');
+    const sideBtn = document.getElementById('sr3d-side-toggle');
     if (sideBtn) {
       sideBtn.addEventListener('click', () => {
-        const app = document.getElementById('f3d-app');
+        const app = document.getElementById('sr3d-app');
         const on = app.classList.toggle('side-collapsed');
         sideBtn.setAttribute('aria-expanded', String(!on));
         sideBtn.title = on ? '조작판 펼치기' : '조작판 접기';
       });
     }
 
-    const backBtn = document.getElementById('f3d-back-home');
-    if (backBtn) backBtn.addEventListener('click', collapseFrame);
+    const backBtn = document.getElementById('sr3d-back-home');
+    if (backBtn) backBtn.addEventListener('click', collapseBoss);
 
     render();
   }
@@ -206,88 +206,88 @@
   // 높이가 화면 중간에서 끝나 버린다. 최소한 화면 아래까지는 닿게 해서 한 번에 보이는
   // 보스 수를 늘린다. 창 크기가 바뀌면 다시 잰다.
   // 새 배치에서는 서랍이 제 높이를 알아서 채운다. 호출부가 여럿이라 빈 함수로 남긴다.
-  function syncFramesSelectorHeight() {}
+  function syncSoloRaidSelectorHeight() {}
 
-  window.addEventListener('resize', syncFramesSelectorHeight);
+  window.addEventListener('resize', syncSoloRaidSelectorHeight);
 
   // 상세를 접고 목록을 원래(가로) 배치로 되돌린다
-  function showFramesHome(on) {
-    const home = document.getElementById('f3d-home');
-    const app = document.getElementById('f3d-app');
+  function showSoloRaidHome(on) {
+    const home = document.getElementById('sr3d-home');
+    const app = document.getElementById('sr3d-app');
     if (home) home.classList.toggle('hidden', !on);
     if (app) app.classList.toggle('hidden', on);
   }
 
   // 뒤로 가기로 보스 선택 화면에 돌아올 수 있게, 보스를 열 때 방문 기록을 하나
   // 쌓는다. 안 그러면 브라우저가 솔로 레이드 탭 이전 페이지로 바로 나가 버린다.
-  let frameHistoryDepth = 0;
+  let bossHistoryDepth = 0;
 
   window.addEventListener('popstate', ev => {
-    if (!currentFrame) return;
-    if (ev.state && ev.state.mmrFrame) return;   // 보스에서 보스로 옮긴 경우
-    frameHistoryDepth = 0;
-    collapseFrame({ fromHistory: true });
+    if (!currentBoss) return;
+    if (ev.state && ev.state.mmrBoss) return;   // 보스에서 보스로 옮긴 경우
+    bossHistoryDepth = 0;
+    collapseBoss({ fromHistory: true });
   });
 
-  function collapseFrame(opts) {
+  function collapseBoss(opts) {
     // 우리가 쌓아 둔 기록을 되돌린다. 뒤로 가기로 들어온 길이면 이미 빠진 뒤다.
-    if (!(opts && opts.fromHistory) && frameHistoryDepth > 0) {
-      const back = frameHistoryDepth;
-      frameHistoryDepth = 0;
+    if (!(opts && opts.fromHistory) && bossHistoryDepth > 0) {
+      const back = bossHistoryDepth;
+      bossHistoryDepth = 0;
       history.go(-back);
     }
-    currentFrame = null;
-    clearFramesSpine();
-    showFramesHome(true);
+    currentBoss = null;
+    clearSoloRaidSpine();
+    showSoloRaidHome(true);
     
     
     
     // 테두리는 상세 바깥에 있어서 같이 안 지워졌다. 접었는데 방금 본 보스의 테두리만
     // 남아 있으면 무엇에 딸린 건지 알 수 없다.
-    document.getElementById('frames-tiers').innerHTML = '';
-    renderFramesBgm(null);
-    document.querySelectorAll('.frames-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('soloraid-tiers').innerHTML = '';
+    renderSoloRaidBgm(null);
+    document.querySelectorAll('.soloraid-item').forEach(el => el.classList.remove('active'));
   }
 
-  function selectFrame(item) {
+  function selectBoss(item) {
     // 이미 펼쳐진 보스를 다시 누르면 접는다
-    if (currentFrame === item) { collapseFrame(); return; }
+    if (currentBoss === item) { collapseBoss(); return; }
     // 목록에서 처음 들어올 때만 기록을 쌓는다. 보스끼리 옮길 때는 이미 쌓여 있다.
     try {
-      if (!currentFrame) {
-        history.pushState({ mmrFrame: true }, '', location.href);
-        frameHistoryDepth = 1;
+      if (!currentBoss) {
+        history.pushState({ mmrBoss: true }, '', location.href);
+        bossHistoryDepth = 1;
       }
     } catch (e) { /* 기록을 못 쌓아도 화면은 그대로 동작한다 */ }
-    currentFrame = item;
-    showFramesHome(false);
+    currentBoss = item;
+    showSoloRaidHome(false);
 
     
     // 상세가 열리면 보스 목록을 왼쪽 세로 열로 바꾼다(CSS 가 처리)
 
-    document.querySelectorAll('.frames-item').forEach(el => {
-      el.classList.toggle('active', allFramesData[el.dataset.idx] === item);
+    document.querySelectorAll('.soloraid-item').forEach(el => {
+      el.classList.toggle('active', allSoloRaidData[el.dataset.idx] === item);
     });
 
-    document.getElementById('frames-boss-name').textContent = item['보스'] || '';
-    document.getElementById('frames-season-label').textContent = `시즌 ${item['시즌']}`;
-    renderFramesPeriod(item);
+    document.getElementById('soloraid-boss-name').textContent = item['보스'] || '';
+    document.getElementById('soloraid-season-label').textContent = `시즌 ${item['시즌']}`;
+    renderSoloRaidPeriod(item);
     // 약점 속성: 아이콘이 있으면 아이콘과 이름을 같이 보여준다
-    const attrEl = document.getElementById('frames-attr');
+    const attrEl = document.getElementById('soloraid-attr');
     const code = item['약점 속성'];
     const iconUrl = code ? (APP_DATA.iconImg && APP_DATA.iconImg['우월코드'] || {})[code] : null;
     // 속성마다 색이 달라서 알약 하나로 감싸면 한눈에 들어온다.
     attrEl.className = code ? `code-${code}` : '';
     attrEl.innerHTML = code
-      ? `<span class="frames-attr-pill">`
-        + `${iconUrl ? `<img src="${iconUrl}" alt="" class="frames-attr-icon">` : ''}`
-        + `<span class="frames-attr-name">${code}</span></span>`
-      : '<span class="frames-attr-none">-</span>';
+      ? `<span class="soloraid-attr-pill">`
+        + `${iconUrl ? `<img src="${iconUrl}" alt="" class="soloraid-attr-icon">` : ''}`
+        + `<span class="soloraid-attr-name">${code}</span></span>`
+      : '<span class="soloraid-attr-none">-</span>';
 
     renderFrameTiers(item);
-    renderFramesBgm(item);
-    syncFramesSelectorHeight();
-    loadFramesSpine(item);
+    renderSoloRaidBgm(item);
+    syncSoloRaidSelectorHeight();
+    loadSoloRaidSpine(item);
   }
 
   // 실제로 돌아간 구간만 뽑아낸다.
@@ -297,7 +297,7 @@
   // 재오픈~종료" 로 끊어서 보여 준다.
   //
   // 중단 기록이 없으면 시작~종료 한 줄이 그대로 나온다(대부분의 시즌이 여기 해당).
-  function framesRunSegments(item) {
+  function soloRaidRunSegments(item) {
     const start = item['시작일'];
     const end = item['종료일'];
     if (!start || !end) return { segments: [], paused: false };
@@ -323,27 +323,27 @@
     return { segments, paused: pauses.length > 0 };
   }
 
-  function renderFramesPeriod(item) {
-    const box = document.getElementById('frames-date');
+  function renderSoloRaidPeriod(item) {
+    const box = document.getElementById('soloraid-date');
     if (!box) return;
 
-    const { segments, paused } = framesRunSegments(item);
+    const { segments, paused } = soloRaidRunSegments(item);
     if (!segments.length) { box.textContent = '-'; return; }
 
     const withTime = hasTimePart(item['시작일']) || hasTimePart(item['종료일']);
     box.innerHTML = segments.map((seg, i) => {
       // 중단된 적이 없는 시즌은 한 줄뿐이라 차수도 중단 표시도 붙이지 않는다
-      const order = paused ? `<span class="frames-date-order">${i + 1}차</span>` : '';
-      const mark = seg.paused ? `<span class="frames-date-pause">중단</span>` : '';
-      return `<div class="frames-date-item">${order}`
+      const order = paused ? `<span class="soloraid-date-order">${i + 1}차</span>` : '';
+      const mark = seg.paused ? `<span class="soloraid-date-pause">중단</span>` : '';
+      return `<div class="soloraid-date-item">${order}`
         + `<span>${formatKst(seg.from, { withTime })} ~ ${formatKst(seg.to, { withTime })}</span>`
         + `${mark}</div>`;
     }).join('');
   }
 
   function renderFrameTiers(item) {
-    const tiersBtn = document.getElementById('frames-tiers-toggle');
-    const container = document.getElementById('frames-tiers');
+    const tiersBtn = document.getElementById('soloraid-tiers-toggle');
+    const container = document.getElementById('soloraid-tiers');
     const tiers = [1, 2, 3]
       .map(n => ({
         name: item[`테두리${n}`],
@@ -357,12 +357,12 @@
     container.style.setProperty('--tier-cols', Math.max(tiers.length, 1));
 
     container.innerHTML = tiers.map(t => `
-      <div class="frames-tier-card">
-        <div class="frames-tier-img">
+      <div class="soloraid-tier-card">
+        <div class="soloraid-tier-img">
           ${t.img ? `<img src="${t.img}" alt="${t.name}">` : ''}
         </div>
-        <div class="frames-tier-name">${t.name}</div>
-        ${t.desc ? `<div class="frames-tier-desc">${escapeHtml(t.desc).split(NEWLINE_RE).join('<br>')}</div>` : ''}
+        <div class="soloraid-tier-name">${t.name}</div>
+        ${t.desc ? `<div class="soloraid-tier-desc">${escapeHtml(t.desc).split(NEWLINE_RE).join('<br>')}</div>` : ''}
       </div>
     `).join('');
 
@@ -425,15 +425,15 @@
 
   // 전용 BGM 은 유튜브만 받는다. 저작권 때문에 음원을 직접 올리지 않기로 했다 —
   // 주소가 유튜브가 아니면 목록에서 뺀다.
-  function renderFramesBgm(item) {
-    const box = document.getElementById('frames-bgm');
+  function renderSoloRaidBgm(item) {
+    const box = document.getElementById('soloraid-bgm');
     if (!box) return;
     const list = bgmEntries(item)
       .map(e => ({ ...e, id: youtubeId(e.url) }))
       .filter(e => e.id);
 
     if (!list.length) {
-      box.innerHTML = '<div class="frames-bgm-empty">등록된 BGM이 없습니다.</div>';
+      box.innerHTML = '<div class="soloraid-bgm-empty">등록된 BGM이 없습니다.</div>';
       return;
     }
 
@@ -441,12 +441,12 @@
     // iframe 을 끼운다. 표지 그림도 서랍이 접혀 있는 동안은 안 받아오게 둔다.
     box.innerHTML = list.map((e, i) => {
       const title = escapeHtml(e.title || (list.length > 1 ? `트랙 ${i + 1}` : (item['보스'] || '전용 BGM')));
-      return `<div class="frames-bgm-item">
-        <div class="frames-bgm-title">${title}</div>
-        <div class="frames-bgm-yt" data-yt="${e.id}" data-start="${youtubeStart(e.url)}"
+      return `<div class="soloraid-bgm-item">
+        <div class="soloraid-bgm-title">${title}</div>
+        <div class="soloraid-bgm-yt" data-yt="${e.id}" data-start="${youtubeStart(e.url)}"
              role="button" tabindex="0" aria-label="${title} 재생">
           <img src="https://i.ytimg.com/vi/${e.id}/hqdefault.jpg" alt="" loading="lazy">
-          <span class="frames-bgm-play"><i class="fas fa-play"></i></span>
+          <span class="soloraid-bgm-play"><i class="fas fa-play"></i></span>
         </div>
       </div>`;
     }).join('');
@@ -454,32 +454,32 @@
 
   // 재생 중이던 BGM 을 멈춘다. iframe 을 걷어내면 소리도 같이 끊긴다 —
   // 표지로 되돌려 두면 다시 누르면 그만이다.
-  function stopFramesBgm() {
-    const box = document.getElementById('frames-bgm');
+  function stopSoloRaidBgm() {
+    const box = document.getElementById('soloraid-bgm');
     if (!box || !box.querySelector('iframe')) return;
-    renderFramesBgm(currentFrame);
+    renderSoloRaidBgm(currentBoss);
   }
 
   // 다른 탭으로 나가면 멈춘다. 안 보이는 곳에서 소리만 계속 나면 어디서 나는지
   // 찾을 수가 없다. 보스를 바꾸거나 목록으로 돌아갈 때는 목록을 다시 그리면서
   // iframe 이 같이 걷히므로 따로 안 건다.
   document.addEventListener('mmr:tab-change', ev => {
-    if (!ev.detail || ev.detail.tab !== 'frames') stopFramesBgm();
+    if (!ev.detail || ev.detail.tab !== 'soloraid') stopSoloRaidBgm();
   });
 
   // 전용 BGM 기본 음량(0~100). 유튜브 기본값은 100 이라 갑자기 크게 나온다.
   const BGM_VOLUME = 50;
 
   // 표지를 누르면 그 자리에서 유튜브로 바꾼다. 목록을 다시 그려도 살아있도록 위임으로 건다.
-  function wireFramesBgm() {
-    const box = document.getElementById('frames-bgm');
+  function wireSoloRaidBgm() {
+    const box = document.getElementById('soloraid-bgm');
     if (!box) return;
     const open = (cover) => {
       const id = cover.dataset.yt;
       if (!id) return;
       const start = +cover.dataset.start || 0;
       const frame = document.createElement('iframe');
-      frame.className = 'frames-bgm-frame';
+      frame.className = 'soloraid-bgm-frame';
       // enablejsapi - 음량을 낮추려면 IFrame API 로 말을 걸어야 한다.
       // origin 을 같이 넘겨야 postMessage 가 막히지 않는다.
       frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&enablejsapi=1`
@@ -501,12 +501,12 @@
       [400, 900, 1600, 2600].forEach(ms => setTimeout(setVol, ms));
     };
     box.addEventListener('click', ev => {
-      const cover = ev.target.closest('.frames-bgm-yt');
+      const cover = ev.target.closest('.soloraid-bgm-yt');
       if (cover) open(cover);
     });
     box.addEventListener('keydown', ev => {
       if (ev.key !== 'Enter' && ev.key !== ' ') return;
-      const cover = ev.target.closest('.frames-bgm-yt');
+      const cover = ev.target.closest('.soloraid-bgm-yt');
       if (!cover) return;
       ev.preventDefault();
       open(cover);
@@ -523,15 +523,15 @@
       .replace(/"/g, '&quot;');
   }
 
-  function clearFramesSpine() {
-    if (framesSpinePlayer) { framesSpinePlayer.dispose(); framesSpinePlayer = null; }
-    if (framesPanZoom) { framesPanZoom.destroy(); framesPanZoom = null; }
-    const wrap = document.getElementById('frames-spine-player');
-    if (wrap && window.disposeFramesModel3D) window.disposeFramesModel3D(wrap);
+  function clearSoloRaidSpine() {
+    if (soloRaidSpinePlayer) { soloRaidSpinePlayer.dispose(); soloRaidSpinePlayer = null; }
+    if (soloRaidPanZoom) { soloRaidPanZoom.destroy(); soloRaidPanZoom = null; }
+    const wrap = document.getElementById('soloraid-spine-player');
+    if (wrap && window.disposeSoloRaidModel3D) window.disposeSoloRaidModel3D(wrap);
     if (wrap) wrap.innerHTML = '';
-    const toggle = document.getElementById('frames-parts-toggle');
+    const toggle = document.getElementById('soloraid-parts-toggle');
     if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
-    const modelBox = document.getElementById('frames-model-toggle');
+    const modelBox = document.getElementById('soloraid-model-toggle');
     if (modelBox) { modelBox.innerHTML = ''; modelBox.classList.add('hidden'); }
   }
 
@@ -568,15 +568,15 @@
 
   // 조작 패널의 각 그룹은 안에 버튼이 있을 때만 보인다.
   function syncCtlGroups() {
-    document.querySelectorAll('#frames-controls .frames-ctl-group').forEach(g => {
+    document.querySelectorAll('#soloraid-controls .soloraid-ctl-group').forEach(g => {
       const box = g.querySelector('div:last-child');
       g.classList.toggle('is-empty', !box || box.classList.contains('hidden') || !box.children.length);
     });
   }
-  window.syncFramesCtlGroups = syncCtlGroups;
+  window.syncSoloRaidCtlGroups = syncCtlGroups;
 
   function renderBossModelPicker(models, onPick) {
-    const box = document.getElementById('frames-model-toggle');
+    const box = document.getElementById('soloraid-model-toggle');
     if (!box) return;
     if (models.length < 2) {
       box.innerHTML = '';
@@ -585,11 +585,11 @@
     }
     box.classList.remove('hidden');
     box.innerHTML = models.map((m, i) =>
-      `<button type="button" class="filter-chip frames-model-btn${i === 0 ? ' active' : ''}" data-i="${i}">${escapeHtml(m.name)}</button>`
+      `<button type="button" class="filter-chip soloraid-model-btn${i === 0 ? ' active' : ''}" data-i="${i}">${escapeHtml(m.name)}</button>`
     ).join('');
-    box.querySelectorAll('.frames-model-btn').forEach(btn => {
+    box.querySelectorAll('.soloraid-model-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        box.querySelectorAll('.frames-model-btn').forEach(b => b.classList.remove('active'));
+        box.querySelectorAll('.soloraid-model-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         onPick(models[+btn.dataset.i]);
       });
@@ -613,36 +613,36 @@
     }, 3000);
   }
 
-  function loadFramesSpine(item) {
-    clearFramesSpine();
+  function loadSoloRaidSpine(item) {
+    clearSoloRaidSpine();
     clearTimeout(prefetchTimer);
 
-    const wrap = document.getElementById('frames-spine-player');
+    const wrap = document.getElementById('soloraid-spine-player');
     const models = sortBossModels(parseBossModels(item['model']));
     const modelUrl = models.length ? models[0].url : null;
     const skelUrl = item['skel'];
     const atlasUrl = item['atlas'];
 
     // 3D 모델(glb)이 있으면 우선 사용 — Spine L2D보다 커버리지가 넓다
-    if (modelUrl && window.loadFramesModel3D) {
+    if (modelUrl && window.loadSoloRaidModel3D) {
       // 내용이 없는 조작 그룹은 라벨만 남아 허전해 보인다. 자식이 비면 통째로 감춘다.
       requestAnimationFrame(syncCtlGroups);
       renderBossModelPicker(models, m => {
         // 칩 이름을 같이 넘긴다 — 같은 파일을 페이즈별 항목으로 나눠 등록한 보스가
         // 있어서(베히모스 2/3페이즈), 뷰어가 어느 페이즈로 볼지 이 이름으로 정한다.
-        window.loadFramesModel3D(wrap, m.url, {
+        window.loadSoloRaidModel3D(wrap, m.url, {
           modelLabel: m.name,
           onError: err => console.error('[보스 3D] 로드 실패:', err),
         });
       });
       prefetchNextModel(models);
-      window.loadFramesModel3D(wrap, modelUrl, {
+      window.loadSoloRaidModel3D(wrap, modelUrl, {
         modelLabel: models.length ? models[0].name : '',
         onError: () => {
           // 3D 로드 실패 시 L2D/이미지/이름 순으로 안전하게 대체
           wrap.innerHTML = '';
           if (skelUrl && atlasUrl) {
-            loadFramesL2D(skelUrl, atlasUrl);
+            loadSoloRaidL2D(skelUrl, atlasUrl);
           } else if (item['보스 이미지']) {
             wrap.innerHTML = `<img src="${item['보스 이미지']}" alt="${item['보스']}">`;
           } else {
@@ -654,7 +654,7 @@
     }
 
     if (skelUrl && atlasUrl) {
-      loadFramesL2D(skelUrl, atlasUrl);
+      loadSoloRaidL2D(skelUrl, atlasUrl);
       return;
     }
 
@@ -666,18 +666,18 @@
     }
   }
 
-  function loadFramesL2D(skelUrl, atlasUrl) {
-    const wrap = document.getElementById('frames-spine-player');
+  function loadSoloRaidL2D(skelUrl, atlasUrl) {
+    const wrap = document.getElementById('soloraid-spine-player');
     wrap.innerHTML = '';
 
     const playerDiv = document.createElement('div');
-    playerDiv.id = 'frames-spine-inner';
+    playerDiv.id = 'soloraid-spine-inner';
     playerDiv.style.width = '100%';
     playerDiv.style.height = '100%';
     wrap.appendChild(playerDiv);
 
     // idle 이 없는 스켈레톤이 있어서 이름을 못 박지 않는다. 읽어 온 뒤 있는 것 중에서 고른다.
-    framesSpinePlayer = new spine.SpinePlayer('frames-spine-inner', {
+    soloRaidSpinePlayer = new spine.SpinePlayer('soloraid-spine-inner', {
       skelUrl: skelUrl,
       atlasUrl: atlasUrl,
       backgroundColor: '#00000000',
@@ -688,17 +688,17 @@
         player.dispose();
         wrap.innerHTML = '';
 
-        const wrapEl = document.getElementById('frames-spine-wrap');
+        const wrapEl = document.getElementById('soloraid-spine-wrap');
         const wrapW = wrapEl.clientWidth;
         const wrapH = wrapEl.clientHeight;
 
         const playerDiv2 = document.createElement('div');
-        playerDiv2.id = 'frames-spine-inner';
+        playerDiv2.id = 'soloraid-spine-inner';
         playerDiv2.style.width = wrapW + 'px';
         playerDiv2.style.height = wrapH + 'px';
         wrap.appendChild(playerDiv2);
 
-        framesSpinePlayer = new spine.SpinePlayer('frames-spine-inner', {
+        soloRaidSpinePlayer = new spine.SpinePlayer('soloraid-spine-inner', {
           skelUrl: skelUrl,
           atlasUrl: atlasUrl,
           animation: pickSpineAnimation(data),
@@ -738,16 +738,16 @@
               skeleton.updateWorldTransform();
             };
             rebuildSkin();
-            renderPartsToggle('frames-parts-toggle', partSkins, enabledParts, rebuildSkin);
+            renderPartsToggle('soloraid-parts-toggle', partSkins, enabledParts, rebuildSkin);
 
-            framesPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
+            soloRaidPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
-            const resetBtn = document.getElementById('frames-spine-reset');
+            const resetBtn = document.getElementById('soloraid-spine-reset');
             if (resetBtn) {
               resetBtn.onmousedown = e => e.stopPropagation();
               resetBtn.onclick = e => {
                 e.stopPropagation();
-                framesPanZoom.reset();
+                soloRaidPanZoom.reset();
                 try {
                   player2.animationState.clearListeners();
                   player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
@@ -792,5 +792,5 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    waitForSpine(loadFramesData);
+    waitForSpine(loadSoloRaidData);
   });

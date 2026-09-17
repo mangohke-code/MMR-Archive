@@ -4639,12 +4639,12 @@
   }
 
   /* ===== 역대 테두리 ===== */
-  #frames-container {
+  #soloraid-container {
     max-width: 1900px;
     margin: 0 auto;
   }
 
-  #frames-layout {
+  #soloraid-layout {
     display: flex;
     align-items: flex-start;
     gap: 1.25rem;
@@ -4652,7 +4652,7 @@
     margin-bottom: 1.5rem;
   }
 
-  #frames-selector {
+  #soloraid-selector {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -4661,14 +4661,14 @@
     min-width: 0;
   }
 
-  #frames-toolbar {
+  #soloraid-toolbar {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 4px;
   }
 
-  #frames-sort-btn {
+  #soloraid-sort-btn {
     padding: 6px 14px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-subtle);
@@ -4679,12 +4679,12 @@
     transition: all 0.15s;
   }
 
-  #frames-sort-btn:hover {
+  #soloraid-sort-btn:hover {
     border-color: var(--border-accent);
     color: var(--accent);
   }
 
-  #frames-sort-btn.active {
+  #soloraid-sort-btn.active {
     background: var(--bg-panel-active);
     border-color: var(--border-accent);
     color: var(--accent);
@@ -4692,21 +4692,21 @@
 
   /* 속성별 정렬: 5속성을 열로 나란히 놓고 보스를 제 열로 보낸다.
      열 폭은 화면에 맞춰 나눠 가지므로 카드가 열 폭을 꽉 채우게 한다. */
-  #frames-selector.is-attr-sorted {
+  #soloraid-selector.is-attr-sorted {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
     align-items: start;
   }
 
-  .frames-attr-col {
+  .soloraid-attr-col {
     display: flex;
     flex-direction: column;
     gap: 10px;
     min-width: 0;
   }
 
-  .frames-attr-col-head {
+  .soloraid-attr-col-head {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4719,13 +4719,13 @@
     color: var(--text-heading);
   }
 
-  .frames-attr-col-head img {
+  .soloraid-attr-col-head img {
     height: 30px;
     width: auto;          /* 우월코드 아이콘은 육각형이라 비율을 지킨다 */
     object-fit: contain;
   }
 
-  .frames-attr-col-head em {
+  .soloraid-attr-col-head em {
     font-style: normal;
     font-size: 15px;
     font-weight: 700;
@@ -4734,15 +4734,15 @@
 
   /* 속성별 정렬은 열 하나에 카드가 8~10개뿐이라 여백이 넉넉하다. 글자를 키워서
      한눈에 읽히게 한다. */
-  #frames-selector.is-attr-sorted .frames-item-season {
+  #soloraid-selector.is-attr-sorted .soloraid-item-season {
     font-size: 16px;
   }
 
-  #frames-selector.is-attr-sorted .frames-item-boss {
+  #soloraid-selector.is-attr-sorted .soloraid-item-boss {
     font-size: 20px;
   }
 
-  .frames-attr-col-body {
+  .soloraid-attr-col-body {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -4750,11 +4750,11 @@
   }
 
   /* 열 안에서는 카드가 열 폭을 따라간다(고정 190px 이면 5열이 화면을 넘는다) */
-  #frames-selector.is-attr-sorted .frames-item {
+  #soloraid-selector.is-attr-sorted .soloraid-item {
     width: 100%;
   }
 
-  #frames-selector.is-attr-sorted .frames-item-img {
+  #soloraid-selector.is-attr-sorted .soloraid-item-img {
     width: 100%;
     height: auto;
     aspect-ratio: 1 / 1;
@@ -4762,34 +4762,34 @@
 
   /* 상세가 열려 목록이 좁은 세로 열이 되면 5열이 못 들어간다. 속성별로 구역을 나눠
      위아래로 쌓고, 속성 이름은 스크롤해도 구역 위에 붙어 있게 한다. */
-  #frames-layout.is-detail-open #frames-selector.is-attr-sorted {
+  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
 
-  #frames-layout.is-detail-open .frames-attr-col-head {
+  #soloraid-layout.is-detail-open .soloraid-attr-col-head {
     position: sticky;
     top: 0;
     z-index: 2;
   }
 
-  #frames-layout.is-detail-open .frames-attr-col-body {
+  #soloraid-layout.is-detail-open .soloraid-attr-col-body {
     align-items: stretch;
   }
 
-  #frames-layout.is-detail-open #frames-selector.is-attr-sorted .frames-item-img {
+  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted .soloraid-item-img {
     width: 108px;
     height: 108px;
     aspect-ratio: auto;
   }
 
   /* 좁은 세로 열이라 넓은 열만큼은 못 키워도, 안 나눴을 때보다는 크게 */
-  #frames-layout.is-detail-open #frames-selector.is-attr-sorted .frames-item-season {
+  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted .soloraid-item-season {
     font-size: 15px;
   }
 
-  #frames-layout.is-detail-open #frames-selector.is-attr-sorted .frames-item-boss {
+  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted .soloraid-item-boss {
     font-size: 19px;
   }
 
@@ -4797,14 +4797,14 @@
      상세가 한참 아래로 밀려서, 옆에 붙여 놓고 목록에서만 스크롤되게 한다. */
   /* 목록 열. 상세(오른쪽)와 같은 높이로 늘어나고, 스크롤은 이 안에서만 일어난다.
      안쪽 목록을 absolute 로 채워서 목록 내용이 줄 높이를 밀어올리지 않게 한다. */
-  #frames-layout.is-detail-open #frames-selector-col {
+  #soloraid-layout.is-detail-open #soloraid-selector-col {
     position: relative;
     flex: 0 0 auto;
     width: 280px;
     align-self: stretch;
   }
 
-  #frames-layout.is-detail-open #frames-selector {
+  #soloraid-layout.is-detail-open #soloraid-selector {
     position: absolute;
     inset: 0;
     flex: 0 0 auto;
@@ -4818,23 +4818,23 @@
 
   /* 상세와 테두리를 묶은 오른쪽 기둥. 테두리가 이 안에 있어서 왼쪽 끝이 모델 구역과
      자동으로 맞고, 왼쪽 보스 목록은 테두리 높이만큼 아래까지 이어진다. */
-  #frames-main {
+  #soloraid-main {
     flex: 1 1 auto;
     min-width: 0;
     order: 1;   /* 보스 목록보다 앞 = 왼쪽 */
   }
 
   /* 보스 목록은 오른쪽 기둥으로 보낸다 */
-  #frames-layout.is-detail-open #frames-selector-col { order: 2; }
+  #soloraid-layout.is-detail-open #soloraid-selector-col { order: 2; }
 
   /* 보스를 안 골랐으면 오른쪽 기둥은 아예 자리를 차지하지 않는다(목록이 폭을 다 쓴다) */
-  #frames-layout:not(.is-detail-open) #frames-main {
+  #soloraid-layout:not(.is-detail-open) #soloraid-main {
     display: none;
   }
 
   /* 세로 열에서는 카드를 가로형으로 압축한다. 원래 크기(150x200)로는 39개 중 3개밖에
      안 보여서 목록을 훑기가 어렵다. 접힌(가로) 배치에서는 원래 크기 그대로다. */
-  #frames-layout.is-detail-open .frames-item {
+  #soloraid-layout.is-detail-open .soloraid-item {
     width: 100%;
     flex-direction: row;
     align-items: center;
@@ -4842,24 +4842,24 @@
     padding: 6px 8px;
   }
 
-  #frames-layout.is-detail-open .frames-item-img {
+  #soloraid-layout.is-detail-open .soloraid-item-img {
     width: 108px;
     height: 108px;
     flex-shrink: 0;
   }
 
-  #frames-layout.is-detail-open .frames-item-weak {
+  #soloraid-layout.is-detail-open .soloraid-item-weak {
     right: 3px;
     bottom: 3px;
     width: 30px;
     height: 35px;
   }
 
-  #frames-layout.is-detail-open .frames-item-season {
+  #soloraid-layout.is-detail-open .soloraid-item-season {
     font-size: 14px;
   }
 
-  #frames-layout.is-detail-open .frames-item-boss {
+  #soloraid-layout.is-detail-open .soloraid-item-boss {
     font-size: 18px;
     line-height: 1.25;
     /* 5시즌 보스처럼 공백 없는 긴 이름이 열을 넘어 가로 스크롤을 만들지 않게 한다 */
@@ -4867,7 +4867,7 @@
   }
 
   /* 시즌/보스 이름 묶음. 가로형에서는 썸네일 오른쪽에 세로로 쌓이고 왼쪽 정렬이 된다 */
-  .frames-item-text {
+  .soloraid-item-text {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -4876,17 +4876,17 @@
     width: 100%;
   }
 
-  #frames-layout.is-detail-open .frames-item-text {
+  #soloraid-layout.is-detail-open .soloraid-item-text {
     align-items: flex-start;
     text-align: left;
     gap: 2px;
   }
 
-  #frames-layout.is-detail-open .frames-item-boss {
+  #soloraid-layout.is-detail-open .soloraid-item-boss {
     text-align: left;
   }
 
-  .frames-item {
+  .soloraid-item {
     width: 190px;
     display: flex;
     flex-direction: column;
@@ -4901,15 +4901,15 @@
     transition: border-color 0.15s;
   }
 
-  .frames-item:hover {
+  .soloraid-item:hover {
     border-color: var(--border-strong);
   }
 
-  .frames-item.active {
+  .soloraid-item.active {
     border-color: var(--border-accent);
   }
 
-  .frames-item-img {
+  .soloraid-item-img {
     position: relative;   /* 약점 아이콘을 모서리에 얹기 위해 */
     width: 166px;
     height: 166px;
@@ -4927,7 +4927,7 @@
   /* 보스 썸네일 우측 하단에 약점 속성 아이콘.
      우월코드 아이콘은 그림 자체가 투명 배경의 육각형(가로:세로 = 137:159)이라,
      원형 판을 깔면 모양이 어긋난다. 아이콘을 그대로 얹고 그림자로만 띄운다. */
-  .frames-item-weak {
+  .soloraid-item-weak {
     position: absolute;
     right: 6px;
     bottom: 6px;
@@ -4939,46 +4939,46 @@
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
   }
 
-  .frames-item-weak img {
+  .soloraid-item-weak img {
     width: 100%;
     height: 100%;
     object-fit: contain;
     display: block;
   }
 
-  .frames-item-weak-text {
+  .soloraid-item-weak-text {
     font-size: 10px;
     font-weight: 700;
     color: var(--text-secondary);
   }
 
   /* 우측 설명창의 약점 속성 표시 */
-  #frames-attr {
+  #soloraid-attr {
     display: flex;
     align-items: center;
     gap: 6px;
   }
 
-  .frames-attr-icon {
+  .soloraid-attr-icon {
     width: auto;
     height: 26px;          /* 육각형 비율을 유지하도록 높이만 지정 */
     object-fit: contain;
   }
 
-  .frames-item-img img {
+  .soloraid-item-img img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  .frames-item-season {
+  .soloraid-item-season {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-secondary);
     letter-spacing: 0.04em;
   }
 
-  .frames-item-boss {
+  .soloraid-item-boss {
     font-size: 17px;
     font-weight: 600;
     color: var(--text-body);
@@ -4987,19 +4987,19 @@
     line-height: 1.3;
   }
 
-  #frames-top {
+  #soloraid-top {
     position: relative;
     display: flex;
     margin-bottom: 1.5rem;
   }
 
-  .frames-spine-col {
+  .soloraid-spine-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     min-width: 0;
-    /* 오른쪽 정보란(#frames-info)이 접혀있어도 56px 폭을 항상 차지한다 */
+    /* 오른쪽 정보란(#soloraid-info)이 접혀있어도 56px 폭을 항상 차지한다 */
     padding-right: 56px;
   }
 
@@ -5058,7 +5058,7 @@
   }
 
   /* .tab-content 의 padding: 2rem 때문에 사방에 여백이 남았다. 꽉 채운다. */
-  body.app-mode #tab-frames { height: 100%; padding: 0; }
+  body.app-mode #tab-soloraid { height: 100%; padding: 0; }
 
   /* 뷰어를 보는 동안은 페이지 스크롤 자체가 없어서 맨위/맨아래 버튼이 무의미하다 */
   body.app-mode #scroll-btns { display: none; }
@@ -5066,7 +5066,7 @@
 
 
   /* 보스 검색 */
-  #frames-search, #frames-search-drawer {
+  #soloraid-search, #soloraid-search-drawer {
     font: inherit;
     font-size: 13px;
     padding: 6px 10px;
@@ -5076,20 +5076,20 @@
     color: var(--text-body);
   }
 
-  #frames-search { width: 220px; }
+  #soloraid-search { width: 220px; }
 
-  #frames-search-drawer {
+  #soloraid-search-drawer {
     width: 100%;
     margin-bottom: 8px;
   }
 
-  #frames-search::placeholder, #frames-search-drawer::placeholder { color: var(--text-faint); }
+  #soloraid-search::placeholder, #soloraid-search-drawer::placeholder { color: var(--text-faint); }
 
-  .frames-item.is-filtered-out,
-  .frames-attr-col.is-filtered-out { display: none; }
+  .soloraid-item.is-filtered-out,
+  .soloraid-attr-col.is-filtered-out { display: none; }
 
   /* 보스를 고르기 전 화면 — 예전처럼 바둑판으로 늘어놓는다 */
-  #f3d-home {
+  #sr3d-home {
     height: 100%;
     overflow-y: auto;
     padding: 16px 20px 24px;
@@ -5097,19 +5097,19 @@
 
   /* 속성별 정렬은 자기 규칙(5열 그리드)을 쓰므로 건드리지 않는다.
      이 flex 를 무조건 걸어두면 열이 무너진다. */
-  #f3d-home #frames-selector:not(.is-attr-sorted) {
+  #sr3d-home #soloraid-selector:not(.is-attr-sorted) {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
   }
 
-  #f3d-home.hidden, #f3d-app.hidden { display: none; }
+  #sr3d-home.hidden, #sr3d-app.hidden { display: none; }
 
   /* ── 앱 뼈대: 사이드바 | 무대 | 서랍 ───────────────────────────── */
   /* 재생 진행 채움 — 강조색을 옅게. 라이트/다크 어디서도 글자가 묻히지 않을 정도로만. */
-  #f3d-app { --anim-fill: rgba(109, 140, 255, 0.30); }
+  #sr3d-app { --anim-fill: rgba(109, 140, 255, 0.30); }
 
-  #f3d-app {
+  #sr3d-app {
     display: flex;
     height: 100%;
     min-height: 0;
@@ -5118,7 +5118,7 @@
   }
 
   /* 왼쪽 조작판 접기 */
-  #f3d-side-toggle {
+  #sr3d-side-toggle {
     position: absolute;
     left: 300px;
     top: 12px;
@@ -5136,14 +5136,14 @@
     transition: left .18s ease;
   }
 
-  #f3d-side-toggle:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
-  #f3d-side-toggle i { transition: transform .18s ease; }
+  #sr3d-side-toggle:hover { color: var(--text-heading); background: var(--bg-panel-alt); }
+  #sr3d-side-toggle i { transition: transform .18s ease; }
 
-  #f3d-app.side-collapsed #f3d-side { display: none; }
-  #f3d-app.side-collapsed #f3d-side-toggle { left: 0; }
-  #f3d-app.side-collapsed #f3d-side-toggle i { transform: rotate(180deg); }
+  #sr3d-app.side-collapsed #sr3d-side { display: none; }
+  #sr3d-app.side-collapsed #sr3d-side-toggle { left: 0; }
+  #sr3d-app.side-collapsed #sr3d-side-toggle i { transform: rotate(180deg); }
 
-  #f3d-side {
+  #sr3d-side {
     flex: none;
     width: 300px;
     padding: 14px;
@@ -5152,42 +5152,42 @@
     border-right: 1px solid var(--border-subtle);
   }
 
-  #f3d-side h2 {
+  #sr3d-side h2 {
     font-size: 12px;
     margin: 16px 0 7px;
     letter-spacing: .05em;
     color: var(--text-muted);
   }
 
-  #f3d-side h2:first-child { margin-top: 0; }
+  #sr3d-side h2:first-child { margin-top: 0; }
 
   /* 내용이 비면 라벨만 남아 허전하다. :has 로 빈 구역과 그 앞 제목을 같이 감춘다. */
-  #f3d-side h2:has(+ .f3d-row:empty),
-  #f3d-side h2:has(+ .f3d-col:empty),
-  #f3d-side h2:has(+ div:empty),
-  #f3d-side .f3d-row:empty,
-  #f3d-side .f3d-col:empty,
-  #f3d-side #frames-parts-toggle:empty { display: none; }
+  #sr3d-side h2:has(+ .sr3d-row:empty),
+  #sr3d-side h2:has(+ .sr3d-col:empty),
+  #sr3d-side h2:has(+ div:empty),
+  #sr3d-side .sr3d-row:empty,
+  #sr3d-side .sr3d-col:empty,
+  #sr3d-side #soloraid-parts-toggle:empty { display: none; }
 
-  .f3d-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .sr3d-row { display: flex; flex-wrap: wrap; gap: 5px; }
 
   /* 보기 토글 3개는 글자 길이가 제각각이라 flex-wrap 으로는 2+1 로 어정쩡하게
      갈린다("단면 표시"만 아래로 떨어졌다). 3등분 그리드로 고정한다. */
-  .f3d-row.f3d-grid3 {
+  .sr3d-row.sr3d-grid3 {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
   }
 
-  .f3d-row.f3d-grid3 .f3d-btn {
+  .sr3d-row.sr3d-grid3 .sr3d-btn {
     padding: 5px 4px;
     text-align: center;
     white-space: nowrap;
     font-size: 11px;
   }
-  .f3d-col { display: flex; flex-direction: column; gap: 4px; }
+  .sr3d-col { display: flex; flex-direction: column; gap: 4px; }
 
-  .f3d-btn {
+  .sr3d-btn {
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -5198,16 +5198,16 @@
     color: var(--text-body);
   }
 
-  .f3d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+  .sr3d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
-  .f3d-btn.active {
+  .sr3d-btn.active {
     background: var(--border-accent);
     border-color: var(--border-accent);
     color: var(--text-on-accent);
     font-weight: 700;
   }
 
-  .f3d-col .f3d-btn {
+  .sr3d-col .sr3d-btn {
     width: 100%;
     display: flex;
     align-items: baseline;
@@ -5216,46 +5216,46 @@
     text-align: left;
   }
 
-  .f3d-col .anim-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sr3d-col .anim-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* 종류별 구역 (페이즈 전환 / 등장·사망 / 기본 / 그로기 / 스킬 / 샷) */
-  .f3d-col .anim-group { display: flex; flex-direction: column; gap: 4px; }
-  .f3d-col .anim-group + .anim-group { margin-top: 10px; }
+  .sr3d-col .anim-group { display: flex; flex-direction: column; gap: 4px; }
+  .sr3d-col .anim-group + .anim-group { margin-top: 10px; }
 
   /* 구역 이름 줄에 토글을 같이 놓을 때 — 이름은 왼쪽, 토글은 오른쪽 끝 */
-  .f3d-col .anim-group-head {
+  .sr3d-col .anim-group-head {
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
   /* 자동 페이즈 전환 토글 — 목록이 좁아서 기본 토글보다 작게 */
-  .f3d-col .anim-auto-phase { margin-left: auto; }
-  .f3d-col .anim-auto-phase .toggle-label { font-size: 10px; }
-  .f3d-col .anim-auto-phase .toggle-switch { width: 26px; height: 14px; }
-  .f3d-col .anim-auto-phase .toggle-switch::after {
+  .sr3d-col .anim-auto-phase { margin-left: auto; }
+  .sr3d-col .anim-auto-phase .toggle-label { font-size: 10px; }
+  .sr3d-col .anim-auto-phase .toggle-switch { width: 26px; height: 14px; }
+  .sr3d-col .anim-auto-phase .toggle-switch::after {
     top: 2px;
     left: 2px;
     width: 8px;
     height: 8px;
   }
-  .f3d-col .anim-auto-phase.active .toggle-switch::after { transform: translateX(12px); }
+  .sr3d-col .anim-auto-phase.active .toggle-switch::after { transform: translateX(12px); }
 
   /* 한 구역 안에서 갈래가 바뀌는 자리 (기본 구역의 지상 -> 공중, 등장 -> 사망) */
-  .f3d-col .anim-lane-split {
+  .sr3d-col .anim-lane-split {
     height: 1px;
     margin: 3px 2px;
     background: var(--border-subtle, rgba(255, 255, 255, .12));
   }
 
-  .f3d-col .anim-group-label {
+  .sr3d-col .anim-group-label {
     font-size: 10px;
     letter-spacing: .06em;
     color: var(--text-faint);
     padding-left: 2px;
   }
 
-  .f3d-col .anim-time {
+  .sr3d-col .anim-time {
     flex: none;
     font-size: 10px;
     opacity: .65;
@@ -5264,9 +5264,9 @@
 
   /* 모델·페이즈 버튼도 사이드바의 다른 버튼과 같은 크기로 (기존 .filter-chip 은
      본문용이라 더 크다) */
-  #f3d-side .frames-model-btn,
-  #f3d-side .frames-phase-btn,
-  #f3d-side .frames-anim-btn {
+  #sr3d-side .soloraid-model-btn,
+  #sr3d-side .soloraid-phase-btn,
+  #sr3d-side .soloraid-anim-btn {
     font: inherit;
     font-size: 12px;
     padding: 5px 9px;
@@ -5278,16 +5278,16 @@
     cursor: pointer;
   }
 
-  /* 묶음 강조선은 #f3d-side .frames-anim-btn 의 border 단축 속성에 덮인다.
+  /* 묶음 강조선은 #sr3d-side .soloraid-anim-btn 의 border 단축 속성에 덮인다.
      같은 id 수준으로 다시 지정해야 살아난다. */
   /* 최상위 항목(묶음 + idle·death 같은 단독)은 모두 왼쪽 강조선을 갖는다.
      소속 클립만 아래에서 옅은 선으로 구분한다. */
-  #f3d-side .frames-anim-btn:not(.is-child) {
+  #sr3d-side .soloraid-anim-btn:not(.is-child) {
     border-left: 3px solid var(--border-accent);
     font-weight: 700;
   }
 
-  #f3d-side .frames-anim-btn.is-child {
+  #sr3d-side .soloraid-anim-btn.is-child {
     margin-left: 12px;
     width: calc(100% - 12px);
     font-size: 11px;
@@ -5297,7 +5297,7 @@
 
   /* 지금 도는 클립은 재생바처럼 왼쪽부터 색이 차오른다.
      --anim-progress 는 매 프레임 JS 가 넣어 준다. */
-  #f3d-side .frames-anim-btn.playing {
+  #sr3d-side .soloraid-anim-btn.playing {
     background-image: linear-gradient(
       to right,
       var(--anim-fill) var(--anim-progress, 0%),
@@ -5307,22 +5307,22 @@
     color: var(--text-heading);
   }
 
-  #f3d-side .frames-model-btn.active,
-  #f3d-side .frames-phase-btn.active,
-  #f3d-side .frames-anim-btn.active {
+  #sr3d-side .soloraid-model-btn.active,
+  #sr3d-side .soloraid-phase-btn.active,
+  #sr3d-side .soloraid-anim-btn.active {
     background: var(--border-accent);
     border-color: var(--border-accent);
     color: var(--text-on-accent);
     font-weight: 700;
   }
   /* 묶음은 왼쪽에 세로 강조선 */
-  .f3d-col .f3d-btn.is-seq {
+  .sr3d-col .sr3d-btn.is-seq {
     border-left: 3px solid var(--border-accent);
     font-weight: 700;
   }
 
   /* 묶음에 속한 클립은 한 칸 들여쓴다 */
-  .f3d-col .f3d-btn.is-child {
+  .sr3d-col .sr3d-btn.is-child {
     margin-left: 12px;
     width: calc(100% - 12px);
     font-size: 11px;
@@ -5330,21 +5330,21 @@
     border-left: 2px solid var(--border-subtle);
   }
 
-  .f3d-col .f3d-btn.is-extra { color: var(--text-muted); }
+  .sr3d-col .sr3d-btn.is-extra { color: var(--text-muted); }
 
   /* 지금 실제로 도는 클립 — 고른 항목(active)과 구분해서 옅게 칠한다 */
-  .f3d-col .f3d-btn.playing:not(.active) {
+  .sr3d-col .sr3d-btn.playing:not(.active) {
     border-color: var(--border-accent);
     color: var(--text-heading);
   }
 
-  .f3d-col .f3d-btn.playing:not(.active) .anim-time { opacity: 1; color: var(--border-accent); }
+  .sr3d-col .sr3d-btn.playing:not(.active) .anim-time { opacity: 1; color: var(--border-accent); }
 
-  .f3d-sl { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; }
-  .f3d-sl span:first-child { width: 44px; flex: none; color: var(--text-muted); }
-  .f3d-sl input { flex: 1; min-width: 0; accent-color: var(--border-accent); }
+  .sr3d-sl { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 11px; }
+  .sr3d-sl span:first-child { width: 44px; flex: none; color: var(--text-muted); }
+  .sr3d-sl input { flex: 1; min-width: 0; accent-color: var(--border-accent); }
 
-  .f3d-sl b {
+  .sr3d-sl b {
     width: 42px;
     flex: none;
     text-align: right;
@@ -5352,7 +5352,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  #f3d-out {
+  #sr3d-out {
     margin-top: 8px;
     width: 100%;
     height: 64px;
@@ -5369,20 +5369,20 @@
 
   /* 파츠는 다른 사이드바 항목과 같은 크기·모양으로 맞춘다 (기본 토글 스위치는
      본문용이라 크고 혼자 튀어 보인다) */
-  #f3d-side #frames-parts-toggle {
+  #sr3d-side #soloraid-parts-toggle {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
 
   /* 발광색 고르기 */
-  #frames-glow-toggle .f3d-btn {
+  #soloraid-glow-toggle .sr3d-btn {
     display: inline-flex;
     align-items: center;
     gap: 5px;
   }
 
-  #frames-glow-toggle .f3d-btn i {
+  #soloraid-glow-toggle .sr3d-btn i {
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -5483,7 +5483,7 @@
     margin-left: 10px;
   }
 
-  #f3d-side .part-toggle-item {
+  #sr3d-side .part-toggle-item {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -5497,16 +5497,16 @@
     color: var(--text-muted);
   }
 
-  #f3d-side .part-toggle-item:hover { background: var(--bg-panel-alt); }
+  #sr3d-side .part-toggle-item:hover { background: var(--bg-panel-alt); }
 
-  #f3d-side .part-toggle-item.active {
+  #sr3d-side .part-toggle-item.active {
     color: var(--text-body);
     border-color: var(--border-subtle);
     background: var(--bg-panel-alt);
   }
 
   /* 스위치를 작은 점으로 — 켜지면 강조색이 들어온다 */
-  #f3d-side .part-toggle-item .toggle-switch {
+  #sr3d-side .part-toggle-item .toggle-switch {
     flex: none;
     width: 12px;
     height: 12px;
@@ -5517,31 +5517,31 @@
     background: transparent;
   }
 
-  #f3d-side .part-toggle-item .toggle-switch::before,
-  #f3d-side .part-toggle-item .toggle-switch::after { display: none; }
+  #sr3d-side .part-toggle-item .toggle-switch::before,
+  #sr3d-side .part-toggle-item .toggle-switch::after { display: none; }
 
-  #f3d-side .part-toggle-item.active .toggle-switch {
+  #sr3d-side .part-toggle-item.active .toggle-switch {
     background: var(--border-accent);
     border-color: var(--border-accent);
   }
 
-  #f3d-side .part-toggle-item .toggle-label {
+  #sr3d-side .part-toggle-item .toggle-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   /* ── 무대 ───────────────────────────────────────────────────────── */
-  #f3d-stage {
+  #sr3d-stage {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
   }
 
-  #f3d-view { flex: 1 1 auto; position: relative; min-height: 0; }
+  #sr3d-view { flex: 1 1 auto; position: relative; min-height: 0; }
 
-  #f3d-view #frames-spine-player {
+  #sr3d-view #soloraid-spine-player {
     position: absolute;
     inset: 0;
     display: flex;
@@ -5551,10 +5551,10 @@
     font-size: 15px;
   }
 
-  #f3d-view #frames-spine-player img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  #sr3d-view #soloraid-spine-player img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
   /* 안전장치 — 리사이즈가 한 박자 늦어도 캔버스가 옆 칸을 덮지 않게 */
-  #f3d-view #frames-spine-player canvas {
+  #sr3d-view #soloraid-spine-player canvas {
     display: block;
     max-width: 100%;
     max-height: 100%;
@@ -5563,7 +5563,7 @@
   /* 모델 불러오는 동안 무대 한가운데 띄우는 진행 막대.
      내려받기 구간은 실제 비율로 차오르고, 압축 해제·텍스처 올리는 구간은
      길이를 알 수 없어서 줄무늬가 흐르는 형태로 바뀐다. */
-  #f3d-loading {
+  #sr3d-loading {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -5576,15 +5576,15 @@
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
   }
-  .f3d-loading-label { font-size: 12px; color: var(--text-secondary); }
-  .f3d-loading-track {
+  .sr3d-loading-label { font-size: 12px; color: var(--text-secondary); }
+  .sr3d-loading-track {
     height: 5px;
     margin: 9px 0 6px;
     overflow: hidden;
     border-radius: 3px;
     background: var(--bg-inset);
   }
-  .f3d-loading-fill {
+  .sr3d-loading-fill {
     width: 0;
     height: 100%;
     border-radius: 3px;
@@ -5592,17 +5592,17 @@
     transition: width .15s linear;
   }
   /* 남은 양을 모를 때 — 막대를 꽉 채우고 줄무늬만 흐르게 둔다 */
-  #f3d-loading.indeterminate .f3d-loading-fill {
+  #sr3d-loading.indeterminate .sr3d-loading-fill {
     width: 100%;
     background: repeating-linear-gradient(
       -45deg, var(--accent) 0 10px, var(--accent-dim) 10px 20px);
     background-size: 28px 100%;
-    animation: f3d-loading-flow .7s linear infinite;
+    animation: sr3d-loading-flow .7s linear infinite;
   }
-  @keyframes f3d-loading-flow { to { background-position: 28px 0; } }
-  .f3d-loading-sub { font-size: 11px; color: var(--text-muted); min-height: 14px; }
+  @keyframes sr3d-loading-flow { to { background-position: 28px 0; } }
+  .sr3d-loading-sub { font-size: 11px; color: var(--text-muted); min-height: 14px; }
 
-  #f3d-hud {
+  #sr3d-hud {
     position: absolute;
     left: 12px;
     top: 12px;
@@ -5617,7 +5617,7 @@
     box-shadow: var(--shadow-card);
   }
 
-  #f3d-bar {
+  #sr3d-bar {
     flex: none;
     display: flex;
     align-items: center;
@@ -5627,7 +5627,7 @@
     border-top: 1px solid var(--border-subtle);
   }
 
-  #f3d-bar button {
+  #sr3d-bar button {
     flex: none;
     width: 32px;
     height: 32px;
@@ -5640,10 +5640,10 @@
     color: var(--text-body);
   }
 
-  #f3d-bar button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
-  #frames-step-back, #frames-step-fwd { border-radius: var(--radius-md); }
+  #sr3d-bar button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+  #soloraid-step-back, #soloraid-step-fwd { border-radius: var(--radius-md); }
 
-  #frames-timeline {
+  #soloraid-timeline {
     flex: 1 1 auto;
     min-width: 0;
     height: 9px;
@@ -5653,7 +5653,7 @@
     cursor: pointer;
   }
 
-  #frames-timeline-fill {
+  #soloraid-timeline-fill {
     position: absolute;
     inset: 0 auto 0 0;
     width: 0;
@@ -5662,7 +5662,7 @@
     pointer-events: none;
   }
 
-  #frames-timecode {
+  #soloraid-timecode {
     flex: none;
     font-size: 11px;
     color: var(--text-muted);
@@ -5670,7 +5670,7 @@
   }
 
   /* ── 오른쪽 서랍 ────────────────────────────────────────────────── */
-  #f3d-rail {
+  #sr3d-rail {
     flex: none;
     display: flex;
     flex-direction: column;
@@ -5680,7 +5680,7 @@
     border-left: 1px solid var(--border-subtle);
   }
 
-  #f3d-rail button {
+  #sr3d-rail button {
     writing-mode: vertical-rl;
     /* 세로쓰기에서 한글은 바로 서지만 로마자는 기본값에서 90도 누워진다.
        'BGM' 도 한 글자씩 바로 서게 한다. */
@@ -5699,19 +5699,19 @@
     background: var(--bg-panel-alt);
   }
 
-  #f3d-rail button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+  #sr3d-rail button:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
-  #f3d-rail button[aria-expanded="true"] {
+  #sr3d-rail button[aria-expanded="true"] {
     background: var(--border-accent);
     color: var(--text-on-accent);
   }
 
-  #f3d-rail button i { writing-mode: horizontal-tb; }
+  #sr3d-rail button i { writing-mode: horizontal-tb; }
 
   /* BGM 은 성격이 다른 서랍이라 나머지와 붙이지 않고 맨 아래에 둔다 */
-  #frames-drawer-bgm { margin-top: auto; }
+  #soloraid-drawer-bgm { margin-top: auto; }
 
-  #f3d-drawer {
+  #sr3d-drawer {
     flex: none;
     width: 320px;
     padding: 12px;
@@ -5720,36 +5720,36 @@
     border-left: 1px solid var(--border-subtle);
   }
 
-  #f3d-drawer.hidden { display: none; }
+  #sr3d-drawer.hidden { display: none; }
 
   /* ===== 전용 BGM 서랍 ===== */
-  #frames-bgm {
+  #soloraid-bgm {
     display: flex;
     flex-direction: column;
     gap: 14px;
   }
 
-  .frames-bgm-empty {
+  .soloraid-bgm-empty {
     padding: 24px 8px;
     text-align: center;
     font-size: 13px;
     color: var(--text-muted);
   }
 
-  .frames-bgm-item {
+  .soloraid-bgm-item {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  .frames-bgm-title {
+  .soloraid-bgm-title {
     font-size: 13px;
     font-weight: 700;
     color: var(--text-heading);
   }
 
   /* 표지. 누르면 같은 자리에 유튜브가 들어온다 */
-  .frames-bgm-yt {
+  .soloraid-bgm-yt {
     position: relative;
     aspect-ratio: 16 / 9;
     border-radius: var(--radius-md);
@@ -5758,14 +5758,14 @@
     background: var(--bg-panel-alt);
   }
 
-  .frames-bgm-yt img {
+  .soloraid-bgm-yt img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
 
-  .frames-bgm-play {
+  .soloraid-bgm-play {
     position: absolute;
     inset: 0;
     display: flex;
@@ -5777,9 +5777,9 @@
     transition: background 0.2s;
   }
 
-  .frames-bgm-yt:hover .frames-bgm-play { background: rgba(0, 0, 0, 0.5); }
+  .soloraid-bgm-yt:hover .soloraid-bgm-play { background: rgba(0, 0, 0, 0.5); }
 
-  .frames-bgm-frame {
+  .soloraid-bgm-frame {
     width: 100%;
     aspect-ratio: 16 / 9;
     border: none;
@@ -5787,18 +5787,18 @@
     display: block;
   }
 
-  .frames-bgm-link {
+  .soloraid-bgm-link {
     font-size: 12px;
     color: var(--text-muted);
     text-decoration: none;
   }
 
-  .frames-bgm-link:hover { color: var(--text-heading); text-decoration: underline; }
+  .soloraid-bgm-link:hover { color: var(--text-heading); text-decoration: underline; }
 
 
   /* 목록으로 버튼과 검색란을 한 덩이로 묶어 같이 고정한다.
      서랍 안쪽 여백(12px)만큼 음수로 올려야 위가 안 뜬다. */
-  #f3d-drawer-head {
+  #sr3d-drawer-head {
     position: sticky;
     top: -12px;
     z-index: 5;
@@ -5811,18 +5811,18 @@
     gap: 8px;
   }
 
-  #f3d-drawer-head #f3d-back-home { width: 100%; }
-  #f3d-drawer-head #frames-search-drawer { width: 100%; margin: 0; }
+  #sr3d-drawer-head #sr3d-back-home { width: 100%; }
+  #sr3d-drawer-head #soloraid-search-drawer { width: 100%; margin: 0; }
 
-  #f3d-drawer-selector {
+  #sr3d-drawer-selector {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  #f3d-drawer-selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #sr3d-drawer-selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 
-  #f3d-drawer .frames-item {
+  #sr3d-drawer .soloraid-item {
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -5831,11 +5831,11 @@
     padding: 6px;
   }
 
-  #f3d-drawer .frames-item-text { text-align: center; }
-  #f3d-drawer .frames-item-season { font-size: 10px; }
-  #f3d-drawer .frames-item-boss { font-size: 12px; }
+  #sr3d-drawer .soloraid-item-text { text-align: center; }
+  #sr3d-drawer .soloraid-item-season { font-size: 10px; }
+  #sr3d-drawer .soloraid-item-boss { font-size: 12px; }
 
-  #f3d-drawer .frames-item-img {
+  #sr3d-drawer .soloraid-item-img {
     width: 100%;
     height: auto;
     aspect-ratio: 1 / 1;
@@ -5843,15 +5843,15 @@
     border-radius: var(--radius-md);
   }
 
-  #f3d-drawer .frames-item-img img {
+  #sr3d-drawer .soloraid-item-img img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  #f3d-drawer #frames-toolbar { margin: 0 0 10px; padding: 0; }
+  #sr3d-drawer #soloraid-toolbar { margin: 0 0 10px; padding: 0; }
 
-  #f3d-drawer #frames-info {
+  #sr3d-drawer #soloraid-info {
     position: static;
     width: auto;
     display: block;
@@ -5862,13 +5862,13 @@
 
   /* 보스 이름·시즌: 서랍 머리를 표지처럼 꾸민다. 왼쪽에 속성색 띠를 세우고
      시즌은 알약으로 띄운다 - 이름만 크게 있던 때보다 구역이 분명해진다. */
-  #f3d-drawer #frames-info-header {
+  #sr3d-drawer #soloraid-info-header {
     position: relative;
     padding: 2px 0 14px 12px;
     margin-bottom: 2px;
   }
 
-  #f3d-drawer #frames-info-header::before {
+  #sr3d-drawer #soloraid-info-header::before {
     content: '';
     position: absolute;
     left: 0;
@@ -5879,7 +5879,7 @@
     background: var(--accent, #7c5cff);
   }
 
-  #f3d-drawer #frames-boss-name {
+  #sr3d-drawer #soloraid-boss-name {
     font-size: 25px;
     font-weight: 700;
     line-height: 1.25;
@@ -5887,7 +5887,7 @@
     word-break: keep-all;
   }
 
-  #f3d-drawer #frames-season-label {
+  #sr3d-drawer #soloraid-season-label {
     display: inline-block;
     margin-top: 7px;
     padding: 3px 10px;
@@ -5901,7 +5901,7 @@
   }
 
   /* 약점 속성: 아이콘과 이름을 알약 하나로 묶는다 */
-  #f3d-drawer #frames-attr .frames-attr-pill {
+  #sr3d-drawer #soloraid-attr .soloraid-attr-pill {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -5911,9 +5911,9 @@
     border: 1px solid var(--border-subtle);
   }
 
-  #f3d-drawer #frames-attr .frames-attr-icon { height: 24px; }
+  #sr3d-drawer #soloraid-attr .soloraid-attr-icon { height: 24px; }
 
-  #f3d-drawer #frames-attr .frames-attr-name {
+  #sr3d-drawer #soloraid-attr .soloraid-attr-name {
     font-size: 15px;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -5921,7 +5921,7 @@
 
   /* 펼침 폭(420px)에 맞춘 고정 폭 372px 이 서랍 안에서도 남아 있었다.
      서랍은 285px 라 87px 이 잘려 나갔다 - 진행 기간 값이 그렇게 사라졌다. */
-  #f3d-drawer #frames-info > *:not(.info-handle) {
+  #sr3d-drawer #soloraid-info > *:not(.info-handle) {
     opacity: 1;
     transform: none;
     width: auto;
@@ -5930,12 +5930,12 @@
 
   /* 진행 기간은 "2024-10-31 12:00 ~ 11-01 22:00" 처럼 길어서 한 줄에 안 들어간다.
      라벨을 위에 놓고 값이 폭을 다 쓰게 세로로 쌓는다. */
-  #f3d-drawer .frames-info-row {
+  #sr3d-drawer .soloraid-info-row {
     display: block;
     margin-bottom: 12px;
   }
 
-  #f3d-drawer .frames-info-label {
+  #sr3d-drawer .soloraid-info-label {
     width: auto;
     margin-bottom: 6px;
     font-size: 13px;
@@ -5944,8 +5944,8 @@
     color: var(--text-muted);
   }
 
-  #f3d-drawer #frames-date,
-  #f3d-drawer #frames-attr {
+  #sr3d-drawer #soloraid-date,
+  #sr3d-drawer #soloraid-attr {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
@@ -5955,20 +5955,20 @@
   }
 
   /* 아래로 공간이 남으니 줄 간격과 글자를 넉넉하게 쓴다 */
-  #f3d-drawer .frames-info-row { margin-bottom: 18px; }
-  #f3d-drawer .frames-date-item { gap: 8px; line-height: 1.65; }
-  #f3d-drawer .frames-date-order { font-size: 14px; }
-  #f3d-drawer .info-handle { display: none; }
+  #sr3d-drawer .soloraid-info-row { margin-bottom: 18px; }
+  #sr3d-drawer .soloraid-date-item { gap: 8px; line-height: 1.65; }
+  #sr3d-drawer .soloraid-date-order { font-size: 14px; }
+  #sr3d-drawer .info-handle { display: none; }
 
-  #f3d-drawer-tiers.hidden { display: none; }
+  #sr3d-drawer-tiers.hidden { display: none; }
 
-  #f3d-drawer #frames-tiers {
+  #sr3d-drawer #soloraid-tiers {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  #frames-tiers-toggle {
+  #soloraid-tiers-toggle {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -5984,31 +5984,31 @@
     border-radius: var(--radius-md);
   }
 
-  #frames-tiers-toggle i { transition: transform .2s ease; }
-  #frames-tiers-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
+  #soloraid-tiers-toggle i { transition: transform .2s ease; }
+  #soloraid-tiers-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
 
   /* 상세 정보 — 평소엔 숨기고 버튼으로 연다 */
-  #frames-layout:not(.info-open) #frames-info { display: none; }
+  #soloraid-layout:not(.info-open) #soloraid-info { display: none; }
 
-  #frames-layout.info-open #frames-info {
+  #soloraid-layout.info-open #soloraid-info {
     flex: 0 0 auto;
     width: 300px;
     margin-left: 10px;
   }
 
   /* 보스 목록 — 오른쪽에서 밀려 나오는 패널 */
-  #frames-layout.is-detail-open #frames-selector-col {
+  #soloraid-layout.is-detail-open #soloraid-selector-col {
     order: 2;
     flex: 0 0 auto;
     width: 300px;
     margin-left: 10px;
   }
 
-  #frames-layout.is-detail-open:not(.list-open) #frames-selector-col { display: none; }
+  #soloraid-layout.is-detail-open:not(.list-open) #soloraid-selector-col { display: none; }
 
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널
      (유니크 코스튬/미실장 캐릭터 탭과 동일한 패턴) */
-  #frames-info {
+  #soloraid-info {
     position: absolute;
     top: 0;
     right: 0;
@@ -6027,11 +6027,11 @@
     transition: width 0.25s ease;
   }
 
-  #frames-info:hover {
+  #soloraid-info:hover {
     width: 420px;
   }
 
-  #frames-info > *:not(.info-handle) {
+  #soloraid-info > *:not(.info-handle) {
     flex-shrink: 0;
     width: 372px;
     /* 접혀 있을 때는 내용을 감춘다. 예전엔 56px 로 잘라서 글자 왼쪽 끝만 삐죽 보였다. */
@@ -6039,12 +6039,12 @@
     transition: opacity 0.15s ease;
   }
 
-  #frames-info:hover > *:not(.info-handle) {
+  #soloraid-info:hover > *:not(.info-handle) {
     opacity: 1;
   }
 
   /* 접힌 상태에 보이는 손잡이(아이콘). 펼치면 사라진다. */
-  #frames-info .info-handle {
+  #soloraid-info .info-handle {
     position: absolute;
     top: 0;
     left: 0;
@@ -6060,11 +6060,11 @@
     transition: opacity 0.15s ease;
   }
 
-  #frames-info:hover .info-handle {
+  #soloraid-info:hover .info-handle {
     opacity: 0;
   }
 
-  #frames-info-header {
+  #soloraid-info-header {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -6072,38 +6072,38 @@
     border-bottom: 1px solid var(--border-subtle);
   }
 
-  #frames-boss-name {
+  #soloraid-boss-name {
     font-size: 28px;
     font-weight: 600;
     color: var(--text-heading);
   }
 
-  #frames-season-label {
+  #soloraid-season-label {
     font-size: 18px;
     color: var(--text-secondary);
   }
 
-  .frames-info-row {
+  .soloraid-info-row {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
 
   /* 중간에 멈췄다 다시 연 시즌은 진행 구간이 여러 줄이 된다 */
-  #frames-date {
+  #soloraid-date {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
-  .frames-date-item {
+  .soloraid-date-item {
     display: flex;
     align-items: center;
     gap: 6px;
     line-height: 1.5;
   }
 
-  .frames-date-order {
+  .soloraid-date-order {
     flex-shrink: 0;
     font-size: 13px;
     font-weight: 700;
@@ -6111,7 +6111,7 @@
   }
 
   /* 이 구간이 정상 종료가 아니라 중단으로 끊겼다는 표시 */
-  .frames-date-pause {
+  .soloraid-date-pause {
     flex-shrink: 0;
     padding: 1px 7px;
     border-radius: var(--radius-sm);
@@ -6121,7 +6121,7 @@
     color: var(--code-scorch-text);
   }
 
-  .frames-info-label {
+  .soloraid-info-label {
     font-size: 14px;
     color: var(--accent-dim);
     letter-spacing: 0.08em;
@@ -6129,22 +6129,22 @@
     margin-bottom: 2px;
   }
 
-  #frames-date,
-  #frames-attr {
+  #soloraid-date,
+  #soloraid-attr {
     font-size: 18px;
     color: var(--text-secondary);
   }
 
   /* 모델 아래 폭을 테두리 수만큼 똑같이 나눈다(보통 셋이라 3등분).
      칸마다 그림 → 이름 → 설명 순으로 쌓인다. */
-  #frames-tiers {
+  #soloraid-tiers {
     display: grid;
     grid-template-columns: repeat(var(--tier-cols, 3), minmax(0, 1fr));
     gap: 16px;
     align-items: start;
   }
 
-  .frames-tier-card {
+  .soloraid-tier-card {
     width: auto;
     display: flex;
     flex-direction: column;
@@ -6156,7 +6156,7 @@
     border-radius: var(--radius-md);
   }
 
-  .frames-tier-desc {
+  .soloraid-tier-desc {
     align-self: stretch;
     padding-top: 10px;
     border-top: 1px solid var(--border-subtle);
@@ -6167,7 +6167,7 @@
     word-break: keep-all;
   }
 
-  .frames-tier-img {
+  .soloraid-tier-img {
     width: 158px;
     height: 158px;
     border-radius: var(--radius-md);
@@ -6178,13 +6178,13 @@
     justify-content: center;
   }
 
-  .frames-tier-img img {
+  .soloraid-tier-img img {
     width: 100%;
     height: 100%;
     object-fit: contain;
   }
 
-  .frames-tier-name {
+  .soloraid-tier-name {
     font-size: 18px;
     font-weight: 600;
     color: var(--text-body);

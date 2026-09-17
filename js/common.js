@@ -10,7 +10,7 @@ const APP_DATA = {
   nikkeImg: null,
   iconImg: null,
   chapImg: null,
-  frames: null,
+  soloraid: null,
 };
 // 로드 완료 후 실행할 콜백 목록
 const _onReadyCallbacks = [];
@@ -29,10 +29,15 @@ function onAppDataReady(fn) {
 function tabUrl(tabName) {
   return tabName === 'main' ? location.pathname + location.search : '#' + tabName;
 }
+// 탭 이름을 바꾸기 전에 퍼진 주소도 계속 열리게 옛 이름을 새 이름으로 이어 준다.
+// (솔로 레이드는 테두리 목록에서 출발해서 한동안 frames 라는 이름을 썼다)
+const TAB_ALIAS = { frames: 'soloraid' };
+
 // 주소의 # 가 실제로 있는 탭을 가리킬 때만 그 이름을 돌려준다.
 function tabFromHash() {
-  const name = String(location.hash || '').replace(/^#/, '');
-  if (!/^[a-z0-9_-]+$/i.test(name)) return null;
+  const raw = String(location.hash || '').replace(/^#/, '');
+  if (!/^[a-z0-9_-]+$/i.test(raw)) return null;
+  const name = TAB_ALIAS[raw] || raw;
   return document.querySelector('.tab-btn[data-tab="' + name + '"]') ? name : null;
 }
 
@@ -46,7 +51,7 @@ function switchTab(tabName, pushHistory = true) {
 
   // 솔로 레이드는 3D 뷰어가 화면을 꽉 채우는 전용 배치를 쓴다. 헤더/푸터를 접고
   // 탭 바만 얇게 남긴다. 다른 탭으로 나가면 원래 배치로 돌아온다.
-  document.body.classList.toggle('app-mode', tabName === 'frames');
+  document.body.classList.toggle('app-mode', tabName === 'soloraid');
   // 메인을 뺀 나머지 탭도 탭 바를 얇게 쓴다(내용 볼 자리를 더 준다)
   document.body.classList.toggle('compact-nav', tabName !== 'main');
 
@@ -563,13 +568,13 @@ function hasTimePart(value) {
 
 // 표에 줄만 미리 만들어 둔 보스(시즌이나 이름이 아직 빈 행)는 화면에 올리지 않는다.
 // 시즌과 이름이 둘 다 채워진 뒤부터 목록에 나온다.
-function framesRowReady(r) {
+function soloRaidRowReady(r) {
   const filled = v => v !== null && v !== undefined && String(v).trim() !== '';
   return filled(r['시즌']) && filled(r['보스']);
 }
 
-function buildFramesData(rows) {
-  return rows.filter(framesRowReady).map(r => ({
+function buildSoloRaidData(rows) {
+  return rows.filter(soloRaidRowReady).map(r => ({
     '시즌': r['시즌'],
     '시작일': r['시작일'],
     '종료일': r['종료일'],
@@ -718,10 +723,10 @@ async function loadAllData() {
   // 실패해도 여기서만 조용히 빈 배열로 처리하고 넘어간다.
   // 표 이름을 역대_테두리 → 솔로_레이드 로 바꾸는 중이라 둘 다 시도한다. 이름 변경 SQL 을
   // 언제 실행하든 화면이 깨지지 않게 하려는 것이고, 변경이 끝나면 옛 이름은 지워도 된다.
-  APP_DATA.frames = [];
+  APP_DATA.soloraid = [];
   for (const table of ['솔로_레이드', '역대_테두리']) {
     try {
-      APP_DATA.frames = buildFramesData(await fetchAll(table, '시즌'));
+      APP_DATA.soloraid = buildSoloRaidData(await fetchAll(table, '시즌'));
       break;
     } catch (err) {
       console.warn(`[솔로 레이드] ${table} 읽기 실패:`, err.message || err);
