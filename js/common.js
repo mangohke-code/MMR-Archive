@@ -567,6 +567,62 @@ function hasTimePart(value) {
   return typeof value === 'string' && value.includes('T');
 }
 
+// ===== 남은 기간 =====
+//
+// 예전에는 (목표 - 지금) 을 24시간으로 나눠 올림했다. 그러면 오늘 끝나는 픽업이
+// 반나절 남았을 때 0.3 일 -> 올림 1 이 되어 D-1 로 나온다. 오늘 끝나는데 하루
+// 남은 것처럼 보이는 것이다.
+//
+// 그래서 "한국시간 자정을 몇 번 넘겨야 그날이 되는가" 로 센다. 오늘이면 0,
+// 내일이면 1 이다. 게임 일정이 한국 기준이라 보는 사람의 시간대와 무관하게
+// 같은 값이 나와야 한다.
+function kstDayNumber(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return NaN;
+  // en-CA 는 YYYY-MM-DD 로 찍어 준다
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+  return Math.round(Date.parse(ymd + 'T00:00:00Z') / 86400000);
+}
+
+function kstDaysUntil(target, now = new Date()) {
+  const diff = kstDayNumber(target) - kstDayNumber(now);
+  return Number.isNaN(diff) ? 0 : diff;
+}
+
+// 시:분까지 들어 있는 값에만 쓴다. 날짜만 있는 값은 그날 몇 시에 끝나는지를
+// 알 수 없어서 시간 단위로 말하면 틀린 수가 나온다.
+function hoursUntil(target, now = new Date()) {
+  const ms = new Date(target) - now;
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60)));
+}
+
+// 시간까지 같이 적어 줄 구간. 이틀보다 멀면 "733시간" 처럼 읽어도 와닿지 않는
+// 수가 되므로 D-n 만 적는다. 곧 바뀌는 것만 시간으로 말해 주면 된다.
+const HOUR_DETAIL_LIMIT = 48;
+
+// 배지에 넣을 문구. kind 는 'start' 또는 'end'.
+// 시간 정보가 있는 값(이벤트·코스튬·솔로 레이드)은 몇 시간 남았는지도 같이 적는다.
+function remainingText(target, kind, now = new Date()) {
+  const label = kind === 'start' ? '시작' : '종료';
+  const days = kstDaysUntil(target, now);
+  if (hasTimePart(target)) {
+    const h = hoursUntil(target, now);
+    if (days <= 0) return `${label}까지 ${h}시간`;
+    if (h <= HOUR_DETAIL_LIMIT) return `${label}까지 D-${days} · ${h}시간`;
+    return `${label}까지 D-${days}`;
+  }
+  return days <= 0 ? `오늘 ${label}` : `${label}까지 D-${days}`;
+}
+
+// 픽업 기록 탭 카드처럼 자리가 좁아 D-n 만 적는 곳에서 쓴다.
+function remainingShort(target, now = new Date()) {
+  const days = kstDaysUntil(target, now);
+  if (days > 0) return `D-${days}`;
+  return hasTimePart(target) ? `${hoursUntil(target, now)}시간` : 'D-DAY';
+}
+
 // 표에 줄만 미리 만들어 둔 보스(시즌이나 이름이 아직 빈 행)는 화면에 올리지 않는다.
 // 시즌과 이름이 둘 다 채워진 뒤부터 목록에 나온다.
 function soloRaidRowReady(r) {

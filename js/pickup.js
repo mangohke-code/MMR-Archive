@@ -553,20 +553,13 @@
   // 배지(.pickup-remaining-badge)와 헷갈리지 않도록 다른 클래스(다른 색)를 쓴다
   function formatDaysUntilStart(start) {
     if (!isPickupUpcoming(start)) return '';
-    const now = new Date();
-    const s = new Date(start);
-    const remain = Math.ceil((s - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-upcoming-badge">D-${Math.max(remain, 0)}</span>`;
+    return `<span class="pickup-upcoming-badge">${remainingShort(start)}</span>`;
   }
 
   // 픽업중인 니케 카드에 종료까지 남은 일수를 D-n 배지로 표시
   function formatRemainingDaysPickup(start, end) {
     if (!isPickupPeriodActive(start, end)) return '';
-    const now = new Date();
-    const e = new Date(end);
-    e.setHours(23, 59, 59, 999);
-    const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-remaining-badge">D-${Math.max(remain, 0)}</span>`;
+    return `<span class="pickup-remaining-badge">${remainingShort(end)}</span>`;
   }
 
   // 메인 페이지의 "진행중인 픽업" 카드 클릭 시 픽업 기록 탭의 해당 니케 위치로 이동.

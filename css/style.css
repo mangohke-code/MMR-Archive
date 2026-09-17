@@ -670,8 +670,35 @@
 
   .pickup-card.rerun .pickup-name {
     font-size: 18px;
-    word-break: keep-all;
     align-content: center;
+  }
+
+  /* 이름이 칸을 넘칠 때 좌우로 흐르게 한다(픽업 기록 탭의 니케 카드와 같은 방식).
+     줄바꿈을 허용하면 이름이 긴 카드만 키가 커지는데, 한 줄에 같이 있을 때는
+     줄 높이에 묻혀 안 보이다가 그 카드가 혼자 다음 줄로 밀리면 크기가 달라 보인다.
+     실제로 넘치는 카드에만 JS 가 is-scrolling 을 붙인다. */
+  .pickup-name-wrap {
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0px,
+      black 8px,
+      black calc(100% - 8px),
+      transparent 100%
+    );
+  }
+
+  .pickup-name {
+    display: inline-block;
+    width: max-content;
+    max-width: none;
+    white-space: nowrap;
+    word-break: keep-all;
+    will-change: transform;
+  }
+
+  .pickup-name.is-scrolling {
+    animation: scrolling 5s ease-in-out infinite;
   }
 
   .pickup-img {

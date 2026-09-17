@@ -89,12 +89,15 @@
     };
 
     const renderNewCard = p => {
-      const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
+      // 신규 픽업은 배너가 없으면 그냥 비워 둔다. 초상화로 채우면 배너가 올라온
+      // 카드와 그림 성격이 달라 한 줄에 섞였을 때 어색하다. 복각 카드는 작아서
+      // 초상화가 자연스러우므로 거기서만 대신 쓴다.
+      const imgUrl = p['픽업 배너'] || '';
       return `
         <div class="pickup-card" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
           <div class="pickup-card-info">
-            <div class="pickup-name">${p['니케']}</div>
+            <div class="pickup-name-wrap"><div class="pickup-name">${p['니케']}</div></div>
             <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
             <div class="pickup-badge-row">
               <span class="badge-pickup-type new">신규</span>
@@ -112,7 +115,7 @@
         <div class="pickup-card rerun" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
           <div class="pickup-card-info">
-            <div class="pickup-name">${p['니케']}</div>
+            <div class="pickup-name-wrap"><div class="pickup-name">${p['니케']}</div></div>
             <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
             <div class="pickup-badge-row">
               <span class="badge-pickup-type rerun">복각</span>
@@ -133,6 +136,9 @@
         ${newPickups.length > 0 ? `<div class="pickup-row">${newPickups.map(renderNewCard).join('')}</div>` : ''}
         ${rerunPickups.length > 0 ? `<div class="pickup-row">${rerunPickups.map(renderRerunCard).join('')}</div>` : ''}
       `;
+      // 이름이 칸을 넘치면 좌우로 흐르게 한다. 줄바꿈을 허용하면 이름이 긴 카드만
+      // 키가 커져서, 그 카드가 혼자 다음 줄로 밀렸을 때 크기가 달라 보인다.
+      syncNameScrollAnimations(container, '.pickup-name-wrap', '.pickup-name');
       container.onclick = e => {
         const card = e.target.closest('.pickup-card[data-nikke]');
         if (card) jumpToPickupNikke(card.dataset.nikke);
@@ -203,7 +209,7 @@
         <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
           <div class="pickup-card-info">
-            <div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div>
+            <div class="pickup-name-wrap"><div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div></div>
             <div class="pickup-date">${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}</div>
             <div class="pickup-badge-row">
               <span class="badge-pickup-type ${c._isRerun ? 'rerun' : 'new'}">${c._isRerun ? '복각' : '신규'}</span>
@@ -223,6 +229,7 @@
         ${newCostumes.length > 0 ? `<div class="pickup-row">${newCostumes.map(renderCard).join('')}</div>` : ''}
         ${rerunCostumes.length > 0 ? `<div class="pickup-row">${rerunCostumes.map(renderCard).join('')}</div>` : ''}
       `;
+      syncNameScrollAnimations(container, '.pickup-name-wrap', '.pickup-name');
       container.onclick = e => {
         const card = e.target.closest('.pickup-card[data-nikke]');
         if (!card) return;
@@ -256,16 +263,16 @@
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   }
 
-  // 진행중인 픽업/코스튬 픽업 카드에 종료까지 남은 일수를 D-n 배지로 표시
+  // 진행중인 픽업/코스튬 픽업 카드에 종료까지 남은 기간을 배지로 표시
   function formatRemainingDaysMain(start, end) {
     if (!start || !end) return '';
     const now = new Date();
     const s = new Date(start);
     const e = new Date(end);
-    e.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도 그날 전체를 포함하도록
+    // 종료일에 시간 정보가 없으면 그날 전체를 포함해서 "진행중" 으로 본다
+    if (!hasTimePart(end)) e.setHours(23, 59, 59, 999);
     if (now < s || now > e) return '';
-    const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-remaining-badge">종료까지 D-${Math.max(remain, 0)}</span>`;
+    return `<span class="pickup-remaining-badge">${remainingText(end, 'end', now)}</span>`;
   }
 
   // 진행 예정 픽업/코스튬 픽업 카드에 시작까지 남은 일수를 D-n 배지로 표시.
@@ -273,10 +280,8 @@
   function formatUntilStartMain(start) {
     if (!start) return '';
     const now = new Date();
-    const s = new Date(start);
-    if (now >= s) return '';
-    const remain = Math.ceil((s - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-remaining-badge is-upcoming">시작까지 D-${Math.max(remain, 0)}</span>`;
+    if (now >= new Date(start)) return '';
+    return `<span class="pickup-remaining-badge is-upcoming">${remainingText(start, 'start', now)}</span>`;
   }
 
   // 진행중인 이벤트 카드에 종료까지 남은 일수를 D-n 배지로 표시.
@@ -285,11 +290,8 @@
   function formatEventRemainingMain(start, end) {
     if (!start || !end) return '';
     const now = new Date();
-    const s = new Date(start);
-    const e = new Date(end);
-    if (now < s || now > e) return '';
-    const remain = Math.ceil((e - now) / (1000 * 60 * 60 * 24));
-    return `<span class="pickup-remaining-badge">종료까지 D-${Math.max(remain, 0)}</span>`;
+    if (now < new Date(start) || now > new Date(end)) return '';
+    return `<span class="pickup-remaining-badge">${remainingText(end, 'end', now)}</span>`;
   }
 
   function formatDate(date) {

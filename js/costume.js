@@ -887,13 +887,12 @@
   function formatRemainingDays(start, end, variantClass = '') {
     if (!start || !end) return '';
     const now = new Date();
-    const s = new Date(start);
-    const e = new Date(end);
     const cls = extra => ['costume-remaining-badge', variantClass, extra].filter(Boolean).join(' ');
-    const days = target => Math.max(Math.ceil((target - now) / (1000 * 60 * 60 * 24)), 0);
-    if (now < s) return `<span class="${cls('is-upcoming')}">시작까지 D-${days(s)}</span>`;
-    if (now > e) return '';
-    return `<span class="${cls()}">종료까지 D-${days(e)}</span>`;
+    if (now < new Date(start)) {
+      return `<span class="${cls('is-upcoming')}">${remainingText(start, 'start', now)}</span>`;
+    }
+    if (now > new Date(end)) return '';
+    return `<span class="${cls()}">${remainingText(end, 'end', now)}</span>`;
   }
 
   // 최초 픽업 시작일 기준 며칠 만에 복각했는지 표시
