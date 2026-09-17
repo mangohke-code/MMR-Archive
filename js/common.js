@@ -221,11 +221,110 @@ function setupL2dSideToggle(wrapId, toggleId) {
   if (!wrap || !btn || btn.dataset.wired) return;
   btn.dataset.wired = '1';
   btn.addEventListener('click', () => {
-    const closed = wrap.classList.toggle('is-side-closed');
-    btn.setAttribute('aria-expanded', String(!closed));
-    btn.title = closed ? '조작판 펴기' : '조작판 접기';
+    const open = wrap.classList.toggle('is-side-open');
+    btn.setAttribute('aria-pressed', String(open));
+    btn.title = open ? '고정 풀기' : '조작판 고정';
   });
 }
+
+// ===== L2D 뷰어 재생바 =====
+//
+// 솔로 레이드 3D 뷰어의 재생바와 같은 감각으로, 스파인 애니메이션도 처음부터 다시
+// 틀고 멈추고 원하는 지점으로 옮길 수 있게 한다. spine-player 는 play/pause 만
+// 내주므로 시간은 트랙(TrackEntry)의 trackTime 을 직접 읽고 쓴다.
+//
+// getPlayer 는 지금 화면에 떠 있는 SpinePlayer 를 돌려준다(코스튬은 모델을 바꿀
+// 때마다 새로 만든다). 없으면 바를 죽여 둔다.
+function setupL2dBar(barId, getPlayer, opts) {
+  const bar = document.getElementById(barId);
+  if (!bar || bar.dataset.wired) return;
+  bar.dataset.wired = '1';
+
+  const fill = bar.querySelector('.l2d-timeline-fill');
+  const line = bar.querySelector('.l2d-timeline');
+  const code = bar.querySelector('.l2d-timecode');
+  const playBtn = bar.querySelector('[data-act="playpause"]');
+  const immBtn = bar.querySelector('[data-act="immersive"]');
+
+  const entryOf = () => {
+    const p = getPlayer();
+    try { return (p && p.animationState && p.animationState.tracks[0]) || null; } catch (e) { return null; }
+  };
+
+  bar.querySelector('[data-act="restart"]').addEventListener('click', () => {
+    const e = entryOf();
+    if (e) e.trackTime = 0;
+  });
+
+  playBtn.addEventListener('click', () => {
+    const p = getPlayer();
+    if (!p) return;
+    if (p.paused) p.play(); else p.pause();
+    syncPlayIcon();
+  });
+
+  function syncPlayIcon() {
+    const p = getPlayer();
+    const paused = !p || p.paused;
+    const i = playBtn.querySelector('i');
+    if (i) i.className = paused ? 'fas fa-play' : 'fas fa-pause';
+    playBtn.title = paused ? '재생' : '일시정지';
+  }
+
+  // 진행바를 눌러 그 지점으로 옮긴다
+  const seekTo = ev => {
+    const e = entryOf();
+    if (!e || !e.animation) return;
+    const r = line.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
+    e.trackTime = ratio * e.animation.duration;
+  };
+  line.addEventListener('mousedown', ev => {
+    seekTo(ev);
+    const move = e2 => seekTo(e2);
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  });
+
+  // 전체화면
+  if (immBtn) {
+    immBtn.addEventListener('click', () => setL2dImmersive(!document.body.classList.contains('l2d-immersive')));
+  }
+
+  // 매 프레임 진행바와 시간을 맞춘다. 탭이 안 보이면 굳이 돌지 않는다.
+  function tick() {
+    const e = entryOf();
+    if (e && e.animation) {
+      const dur = e.animation.duration || 0;
+      const t = dur ? (e.trackTime % dur) : 0;
+      if (fill) fill.style.width = (dur ? (t / dur) * 100 : 0) + '%';
+      if (code) code.textContent = t.toFixed(2) + ' / ' + dur.toFixed(2);
+    } else if (code) {
+      if (fill) fill.style.width = '0%';
+      code.textContent = '0.00 / 0.00';
+    }
+    syncPlayIcon();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// 전체화면 토글. 주변 것들을 접는 일은 CSS 가 하고 여기서는 표시만 바꾼다.
+function setL2dImmersive(on) {
+  document.body.classList.toggle('l2d-immersive', on);
+  document.querySelectorAll('.l2d-bar [data-act="immersive"]').forEach(btn => {
+    btn.setAttribute('aria-pressed', String(on));
+    btn.title = on ? '전체화면 나가기 (Esc)' : '전체화면 (Esc 로 나가기)';
+    const i = btn.querySelector('i');
+    if (i) i.className = on ? 'fas fa-compress' : 'fas fa-expand';
+  });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('l2d-immersive')) setL2dImmersive(false);
+});
+document.addEventListener('mmr:tab-change', () => setL2dImmersive(false));
 
 // 이름이 칸을 넘칠 때만 좌우로 스크롤되는 애니메이션 적용 (픽업 기록 탭의 니케 카드/
 // 몰아보기 니케 이름). CSS keyframe만으로는 실제 텍스트 폭을 알 수 없어서 정해진

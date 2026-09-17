@@ -2767,24 +2767,41 @@
     flex-direction: column;
   }
 
+  /* 그림 칸은 재생바를 뺀 나머지를 먹는다. height:100% 로 두면 재생바만큼
+     넘쳐서 바가 상자 밖으로 밀려난다. */
+  .l2d-stage > #costume-spine-player,
+  .l2d-stage > #unreleased-spine-player {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* 판은 그림 칸 위로 떠 있다. 예전처럼 자리를 나눠 가지면 판을 펼 때마다 그림이
+     좁아졌다 넓어졌다 해서 보기 불편하다. 평소에는 손잡이 너비만 남기고 왼쪽으로
+     숨어 있다가, 그 위에 마우스를 올리면 미끄러져 나온다. */
   .l2d-side {
-    flex: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 6;
     width: 264px;
     padding: 14px;
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--bg-panel);
     border-right: 1px solid var(--border-subtle);
-    transition: width 0.28s ease, padding 0.28s ease, opacity 0.2s ease;
+    box-shadow: var(--shadow-card-hover);
+    transform: translateX(calc(-100% + 26px));
+    transition: transform 0.26s ease;
   }
 
-  .l2d-wrap.is-side-closed .l2d-side {
-    width: 0;
-    padding-left: 0;
-    padding-right: 0;
-    opacity: 0;
-    border-right-color: transparent;
-  }
+  /* 손잡이 너비만 남긴 상태에서는 내용이 비쳐 보이면 지저분하다 */
+  .l2d-side > * { transition: opacity 0.18s ease; }
+  .l2d-wrap:not(.is-side-open) .l2d-side:not(:hover) > * { opacity: 0; }
+
+  .l2d-side:hover,
+  .l2d-wrap.is-side-open .l2d-side { transform: translateX(0); }
 
   /* 구역마다 실선을 긋고 사이를 띄운다. 제목만으로는 어디까지가 한 묶음인지
      눈에 안 들어와서, 동작·표정·파츠가 한 덩어리처럼 보였다. */
@@ -2823,11 +2840,11 @@
 
   .l2d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
-  /* 접기 손잡이. 판 오른쪽 끝에 붙어 같이 움직인다. */
+  /* 고정 핀. 눌러 두면 마우스를 떼도 판이 펴진 채로 남는다. 판과 함께 움직인다. */
   .l2d-side-toggle {
     position: absolute;
     top: 14px;
-    left: 264px;
+    left: 0;
     z-index: 7;
     width: 26px;
     height: 34px;
@@ -2846,9 +2863,12 @@
 
   .l2d-side-toggle:hover { color: var(--text-heading); }
 
-  .l2d-wrap.is-side-closed .l2d-side-toggle { left: 0; }
+  .l2d-side:hover ~ .l2d-side-toggle,
+  .l2d-wrap.is-side-open .l2d-side-toggle { left: 264px; }
 
-  .l2d-wrap.is-side-closed .l2d-side-toggle i { transform: rotate(180deg); }
+  .l2d-wrap.is-side-open .l2d-side-toggle { color: var(--accent); }
+
+  .l2d-wrap.is-side-open .l2d-side-toggle i { transform: rotate(180deg); }
 
   /* 판 안에서는 모델 고르기와 표정이 떠 있을 이유가 없다. 흐름대로 쌓는다. */
   .l2d-side .spine-variation,
@@ -2900,6 +2920,95 @@
     flex-wrap: wrap;
     gap: 5px;
   }
+
+  /* ===== L2D 뷰어 재생바 ===== */
+  .l2d-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-subtle);
+    overflow: hidden;
+    transition: height 0.3s ease, padding 0.3s ease, opacity 0.22s ease;
+  }
+
+  .l2d-bar-btn {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-body);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .l2d-bar-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+  .l2d-bar-btn[disabled] { opacity: .4; cursor: default; }
+
+  .l2d-timeline {
+    flex: 1;
+    min-width: 0;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .l2d-timeline-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+  }
+
+  .l2d-timecode {
+    flex: none;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* ===== L2D 전체화면(몰입) 모드 =====
+     주변 것들의 높이를 0 으로 줄여서 접는다. 그림 상자는 남는 높이를 먹으므로
+     접히는 만큼 늘어난다. */
+  body.l2d-immersive header,
+  body.l2d-immersive #site-footer,
+  body.l2d-immersive #tab-nav,
+  body.l2d-immersive #costume-selector,
+  body.l2d-immersive #costume-info,
+  body.l2d-immersive #unreleased-detail-info,
+  body.l2d-immersive #unreleased-container > .section-title,
+  body.l2d-immersive #scroll-btns {
+    height: 0;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    opacity: 0;
+    overflow: hidden;
+    border: 0;
+    transition: height 0.3s ease, padding 0.3s ease, margin 0.3s ease, opacity 0.22s ease;
+  }
+
+  body.l2d-immersive #costume-spine-wrap,
+  body.l2d-immersive #unreleased-spine-wrap {
+    height: 100vh;
+    min-height: 0;
+    border-radius: 0;
+  }
+
+  body.l2d-immersive main { padding: 0; margin: 0; max-width: none; }
+  body.l2d-immersive .tab-content { padding: 0; }
 
   #costume-spine-player {
     width: 100%;
@@ -5250,20 +5359,39 @@
     flex-direction: column;
   }
 
-  body.app-mode header,
   body.app-mode #site-footer { display: none; }
 
   /* .tab-btn 을 겨냥한 규칙이 !important 를 붙여도 안 먹어서(런타임 주입도 동일)
      확실히 먹는 nav 단위 속성으로 통째로 줄인다. */
-  /* 메인 외 탭에서는 탭 바를 얇게 (솔로 레이드는 app-mode 가 같이 걸린다) */
+  /* 메인 외 탭에서는 탭 바를 얇게 (솔로 레이드는 app-mode 가 같이 걸린다).
+     탭을 옮길 때 툭 하고 바뀌지 않도록 줄어드는 과정을 보여 준다. */
+  #tab-nav {
+    transition: zoom 0.26s ease, margin 0.26s ease;
+  }
+
   body.compact-nav #tab-nav {
     zoom: 0.72;
     margin-bottom: 0.75rem;
   }
 
   /* 메인 외 탭에서는 사이트 이름 구역을 접는다(솔로 레이드와 같은 배치).
-     테마 버튼은 switchTab 이 탭 바로 옮겨 놓아서 같이 안 사라진다. */
-  body.compact-nav header { display: none; }
+     테마 버튼은 switchTab 이 탭 바로 옮겨 놓아서 같이 안 사라진다.
+     display:none 은 순간이동이라, 높이를 줄여서 접히는 과정이 보이게 한다. */
+  header {
+    overflow: hidden;
+    transition: height 0.28s ease, opacity 0.22s ease,
+                padding 0.28s ease, margin 0.28s ease;
+  }
+
+  body.compact-nav header {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    opacity: 0;
+    border: 0;
+  }
 
   /* 탭 바로 올라온 테마 버튼. 오른쪽 끝으로 밀고 탭 높이에 맞췠 줄인다. */
   #theme-toggle.in-nav {

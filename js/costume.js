@@ -927,5 +927,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     setupL2dSideToggle('costume-spine-wrap', 'costume-side-toggle');
+    // 재생바는 지금 떠 있는 플레이어를 그때그때 물어본다(모델을 바꾸면 새로 만들어진다)
+    setupL2dBar('costume-bar', () => spinePlayer);
     waitForSpine(loadCostumeData);
   });

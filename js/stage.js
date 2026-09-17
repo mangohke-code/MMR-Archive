@@ -264,6 +264,25 @@
     });
 
     tableWrap.appendChild(overlay);
+
+    // 표가 길면 단추가 표 한가운데에 박혀 있어서, 아래쪽을 보고 있을 때는 화면
+    // 밖에 있다. 스크롤을 따라 화면 세로 한가운데에 머물게 하되, 표 밖으로는
+    // 나가지 않도록 위아래를 표 안에 가둔다.
+    const followScroll = () => {
+      if (!overlay.isConnected) {
+        window.removeEventListener('scroll', followScroll);
+        window.removeEventListener('resize', followScroll);
+        return;
+      }
+      const r = tableWrap.getBoundingClientRect();
+      const margin = 40;
+      let top = window.innerHeight / 2 - r.top;
+      top = Math.max(margin, Math.min(r.height - margin, top));
+      overlay.style.top = top + 'px';
+    };
+    followScroll();
+    window.addEventListener('scroll', followScroll, { passive: true });
+    window.addEventListener('resize', followScroll);
   }
 
   // 뒤로가기

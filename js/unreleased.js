@@ -914,5 +914,6 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     setupL2dSideToggle('unreleased-spine-wrap', 'unreleased-side-toggle');
+    setupL2dBar('unreleased-bar', () => unreleasedSpinePlayer);
     loadUnreleasedData();
   });
