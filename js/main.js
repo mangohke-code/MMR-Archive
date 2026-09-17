@@ -63,8 +63,6 @@
     `).join('');
   }
 
-  const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
-
   function renderPickupList(data) {
     const now = new Date();
     const activePickups = data.filter(p => {

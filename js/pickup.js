@@ -14,7 +14,7 @@
   };
   
   const FILTER_ORDER = {
-    season: ['일반', '메이드', '바니걸', '여름', '크리스마스', '신년', '__anniv__', '콜라보'],
+    season: ['일반', '메이드', '바니걸', '여름', '할로윈', '크리스마스', '신년', '__anniv__', '콜라보'],
     type:   ['화력형', '지원형', '방어형'],
     code:   ['작열', '철갑', '풍압', '전격', '수냉'],
     burst:  ['1', '2', '3', 'Λ'],
@@ -170,7 +170,6 @@
   }
 
   function renderGroupNikkeItem(p) {
-    const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
     // 어브노말 소속은 전부 콜라보 니케 - 한정 배지 대신 콜라보 배지를 보여준다
     const isCollab = isCollabCompany(p['기업']);
     const isLimited = isCollab || LIMITED_SEASONS.includes(p['시즌']);
@@ -459,7 +458,6 @@
   }
 
   function renderNikkeCard(p) {
-    const LIMITED_SEASONS = ['콜라보', '여름', '크리스마스'];
     // 어브노말 소속은 전부 콜라보 니케 - 한정 배지 대신 콜라보 배지를 보여준다
     const isCollab = isCollabCompany(p['기업']);
     const isLimited = isCollab || LIMITED_SEASONS.includes(p['시즌']);

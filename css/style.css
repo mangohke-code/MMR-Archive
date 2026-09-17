@@ -955,9 +955,32 @@
      껍데기는 배경 없이 자리만 잡는다 — 접었을 때 빈 상자가 남지 않게 하려는 것. */
   .spine-expression {
     position: absolute;
-    top: 58px;
+    top: 14px;
     left: 14px;
     z-index: 6;
+  }
+
+  /* 유니크 코스튬 뷰어는 모델 고르기와 표정을 왼쪽 위에 세로로 쌓는다.
+     따로 띄워 두면 표정 목록이 펼쳐질 때 모델 칸을 덮어서, 한 칸에 넣고
+     흐름대로 쌓이게 했다. 미실장 탭에는 모델 고르기가 없어서 그대로 둔다. */
+  .spine-ctl-stack {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* 칸 안에서는 흐름대로 쌓이면 되므로 각자 붙잡고 있던 자리를 푼다.
+     표정 목록(.expr-panel)이 토글 기준으로 떠야 해서 relative 는 남긴다. */
+  .spine-ctl-stack .spine-expression {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: auto;
   }
 
   .expr-toggle {
@@ -1029,19 +1052,16 @@
      표정처럼 접었다 펴지 않고 늘 보이게 둔다 — 항목이 두세 개뿐이다.
      왼쪽 값은 표정 토글(고정폭 65px)의 오른쪽 끝에 여백을 더한 것이다. */
   .spine-variation {
-    position: absolute;
-    top: 58px;
-    left: 87px;
-    z-index: 6;
+    position: relative;
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 5px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
     width: max-content;
-    max-width: calc(100% - 100px);
-    flex-wrap: wrap;
-    padding: 6px 9px;
-    border-radius: var(--radius-pill, 999px);
+    min-width: 92px;
+    max-width: 160px;
+    padding: 8px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--border-subtle);
     background: var(--bg-panel-active);
     box-shadow: var(--shadow-card-hover);
@@ -1052,11 +1072,11 @@
     font-weight: 800;
     letter-spacing: 0.04em;
     color: var(--text-muted);
-    padding: 0 3px 0 1px;
+    padding: 0 2px 2px;
   }
 
   .spine-variation .variation-btn {
-    text-align: center;
+    text-align: left;
     white-space: nowrap;
   }
 
@@ -2732,9 +2752,10 @@
     background-color: transparent !important;
   }
 
+  /* 왼쪽 위는 모델 고르기와 표정이 쓰므로 새로고침은 좌하단으로 내린다. */
   .spine-reset-btn {
     position: absolute;
-    top: 14px;
+    bottom: 14px;
     left: 14px;
     z-index: 6;
     width: 36px;
@@ -2750,6 +2771,12 @@
     cursor: pointer;
     font-size: 14px;
     transition: all 0.15s;
+  }
+
+  /* 미실장 뷰어는 그림이 둘인 캐릭터에서 아래에 앞/뒤 네비 줄(47px)이 붙는다.
+     그 줄이 있을 때만 새로고침을 그 위로 올린다. */
+  #unreleased-spine-nav:not(.hidden) ~ .spine-reset-btn {
+    bottom: 61px;
   }
 
   .spine-reset-btn:hover {

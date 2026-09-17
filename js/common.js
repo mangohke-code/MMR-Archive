@@ -12,6 +12,12 @@ const APP_DATA = {
   chapImg: null,
   soloraid: null,
 };
+// 기간이 지나면 다시 안 나오는 한정 니케. 카드에 '한정' 배지를 붙일지 정하는 데 쓴다.
+// 메인 페이지와 픽업 기록이 같은 기준으로 봐야 해서 여기 한 군데에 둔다 - 예전에는
+// main.js 와 pickup.js 에 따로 복사돼 있어서 시즌이 늘 때 한쪽만 고쳐질 수 있었다.
+// (두 파일 다 최상위 스크립트라 같은 이름을 각자 const 로 선언하면 아예 안 돈다.)
+const LIMITED_SEASONS = ['콜라보', '여름', '할로윈', '크리스마스'];
+
 // 로드 완료 후 실행할 콜백 목록
 const _onReadyCallbacks = [];
 
