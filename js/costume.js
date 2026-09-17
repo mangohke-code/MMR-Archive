@@ -785,8 +785,6 @@
         const skeleton = player2.skeleton;
         const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
         const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
-        // 꺼 둔 구성요소(슬롯) 이름. 비어 있으면 완성본 그대로다.
-        const offSlots = new Set();
 
         const rebuildSkin = () => {
           // 주의: skeleton.setSkinByName('default') 이후 skeleton.skin.addSkin(...)을 쓰면
@@ -808,10 +806,8 @@
           if (player2.animationState) player2.animationState.apply(skeleton);
           skeleton.updateWorldTransform();
         };
-        applySlotHiding(skeleton, offSlots);
         rebuildSkin();
         renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
-        renderSlotToggles('costume-slot-toggle', skeleton.data, offSlots, rebuildSkin);
 
         costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl);
 

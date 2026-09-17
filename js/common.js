@@ -263,113 +263,6 @@ function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
   }
 }
 
-// ===== 구성요소(슬롯) 끄고 켜기 =====
-//
-// 뷰어에 뜨는 것은 다 조립된 완성본이다. 그 안의 낱개(머리카락 한 가닥, 치마,
-// 소품 …)를 빼고 보고 싶을 때 쓴다. 스파인에서 그 낱개 하나가 슬롯 하나다.
-//
-// 슬롯은 300개쯤 되고 이름이 hair_side_r14 처럼 잘게 쪼개져 있어서 그대로
-// 늘어놓으면 못 쓴다. 이름 앞머리로 묶어서 묶음 단위로 켜고 끄되, 묶음 제목을
-// 누르면 낱개도 펼쳐 볼 수 있게 한다.
-const SLOT_GROUP_LABELS = {
-  hair: '머리카락', f: '얼굴', face: '얼굴', hand: '손', arm: '팔', leg: '다리',
-  foot: '발', body: '몸', breast: '가슴', hip: '허리', armpit: '겨드랑이',
-  skirt: '치마', ex: '이펙트', bg: '배경', smoke: '연기', flower: '꽃',
-  sweat: '땀', earing: '귀걸이', mirror: '거울', cloth: '옷', acc: '장식',
-};
-
-function slotGroupKey(name) {
-  const m = String(name).match(/^[a-zA-Z]+/);
-  return m ? m[0] : name;
-}
-
-function renderSlotToggles(containerId, skeletonData, offSlots, onChange) {
-  const box = document.getElementById(containerId);
-  if (!box) return;
-
-  const groups = [];
-  const byKey = new Map();
-  skeletonData.slots.forEach(sl => {
-    const key = slotGroupKey(sl.name);
-    let g = byKey.get(key);
-    if (!g) { g = { key, label: SLOT_GROUP_LABELS[key] || key, items: [] }; byKey.set(key, g); groups.push(g); }
-    g.items.push(sl.name);
-  });
-  if (!groups.length) { box.innerHTML = ''; box.classList.add('hidden'); return; }
-  groups.sort((a, b) => b.items.length - a.items.length);
-
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const opened = new Set();
-
-  const draw = () => {
-    box.classList.remove('hidden');
-    box.innerHTML = groups.map((g, gi) => {
-      const on = g.items.filter(n => !offSlots.has(n)).length;
-      const state = on === g.items.length ? ' active' : (on ? ' partial' : '');
-      const rows = g.items.map(n => `
-        <div class="toggle-switch-wrap part-toggle-item${offSlots.has(n) ? '' : ' active'}" data-slot="${esc(n)}">
-          <div class="toggle-switch"></div>
-          <span class="toggle-label">${esc(n)}</span>
-        </div>`).join('');
-      return `
-        <div class="part-group${opened.has(gi) ? ' is-open' : ''}">
-          <div class="part-group-head${state}" data-group="${gi}">
-            <button type="button" class="part-group-arrow" data-open="${gi}" title="낱개 보기">
-              <i class="fas fa-chevron-${opened.has(gi) ? 'down' : 'right'}"></i>
-            </button>
-            <div class="toggle-switch"></div>
-            <span class="toggle-label">${esc(g.label)}</span>
-            <em>${on}/${g.items.length}</em>
-          </div>
-          <div class="part-group-body">${rows}</div>
-        </div>`;
-    }).join('');
-
-    // 화살표는 펼치기, 제목 나머지는 묶음 통째로 켜고 끄기
-    box.querySelectorAll('.part-group-arrow').forEach(btn => {
-      btn.addEventListener('click', ev => {
-        ev.stopPropagation();
-        const gi = Number(btn.dataset.open);
-        if (opened.has(gi)) opened.delete(gi); else opened.add(gi);
-        draw();
-      });
-    });
-    box.querySelectorAll('.part-group-head').forEach(head => {
-      head.addEventListener('click', () => {
-        const g = groups[Number(head.dataset.group)];
-        const allOn = g.items.every(n => !offSlots.has(n));
-        g.items.forEach(n => { if (allOn) offSlots.add(n); else offSlots.delete(n); });
-        draw();
-        onChange();
-      });
-    });
-    box.querySelectorAll('.part-toggle-item[data-slot]').forEach(el => {
-      el.addEventListener('click', () => {
-        const n = el.dataset.slot;
-        if (offSlots.has(n)) offSlots.delete(n); else offSlots.add(n);
-        draw();
-        onChange();
-      });
-    });
-  };
-  draw();
-}
-
-// 꺼 둔 슬롯이 실제로 안 그려지게 한다.
-//
-// 스킨에서 빼는 것만으로는 안 된다 - 스파인의 getAttachment 는 지금 스킨에 없으면
-// data.defaultSkin 에서 다시 찾기 때문에 결국 붙어 버린다. 스켈레톤의 그 함수를
-// 감싸서, 꺼 둔 슬롯이면 아무것도 안 돌려주게 한다. 애니메이션의 attachment
-// 타임라인도 이 함수를 거치므로 재생 중에도 꺼진 채로 남는다.
-function applySlotHiding(skeleton, offSlots) {
-  if (!skeleton || skeleton.__slotHideWired) return;
-  skeleton.__slotHideWired = true;
-  const names = skeleton.data.slots.map(sl => sl.name);
-  const orig = skeleton.getAttachment.bind(skeleton);
-  skeleton.getAttachment = (slotIndex, name) =>
-    (offSlots.has(names[slotIndex]) ? null : orig(slotIndex, name));
-}
-
 // ===== L2D 뷰어 재생바 =====
 //
 // 솔로 레이드 3D 뷰어의 재생바와 같은 감각으로, 스파인 애니메이션도 처음부터 다시
@@ -650,7 +543,9 @@ function buildMainData(configRows, eventRows, pickupData) {
   });
 
   return {
-    updateLog: updateLog.slice(0, 5),
+    // 전부 넘긴다. 몇 개를 먼저 보여 줄지는 화면(renderUpdateLog)이 정한다 -
+    // 여기서 잘라 버리면 더보기로 펼칠 것이 남지 않는다.
+    updateLog,
     events: eventRows.map(e => ({
       '이벤트명': e['이벤트명'],
       '시작일': e['시작일'],

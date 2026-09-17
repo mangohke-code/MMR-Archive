@@ -2757,8 +2757,8 @@
   }
 
   #costume-spine-wrap {
-    height: calc(100vh - 96px);
-    min-height: 700px;
+    height: calc(100vh - 62px);
+    min-height: 760px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -2797,7 +2797,14 @@
     flex: 1;
     height: auto;
     min-height: 0;
+    /* 팬·줌으로 커진 캔버스는 이 칸 안에서 잘린다. 안 자르면 아래 재생바와
+       왼쪽 조작판 위를 덮는다. */
+    position: relative;
+    overflow: hidden;
   }
+
+  /* 재생바는 그림보다 위에 있어야 눌린다 */
+  .l2d-bar { position: relative; z-index: 2; }
 
   /* 보스 뷰어와 같은 형태 - 판이 그림 칸과 자리를 나눠 갖고, 손잡이로 접는다.
      판 전체가 하나로 굴러가므로 구성요소처럼 긴 목록도 판 스크롤로 훑는다. */
@@ -2931,6 +2938,9 @@
     flex: none;
   }
 
+  /* 우측 손잡이는 판 밖(뷰어 상자 직속)에 있다. 판 안에 두면 판이 접힐 때
+     같이 사라져서 다시 펼 방법이 없어진다(솔로 레이드의 오른쪽 레일과 같은
+     생각이다 - 레일은 서랍이 닫혀도 남는다). */
   .l2d-side-toggle.is-right {
     left: auto;
     right: 0;
@@ -2938,6 +2948,7 @@
     border-right: 0;
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
     width: 26px;
+    height: 44px;
     transition: right 0.26s ease;
   }
 
@@ -3168,28 +3179,7 @@
   }
 
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널 */
-  #costume-info {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: 56px;
-    padding: 1.5rem;
-    box-sizing: border-box;
-    overflow: hidden;
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card-hover);
-    border-radius: var(--radius-lg);
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    z-index: 5;
-    transition: width 0.25s ease;
-  }
 
-  #costume-info:hover {
-    width: 420px;
-  }
 
   /* 접힌 상태에서 내용이 56px 폭으로 줄어들면서 줄바꿈이 꾸겨지는 것 방지 —
      펼쳐졌을 때 폭(420px - 좌우 padding)으로 고정해두고 접힌 상태에서는 overflow:hidden으로
@@ -3202,9 +3192,6 @@
     transition: opacity 0.15s ease;
   }
 
-  #costume-info:hover > *:not(.info-handle) {
-    opacity: 1;
-  }
 
   /* 접힌 상태에 보이는 손잡이(아이콘). 펼치면 사라진다. */
   #costume-info .info-handle {
@@ -3223,9 +3210,6 @@
     transition: opacity 0.15s ease;
   }
 
-  #costume-info:hover .info-handle {
-    opacity: 0;
-  }
 
   #costume-info-header {
     display: flex;
@@ -4072,16 +4056,13 @@
   }
 
   /* 상세 패널 */
+  /* 코스튬의 #costume-top 과 같은 역할이다. 바깥에 배경·테두리·여백을 두면
+     뷰어 상자가 그 안으로 한 겹 더 들어가서 "상자 속 상자" 로 보인다.
+     높이도 안쪽 뷰어 상자가 든다(코스튬과 같게). */
   #unreleased-detail {
     position: relative;
     display: flex;
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
     margin-bottom: 2rem;
-    height: calc(100vh - 96px);
-    min-height: 700px;
   }
 
   .unreleased-spine-col {
@@ -4094,11 +4075,8 @@
 
   #unreleased-spine-wrap {
     width: 100%;
-    /* 바깥 상자(#unreleased-detail)가 이미 높이를 들고 있다. 여기서 같은 높이를
-       또 잡으면 안쪽 상자가 바깥 여백을 넘어서서 "상자 속 상자" 처럼 보인다.
-       남는 자리를 채우게만 한다. */
-    flex: 1;
-    min-height: 0;
+    height: calc(100vh - 62px);
+    min-height: 760px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -4155,28 +4133,7 @@
   }
 
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널 */
-  #unreleased-detail-info {
-    position: absolute;
-    top: 1.5rem;
-    right: 1.5rem;
-    bottom: 1.5rem;
-    width: 56px;
-    padding: 1rem;
-    box-sizing: border-box;
-    overflow: hidden;
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card-hover);
-    border-radius: var(--radius-lg);
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    z-index: 5;
-    transition: width 0.25s ease;
-  }
 
-  #unreleased-detail-info:hover {
-    width: 420px;
-  }
 
   #unreleased-detail-info > *:not(.info-handle) {
     flex-shrink: 0;
@@ -4186,9 +4143,6 @@
     transition: opacity 0.15s ease;
   }
 
-  #unreleased-detail-info:hover > *:not(.info-handle) {
-    opacity: 1;
-  }
 
   #unreleased-detail-info .info-handle {
     position: absolute;
@@ -4206,9 +4160,6 @@
     transition: opacity 0.15s ease;
   }
 
-  #unreleased-detail-info:hover .info-handle {
-    opacity: 0;
-  }
 
   #unreleased-detail-name {
     font-size: 32px;

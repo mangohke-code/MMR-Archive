@@ -761,8 +761,6 @@
             const skeleton = player2.skeleton;
             const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
             const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
-            // 꺼 둔 구성요소(슬롯). 비어 있으면 완성본 그대로다.
-            const offSlots = new Set();
 
             const rebuildSkin = () => {
               // 주의: skeleton.setSkinByName('default') 이후 skeleton.skin.addSkin(...)을 쓰면
@@ -785,9 +783,7 @@
               skeleton.updateWorldTransform();
             };
             rebuildSkin();
-            applySlotHiding(skeleton, offSlots);
             renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin);
-            renderSlotToggles('unreleased-slot-toggle', skeleton.data, offSlots, rebuildSkin);
 
             // 표정·동작 고르기. 코스튬 페이지와 같은 UI 를 그대로 쓴다.
             const animOpts = {
