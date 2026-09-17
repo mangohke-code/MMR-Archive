@@ -3098,6 +3098,46 @@
     border-color: var(--border-accent);
   }
 
+  /* 지금 뷰어에 띄워 둔 카드. 목록을 훑다 보면 어느 것을 보고 있었는지 놓치기 쉬워서,
+     그림 칸을 통째로 덮어 한눈에 구분되게 한다. 그림 칸이 position:relative 라
+     ::before(빗금) 와 ::after(문구) 가 칸에 딱 맞게 들어간다.
+     색은 강조색에서 섞어 쓴다 - 라이트/다크 어느 쪽에서도 따로 손댈 필요가 없다. */
+  .costume-portrait-item.active .costume-portrait-img::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(45deg,
+        color-mix(in srgb, var(--accent) 55%, transparent) 0 5px,
+        transparent 5px 12px),
+      color-mix(in srgb, var(--accent) 28%, transparent);
+    /* 뒤 그림을 흐리게 깔아서 빗금과 문구가 그림에 묻히지 않게 한다.
+       backdrop-filter 는 이 막 아래에 있는 것(=초상화)에만 걸린다. */
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+
+  .costume-portrait-item.active .costume-portrait-img::after {
+    content: '표시 중';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    padding: 4px 12px;
+    border-radius: 999px;
+    /* --accent-strong 은 다크에서 밝아져 흰 글씨가 묻는다. --accent 는 두 테마가
+       같은 값이라 대비가 그대로 유지된다. */
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
   .costume-portrait-img {
     width: 124px;
     height: 204px;
