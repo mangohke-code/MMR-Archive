@@ -814,7 +814,7 @@ function focusBonesOf(mesh) {
 //  - boneFilter 가 정규식이면: 스켈레톤 전체에서 그 본들만 평균낸다(보스별 지정).
 //  - 'all' 이면: 기준 메쉬에 매달린 본 전부(메쉬를 이름으로 지정한 경우).
 //  - 없으면: 기준 메쉬의 본 중 중심축 -> 전체 순으로 물러난다.
-// 겨냥 보정(AIM_CUT/AIM_ALL)이 쓰는 중심. rigCenter 는 메쉬 하나의 본 "평균"이라
+// 컷 단위 겨냥 보정이 쓰는 중심. rigCenter 는 메쉬 하나의 본 "평균"이라
 // 본이 한쪽에 몰린 보스에서는 눈에 보이는 한가운데와 어긋난다. 프로비던스 등장
 // 6.22초에서 그 차이가 화면 가로로 0.47 이나 났다. 여기서는 보이는 메쉬 전부의
 // 본을 모아 bbox 한가운데를 쓴다 - 화면에 잡히는 덩어리의 중앙에 가깝다.
@@ -971,31 +971,6 @@ const SYNTHETIC_SEQUENCES = [];
 //   pull : 너무 멀리서 잡아서 모델 쪽으로 당긴다
 //   aim  : 보스를 화면 한쪽으로 밀어놔서 겨누는 방향만 돌린다
 //          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
-// ── 원본 확인 모드 ────────────────────────────────────────────
-// 주소에 ?raw=1 을 붙이면 우리가 손으로 넣은 보정을 전부 끈다.
-// 게임 파일에 든 값만으로 어떻게 보이는지 확인하는 용도다.
-//   끄는 것 - 연출 카메라 보정 9단계(뒤집기·겨냥·거리·기울기·구조·확대·물림),
-//             클립 앞부분 잘라내기, 목록에서 클립 감추기, 연출별 눈높이
-//   두는 것 - 모델 정규화(화면에 담기 위한 균일 축소), 파츠 기본 표시,
-//             재질 처리. 카메라와 모델에 똑같이 걸려서 구도를 바꾸지 않는다.
-const RAW_MODE = (() => {
-  try { return /[?&]raw=1(?:&|$)/.test(location.search); } catch (e) { return false; }
-})();
-
-// 켜져 있는 것을 화면에서 바로 알 수 있게 띠를 붙인다. 이걸 모르고 보면
-// "왜 이렇게 어긋나지" 하고 엉뚱한 곳을 고치게 된다.
-if (RAW_MODE) {
-  try {
-    const tag = document.createElement('div');
-    tag.id = 'sr3d-raw-tag';
-    tag.textContent = '원본 확인 모드 — 뷰어 보정 꺼짐';
-    tag.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);'
-      + 'z-index:9999;padding:5px 12px;border-radius:999px;font:700 12px/1.4 system-ui;'
-      + 'color:#fff;background:#c0392b;box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
-    (document.body || document.documentElement).appendChild(tag);
-  } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
-}
-
 // 연출 홀더(cutsceneAnchor)를 적용할 카메라.
 //
 // 게임은 연출마다 "홀더" 노드를 두고 그 아래에서 카메라를 움직인다. 추출본의
@@ -1065,45 +1040,20 @@ const CUTSCENE_ANCHOR_ON = [
 // 세로 화각이 1.155 배 넓어지고 점유가 0.87 배로 줄었다.
 const GAME_ASPECT = 16 / 9;
 
-// 비교용 스위치. 주소에 ?gate=0 을 붙이면 게이트핏을 끄고 파일 화각을 그대로
-// 쓴다. 화면에 다 들어오는 대신 보스가 작아진다 - 어느 쪽이 인게임에 가까운지
-// 보스마다 갈려서, 눈으로 대보라고 열어 둔다.
-const GATEFIT_OFF = (() => {
-  try { return /[?&]gate=0(?:&|$)/.test(location.search); } catch (e) { return false; }
-})();
-
-// 비교용 스위치 2. ?aim=1 을 붙이면 연출 카메라가 매 프레임 보스 중심을
-// 겨냥한다. 위치·거리·화각은 파일 값 그대로라 카메라 워크는 남는다.
+// 컷 단위 겨냥 보정을 켜는 보스.
 //
 // 파일의 회전은 보스를 시선축 아래 6~18도에 두다가 중간에 위로 올린다
-// (-17.8도 ~ +4.1도). 인게임은 "정중앙 고정"이라는 관찰이 있어서, 파일
-// 회전이 그대로 쓰이지 않는다는 가정을 눈으로 대볼 수 있게 열어 둔다.
-// 추출 쪽에서 m_LookAt·Composer·LensShift·Dutch 가 전부 비어 있음을 확인했고,
-// 겨냥 타겟을 조인트 중심으로 잡든 정점 중심으로 잡든 1도 이하 차이다.
-const AIM_ALL = (() => {
-  try { return /[?&]aim=1(?:&|$)/.test(location.search); } catch (e) { return false; }
-})();
-
-// 컷 단위 겨냥 보정. ?aim=2 로 켠다.
-//
-// ?aim=1(매 프레임 겨냥)은 구도를 맞추지만 카메라가 보스를 계속 따라다녀서
-// 무빙이 죽는다. 게임 연출은 컷 안에서 방향이 고정돼 있고 컷이 바뀔 때 튄다.
-// 그래서 컷이 시작될 때 한 번만 "보스가 화면 중앙에 오는 회전"과 파일 회전의
-// 차이를 재서, 그 컷 동안 같은 값을 계속 더한다.
+// (-17.8도 ~ +4.1도). 인게임은 "정중앙 고정"이라 그대로 쓰면 어긋난다.
+// 매 프레임 겨냥하면 구도는 맞지만 카메라가 보스를 따라다녀서 무빙이 죽는다.
+// 게임 연출은 컷 안에서 방향이 고정돼 있고 컷이 바뀔 때 튀므로, 컷이 시작될
+// 때 한 번만 "보스가 화면 중앙에 오는 회전"과 파일 회전의 차이를 재서 그 컷
+// 동안 같은 값을 계속 더한다.
 //   - 컷 안에서는 파일 회전 그대로 움직인다(무빙 유지)
 //   - 구도는 컷 머리에서 맞춰진다
 // 컷은 카메라 위치가 한 프레임에 크게 튀는 지점으로 잡는다. 프로비던스 등장은
 // 3.30초까지 카메라가 완전히 정지해 있다가 3.40초에 거리 7.19 -> 4.34 로 뛴다.
-const AIM_CUT = (() => {
-  try { return /[?&]aim=2(?:&|$)/.test(location.search); } catch (e) { return false; }
-})();
-
-// 컷 안에서 겨냥이 대상을 따라가는 속도(초). 클수록 느리게 붙는다.
-// 0 이면 컷 머리에서만 맞추고 그 뒤로는 안 따라간다.
-// 주소에 ?d=0.8 처럼 붙여 바꿀 수 있다. 게임 쪽 CinemachineComposer 의
-// m_HorizontalDamping / m_VerticalDamping 이 둘 다 0.5 라 그 값을 기본으로 둔다.
-// 겨냥 보정을 기본으로 켜는 보스. 인게임 스크린샷과 대조해 맞는 것을 확인한
-// 것만 올린다. 나머지는 주소에 ?aim=2 를 붙여야 켜진다.
+//
+// 인게임 스크린샷과 대조해 맞는 것을 확인한 보스만 올린다.
 //   프로비던스 - 등장 0.77/0.90/3.90/6.22초 네 지점을 인게임과 대조했다.
 const AIM_CUT_BOSS = [
   /^xbg002/i,
@@ -1238,7 +1188,6 @@ const CLIP_CAM_MOVE = [
 // 한 클립에 여러 줄을 두면 시간순 구간이 된다(from·to, 클립 로컬 초).
 // 안 적으면 연출 전체다. 여러 줄이 겹치면 먼저 걸리는 줄이 이긴다.
 function clipCamMoveFor(bossKey, clipName) {
-  if (RAW_MODE) return null;
   const hit = CLIP_CAM_MOVE.filter(
     o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
   if (!hit.length) return null;
@@ -1361,39 +1310,10 @@ function rawCamFor(bossKey, clipName) {
     || null;
 }
 
-const AIM_DAMP = (() => {
-  try {
-    const m = /[?&]d=([\d.]+)(?:&|$)/.exec(location.search);
-    return m ? Math.max(0, parseFloat(m[1]) || 0) : 0.5;
-  } catch (e) { return 0.5; }
-})();
-
-if ((AIM_ALL || AIM_CUT) && !RAW_MODE) {   // 주소로 켰을 때만 띠를 붙인다
-  try {
-    const tag = document.createElement('div');
-    tag.id = 'sr3d-aim-tag';
-    tag.textContent = AIM_CUT ? ('겨냥 비교 모드 — 컷 머리 + 추종 ' + AIM_DAMP + '초')
-      : '겨냥 비교 모드 — 카메라가 보스 중심을 본다';
-    tag.style.cssText = 'position:fixed;left:50%;top:' + (GATEFIT_OFF ? '38px' : '8px')
-      + ';transform:translateX(-50%);z-index:9999;padding:5px 12px;border-radius:999px;'
-      + 'font:700 12px/1.4 system-ui;color:#fff;background:#2e7d52;'
-      + 'box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
-    (document.body || document.documentElement).appendChild(tag);
-  } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
-}
-
-// 이쪽도 켜진 걸 모르면 엉뚱한 데를 고치게 된다. 띠를 붙인다.
-if (GATEFIT_OFF && !RAW_MODE) {
-  try {
-    const tag = document.createElement('div');
-    tag.id = 'sr3d-gate-tag';
-    tag.textContent = '화각 비교 모드 — 파일 화각 그대로(게이트핏 꺼짐)';
-    tag.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);'
-      + 'z-index:9999;padding:5px 12px;border-radius:999px;font:700 12px/1.4 system-ui;'
-      + 'color:#fff;background:#2c6fb5;box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
-    (document.body || document.documentElement).appendChild(tag);
-  } catch (e) { /* 표시는 못 붙어도 동작에는 지장이 없다 */ }
-}
+// 컷 안에서 겨냥이 대상을 따라가는 속도(초). 클수록 느리게 붙는다.
+// 게임 쪽 CinemachineComposer 의 m_HorizontalDamping / m_VerticalDamping 이
+// 둘 다 0.5 라 그 값을 쓴다.
+const AIM_DAMP = 0.5;
 
 function gateFitFov(fovDeg, aspect) {
   const a = (aspect > 1e-6) ? aspect : 1;
@@ -1410,7 +1330,7 @@ function gateFitFov(fovDeg, aspect) {
 //   1     거리  57 -> 3.9   14 배     (지나쳐서 카메라가 보스 안으로 들어간다)
 // back 은 거리에 곱하는 값이라 이 비율을 못 바꾼다 - 여기서만 된다.
 function cutsceneAnchorOf(node, scale) {
-  if (RAW_MODE || !node || !node.userData) return null;
+  if (!node || !node.userData) return null;
   if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
   const a = node.userData.cutsceneAnchorNoMirror || node.userData.cutsceneAnchor;
   if (!Array.isArray(a) || a.length !== 16) return null;
@@ -1899,7 +1819,6 @@ function simulClipsFor(bossKey, name, clips) {
 }
 
 function isHiddenClip(bossKey, name) {
-  if (RAW_MODE) return false;
   return HIDDEN_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 }
 
@@ -2380,7 +2299,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
     const bossKey = bossKeyFrom(bossCode, modelUrl);
     // 이름으로 물린 표가 전부 이 뒤에 오므로 여기서 잘라 둔다.
-    const trimmedClips = RAW_MODE ? [] : applyClipTrim(gltf.animations || [], bossKey);
+    const trimmedClips = applyClipTrim(gltf.animations || [], bossKey);
 
     // 신형(카탈로그에서 직접 뽑은) 추출본은 기존 FBX 변환본과 규칙이 다르다.
     //  - 루트 노드에 방향 회전이 이미 들어 있다 (공통 225도 보정을 주면 안 된다)
@@ -3594,7 +3513,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     let clipCamLift = 0;
     function applyClipCamLift(clipName) {
       if (!homeCamPos) return;
-      const rule = RAW_MODE ? null : CLIP_CAM_LIFT.find(
+      const rule = CLIP_CAM_LIFT.find(
         o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
       const d = (rule ? rule.y : 0) - clipCamLift;
       if (!d) return;
@@ -3699,7 +3618,7 @@ function noFollowClip(bossKey, name) {
     const camPull = new THREE.Vector3();
     const AXIS_Y = new THREE.Vector3(0, 1, 0);
     const camSpinQ = new THREE.Quaternion();
-    // 컷 단위 겨냥 보정(AIM_CUT)이 컷 사이에 들고 가는 값
+    // 컷 단위 겨냥 보정이 컷 사이에 들고 가는 값
     const aimCutOff = new THREE.Quaternion();
     const aimCutFile = new THREE.Quaternion();
     const aimCutWant = new THREE.Quaternion();
@@ -3842,9 +3761,9 @@ function noFollowClip(bossKey, name) {
         // 부호는 CAMERA_FIX 의 rollDeg 와 같다. 양수 = 화면이 반시계로 돈다.
         if (mv.roll) camera.rotateZ(-THREE.MathUtils.degToRad(mv.roll) * f);
       }
-      // 원본 확인 모드에서는 파일 값(위치·회전·화각)만 쓰고 아래 보정을 전부 건너뛴다.
-      // RAW_CAM_BOSS 에 든 보스는 주소에 아무것도 안 붙여도 이쪽으로 온다.
-      if (RAW_MODE || rawCam) {
+      // RAW_CAM_BOSS 에 든 연출은 파일 값(위치·회전·화각)만 쓰고 아래 보정을
+      // 전부 건너뛴다.
+      if (rawCam) {
         if (node.isPerspectiveCamera) {
           if (savedFov === null) savedFov = camera.fov;
           if (Math.abs(camera.fov - node.fov) > 1e-4) {
@@ -3864,7 +3783,7 @@ function noFollowClip(bossKey, name) {
         //
         // 물리는 양만 기준점까지의 거리에 비례시킨다 - 가까이 붙는 컷은 그만큼
         // 덜 물러난다. 여기는 대충 맞기만 하면 되므로 기준점이 조금 어긋나도 된다.
-        const back = (!RAW_MODE && rawCam && rawCam.back) || 1;
+        const back = (rawCam && rawCam.back) || 1;
         if (back !== 1 && rigCenter(focusMesh, camPull, rawCam.pivot || 'all')) {
           camera.translateZ(camera.position.distanceTo(camPull) * (back - 1));
         }
@@ -4006,7 +3925,7 @@ function noFollowClip(bossKey, name) {
       // 클립이 끝나면 원래 값으로 돌려놓는다.
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        const want = (GATEFIT_OFF || gateFitOffFor(bossKey))
+        const want = gateFitOffFor(bossKey)
           ? node.fov : gateFitFov(node.fov, GAME_ASPECT);
         if (Math.abs(camera.fov - want) > 1e-4) {
           camera.fov = want;
@@ -4319,9 +4238,9 @@ function noFollowClip(bossKey, name) {
           // 이 연출을 파일 값 그대로 쓸지. 클립 단위로 갈리므로 여기서 정해 둔다.
           raw: rawCamFor(bossKey, clip.name),
           move: clipCamMoveFor(bossKey, clip.name),
-          lookAtFocus: AIM_ALL || AIM_CUT || aimCutForBoss(bossKey) || !!fix.lookAtFocus,
-          // 'all' 은 매 프레임 겨냥, 'cut' 은 컷 머리에서 맞추고 천천히 따라가기.
-          aimMode: AIM_ALL ? 'all' : ((AIM_CUT || aimCutForBoss(bossKey)) ? 'cut' : null),
+          lookAtFocus: aimCutForBoss(bossKey) || !!fix.lookAtFocus,
+          // 'cut' 은 컷 머리에서 맞추고 그 뒤로 천천히 따라가기.
+          aimMode: aimCutForBoss(bossKey) ? 'cut' : null,
           lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
           dist: fix.dist || 1, fixDist: fix.fixDist || 0,
           aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };

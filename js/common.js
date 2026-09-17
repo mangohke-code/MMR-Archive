@@ -29,15 +29,10 @@ function onAppDataReady(fn) {
 function tabUrl(tabName) {
   return tabName === 'main' ? location.pathname + location.search : '#' + tabName;
 }
-// 탭 이름을 바꾸기 전에 퍼진 주소도 계속 열리게 옛 이름을 새 이름으로 이어 준다.
-// (솔로 레이드는 테두리 목록에서 출발해서 한동안 frames 라는 이름을 썼다)
-const TAB_ALIAS = { frames: 'soloraid' };
-
 // 주소의 # 가 실제로 있는 탭을 가리킬 때만 그 이름을 돌려준다.
 function tabFromHash() {
-  const raw = String(location.hash || '').replace(/^#/, '');
-  if (!/^[a-z0-9_-]+$/i.test(raw)) return null;
-  const name = TAB_ALIAS[raw] || raw;
+  const name = String(location.hash || '').replace(/^#/, '');
+  if (!/^[a-z0-9_-]+$/i.test(name)) return null;
   return document.querySelector('.tab-btn[data-tab="' + name + '"]') ? name : null;
 }
 
