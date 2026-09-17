@@ -2914,6 +2914,24 @@
     border-radius: 0;
   }
 
+  /* 구성요소(슬롯) 칸은 목록이 길어서 제 높이를 가두고 따로 굴린다 */
+  #costume-slot-toggle {
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  #costume-slot-toggle .part-group-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+  }
+
+  #costume-slot-toggle .part-group:hover .part-group-body,
+  #costume-slot-toggle .part-group-head.partial + .part-group-body {
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
   /* 버튼 칩으로 그린 파츠 칸(추가 파츠) */
   .parts-toggle.is-button-style {
     display: flex;
