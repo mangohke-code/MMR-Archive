@@ -300,7 +300,7 @@
   function framesRunSegments(item) {
     const start = item['시작일'];
     const end = item['종료일'];
-    if (!start || !end) return [];
+    if (!start || !end) return { segments: [], paused: false };
 
     const pauses = (item['중단 기간'] || [])
       .filter(p => p && p['시작'])

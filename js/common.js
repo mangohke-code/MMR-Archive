@@ -561,8 +561,15 @@ function hasTimePart(value) {
   return typeof value === 'string' && value.includes('T');
 }
 
+// 표에 줄만 미리 만들어 둔 보스(시즌이나 이름이 아직 빈 행)는 화면에 올리지 않는다.
+// 시즌과 이름이 둘 다 채워진 뒤부터 목록에 나온다.
+function framesRowReady(r) {
+  const filled = v => v !== null && v !== undefined && String(v).trim() !== '';
+  return filled(r['시즌']) && filled(r['보스']);
+}
+
 function buildFramesData(rows) {
-  return rows.map(r => ({
+  return rows.filter(framesRowReady).map(r => ({
     '시즌': r['시즌'],
     '시작일': r['시작일'],
     '종료일': r['종료일'],
