@@ -265,28 +265,51 @@
 
     tableWrap.appendChild(overlay);
 
-    // 표가 길면 단추가 표 한가운데에 박혀 있어서, 아래쪽을 보고 있을 때는 화면
-    // 밖에 있다. 스크롤을 따라 화면 세로 한가운데에 머물게 하되, 표 밖으로는
-    // 나가지 않도록 위아래를 표 안에 가둔다.
+    // 표가 길면 단추가 한가운데에 박혀 있어서, 아래쪽을 보고 있을 때는 화면 밖에
+    // 있다. 스크롤을 따라 화면 세로 한가운데에 머물게 한다.
+    //
+    // 다만 표 전체가 아니라 "실제로 가려진 칸이 있는 구간" 안에서만 움직인다.
+    // 앞쪽 스테이지는 안 가려져 있는데 거기까지 단추가 따라오면, 가릴 것도 없는
+    // 자리에 해제 단추가 떠 있는 꼴이 된다.
+    //
+    // 구간은 표 기준 좌표라 스크롤해도 안 변한다. 한 번만 재고 창 크기가 바뀔
+    // 때만 다시 잰다.
+    let blurTop = 0, blurBottom = 0;
+    const measureBlurRange = () => {
+      const cells = tableWrap.querySelectorAll('.blurable-cell.spoiler-blur');
+      const wr = tableWrap.getBoundingClientRect();
+      if (!cells.length) { blurTop = 0; blurBottom = wr.height; return; }
+      let lo = Infinity, hi = -Infinity;
+      cells.forEach(c => {
+        const r = c.getBoundingClientRect();
+        lo = Math.min(lo, r.top - wr.top);
+        hi = Math.max(hi, r.bottom - wr.top);
+      });
+      blurTop = lo;
+      blurBottom = hi;
+    };
+
     const followScroll = () => {
       if (!overlay.isConnected) {
         window.removeEventListener('scroll', followScroll);
-        window.removeEventListener('resize', followScroll);
+        window.removeEventListener('resize', onResize);
         return;
       }
       const r = tableWrap.getBoundingClientRect();
-      // 단추가 표 밖으로 나가지 않게, 제 높이의 절반만큼 위아래로 여유를 둔다.
-      // 예전에는 40px 로 못 박아서 단추가 그보다 크면 위아래로 삐져나왔다.
+      // 단추가 구간 밖으로 삐져나오지 않게 제 높이의 절반만큼 여유를 둔다
       const half = overlay.offsetHeight / 2 + 8;
       let top = window.innerHeight / 2 - r.top;
-      const lo = half;
-      const hi = r.height - half;
-      top = (hi < lo) ? r.height / 2 : Math.max(lo, Math.min(hi, top));
+      const lo = blurTop + half;
+      const hi = blurBottom - half;
+      top = (hi < lo) ? (blurTop + blurBottom) / 2 : Math.max(lo, Math.min(hi, top));
       overlay.style.top = top + 'px';
     };
+
+    const onResize = () => { measureBlurRange(); followScroll(); };
+    measureBlurRange();
     followScroll();
     window.addEventListener('scroll', followScroll, { passive: true });
-    window.addEventListener('resize', followScroll);
+    window.addEventListener('resize', onResize);
   }
 
   // 뒤로가기
