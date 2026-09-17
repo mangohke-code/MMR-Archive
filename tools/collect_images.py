@@ -116,7 +116,7 @@ def do_costume(db_rows):
             kind = '무료티켓' if '_free' in f else '유료티켓'
             # 원본 이름 그대로. 파일 이름만 봐도 원본 어느 것인지 알 수 있다.
             rows.append((match['티켓'], kind,
-                         copy(os.path.join(path, f), os.path.join(DST, 'costume'), f)))
+                         copy(os.path.join(path, f), os.path.join(DST, 'gatcha ticket'), f)))
         # DB 에는 무료티켓이 있는데 파일이 없는 경우를 잡는다
         has_free = any(r[0] == match['티켓'] and r[1] == '무료티켓' for r in rows)
         if match['무료티켓'] and not has_free:
@@ -254,7 +254,7 @@ def main():
     lines = ['-- 유니크 코스튬 티켓 이미지 (상대 경로)', 'BEGIN;', '']
     for ticket, kind, fn in cs_rows:
         col = '무료티켓' if kind == '무료티켓' else '유료티켓'
-        lines.append(f"""UPDATE "유니크_코스튬" SET "{col}" = 'img/costume/{sql_escape(fn)}' WHERE "티켓" = '{sql_escape(ticket)}';""")
+        lines.append(f"""UPDATE "유니크_코스튬" SET "{col}" = 'img/gatcha ticket/{sql_escape(fn)}' WHERE "티켓" = '{sql_escape(ticket)}';""")
     lines += ['', 'COMMIT;', '']
     w('update_costume_ticket_images.sql', '\n'.join(lines))
 

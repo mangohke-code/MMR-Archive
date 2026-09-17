@@ -6,12 +6,12 @@
 #
 # 사용법:
 #   python tools/add_images.py nikke  "C:/.../라피.webp" "C:/.../마리안.webp"
-#   python tools/add_images.py costume "C:/.../무료티켓.png"
+#   python tools/add_images.py ticket  "C:/.../무료티켓.png"
 #
 # 첫 번째 인자는 어느 폴더에 넣을지:
 #   nikke      니케 초상화 / 코스튬 이미지   (IMG_니케)
 #   unreleased 미실장 캐릭터 이미지          (미실장_캐릭터)
-#   costume    코스튬 티켓 이미지            (유니크_코스튬)
+#   ticket     코스튬 가챠 티켓 이미지       (유니크_코스튬)
 #   souvenir   기념품 이미지                 (기념품)
 #
 # 실행하면 파일을 복사하고 git 에 올린 뒤, DB 에 붙여넣을 주소를 출력한다.
@@ -24,9 +24,12 @@ PUBLIC_BASE = 'https://mangohke-code.github.io/MMR-Archive/img'
 FOLDERS = {
     'nikke':      'IMG_니케 (이미지 / 코스튬1_이미지 / 코스튬2_이미지)',
     'unreleased': '미실장_캐릭터 (이미지1 / 이미지2)',
-    'costume':    '유니크_코스튬 (무료티켓 / 유료티켓)',
+    'ticket':     '유니크_코스튬 (무료티켓 / 유료티켓)',
     'souvenir':   '기념품 (이미지)',
 }
+
+# 고르는 이름과 실제 폴더 이름이 다른 것만 적는다.
+DIRS = {'ticket': 'gatcha ticket'}
 ALLOWED = {'.webp', '.png', '.jpg', '.jpeg', '.gif'}
 
 
@@ -39,7 +42,8 @@ def main():
         sys.exit(1)
 
     folder, srcs = sys.argv[1], sys.argv[2:]
-    dest_dir = os.path.join(BASE, 'img', folder)
+    folder_dir = DIRS.get(folder, folder)
+    dest_dir = os.path.join(BASE, 'img', folder_dir)
     os.makedirs(dest_dir, exist_ok=True)
 
     added, urls = [], []
@@ -62,7 +66,7 @@ def main():
         shutil.copy2(src, dest)
         added.append(dest)
         # 주소에는 한글이 그대로 들어가도 브라우저가 알아서 처리한다.
-        urls.append(f'{PUBLIC_BASE}/{folder}/{name}')
+        urls.append(f'{PUBLIC_BASE}/{urllib.parse.quote(folder_dir)}/{name}')
 
     if not added:
         print('올릴 파일이 없다.')
