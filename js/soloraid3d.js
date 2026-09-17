@@ -157,19 +157,26 @@ const MESH_RENAME = [
   // 앨트루이아 — 부위마다 본체 + 발광 두 겹이고, 원본 그대로 두면 투구 아홉 쌍의
   // 번호가 제각각으로 붙는다(불러올 때마다 달라진다). 한 규칙으로 정한다.
   // re 의 첫 괄호가 기준 이름이고, 재질에 따라 꼬리표를 붙인다.
+  //
+  // 시즌 42(P.S.I.D.) 는 메쉬 이름은 그대로인데 재질만 xbg004_psid_* 로 갈렸다.
+  // 그래서 두 이름을 다 적어 둔다. 발광 재질은 양쪽이 같다.
   { boss: /^xbg004/i, re: /^(xbg004_helm_\d+_skin)(_\d+)?$/i,
-    bySuffix: { 'xbg004_body': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+    bySuffix: { 'xbg004_body': '', 'xbg004_psid_body': '',
+                'fx_xbg004_zeus_parts_glow': '_1' } },
   // 눈은 좌우 한 쌍인데 이름이 l_sdf_eye_02 / sdf_eye_01 로 엇갈려 있다.
   // 이 파일은 l 이 x+, r 이 x- 다(shield_l_skin x+0.31 / shield_r_skin x-0.31).
   // 실제 위치가 각각 x+0.33 / x-0.32 라 그대로 방패와 같은 꼴로 맞춘다.
   { boss: /^xbg004/i, re: /^xbg004_l_sdf_eye_\d+_skin(_\d+)?$/i, base: 'xbg004_sdf_eye_l_skin',
-    bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+    bySuffix: { 'xbg004_shield': '', 'xbg004_psid_shield': '',
+                'fx_xbg004_zeus_parts_glow': '_1' } },
   { boss: /^xbg004/i, re: /^xbg004_sdf_eye_\d+_skin(_\d+)?$/i, base: 'xbg004_sdf_eye_r_skin',
-    bySuffix: { 'xbg004_shield': '', 'fx_xbg004_zeus_parts_glow': '_1' } },
+    bySuffix: { 'xbg004_shield': '', 'xbg004_psid_shield': '',
+                'fx_xbg004_zeus_parts_glow': '_1' } },
   // 방패는 한 메쉬의 프리미티브 둘인데 어느 쪽도 발광이 아니다.
   // _1 은 발광 층 자리로 비워 두고, 게임이 쓰는 꼴대로 001 을 붙인다.
   { boss: /^xbg004/i, re: /^(xbg004_shield_[lr]_skin)(_\d+)?$/i,
-    bySuffix: { 'xbg004_shield': '', 'xbg004_body': '001' } },
+    bySuffix: { 'xbg004_shield': '', 'xbg004_body': '001',
+                'xbg004_psid_shield': '', 'xbg004_psid_body': '001' } },
   // 몸 중심선에 쌓인 고리 넷. 원본 번호(04 / 005 / 007 / 006)가 높이 순서와 안 맞아서
   // 아래에서 위로 다시 매긴다. idle 3종·스킬·그로기에서 위아래 순서가 같은 것을 확인했다.
   { boss: /^xbg004/i, re: /^xbg004_arms_04_skin_04(_\d+)?$/i,  base: 'xbg004_arms_04_skin_01', bySuffix: {} },

@@ -60,10 +60,16 @@ JOBS = [
     # 애니힐리오와 달리 1·2페이즈끼리는 63개가 겹치는데, 겹치는 것은 전부
     # 뼈와 fx 노드(parts_col_01~15 등)라 화면에 영향이 없다. 진짜 문제는
     # 카메라 하나뿐이고 그건 RENAMES 가 처리한다.
-    (['추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A.glb',
-      '추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A_eba002_hsta.glb',
-      '추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A_eba002_jellyfish_obj_var.glb'],
+    # 2026-09-18 재추출에서 파일 이름이 바뀌었다(에셋 이름 -> 보스 이름 · 변종).
+    #   eba002_eba002 H.S.T.A        -> eba002_리버렐리오 바디 H.S.T.A. · singleraid
+    #   ..._eba002_hsta              -> ..._eba002_hsta_singleraid
+    (['추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid.glb',
+      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_hsta_singleraid.glb',
+      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb'],
      'eba002'),
+    # 시즌 42 앨트루이아. 시즌 34 것(Z.E.U.S.)과 메쉬·카메라·공유 클립 20개가
+    # 전부 같고, 스킬 3 한 벌(start/loop/fire)이 더 있고 재질 이름이 psid 로 갈렸다.
+    ('추출프로그램 업데이트 이후/xbg004_앨트루이아 P.S.I.D.glb', 'xbg004_psid'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
@@ -79,7 +85,7 @@ JOBS = [
 #
 # 짝짓기는 extras.pairedClip 을 먼저 보므로 이름을 바꿔도 짝은 안 어긋난다.
 RENAMES = {
-    '추출프로그램 업데이트 이후/eba002_eba002 H.S.T.A_eba002_hsta.glb': {
+    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_hsta_singleraid.glb': {
         'eba002_2phase_intro_camera': 'eba002_2phase_intro_02_camera',
     },
 }
