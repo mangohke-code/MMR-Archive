@@ -1,6 +1,5 @@
   let allSoloRaidData = [];
   let currentBoss = null;
-  let soloRaidSpinePlayer = null;
   let soloRaidPanZoom = null;
 
   function loadSoloRaidData() {
@@ -524,7 +523,6 @@
   }
 
   function clearSoloRaidSpine() {
-    if (soloRaidSpinePlayer) { soloRaidSpinePlayer.dispose(); soloRaidSpinePlayer = null; }
     if (soloRaidPanZoom) { soloRaidPanZoom.destroy(); soloRaidPanZoom = null; }
     const wrap = document.getElementById('soloraid-spine-player');
     if (wrap && window.disposeSoloRaidModel3D) window.disposeSoloRaidModel3D(wrap);
@@ -620,10 +618,16 @@
     const wrap = document.getElementById('soloraid-spine-player');
     const models = sortBossModels(parseBossModels(item['model']));
     const modelUrl = models.length ? models[0].url : null;
-    const skelUrl = item['skel'];
-    const atlasUrl = item['atlas'];
 
-    // 3D 모델(glb)이 있으면 우선 사용 — Spine L2D보다 커버리지가 넓다
+    // 3D 모델이 없거나 못 불러왔을 때 보여 줄 것. 이미지가 있으면 이미지, 없으면 이름.
+    function showFallback() {
+      if (item['보스 이미지']) {
+        wrap.innerHTML = `<img src="${item['보스 이미지']}" alt="${item['보스']}">`;
+      } else {
+        wrap.textContent = item['보스'] || '';
+      }
+    }
+
     if (modelUrl && window.loadSoloRaidModel3D) {
       // 내용이 없는 조작 그룹은 라벨만 남아 허전해 보인다. 자식이 비면 통째로 감춘다.
       requestAnimationFrame(syncCtlGroups);
@@ -639,158 +643,14 @@
       window.loadSoloRaidModel3D(wrap, modelUrl, {
         modelLabel: models.length ? models[0].name : '',
         onError: () => {
-          // 3D 로드 실패 시 L2D/이미지/이름 순으로 안전하게 대체
           wrap.innerHTML = '';
-          if (skelUrl && atlasUrl) {
-            loadSoloRaidL2D(skelUrl, atlasUrl);
-          } else if (item['보스 이미지']) {
-            wrap.innerHTML = `<img src="${item['보스 이미지']}" alt="${item['보스']}">`;
-          } else {
-            wrap.textContent = item['보스'] || '';
-          }
+          showFallback();
         },
       });
       return;
     }
 
-    if (skelUrl && atlasUrl) {
-      loadSoloRaidL2D(skelUrl, atlasUrl);
-      return;
-    }
-
-    // L2D가 없으면 보스 이미지로 대체, 그것도 없으면 이름만 표시
-    if (item['보스 이미지']) {
-      wrap.innerHTML = `<img src="${item['보스 이미지']}" alt="${item['보스']}">`;
-    } else {
-      wrap.textContent = item['보스'] || '';
-    }
+    showFallback();
   }
 
-  function loadSoloRaidL2D(skelUrl, atlasUrl) {
-    const wrap = document.getElementById('soloraid-spine-player');
-    wrap.innerHTML = '';
-
-    const playerDiv = document.createElement('div');
-    playerDiv.id = 'soloraid-spine-inner';
-    playerDiv.style.width = '100%';
-    playerDiv.style.height = '100%';
-    wrap.appendChild(playerDiv);
-
-    // idle 이 없는 스켈레톤이 있어서 이름을 못 박지 않는다. 읽어 온 뒤 있는 것 중에서 고른다.
-    soloRaidSpinePlayer = new spine.SpinePlayer('soloraid-spine-inner', {
-      skelUrl: skelUrl,
-      atlasUrl: atlasUrl,
-      backgroundColor: '#00000000',
-      showControls: false,
-      success: function(player) {
-        const data = player.skeleton.data;
-        const vp = { x: data.x, y: data.y, width: data.width, height: data.height };
-        player.dispose();
-        wrap.innerHTML = '';
-
-        const wrapEl = document.getElementById('soloraid-spine-wrap');
-        const wrapW = wrapEl.clientWidth;
-        const wrapH = wrapEl.clientHeight;
-
-        const playerDiv2 = document.createElement('div');
-        playerDiv2.id = 'soloraid-spine-inner';
-        playerDiv2.style.width = wrapW + 'px';
-        playerDiv2.style.height = wrapH + 'px';
-        wrap.appendChild(playerDiv2);
-
-        soloRaidSpinePlayer = new spine.SpinePlayer('soloraid-spine-inner', {
-          skelUrl: skelUrl,
-          atlasUrl: atlasUrl,
-          animation: pickSpineAnimation(data),
-          backgroundColor: '#00000000',
-          showControls: false,
-          preserveDrawingBuffer: false,
-          antialias: true,
-          viewport: {
-            animationViewport: false,
-            transitionTime: 0,
-            x: -(vp.width / 2),
-            y: vp.y,
-            width: vp.width,
-            height: vp.height,
-            padLeft: '15%',
-            padRight: '15%',
-            padTop: '5%',
-            padBottom: '5%',
-          },
-          success: function(player2) {
-            const skeleton = player2.skeleton;
-            const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
-            const enabledParts = new Set(partSkins.map(s => s.name));
-
-            const rebuildSkin = () => {
-              // 주의: 원본 defaultSkin을 mutate하면 파츠 껐다 켰다가 안 먹는 버그가 생기므로
-              // 매번 새 Skin 객체에 복사만 해온다 (코스튬/미실장 탭과 동일한 이유)
-              const combined = new spine.Skin('combined');
-              const defaultSkin = skeleton.data.findSkin('default');
-              if (defaultSkin) combined.addSkin(defaultSkin);
-              partSkins.forEach(skin => {
-                if (enabledParts.has(skin.name)) combined.addSkin(skin);
-              });
-              skeleton.setSkin(combined);
-              skeleton.setToSetupPose();
-              if (player2.animationState) player2.animationState.apply(skeleton);
-              skeleton.updateWorldTransform();
-            };
-            rebuildSkin();
-            renderPartsToggle('soloraid-parts-toggle', partSkins, enabledParts, rebuildSkin);
-
-            soloRaidPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
-
-            const resetBtn = document.getElementById('soloraid-spine-reset');
-            if (resetBtn) {
-              resetBtn.onmousedown = e => e.stopPropagation();
-              resetBtn.onclick = e => {
-                e.stopPropagation();
-                soloRaidPanZoom.reset();
-                try {
-                  player2.animationState.clearListeners();
-                  player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
-                } catch (err) {
-                  console.error('[역대 테두리 L2D] 초기화 실패:', err);
-                }
-              };
-            }
-
-            player2.animationState.data.defaultMix = 0;
-
-            player2.canvas.addEventListener('click', () => {
-              try {
-                if (!player2.skeleton.data.findAnimation('action')) return;
-                player2.setAnimation('action', false);
-                player2.animationState.addListener({
-                  complete: () => {
-                    try {
-                      player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
-                    } catch (err) {
-                      console.error('[역대 테두리 L2D] 대기 애니메이션 복귀 실패:', err);
-                    }
-                    player2.animationState.clearListeners();
-                  }
-                });
-              } catch (err) {
-                console.error('[역대 테두리 L2D] action 애니메이션 재생 실패:', err);
-              }
-            });
-          }
-        });
-      }
-    });
-  }
-
-  function waitForSpine(callback) {
-    if (typeof spine !== 'undefined') {
-      callback();
-    } else {
-      setTimeout(() => waitForSpine(callback), 100);
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    waitForSpine(loadSoloRaidData);
-  });
+  document.addEventListener('DOMContentLoaded', loadSoloRaidData);
