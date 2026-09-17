@@ -63,6 +63,12 @@ function switchTab(tabName, pushHistory = true) {
   // 메인을 뺀 나머지 탭도 탭 바를 얇게 쓴다(내용 볼 자리를 더 준다)
   document.body.classList.toggle('compact-nav', tabName !== 'main');
 
+  // 지금 어느 탭인지를 body 에 적어 둔다. 탭마다 다르게 굴어야 하는 것(맨위/맨아래
+  // 버튼처럼)을 CSS 만으로 가를 수 있다.
+  document.body.className = document.body.className
+    .split(/\s+/).filter(c => c && !c.startsWith('tab-')).join(' ');
+  document.body.classList.add('tab-' + tabName);
+
   // 제목 구역이 접히는 탭에서는 테마 버튼을 탭 바 오른쪽 끝으로 옮긴다.
   // 숨기는 게 아니라 버튼을 통째로 옴겨야 헤더를 접어도 살아있다.
   const themeBtn = document.getElementById('theme-toggle');

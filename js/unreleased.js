@@ -783,7 +783,7 @@
               skeleton.updateWorldTransform();
             };
             rebuildSkin();
-            renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin);
+            renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
 
             // 표정·동작 고르기. 코스튬 페이지와 같은 UI 를 그대로 쓴다.
             const animOpts = {

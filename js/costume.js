@@ -807,7 +807,7 @@
           skeleton.updateWorldTransform();
         };
         rebuildSkin();
-        renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin);
+        renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
 
         costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl);
 

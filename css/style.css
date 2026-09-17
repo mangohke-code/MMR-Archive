@@ -2887,9 +2887,11 @@
 
   .l2d-side-toggle:hover { color: var(--text-heading); }
 
-  .l2d-wrap.is-side-closed .l2d-side-toggle { left: 0; }
+  /* 왼쪽 손잡이에만 걸어야 한다. 그냥 .l2d-side-toggle 로 두면 오른쪽 손잡이도
+     같이 왼쪽 끝으로 끌려간다. */
+  .l2d-wrap.is-side-closed .l2d-side-toggle:not(.is-right) { left: 0; }
 
-  .l2d-wrap.is-side-closed .l2d-side-toggle i { transform: rotate(180deg); }
+  .l2d-wrap.is-side-closed .l2d-side-toggle:not(.is-right) i { transform: rotate(180deg); }
 
   /* 오른쪽 정보 판. 왼쪽 조작판과 같은 방식으로 자리를 나눠 갖고 손잡이로 편다.
      예전에는 그림 위에 떠서 마우스를 올리면 펴졌는데 왼쪽과 감각이 달랐다.
@@ -5477,8 +5479,12 @@
   /* .tab-content 의 padding: 2rem 때문에 사방에 여백이 남았다. 꽉 채운다. */
   body.app-mode #tab-soloraid { height: 100%; padding: 0; }
 
-  /* 뷰어를 보는 동안은 페이지 스크롤 자체가 없어서 맨위/맨아래 버튼이 무의미하다 */
-  body.app-mode #scroll-btns { display: none; }
+  /* 뷰어를 보는 동안은 페이지 스크롤 자체가 없어서 맨위/맨아래 버튼이 무의미하다.
+     유니크 코스튬·미실장도 뷰어가 화면을 거의 채워서 같은 이유로 감춘다. */
+  body.app-mode #scroll-btns,
+  body.l2d-immersive #scroll-btns,
+  body.tab-costume #scroll-btns,
+  body.tab-unreleased #scroll-btns { display: none; }
 
 
 
