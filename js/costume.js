@@ -283,7 +283,7 @@
     probeDiv.style.cssText = 'position:absolute; inset:0; width:100%; height:100%;';
     stageDiv.appendChild(probeDiv);
 
-    createSpinePlayer(probeDiv.id, {
+    new spine.SpinePlayer(probeDiv.id, {
       skelUrl: skelUrl,
       atlasUrl: atlasUrl,
       backgroundColor: '#00000000',
@@ -648,7 +648,7 @@
     layerDiv.style.cssText = 'position:absolute; inset:0; width:100%; height:100%;';
     stageDiv.appendChild(layerDiv);
 
-    createSpinePlayer(layerDiv.id, {
+    new spine.SpinePlayer(layerDiv.id, {
       skelUrl: skelUrl,
       atlasUrl: atlasUrl,
       animation: knownAnimation || undefined,
@@ -791,7 +791,7 @@
           // (addSkin은 대상 스킨 자체를 mutate함). 그러면 나중에 파츠를 꺼도 이미 오염된
           // defaultSkin에서 복사해오기 때문에 꺼지지 않는 버그가 생김 — 그래서 매번 새
           // Skin 객체를 만들어 복사만 해오고, 원본 defaultSkin은 절대 mutate하지 않는다.
-          const combined = new (spineNs(player2)).Skin('combined');
+          const combined = new spine.Skin('combined');
           const defaultSkin = skeleton.data.findSkin('default');
           if (defaultSkin) combined.addSkin(defaultSkin);
           partSkins.forEach(skin => {

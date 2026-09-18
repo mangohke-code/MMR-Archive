@@ -206,68 +206,11 @@ function pickSpineAnimation(skeletonData) {
   return names.includes('idle') ? 'idle' : names[0];
 }
 
-// ── 스파인 런타임을 두 벌 굴린다 ────────────────────────────────────────
-// index.html 이 불러오는 런타임(4.1.20)은 4.0 으로 내보낸 .skel 을 못 읽는다.
-// 4.0 에는 없던 "sequence" 표시 한 바이트를 더 읽으려 들어서 그 뒤가 통째로
-// 어긋나고, 결국 있지도 않은 이름을 아틀라스에서 찾다가 이렇게 터진다.
-//     Could not load skeleton binary.
-//     Region not found in atlas: acc_ring12 (sequence: acc_ring1)
-// 지금 4.0 파일은 잉크(l2d/c928) 하나뿐이다. 그 하나 때문에 모두에게 런타임을
-// 두 벌 내려받게 할 수는 없으니, 평소에는 4.1 로 열고 저 오류가 났을 때만
-// 4.0 런타임을 그 자리에서 받아 한 번 다시 연다.
-const SPINE_40_URL = 'https://cdn.jsdelivr.net/npm/@esotericsoftware/spine-player@4.0.31/dist/iife/spine-player.js';
-
-let _spine40Promise = null;
-function loadSpine40() {
-  if (_spine40Promise) return _spine40Promise;
-  _spine40Promise = new Promise((resolve, reject) => {
-    // 4.0 묶음도 자기를 window.spine 에 건다. 받아 챙긴 뒤 곧바로 되돌려 놔야
-    // 나머지 85개가 쓰는 4.1 이 안 밀린다.
-    const before = window.spine;
-    const tag = document.createElement('script');
-    tag.src = SPINE_40_URL;
-    tag.onload = () => { const ns = window.spine; window.spine = before; resolve(ns); };
-    tag.onerror = () => { window.spine = before; reject(new Error('스파인 4.0 런타임을 못 받았다')); };
-    document.head.appendChild(tag);
-  });
-  return _spine40Promise;
-}
-
-// 이 플레이어가 어느 런타임으로 열렸는지. new Skin() 같은 걸 만들 때 반드시
-// 같은 벌에서 만들어야 해서 필요하다 — 4.0 스켈레톤에 4.1 스킨을 물리면 깨진다.
-function spineNs(player) {
-  return (player && player.__spineNs) || spine;
-}
-
-// new spine.SpinePlayer 대신 이걸 쓴다. 설정은 그대로 넘기고, 4.0 파일이면
-// 런타임만 바꿔서 다시 연다. success/error 는 넘긴 그대로 한 번씩만 불린다.
-function createSpinePlayer(elementId, config) {
-  const open = (ns) => new ns.SpinePlayer(elementId, {
-    ...config,
-    success: (player, ...rest) => {
-      try { player.__spineNs = ns; } catch (e) {}
-      if (config.success) config.success(player, ...rest);
-    },
-    error: (player, msg) => {
-      // 파일을 못 받은 것(404)은 런타임 문제가 아니다. 판 번호가 안 맞을 때만
-      // 나오는 "Could not load skeleton binary." 일 때만 4.0 으로 다시 연다.
-      const parseFailed = ns === spine && /skeleton binary/i.test(String(msg));
-      if (!parseFailed) {
-        if (config.error) config.error(player, msg);
-        return;
-      }
-      // 바로 정리하면 이미 잡혀 있던 다음 프레임이 죽은 GL 문맥을 건드린다.
-      // 한 박자 미뤄서 버린다 — 안 버리면 WebGL 문맥이 그대로 남는다.
-      setTimeout(() => { try { player.dispose(); } catch (e) {} }, 0);
-      const host = document.getElementById(elementId);
-      if (host) host.innerHTML = '';
-      loadSpine40().then(open).catch(() => {
-        if (config.error) config.error(player, msg);
-      });
-    },
-  });
-  return open(spine);
-}
+// 스파인 파일은 전부 4.1.20 판이어야 한다. 잉크(c928)만 4.0.47 로 나와서
+// 못 읽었는데(4.0 에는 없는 "sequence" 표시 한 바이트를 런타임이 더 읽어 어긋났다),
+// 2026-09-19 에 파일 자체를 4.1.20 배치로 고쳐 넣었다. 다시 4.0 짜리가 들어오면
+// "Could not load skeleton binary." 가 나니, 그때는 런타임을 늘리지 말고 파일을
+// 고치는 쪽으로 간다 — 방법은 tools/spine40to41.md 에 적어 뒀다.
 
 // ── 뷰포트 상자 ────────────────────────────────────────────────────────
 // 스켈레톤 앞머리에 적힌 상자(data.x/y/width/height)는 스파인에서 내보낼 때
@@ -295,10 +238,9 @@ function spineMeasuredBounds(player, steps) {
     if (!anim || !(anim.duration > 0)) return null;
 
     // getBounds 는 결과를 offset.set(...) 으로 돌려준다. 그냥 객체를 넘기면
-    // set 이 없어서 터지니 런타임이 가진 Vector2 를 써야 한다.
-    const ns = spineNs(player);
-    const offset = new ns.Vector2();
-    const size = new ns.Vector2();
+    // set 이 없어서 터진다.
+    const offset = new spine.Vector2();
+    const size = new spine.Vector2();
     const frames = steps || 24;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
