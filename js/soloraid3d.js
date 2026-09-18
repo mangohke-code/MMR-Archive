@@ -1848,18 +1848,35 @@ const CLIP_LABEL_FIX = [
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, label: 'dead' },
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_start_01$/i, label: 'cc_start' },
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_end_01$/i, label: 'cc_end' },
-  // 앨트루이아 P.S.I.D.(시즌 42) 는 fire_03 이 두 벌이다. 이름만 보면 둘 다
-  // skill_fire_03 이라 목록에서 못 가른다. 추출 쪽에서 원본을 확인한 결과다.
+  // 앨트루이아 P.S.I.D.(시즌 42) — 클립 이름의 _03 이 스킬 번호가 아니다.
   //
-  //   xbg004 _skill_fire_03   2.67초  -raw 번들   start_03·loop_03 과 한 세트
-  //   xbg004_skill_fire_03    2.33초  일반 번들   시즌 34 와 공유하는 별개 동작
+  // 공백이 든 세 벌은 이름만 _03 이고 실제로는 스킬 5 다. 게임 타임라인을
+  // 읽어 확인했다(추출 쪽 조사).
   //
-  // 이름 사이의 공백은 게임 에셋 이름 그대로다(추출이 붙인 것이 아니다).
-  // 타임라인도 공백 이름으로 부른다. 제작 단계의 오타로 보이고, xbg004 의
-  // 이 셋과 death_camera 에만 있다.
+  //   [xbg004_skill_03_model]  스킬 3
+  //      0.00~2.33  xbg004_skill_fire_03   (공백 없음)
+  //      2.33~3.88  xbg004_idle_01
+  //   [xbg004_skill_05_model]  스킬 5 — P.S.I.D. 에만 있다
+  //      0.00~1.83  xbg004 _skill_start_03 (공백)
+  //      1.83~3.00  xbg004 _skill_loop_03  (공백)
+  //      3.00~5.67  xbg004 _skill_fire_03  (공백)
   //
-  // 한 세트인 쪽이 스킬 3 본체이므로 그쪽에 번호를 주고, 공용인 쪽을 갈라 적는다.
-  { boss: /^xbg004_psid/i, re: /^xbg004_skill_fire_03$/, label: 'skill_fire_03 (공용)' },
+  // 스킬 3 은 원래 start/loop 가 없다. 선행 동작 없이 바로 나가는 패턴이라
+  // 두 변종 모두 fire 하나뿐이다(스킬 1·2·4 는 셋 다 있다).
+  // 시즌 34 에 이 세 벌이 없던 것은 스킬 5 자체가 없기 때문이다.
+  //
+  // 이름 사이의 공백도 게임 에셋 이름 그대로다. 'xbg004_skill_start_05' 가
+  // 되어야 할 것이 'xbg004 _skill_start_03' 으로 붙은 제작 단계 오타로 보인다.
+  { boss: /^xbg004_psid/i, re: /^xbg004 _skill_03$/,       label: 'skill_05' },
+  { boss: /^xbg004_psid/i, re: /^xbg004 _skill_start_03$/, label: 'skill_start_05' },
+  { boss: /^xbg004_psid/i, re: /^xbg004 _skill_loop_03$/,  label: 'skill_loop_05' },
+  { boss: /^xbg004_psid/i, re: /^xbg004 _skill_fire_03$/,  label: 'skill_fire_05' },
+];
+
+// 목록 차례는 이름 끝 번호로 매긴다. 위처럼 이름의 번호가 실제와 다른 클립은
+// 그대로 두면 엉뚱한 자리에 선다(스킬 5 가 3 과 4 사이에 낀다). 여기서 바로잡는다.
+const CLIP_SORT_FIX = [
+  { boss: /^xbg004_psid/i, re: /^xbg004 _skill(_(?:start|loop|fire))?_03$/, no: 5 },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
@@ -4543,6 +4560,9 @@ function noFollowClip(bossKey, name) {
         // 묶음이 없는 낱개 클립(거대 질량체 skill_fire_09 는 start/loop 이 없다)이
         // 파일 순서대로 맨 뒤에 붙어서 10 번 뒤에 서 있었다.
         const seqNo = (name) => {
+          const fix = CLIP_SORT_FIX.find(
+            o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+          if (fix) return fix.no;
           const m = String(name).match(/_(\d+)$/);
           return m ? Number(m[1]) : Infinity;
         };
