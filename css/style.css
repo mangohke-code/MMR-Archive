@@ -2763,8 +2763,8 @@
   }
 
   #costume-spine-wrap {
-    height: calc(100vh - 62px);
-    min-height: 760px;
+    height: calc(100vh - 24px);
+    min-height: 820px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -4077,8 +4077,8 @@
 
   #unreleased-spine-wrap {
     width: 100%;
-    height: calc(100vh - 62px);
-    min-height: 760px;
+    height: calc(100vh - 24px);
+    min-height: 820px;
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);

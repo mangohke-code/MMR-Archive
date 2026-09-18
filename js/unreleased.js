@@ -716,14 +716,18 @@
 
     // idle 이 없는 스켈레톤이 있어서(action 만 든 것) 이름을 못 박지 않는다.
     // 먼저 아무 것도 지정하지 않고 읽어 온 다음, 있는 것 중에서 고른다.
-    unreleasedSpinePlayer = new spine.SpinePlayer('unreleased-spine-inner', {
+    unreleasedSpinePlayer = createSpinePlayer('unreleased-spine-inner', {
       skelUrl:   skelUrl,
       atlasUrl:  atlasUrl,
       backgroundColor: '#00000000',
       showControls: false,
       success: function(player) {
+        // 4.0 파일이면 createSpinePlayer 가 런타임을 바꿔 다시 열기 때문에, 위에서
+        // 받아 둔 것과 여기 오는 것이 다를 수 있다. 실제로 열린 쪽을 들고 있어야
+        // 재생바와 정리(dispose)가 헛돌지 않는다.
+        unreleasedSpinePlayer = player;
         const data = player.skeleton.data;
-        const vp = { x: data.x, y: data.y, width: data.width, height: data.height };
+        const vp = spineViewportBox(player);
         player.dispose();
         wrap.innerHTML = '';
 
@@ -737,7 +741,7 @@
         playerDiv2.style.height = wrapH + 'px';
         wrap.appendChild(playerDiv2);
 
-        unreleasedSpinePlayer = new spine.SpinePlayer('unreleased-spine-inner', {
+        unreleasedSpinePlayer = createSpinePlayer('unreleased-spine-inner', {
           skelUrl:   skelUrl,
           atlasUrl:  atlasUrl,
           animation: pickSpineAnimation(data),
@@ -758,6 +762,7 @@
             padBottom: '5%',
           },
           success: function(player2) {
+            unreleasedSpinePlayer = player2;
             const skeleton = player2.skeleton;
             const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
             const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
@@ -768,7 +773,7 @@
               // (addSkin은 대상 스킨 자체를 mutate함). 그러면 나중에 파츠를 꺼도 이미 오염된
               // defaultSkin에서 복사해오기 때문에 꺼지지 않는 버그가 생김 — 그래서 매번 새
               // Skin 객체를 만들어 복사만 해오고, 원본 defaultSkin은 절대 mutate하지 않는다.
-              const combined = new spine.Skin('combined');
+              const combined = new (spineNs(player2)).Skin('combined');
               const defaultSkin = skeleton.data.findSkin('default');
               if (defaultSkin) combined.addSkin(defaultSkin);
               partSkins.forEach(skin => {

@@ -206,6 +206,133 @@ function pickSpineAnimation(skeletonData) {
   return names.includes('idle') ? 'idle' : names[0];
 }
 
+// ── 스파인 런타임을 두 벌 굴린다 ────────────────────────────────────────
+// index.html 이 불러오는 런타임(4.1.20)은 4.0 으로 내보낸 .skel 을 못 읽는다.
+// 4.0 에는 없던 "sequence" 표시 한 바이트를 더 읽으려 들어서 그 뒤가 통째로
+// 어긋나고, 결국 있지도 않은 이름을 아틀라스에서 찾다가 이렇게 터진다.
+//     Could not load skeleton binary.
+//     Region not found in atlas: acc_ring12 (sequence: acc_ring1)
+// 지금 4.0 파일은 잉크(l2d/c928) 하나뿐이다. 그 하나 때문에 모두에게 런타임을
+// 두 벌 내려받게 할 수는 없으니, 평소에는 4.1 로 열고 저 오류가 났을 때만
+// 4.0 런타임을 그 자리에서 받아 한 번 다시 연다.
+const SPINE_40_URL = 'https://cdn.jsdelivr.net/npm/@esotericsoftware/spine-player@4.0.31/dist/iife/spine-player.js';
+
+let _spine40Promise = null;
+function loadSpine40() {
+  if (_spine40Promise) return _spine40Promise;
+  _spine40Promise = new Promise((resolve, reject) => {
+    // 4.0 묶음도 자기를 window.spine 에 건다. 받아 챙긴 뒤 곧바로 되돌려 놔야
+    // 나머지 85개가 쓰는 4.1 이 안 밀린다.
+    const before = window.spine;
+    const tag = document.createElement('script');
+    tag.src = SPINE_40_URL;
+    tag.onload = () => { const ns = window.spine; window.spine = before; resolve(ns); };
+    tag.onerror = () => { window.spine = before; reject(new Error('스파인 4.0 런타임을 못 받았다')); };
+    document.head.appendChild(tag);
+  });
+  return _spine40Promise;
+}
+
+// 이 플레이어가 어느 런타임으로 열렸는지. new Skin() 같은 걸 만들 때 반드시
+// 같은 벌에서 만들어야 해서 필요하다 — 4.0 스켈레톤에 4.1 스킨을 물리면 깨진다.
+function spineNs(player) {
+  return (player && player.__spineNs) || spine;
+}
+
+// new spine.SpinePlayer 대신 이걸 쓴다. 설정은 그대로 넘기고, 4.0 파일이면
+// 런타임만 바꿔서 다시 연다. success/error 는 넘긴 그대로 한 번씩만 불린다.
+function createSpinePlayer(elementId, config) {
+  const open = (ns) => new ns.SpinePlayer(elementId, {
+    ...config,
+    success: (player, ...rest) => {
+      try { player.__spineNs = ns; } catch (e) {}
+      if (config.success) config.success(player, ...rest);
+    },
+    error: (player, msg) => {
+      // 파일을 못 받은 것(404)은 런타임 문제가 아니다. 판 번호가 안 맞을 때만
+      // 나오는 "Could not load skeleton binary." 일 때만 4.0 으로 다시 연다.
+      const parseFailed = ns === spine && /skeleton binary/i.test(String(msg));
+      if (!parseFailed) {
+        if (config.error) config.error(player, msg);
+        return;
+      }
+      // 바로 정리하면 이미 잡혀 있던 다음 프레임이 죽은 GL 문맥을 건드린다.
+      // 한 박자 미뤄서 버린다 — 안 버리면 WebGL 문맥이 그대로 남는다.
+      setTimeout(() => { try { player.dispose(); } catch (e) {} }, 0);
+      const host = document.getElementById(elementId);
+      if (host) host.innerHTML = '';
+      loadSpine40().then(open).catch(() => {
+        if (config.error) config.error(player, msg);
+      });
+    },
+  });
+  return open(spine);
+}
+
+// ── 뷰포트 상자 ────────────────────────────────────────────────────────
+// 스켈레톤 앞머리에 적힌 상자(data.x/y/width/height)는 스파인에서 내보낼 때
+// 적어 둔 값이라, 실제로는 한 번도 안 보이는 부속까지 들어가 터무니없이 큰
+// 경우가 있다. 그대로 뷰포트로 쓰면 그만큼 멀찍이 잡혀서 캐릭터가 작게 나온다.
+// 그래서 대기 동작을 몇 프레임 찍어 실제 크기를 재 보고, 적힌 높이가 잰 높이의
+// 두 배를 넘으면 잰 값으로 바꾼다.
+//
+// 86개를 전부 재 본 결과 (잰 높이 ÷ 적힌 높이)
+//     리버린 0.34   <- 이 하나만 두 배를 넘는다
+//     이브 스킨 슈트 0.62 · 아스카 0.75 · 마르차나 스쿨 데이즈 0.82 · 온리 원 0.83
+//     나머지 81개 0.9 이상
+// 경계를 0.5 로 둔 건 리버린만 걸리게 하려는 것이다. 나머지는 지금 화면 그대로 둔다.
+const SPINE_BOX_TRUST_LIMIT = 0.5;
+
+function spineMeasuredBounds(player, steps) {
+  try {
+    const skeleton = player && player.skeleton;
+    const state = player && player.animationState;
+    const data = skeleton && skeleton.data;
+    if (!skeleton || !state || !data || !data.animations.length) return null;
+
+    const name = pickSpineAnimation(data);
+    const anim = data.animations.find(a => a.name === name);
+    if (!anim || !(anim.duration > 0)) return null;
+
+    // getBounds 는 결과를 offset.set(...) 으로 돌려준다. 그냥 객체를 넘기면
+    // set 이 없어서 터지니 런타임이 가진 Vector2 를 써야 한다.
+    const ns = spineNs(player);
+    const offset = new ns.Vector2();
+    const size = new ns.Vector2();
+    const frames = steps || 24;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    state.setAnimation(0, anim.name, true);
+    for (let i = 0; i <= frames; i++) {
+      skeleton.setToSetupPose();
+      state.update(i === 0 ? 0 : anim.duration / frames);
+      state.apply(skeleton);
+      skeleton.updateWorldTransform();
+      skeleton.getBounds(offset, size, []);
+      if (!isFinite(size.x) || !isFinite(size.y) || size.x <= 0 || size.y <= 0) continue;
+      minX = Math.min(minX, offset.x);
+      minY = Math.min(minY, offset.y);
+      maxX = Math.max(maxX, offset.x + size.x);
+      maxY = Math.max(maxY, offset.y + size.y);
+    }
+    if (!isFinite(minX) || maxX <= minX || maxY <= minY) return null;
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  } catch (e) {
+    return null;
+  }
+}
+
+// 뷰포트로 쓸 상자. 웬만하면 적힌 값 그대로다.
+function spineViewportBox(player) {
+  const data = player.skeleton.data;
+  const head = { x: data.x, y: data.y, width: data.width, height: data.height };
+  const measured = spineMeasuredBounds(player);
+  if (!measured || !(head.height > 0)) return head;
+  if (measured.height / head.height >= SPINE_BOX_TRUST_LIMIT) return head;
+  console.warn('[L2D] 스켈레톤에 적힌 상자가 실제보다 너무 큽니다 — 잰 값으로 바꿉니다.', head, '->', measured);
+  return measured;
+}
+
 // L2D 파츠(스킨) on/off 토글 UI — costume.js/unreleased.js 공용
 // skins: default를 제외한 spine.Skin 배열, enabledSet: 현재 켜져있는 스킨 이름 Set
 // opts.style 이 'button' 이면 스위치 줄 대신 버튼 칩으로 그린다. 항목이 한둘뿐인
