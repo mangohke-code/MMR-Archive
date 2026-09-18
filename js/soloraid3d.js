@@ -1848,6 +1848,18 @@ const CLIP_LABEL_FIX = [
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, label: 'dead' },
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_start_01$/i, label: 'cc_start' },
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_end_01$/i, label: 'cc_end' },
+  // 앨트루이아 P.S.I.D.(시즌 42) 는 fire_03 이 두 벌이다. 이름만 보면 둘 다
+  // skill_fire_03 이라 목록에서 못 가른다. 추출 쪽에서 원본을 확인한 결과다.
+  //
+  //   xbg004 _skill_fire_03   2.67초  -raw 번들   start_03·loop_03 과 한 세트
+  //   xbg004_skill_fire_03    2.33초  일반 번들   시즌 34 와 공유하는 별개 동작
+  //
+  // 이름 사이의 공백은 게임 에셋 이름 그대로다(추출이 붙인 것이 아니다).
+  // 타임라인도 공백 이름으로 부른다. 제작 단계의 오타로 보이고, xbg004 의
+  // 이 셋과 death_camera 에만 있다.
+  //
+  // 한 세트인 쪽이 스킬 3 본체이므로 그쪽에 번호를 주고, 공용인 쪽을 갈라 적는다.
+  { boss: /^xbg004_psid/i, re: /^xbg004_skill_fire_03$/, label: 'skill_fire_03 (공용)' },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
