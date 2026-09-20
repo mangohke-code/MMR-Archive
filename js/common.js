@@ -195,6 +195,31 @@ document.addEventListener('contextmenu', e => {
   });
 })();
 
+// 스파인 플레이어를 확실히 버린다.
+//
+// spine-player 의 dispose() 는 WebGL 문맥을 놓아 주지 않는다. 캔버스가 쓰레기 수거될
+// 때까지 문맥이 살아 있는데, 브라우저는 한 탭에 문맥을 16개까지만 쥐여 준다(크롬 기준).
+// 넘으면 브라우저가 제일 오래된 것부터 끊어 버리고, 그 자리는 하얗게 남는다.
+//
+// 코스튬 뷰어를 켜 둔 채 미실장 캐릭터를 여러 명 넘겨 보면 딱 이 일이 난다 —
+// 미실장 쪽에서 한 명 볼 때마다 문맥이 하나씩 쌓이다가, 한도를 넘는 순간 제일 오래된
+// 코스튬 뷰어의 문맥이 끊긴다. 돌아가 보면 하얗다.
+// (실측: 17번째 문맥을 만드는 순간 첫 webglcontextlost 가 떴다.)
+//
+// 그래서 버릴 때 WEBGL_lose_context 로 그 자리에서 문맥까지 놓아 준다.
+function disposeSpinePlayer(player) {
+  if (!player) return;
+  let gl = null;
+  try { gl = (player.context && player.context.gl) || null; } catch (e) {}
+  try { player.dispose(); } catch (e) {}
+  try {
+    if (gl && !gl.isContextLost()) {
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+    }
+  } catch (e) {}
+}
+
 // 그 스켈레톤에 실제로 들어 있는 것 중에서 대기용 애니메이션을 고른다.
 //
 // 'idle' 을 못 박아 넘기면 그 이름이 없는 스켈레톤에서 "Animation does not exist in

@@ -696,7 +696,7 @@
 
   function clearSpinePlayer() {
     if (unreleasedSpinePlayer) {
-      unreleasedSpinePlayer.dispose();
+      disposeSpinePlayer(unreleasedSpinePlayer);
       unreleasedSpinePlayer = null;
     }
     if (unreleasedPanZoom) { unreleasedPanZoom.destroy(); unreleasedPanZoom = null; }
@@ -709,7 +709,7 @@
     const wrap = document.getElementById('unreleased-spine-player');
     wrap.innerHTML = '';
     if (unreleasedSpinePlayer) {
-      unreleasedSpinePlayer.dispose();
+      disposeSpinePlayer(unreleasedSpinePlayer);
       unreleasedSpinePlayer = null;
     }
     if (unreleasedPanZoom) { unreleasedPanZoom.destroy(); unreleasedPanZoom = null; }
@@ -731,7 +731,7 @@
       success: function(player) {
         const data = player.skeleton.data;
         const vp = spineViewportBox(player);
-        player.dispose();
+        disposeSpinePlayer(player);
         wrap.innerHTML = '';
 
         const wrapEl = document.getElementById('unreleased-spine-wrap');

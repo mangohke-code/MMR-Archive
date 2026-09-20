@@ -294,7 +294,7 @@
       showControls: false,
       success: function(probePlayer) {
         callback(spineViewportBox(probePlayer));
-        probePlayer.dispose();
+        disposeSpinePlayer(probePlayer);
         probeDiv.remove();
       }
     });
@@ -702,7 +702,7 @@
 
     if (costumePanZoom) { costumePanZoom.destroy(); costumePanZoom = null; }
 
-    activeSpinePlayers.forEach(p => { try { p.dispose(); } catch (err) {} });
+    activeSpinePlayers.forEach(disposeSpinePlayer);
     activeSpinePlayers = [];
     spinePlayer = null;
   }
