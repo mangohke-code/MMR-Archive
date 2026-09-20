@@ -382,10 +382,6 @@
         <!-- 캐릭터 목록 화면 -->
         <div id="codex-main" class="hidden">
 
-          <div id="codex-toolbar">
-            <button id="codex-survey-btn">◀ 스토리 진행도 변경</button>
-          </div>
-
           <!-- 상세 패널 -->
           <div id="codex-detail" class="hidden">
             <div class="codex-spine-col">
@@ -437,6 +433,12 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- 스토리 진행도 버튼은 뷰어 아래에 둔다. 위에 두면 캐릭터를 고를 때마다
+               화면 맨 위가 이 버튼이라 뷰어가 한 줄 밀려 내려간다. -->
+          <div id="codex-toolbar">
+            <button id="codex-survey-btn">◀ 스토리 진행도 변경</button>
           </div>
 
           <div id="codex-content"></div>
