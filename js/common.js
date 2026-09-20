@@ -197,9 +197,13 @@ document.addEventListener('contextmenu', e => {
 
 // 그 스켈레톤에 실제로 들어 있는 것 중에서 대기용 애니메이션을 고른다.
 //
-// 여태 'idle' 을 못 박아 썼는데, 코스튬 몇 개는 _action.skel 이라 action 하나만 들어 있다
-// (나유타 무위 · 목단 화중지왕 · 리틀 머메이드 어비스 플라워). 없는 이름을 SpinePlayer 설정에
-// 넘기면 "Animation does not exist in skeleton" 예외가 나면서 뷰어가 통째로 안 뜬다.
+// 'idle' 을 못 박아 넘기면 그 이름이 없는 스켈레톤에서 "Animation does not exist in
+// skeleton" 예외가 나면서 뷰어가 통째로 안 뜬다.
+//
+// action 하나만 든 _action.skel 코스튬(나유타 무위 · 목단 화중지왕 · 리틀 머메이드
+// 어비스 플라워) 때문에 만든 장치인데, 그 셋은 2026-09-19 까지 전부 완전판으로 갈아
+// 끼웠다. 지금 idle 이 없는 것은 코스튬 추가 파츠의 배경·전경 층뿐이다 — 이쪽은
+// 'bg_idle' 처럼 이름이 다르다(쉘 프린세스 앞뒤, 스타 스타라이트 뒤, 드리밍 레이크 뒤).
 function pickSpineAnimation(skeletonData) {
   if (!skeletonData || !skeletonData.animations || !skeletonData.animations.length) return undefined;
   const names = skeletonData.animations.map(a => a.name);

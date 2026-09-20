@@ -592,7 +592,14 @@
     renderDetailPanel(versions);
 
     document.getElementById('unreleased-detail').classList.remove('hidden');
-    document.getElementById('unreleased-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // 뷰어는 목록 위에 있다. 목록 아래쪽을 보다가 누르면 뷰어가 화면 밖이라 아무 일도
+    // 안 일어난 것처럼 보이므로 맨 위로 올려 준다.
+    // (예전에는 판 위쪽을 화면에 걸치게만 했는데, 탭 바 높이만큼 어긋나서 맨 위로 바꿨다.)
+    // 부드럽게 굴리면 안 된다. 굴러가는 동안 L2D 가 붙으면서 목록 위쪽이 길어지는데,
+    // 그때 브라우저가 보고 있던 자리를 지키려고(스크롤 고정) 스크롤을 도로 내려서
+    // 중간에 멈춰 버린다. 한 번에 0 으로 보내면 위에 아무것도 없으니 밀리지 않는다.
+    window.scrollTo(0, 0);
   }
 
   function renderDetailPanel(versions) {

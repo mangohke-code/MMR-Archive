@@ -222,9 +222,13 @@
     // 스파인 플레이어 로드
     loadSpinePlayer(costume);
 
-    // 목록이 길어서 아래쪽 코스튬을 고르면 모델이 화면 밖에 있다. 모델 쪽으로 올려 준다.
-    const top = document.getElementById('costume-top');
-    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // 목록이 길어서 아래쪽 코스튬을 고르면 모델이 화면 밖에 있다. 화면을 맨 위로 올린다.
+    // (예전에는 판 위쪽을 화면에 걸치게만 했는데, 탭 바 높이만큼 어긋나서 맨 위로 바꿨다.)
+    // 메인에서 점프해 들어올 때(jumpToCostume)는 이 뒤에 해당 초상화를 가운데로 맞춘다.
+    // 부드럽게 굴리면 안 된다. 굴러가는 동안 L2D 가 붙으면서 목록 위쪽이 길어지는데,
+    // 그때 브라우저가 보고 있던 자리를 지키려고(스크롤 고정) 스크롤을 도로 내려서
+    // 중간에 멈춰 버린다. 한 번에 0 으로 보내면 위에 아무것도 없으니 밀리지 않는다.
+    window.scrollTo(0, 0);
   }
 
   function closeCostumeDetail() {
@@ -773,8 +777,7 @@
       });
 
       // idle 을 못 박아 넘기면 그 애니메이션이 없는 스켈레톤에서 라이브러리가 예외를 던진다.
-      // 나유타 무위·목단 화중지왕·리틀 머메이드 어비스 플라워의 _action.skel 은 action 하나만
-      // 들어 있다. null 을 넘겨서 로드한 뒤 실제로 있는 것 중에서 고르게 한다.
+      // null 을 넘겨서 로드한 뒤 실제로 있는 것 중에서 고르게 한다(pickSpineAnimation).
       createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, null, viewportConfig, (player2, layerDiv) => {
         spinePlayer = player2;
 
