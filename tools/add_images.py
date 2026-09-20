@@ -10,7 +10,7 @@
 #
 # 첫 번째 인자는 어느 폴더에 넣을지:
 #   nikke      니케 초상화 / 코스튬 이미지   (IMG_니케)
-#   unreleased 미실장 캐릭터 이미지          (미실장_캐릭터)
+#   unreleased 미실장 캐릭터 이미지          (캐릭터_도감)
 #   ticket     코스튬 가챠 티켓 이미지       (유니크_코스튬)
 #   souvenir   기념품 이미지                 (기념품)
 #
@@ -23,7 +23,7 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 정보모
 PUBLIC_BASE = 'https://mangohke-code.github.io/MMR-Archive/img'
 FOLDERS = {
     'nikke':      'IMG_니케 (이미지 / 코스튬1_이미지 / 코스튬2_이미지)',
-    'unreleased': '미실장_캐릭터 (이미지1 / 이미지2)',
+    'unreleased': '캐릭터_도감 (이미지1 / 이미지2)',
     'ticket':     '유니크_코스튬 (무료티켓 / 유료티켓)',
     'souvenir':   '기념품 (이미지)',
 }

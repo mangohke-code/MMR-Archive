@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=157">
+  <link rel="stylesheet" href="css/style.css?v=158">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -31,7 +31,7 @@
     <button class="tab-btn active" data-tab="main">메인 페이지</button>
     <button class="tab-btn" data-tab="pickup">픽업 기록</button>
     <button class="tab-btn" data-tab="costume">유니크 코스튬</button>
-    <button class="tab-btn" data-tab="unreleased">캐릭터 도감</button>
+    <button class="tab-btn" data-tab="codex">캐릭터 도감</button>
     <button class="tab-btn" data-tab="souvenir">기념품 목록</button>
     <button class="tab-btn" data-tab="soloraid">솔로 레이드</button>
     <button class="tab-btn" data-tab="stage">스테이지 정보</button>
@@ -341,11 +341,11 @@
       </div>
     </div>
 
-    <div id="tab-unreleased" class="tab-content">
-      <div id="unreleased-container">
+    <div id="tab-codex" class="tab-content">
+      <div id="codex-container">
 
         <!-- 설문 화면 -->
-        <div id="unreleased-survey">
+        <div id="codex-survey">
           <div id="survey-header">
             <div id="survey-title">스토리를 어디까지 보셨나요?</div>
             <div id="survey-desc">선택한 범위를 기준으로 스포일러를 필터링합니다.<br>아무것도 선택하지 않아도 확인 버튼을 누를 수 있습니다.</div>
@@ -380,66 +380,66 @@
         </div>
 
         <!-- 캐릭터 목록 화면 -->
-        <div id="unreleased-main" class="hidden">
+        <div id="codex-main" class="hidden">
 
-          <div id="unreleased-toolbar">
-            <button id="unreleased-survey-btn">◀ 스토리 진행도 변경</button>
+          <div id="codex-toolbar">
+            <button id="codex-survey-btn">◀ 스토리 진행도 변경</button>
           </div>
 
           <!-- 상세 패널 -->
-          <div id="unreleased-detail" class="hidden">
-            <div class="unreleased-spine-col">
-              <div id="unreleased-spine-wrap" class="l2d-wrap">
-                <div id="unreleased-side" class="l2d-side">
+          <div id="codex-detail" class="hidden">
+            <div class="codex-spine-col">
+              <div id="codex-spine-wrap" class="l2d-wrap">
+                <div id="codex-side" class="l2d-side">
                   <h2>동작</h2>
-                  <div id="unreleased-anim-toggle" class="anim-toggle hidden"></div>
+                  <div id="codex-anim-toggle" class="anim-toggle hidden"></div>
 
                   <h2>표정</h2>
-                  <div id="unreleased-expression" class="spine-expression hidden"></div>
+                  <div id="codex-expression" class="spine-expression hidden"></div>
 
                   <h2>파츠</h2>
-                  <div id="unreleased-parts-toggle" class="parts-toggle hidden"></div>
+                  <div id="codex-parts-toggle" class="parts-toggle hidden"></div>
 
                 </div>
 
-                <button type="button" id="unreleased-side-toggle" class="l2d-side-toggle"
+                <button type="button" id="codex-side-toggle" class="l2d-side-toggle"
                         aria-expanded="true" title="조작판 접기">
                   <i class="fas fa-chevron-left"></i>
                 </button>
 
                 <div class="l2d-stage">
-                  <div id="unreleased-spine-player"></div>
-                  <div id="unreleased-spine-nav" class="hidden">
-                    <button id="unreleased-spine-prev">◀</button>
-                    <span id="unreleased-spine-label"></span>
-                    <button id="unreleased-spine-next">▶</button>
+                  <div id="codex-spine-player"></div>
+                  <div id="codex-spine-nav" class="hidden">
+                    <button id="codex-spine-prev">◀</button>
+                    <span id="codex-spine-label"></span>
+                    <button id="codex-spine-next">▶</button>
                   </div>
-                  <div class="l2d-bar" id="unreleased-bar">
+                  <div class="l2d-bar" id="codex-bar">
                     <button type="button" class="l2d-bar-btn" data-act="restart" title="처음부터"><i class="fas fa-rotate-left"></i></button>
                     <button type="button" class="l2d-bar-btn" data-act="playpause" title="일시정지"><i class="fas fa-pause"></i></button>
                     <div class="l2d-timeline"><div class="l2d-timeline-fill"></div></div>
                     <span class="l2d-timecode">0.00 / 0.00</span>
-                    <button type="button" class="l2d-bar-btn" id="unreleased-spine-reset" title="시점 초기화"><i class="fas fa-crosshairs"></i></button>
+                    <button type="button" class="l2d-bar-btn" id="codex-spine-reset" title="시점 초기화"><i class="fas fa-crosshairs"></i></button>
                     <button type="button" class="l2d-bar-btn" data-act="immersive" aria-pressed="false" title="전체화면 (Esc 로 나가기)"><i class="fas fa-expand"></i></button>
                   </div>
                 </div>
 
-                <button type="button" id="unreleased-info-toggle" class="l2d-side-toggle is-right"
+                <button type="button" id="codex-info-toggle" class="l2d-side-toggle is-right"
                         aria-expanded="false" title="상세 정보">
                   <i class="fas fa-circle-info"></i>
                 </button>
 
-                <div id="unreleased-detail-info" class="l2d-side l2d-side-right">
-                  <div id="unreleased-detail-name"></div>
-                  <div id="unreleased-detail-affil"></div>
-                  <div id="unreleased-detail-squad"></div>
-                  <div id="unreleased-detail-appears"></div>
+                <div id="codex-detail-info" class="l2d-side l2d-side-right">
+                  <div id="codex-detail-name"></div>
+                  <div id="codex-detail-affil"></div>
+                  <div id="codex-detail-squad"></div>
+                  <div id="codex-detail-appears"></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div id="unreleased-content"></div>
+          <div id="codex-content"></div>
         </div>
 
       </div>
@@ -705,11 +705,11 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=64"></script>
+  <script src="js/common.js?v=66"></script>
   <script src="js/main.js?v=18"></script>
   <script src="js/pickup.js?v=40"></script>
-  <script src="js/costume.js?v=51"></script>
-  <script src="js/unreleased.js?v=41"></script>
+  <script src="js/costume.js?v=52"></script>
+  <script src="js/codex.js?v=1"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">
   {

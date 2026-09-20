@@ -1,6 +1,9 @@
-  // 화면에 나오는 이름은 "캐릭터 도감" 이다(2026-09-21 에 "미실장 캐릭터" 에서 바꿨다).
-  // 파일 이름·요소 id·클래스·탭 키(unreleased)와 Supabase 표 이름(미실장_캐릭터)은
-  // 그대로 뒀다 — 바꿔 봐야 화면에 보이는 것은 없고 주소·표만 깨진다.
+  // 2026-09-21 에 "미실장 캐릭터" 를 "캐릭터 도감" 으로 바꿨다. 화면 이름, 주소(#codex),
+  // 파일 이름, 요소 id·클래스, Supabase 표 이름(캐릭터_도감)까지 전부 따라갔다.
+  //
+  // 딱 하나, 아래 저장 키만 옛 이름 그대로 둔다. 이건 방문자 브라우저에 남아 있는
+  // 값이라, 이름을 바꾸면 여태 저장해 둔 스토리 진행도가 전부 없는 셈이 되고
+  // 설문 화면부터 다시 봐야 한다.
   const SURVEY_STORAGE_KEY = 'nikke_unreleased_survey';
   // 중국 서버 한정은 여기 넣지 않는다 — 목록에 없는 소속(앞으로 새로 생기는 것)이
   // 그 위에 붙어야 하므로 렌더링할 때 항상 맨 끝으로 따로 밀어 넣는다.
@@ -37,7 +40,7 @@
 
   // ===== 설문 =====
 
-  function loadUnreleasedData() {
+  function loadCodexData() {
     onAppDataReady(() => {
       buildPickupEventSeasonMap();
       classifySurveyItems();
@@ -98,17 +101,17 @@
   }
 
   function classifySurveyItems() {
-    const unreleasedData = APP_DATA.unreleased || [];
+    const codexData = APP_DATA.codex || [];
 
     // pickupOrderMap은 buildPickupEventSeasonMap()에서 이미 채워져 있다(공유 변수)
 
-    const appearKeys = Object.keys(unreleasedData[0] || {})
+    const appearKeys = Object.keys(codexData[0] || {})
       .filter(k => /^등장\d+$/.test(k))
       .sort((a, b) => parseInt(a.replace('등장','')) - parseInt(b.replace('등장','')));
 
     const seen = new Set();
     const appearValues = [];
-    unreleasedData.forEach(row => {
+    codexData.forEach(row => {
       if (isChinaServerRow(row)) return; // 중섭 전용 캐릭터의 등장 값은 설문 선택지로 만들지 않는다
       appearKeys.forEach(key => {
         const val = String(row[key] || '').trim();
@@ -321,38 +324,38 @@
     });
 
     document.getElementById('survey-confirm-btn').addEventListener('click', () => {
-      showUnreleasedList(true);
-      renderUnreleasedMain();
+      showCodexList(true);
+      renderCodexMain();
     });
 
-    document.getElementById('unreleased-survey-btn').addEventListener('click', () => {
+    document.getElementById('codex-survey-btn').addEventListener('click', () => {
       // 설문으로 돌아가는 것은 뒤로 가기 한 칸과 같은 뜻이다
-      if (!popInTabState('list')) showUnreleasedList(false);
+      if (!popInTabState('list')) showCodexList(false);
     });
 
     // 뒤로 가기: 상세 -> 목록 -> 설문 순으로 한 단계씩 되돌린다.
     window.addEventListener('popstate', ev => {
       const step = ev.state && ev.state.mmrStep;
       if (step === 'detail') return;
-      const detail = document.getElementById('unreleased-detail');
+      const detail = document.getElementById('codex-detail');
       if (detail && !detail.classList.contains('hidden')) {
-        closeUnreleasedDetail();
+        closeCodexDetail();
         if (step === 'list') return;
       }
-      if (step !== 'list') showUnreleasedList(false);
+      if (step !== 'list') showCodexList(false);
     });
   }
 
   // 설문 화면 <-> 목록 화면
-  function showUnreleasedList(on) {
-    document.getElementById('unreleased-survey').classList.toggle('hidden', on);
-    document.getElementById('unreleased-main').classList.toggle('hidden', !on);
+  function showCodexList(on) {
+    document.getElementById('codex-survey').classList.toggle('hidden', on);
+    document.getElementById('codex-main').classList.toggle('hidden', !on);
     if (on) pushInTabState('list');
   }
 
-  function closeUnreleasedDetail() {
-    document.querySelectorAll('.unreleased-card').forEach(el => el.classList.remove('active'));
-    document.getElementById('unreleased-detail').classList.add('hidden');
+  function closeCodexDetail() {
+    document.querySelectorAll('.codex-card').forEach(el => el.classList.remove('active'));
+    document.getElementById('codex-detail').classList.add('hidden');
     clearSpinePlayer();
   }
 
@@ -412,12 +415,12 @@
     return '';
   }
 
-  function renderUnreleasedMain() {
-    const data = APP_DATA.unreleased || [];
-    const container = document.getElementById('unreleased-content');
+  function renderCodexMain() {
+    const data = APP_DATA.codex || [];
+    const container = document.getElementById('codex-content');
 
     // 상세 패널 초기화
-    document.getElementById('unreleased-detail').classList.add('hidden');
+    document.getElementById('codex-detail').classList.add('hidden');
 
     const affiliationMap = {};
 
@@ -481,30 +484,30 @@
             const hasSpine = !!(String(row['skel1'] || '').trim() && String(row['atlas1'] || '').trim());
             const clickable = !isUnappeared || hasSpine;
             return `
-              <div class="unreleased-card${isUnappeared ? ' is-unappeared' : ''}${clickable ? '' : ' is-empty'}" data-row-idx="${rowIdx}"
-                   ${clickable ? `onclick="selectUnreleasedCard(${rowIdx})"` : ''}>
-                ${imgUrl ? `<div class="unreleased-card-portrait"><img src="${imgUrl}" alt="${name}"></div>` : ''}
-                <div class="unreleased-card-info">
-                  <div class="unreleased-card-name">${name || '???'}</div>
-                  ${isUnappeared ? `<span class="unreleased-card-badge unappeared">미등장</span>` : ''}
-                  ${appear ? `<div class="unreleased-card-appear">${appear}</div>` : ''}
+              <div class="codex-card${isUnappeared ? ' is-unappeared' : ''}${clickable ? '' : ' is-empty'}" data-row-idx="${rowIdx}"
+                   ${clickable ? `onclick="selectCodexCard(${rowIdx})"` : ''}>
+                ${imgUrl ? `<div class="codex-card-portrait"><img src="${imgUrl}" alt="${name}"></div>` : ''}
+                <div class="codex-card-info">
+                  <div class="codex-card-name">${name || '???'}</div>
+                  ${isUnappeared ? `<span class="codex-card-badge unappeared">미등장</span>` : ''}
+                  ${appear ? `<div class="codex-card-appear">${appear}</div>` : ''}
                 </div>
               </div>
             `;
           }).join('');
 
           return `
-            <div class="unreleased-squad-group">
-              ${squadName ? `<div class="unreleased-squad-title">${squadName}</div>` : ''}
-              <div class="unreleased-squad-members">${membersHtml}</div>
+            <div class="codex-squad-group">
+              ${squadName ? `<div class="codex-squad-title">${squadName}</div>` : ''}
+              <div class="codex-squad-members">${membersHtml}</div>
             </div>
           `;
         }).join('');
 
         return `
-          <div class="unreleased-affil-group ${isChinaServer ? 'china-server' : ''}">
-            <div class="unreleased-affil-title">${affil}</div>
-            <div class="unreleased-affil-body">${squadsHtml}</div>
+          <div class="codex-affil-group ${isChinaServer ? 'china-server' : ''}">
+            <div class="codex-affil-title">${affil}</div>
+            <div class="codex-affil-body">${squadsHtml}</div>
           </div>
         `;
       }).join('');
@@ -514,26 +517,26 @@
 
   let currentSpineList = [];
   let currentSpineIdx  = 0;
-  let unreleasedSpinePlayer = null;
-  let unreleasedPanZoom = null;
+  let codexSpinePlayer = null;
+  let codexPanZoom = null;
 
-  function selectUnreleasedCard(rowIdx) {
-    const row = (APP_DATA.unreleased || [])[rowIdx];
+  function selectCodexCard(rowIdx) {
+    const row = (APP_DATA.codex || [])[rowIdx];
     if (!row) return;
 
     // 이미 펼쳐진 항목을 다시 클릭하면 L2D 표시를 접는다(토글)
-    const alreadyActive = document.querySelector(`.unreleased-card[data-row-idx="${rowIdx}"]`)?.classList.contains('active');
+    const alreadyActive = document.querySelector(`.codex-card[data-row-idx="${rowIdx}"]`)?.classList.contains('active');
     if (alreadyActive) {
-      if (!popInTabState('detail')) closeUnreleasedDetail();
+      if (!popInTabState('detail')) closeCodexDetail();
       return;
     }
     // 목록에서 처음 들어올 때만 기록을 쌓는다. 항목끼리 옮길 때는 이미 쌓여 있다.
-    if (document.getElementById('unreleased-detail').classList.contains('hidden')) {
+    if (document.getElementById('codex-detail').classList.contains('hidden')) {
       pushInTabState('detail');
     }
 
     // active 표시: data-row-idx 기준
-    document.querySelectorAll('.unreleased-card').forEach(el => {
+    document.querySelectorAll('.codex-card').forEach(el => {
       el.classList.toggle('active', Number(el.dataset.rowIdx) === rowIdx);
     });
 
@@ -594,7 +597,7 @@
 
     renderDetailPanel(versions);
 
-    document.getElementById('unreleased-detail').classList.remove('hidden');
+    document.getElementById('codex-detail').classList.remove('hidden');
 
     // 뷰어는 목록 위에 있다. 목록 아래쪽을 보다가 누르면 뷰어가 화면 밖이라 아무 일도
     // 안 일어난 것처럼 보이므로 맨 위로 올려 준다.
@@ -607,7 +610,7 @@
 
   function renderDetailPanel(versions) {
     // 이름
-    const nameEl = document.getElementById('unreleased-detail-name');
+    const nameEl = document.getElementById('codex-detail-name');
     const nameChain = [];
     versions.forEach((v, i) => {
       if (i === 0 || v.name !== versions[i-1].name) nameChain.push(v);
@@ -617,7 +620,7 @@
       .join(' <span class="detail-arrow">→</span> ');
 
     // 소속
-    const affilEl = document.getElementById('unreleased-detail-affil');
+    const affilEl = document.getElementById('codex-detail-affil');
     const affilChain = [];
     versions.forEach((v, i) => {
       if (i === 0 || v.affil !== versions[i-1].affil) affilChain.push(v.affil);
@@ -626,7 +629,7 @@
       .join(' <span class="detail-arrow">→</span> ');
 
     // 스쿼드
-    const squadEl = document.getElementById('unreleased-detail-squad');
+    const squadEl = document.getElementById('codex-detail-squad');
     const squadChain = [];
     versions.forEach((v, i) => {
       if (i === 0 || v.squad !== versions[i-1].squad) squadChain.push(v);
@@ -638,7 +641,7 @@
     // 등장 시점 — 클릭으로 스파인 전환
     // 프리티처럼 같은 등장 시기에 모델이 둘인 경우가 있다. 그 줄 아래에 모델 번호 버튼을
     // 달아서 같은 자리에서 바꿔 볼 수 있게 한다.
-    const appearsEl = document.getElementById('unreleased-detail-appears');
+    const appearsEl = document.getElementById('codex-detail-appears');
     appearsEl.innerHTML = versions.map(v => {
       const mine = currentSpineList
         .map((s, idx) => ({ s, idx }))
@@ -666,7 +669,7 @@
     // 스파인 로드 (최신 버전)
     if (currentSpineList.length > 0) {
       const { skel, atlas } = currentSpineList[currentSpineIdx];
-      loadUnreleasedSpine(skel, atlas);
+      loadCodexSpine(skel, atlas);
     } else {
       clearSpinePlayer();
     }
@@ -678,7 +681,7 @@
     if (spineIdx < 0 || spineIdx >= currentSpineList.length) return;
     currentSpineIdx = spineIdx;
     const { skel, atlas } = currentSpineList[currentSpineIdx];
-    loadUnreleasedSpine(skel, atlas);
+    loadCodexSpine(skel, atlas);
     syncAppearHighlight();
   }
 
@@ -698,35 +701,35 @@
   }
 
   function clearSpinePlayer() {
-    if (unreleasedSpinePlayer) {
-      disposeSpinePlayer(unreleasedSpinePlayer);
-      unreleasedSpinePlayer = null;
+    if (codexSpinePlayer) {
+      disposeSpinePlayer(codexSpinePlayer);
+      codexSpinePlayer = null;
     }
-    if (unreleasedPanZoom) { unreleasedPanZoom.destroy(); unreleasedPanZoom = null; }
-    document.getElementById('unreleased-spine-player').innerHTML = '';
-    const toggle = document.getElementById('unreleased-parts-toggle');
+    if (codexPanZoom) { codexPanZoom.destroy(); codexPanZoom = null; }
+    document.getElementById('codex-spine-player').innerHTML = '';
+    const toggle = document.getElementById('codex-parts-toggle');
     if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
   }
 
-  function loadUnreleasedSpine(skelUrl, atlasUrl) {
-    const wrap = document.getElementById('unreleased-spine-player');
+  function loadCodexSpine(skelUrl, atlasUrl) {
+    const wrap = document.getElementById('codex-spine-player');
     wrap.innerHTML = '';
-    if (unreleasedSpinePlayer) {
-      disposeSpinePlayer(unreleasedSpinePlayer);
-      unreleasedSpinePlayer = null;
+    if (codexSpinePlayer) {
+      disposeSpinePlayer(codexSpinePlayer);
+      codexSpinePlayer = null;
     }
-    if (unreleasedPanZoom) { unreleasedPanZoom.destroy(); unreleasedPanZoom = null; }
+    if (codexPanZoom) { codexPanZoom.destroy(); codexPanZoom = null; }
     if (!skelUrl || !atlasUrl) return;
 
     const playerDiv = document.createElement('div');
-    playerDiv.id = 'unreleased-spine-inner';
+    playerDiv.id = 'codex-spine-inner';
     playerDiv.style.width  = '100%';
     playerDiv.style.height = '100%';
     wrap.appendChild(playerDiv);
 
     // idle 이 없는 스켈레톤이 있어서(action 만 든 것) 이름을 못 박지 않는다.
     // 먼저 아무 것도 지정하지 않고 읽어 온 다음, 있는 것 중에서 고른다.
-    unreleasedSpinePlayer = new spine.SpinePlayer('unreleased-spine-inner', {
+    codexSpinePlayer = new spine.SpinePlayer('codex-spine-inner', {
       skelUrl:   skelUrl,
       atlasUrl:  atlasUrl,
       backgroundColor: '#00000000',
@@ -737,17 +740,17 @@
         disposeSpinePlayer(player);
         wrap.innerHTML = '';
 
-        const wrapEl = document.getElementById('unreleased-spine-wrap');
+        const wrapEl = document.getElementById('codex-spine-wrap');
         const wrapW  = wrapEl.clientWidth;
         const wrapH  = wrapEl.clientHeight;
 
         const playerDiv2 = document.createElement('div');
-        playerDiv2.id = 'unreleased-spine-inner';
+        playerDiv2.id = 'codex-spine-inner';
         playerDiv2.style.width  = wrapW + 'px';
         playerDiv2.style.height = wrapH + 'px';
         wrap.appendChild(playerDiv2);
 
-        unreleasedSpinePlayer = new spine.SpinePlayer('unreleased-spine-inner', {
+        codexSpinePlayer = new spine.SpinePlayer('codex-spine-inner', {
           skelUrl:   skelUrl,
           atlasUrl:  atlasUrl,
           animation: pickSpineAnimation(data),
@@ -793,12 +796,12 @@
               skeleton.updateWorldTransform();
             };
             rebuildSkin();
-            renderPartsToggle('unreleased-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
+            renderPartsToggle('codex-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
 
             // 표정·동작 고르기. 코스튬 페이지와 같은 UI 를 그대로 쓴다.
             const animOpts = {
-              motionId: 'unreleased-anim-toggle',
-              exprId:   'unreleased-expression',
+              motionId: 'codex-anim-toggle',
+              exprId:   'codex-expression',
               onPick:   name => {
                 try {
                   player2.setAnimation(name, true);
@@ -812,14 +815,14 @@
             renderCostumeAnimControls(player2.skeleton.data, animOpts);
             markCostumeAnimActive('idle', animOpts);
 
-            unreleasedPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
+            codexPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
 
-            const resetBtn = document.getElementById('unreleased-spine-reset');
+            const resetBtn = document.getElementById('codex-spine-reset');
             if (resetBtn) {
               resetBtn.onmousedown = e => e.stopPropagation();
               resetBtn.onclick = e => {
                 e.stopPropagation();
-                unreleasedPanZoom.reset();
+                codexPanZoom.reset();
                 try {
                   player2.animationState.clearListeners();
                   player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
@@ -923,7 +926,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    setupL2dSideToggle('unreleased-spine-wrap', 'unreleased-side-toggle', 'unreleased-info-toggle');
-    setupL2dBar('unreleased-bar', () => unreleasedSpinePlayer);
-    loadUnreleasedData();
+    setupL2dSideToggle('codex-spine-wrap', 'codex-side-toggle', 'codex-info-toggle');
+    setupL2dBar('codex-bar', () => codexSpinePlayer);
+    loadCodexData();
   });

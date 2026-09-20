@@ -24,7 +24,7 @@ def db_rows():
     url = re.search(r"SUPABASE_URL\s*=\s*'([^']+)'", cfg).group(1)
     key = re.search(r"SUPABASE_ANON_KEY\s*=\s*'([^']+)'", cfg).group(1)
     q = urllib.parse.urlencode({'select': '*', 'order': '번호'})
-    req = urllib.request.Request(f'{url}/rest/v1/{urllib.parse.quote("미실장_캐릭터")}?{q}',
+    req = urllib.request.Request(f'{url}/rest/v1/{urllib.parse.quote("캐릭터_도감")}?{q}',
                                  headers={'apikey': key, 'Authorization': 'Bearer ' + key})
     return json.load(urllib.request.urlopen(req))
 
@@ -108,7 +108,7 @@ def main():
                 sets.append(f'"atlas{slot}" = \'{esc(got["atlas"])}\'')
         if not sets:
             return None
-        return f'UPDATE "미실장_캐릭터" SET {", ".join(sets)} WHERE "번호" = {row["번호"]};'
+        return f'UPDATE "캐릭터_도감" SET {", ".join(sets)} WHERE "번호" = {row["번호"]};'
 
     L = []
     L.append('-- 미실장 캐릭터 파일 주소 — 표의 코드 열 기준')
@@ -136,7 +136,7 @@ def main():
                 sets.append(f'"atlas{slot}" = \'{esc(got["atlas"])}\'')
         if sets:
             L.append(f'-- {row["이름1"]}  ({code})')
-            L.append(f'UPDATE "미실장_캐릭터" SET {", ".join(sets)} WHERE "번호" = {row["번호"]};')
+            L.append(f'UPDATE "캐릭터_도감" SET {", ".join(sets)} WHERE "번호" = {row["번호"]};')
     L.append('')
     L.append('COMMIT;')
     L.append('')
@@ -147,7 +147,7 @@ def main():
         for row, code, slots, dbcode in mismatched:
             L.append(f'-- {row["이름1"]}: 표에는 {dbcode!r}, 파일은 {code!r} 입니다.')
             L.append(f'--   파일 쪽 코드로 맞추려면:')
-            L.append(f'--   UPDATE "미실장_캐릭터" SET "코드" = \'{esc(code)}\' WHERE "번호" = {row["번호"]};')
+            L.append(f'--   UPDATE "캐릭터_도감" SET "코드" = \'{esc(code)}\' WHERE "번호" = {row["번호"]};')
 
     io.open(OUT, 'w', encoding='utf-8').write('\n'.join(L))
 

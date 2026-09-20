@@ -957,7 +957,7 @@
     margin-left: auto;
   }
 
-  /* L2D 파츠 on/off 토글 패널 (costume.js/unreleased.js 공용) */
+  /* L2D 파츠 on/off 토글 패널 (costume.js/codex.js 공용) */
   .parts-toggle {
     display: flex;
     flex-wrap: wrap;
@@ -2799,7 +2799,7 @@
   /* 그림 칸은 재생바를 뺀 나머지를 먹는다. height:100% 로 두면 재생바만큼
      넘쳐서 바가 상자 밖으로 밀려난다. */
   .l2d-stage > #costume-spine-player,
-  .l2d-stage > #unreleased-spine-player {
+  .l2d-stage > #codex-spine-player {
     flex: 1;
     height: auto;
     min-height: 0;
@@ -2903,7 +2903,7 @@
      예전에는 그림 위에 떠서 마우스를 올리면 펴졌는데 왼쪽과 감각이 달랐다.
      옛 규칙이 아이디 선택자라 우선순위로 이기므로 여기서도 아이디로 덮는다. */
   #costume-info.l2d-side-right,
-  #unreleased-detail-info.l2d-side-right {
+  #codex-detail-info.l2d-side-right {
     position: static;
     top: auto; right: auto; bottom: auto;
     width: 0;
@@ -2919,7 +2919,7 @@
   }
 
   .l2d-wrap.is-info-open #costume-info.l2d-side-right,
-  .l2d-wrap.is-info-open #unreleased-detail-info.l2d-side-right {
+  .l2d-wrap.is-info-open #codex-detail-info.l2d-side-right {
     width: 340px;
     padding-left: 14px;
     padding-right: 14px;
@@ -2930,18 +2930,18 @@
 
   /* 접힌 폭에 맞춰 글자가 꾸겨지지 않게 내용 폭을 고정한다 */
   #costume-info.l2d-side-right > *:not(.l2d-side-toggle),
-  #unreleased-detail-info.l2d-side-right > *:not(.l2d-side-toggle) {
+  #codex-detail-info.l2d-side-right > *:not(.l2d-side-toggle) {
     flex-shrink: 0;
     width: 312px;
     opacity: 1;
   }
 
   #costume-info.l2d-side-right .info-handle,
-  #unreleased-detail-info.l2d-side-right .info-handle { display: none; }
+  #codex-detail-info.l2d-side-right .info-handle { display: none; }
 
   /* 손잡이는 내용 폭 고정 규칙에서 빼야 한다(옛 아이디 규칙이 372px 을 먹인다) */
   #costume-info.l2d-side-right > .l2d-side-toggle,
-  #unreleased-detail-info.l2d-side-right > .l2d-side-toggle {
+  #codex-detail-info.l2d-side-right > .l2d-side-toggle {
     width: 26px;
     flex: none;
   }
@@ -3012,12 +3012,12 @@
      낱개 목록은 마우스를 올리는 것이 아니라 화살표를 눌러야 펴진다 - 지나가다
      제멋대로 펴지면 누르려던 것이 밀려난다. */
   #costume-slot-toggle .part-group-body,
-  #unreleased-slot-toggle .part-group-body {
+  #codex-slot-toggle .part-group-body {
     display: none;
   }
 
   #costume-slot-toggle .part-group.is-open .part-group-body,
-  #unreleased-slot-toggle .part-group.is-open .part-group-body {
+  #codex-slot-toggle .part-group.is-open .part-group-body {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -3114,7 +3114,7 @@
   body.l2d-immersive { overflow: hidden; }
 
   body.l2d-immersive #costume-spine-wrap,
-  body.l2d-immersive #unreleased-spine-wrap {
+  body.l2d-immersive #codex-spine-wrap {
     position: fixed;
     inset: 0;
     width: auto;
@@ -3143,10 +3143,10 @@
      !important로 덮어써야 함 — 테마에 맞는 배경(라이트=흰색)으로 통일.
      투명으로 두는 이유: 코스튬에 추가 파츠(별도 skel/atlas 레이어)가 있으면 .spine-player
      div가 여러 개 겹쳐 쌓이는데, 여기에 불투명한 배경을 주면 제일 위에 쌓인 레이어의 배경이
-     아래 레이어들을 전부 가려버린다. 대신 배경색은 이미 #costume-spine-wrap/#unreleased-spine-wrap
+     아래 레이어들을 전부 가려버린다. 대신 배경색은 이미 #costume-spine-wrap/#codex-spine-wrap
      자체에 있으므로, 각 레이어는 투명하게 둬야 겹쳐 그려진 결과가 제대로 보인다. */
   #costume-spine-wrap .spine-player,
-  #unreleased-spine-wrap .spine-player {
+  #codex-spine-wrap .spine-player {
     background-color: transparent !important;
   }
 
@@ -3576,13 +3576,13 @@
     margin-top: 2px;
   }
 
-  /* ===== 캐릭터 도감 (내부 이름은 unreleased) ===== */
-  #unreleased-container {
+  /* ===== 캐릭터 도감 (내부 이름은 codex) ===== */
+  #codex-container {
     max-width: 1900px;
     margin: 0 auto;
   }
 
-  #unreleased-survey {
+  #codex-survey {
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -3861,11 +3861,11 @@
   }
 
   /* 캐릭터 목록 */
-  #unreleased-toolbar {
+  #codex-toolbar {
     margin-bottom: 1.5rem;
   }
 
-  #unreleased-survey-btn {
+  #codex-survey-btn {
     font-size: 14px;
     padding: 6px 16px;
     border-radius: var(--radius-md);
@@ -3876,22 +3876,22 @@
     transition: all 0.2s;
   }
 
-  #unreleased-survey-btn:hover {
+  #codex-survey-btn:hover {
     color: var(--text-heading);
     border-color: var(--border-strong);
   }
 
-  .unreleased-affil-group {
+  .codex-affil-group {
     margin-bottom: 3rem;
   }
 
-  .unreleased-affil-group.china-server {
+  .codex-affil-group.china-server {
     border-top: 2px solid var(--border-region-divider);
     padding-top: 2rem;
     margin-top: 2rem;
   }
 
-  .unreleased-affil-title {
+  .codex-affil-title {
     font-size: 24px;
     font-weight: 700;
     color: var(--accent);
@@ -3901,14 +3901,14 @@
     border-bottom: 1px solid var(--border-subtle);
   }
 
-  .unreleased-affil-body {
+  .codex-affil-body {
     display: flex;
     flex-wrap: wrap;
     gap: 1.5rem;
     align-items: flex-start;
   }
 
-  .unreleased-squad-group {
+  .codex-squad-group {
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border-radius: var(--radius-lg);
@@ -3916,7 +3916,7 @@
     min-width: 230px;
   }
 
-  .unreleased-squad-title {
+  .codex-squad-title {
     font-size: 18px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -3926,7 +3926,7 @@
     border-bottom: 1px solid var(--border-subtle);
   }
 
-  .unreleased-squad-members {
+  .codex-squad-members {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -3966,23 +3966,23 @@
   }
 
   /* 모델도 없는 미등장 캐릭터만 누를 수 없다 */
-  .unreleased-card.is-empty {
+  .codex-card.is-empty {
     cursor: default;
   }
 
   /* 미등장이어도 모델이 있으면 누를 수 있다. 흐리게만 두고 커서·호버는 그대로 살린다. */
-  .unreleased-card.is-unappeared {
+  .codex-card.is-unappeared {
     opacity: 0.55;
   }
 
   /* 모델도 없어 보여줄 게 없는 카드만 반응을 없앤다 */
-  .unreleased-card.is-empty:hover {
+  .codex-card.is-empty:hover {
     border-color: transparent;
     box-shadow: var(--shadow-card);
     transform: none;
   }
 
-  .unreleased-card {
+  .codex-card {
     background: var(--bg-panel);
     box-shadow: var(--shadow-card);
     border: 1px solid transparent;
@@ -3996,11 +3996,11 @@
     transition: border-color 0.15s;
   }
 
-  .unreleased-card:hover {
+  .codex-card:hover {
     border-color: var(--border-strong);
   }
 
-  .unreleased-card-portrait {
+  .codex-card-portrait {
     width: 66px;
     height: 66px;
     flex-shrink: 0;
@@ -4009,7 +4009,7 @@
     background: var(--bg-inset);
   }
 
-  .unreleased-card-portrait img {
+  .codex-card-portrait img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -4018,32 +4018,32 @@
     object-position: center 18%;
   }
 
-  .unreleased-card-info {
+  .codex-card-info {
     display: flex;
     flex-direction: column;
     gap: 3px;
     min-width: 0;
   }
 
-  .unreleased-card-name {
+  .codex-card-name {
     font-size: 19px;
     font-weight: 600;
     color: var(--accent-strong);
   }
 
-  .unreleased-card-squad {
+  .codex-card-squad {
     font-size: 15px;
     color: var(--text-secondary);
   }
 
-  .unreleased-card-appear {
+  .codex-card-appear {
     font-size: 15px;
     font-weight: 500;
     color: var(--text-secondary);
     margin-top: 2px;
   }
 
-  .unreleased-card-badge {
+  .codex-card-badge {
     font-size: 13px;
     padding: 2px 8px;
     border-radius: var(--radius-sm);
@@ -4051,7 +4051,7 @@
     width: fit-content;
   }
 
-  .unreleased-card-badge.unappeared {
+  .codex-card-badge.unappeared {
     background: var(--bg-panel-alt);
     color: var(--text-secondary);
     border: 1px solid var(--border-subtle);
@@ -4061,13 +4061,13 @@
   /* 코스튬의 #costume-top 과 같은 역할이다. 바깥에 배경·테두리·여백을 두면
      뷰어 상자가 그 안으로 한 겹 더 들어가서 "상자 속 상자" 로 보인다.
      높이도 안쪽 뷰어 상자가 든다(코스튬과 같게). */
-  #unreleased-detail {
+  #codex-detail {
     position: relative;
     display: flex;
     margin-bottom: 2rem;
   }
 
-  .unreleased-spine-col {
+  .codex-spine-col {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -4075,7 +4075,7 @@
     min-width: 0;
   }
 
-  #unreleased-spine-wrap {
+  #codex-spine-wrap {
     width: 100%;
     height: calc(100vh - 120px);
     min-height: 760px;
@@ -4089,12 +4089,12 @@
     align-items: stretch;
   }
 
-  #unreleased-spine-player {
+  #codex-spine-player {
     flex: 1;
     width: 100%;
   }
 
-  #unreleased-spine-nav {
+  #codex-spine-nav {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4105,7 +4105,7 @@
     flex-shrink: 0;
   }
 
-  #unreleased-spine-nav button {
+  #codex-spine-nav button {
     font-size: 14px;
     padding: 4px 14px;
     border-radius: var(--radius-md);
@@ -4116,18 +4116,18 @@
     transition: all 0.15s;
   }
 
-  #unreleased-spine-nav button:hover:not(:disabled) {
+  #codex-spine-nav button:hover:not(:disabled) {
     color: var(--accent-strong);
     border-color: var(--border-accent);
     background: var(--bg-panel-alt);
   }
 
-  #unreleased-spine-nav button:disabled {
+  #codex-spine-nav button:disabled {
     opacity: 0.25;
     cursor: default;
   }
 
-  #unreleased-spine-label {
+  #codex-spine-label {
     font-size: 14px;
     color: var(--text-secondary);
     min-width: 60px;
@@ -4137,7 +4137,7 @@
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널 */
 
 
-  #unreleased-detail-info > *:not(.info-handle) {
+  #codex-detail-info > *:not(.info-handle) {
     flex-shrink: 0;
     width: 388px;
     /* 접혀 있을 때는 내용을 감춘다. 예전엔 56px 로 잘라서 글자 왼쪽 끝만 삐죽 보였다. */
@@ -4146,7 +4146,7 @@
   }
 
 
-  #unreleased-detail-info .info-handle {
+  #codex-detail-info .info-handle {
     position: absolute;
     top: 0;
     left: 0;
@@ -4163,19 +4163,19 @@
   }
 
 
-  #unreleased-detail-name {
+  #codex-detail-name {
     font-size: 32px;
     font-weight: 700;
     color: var(--accent-strong);
     line-height: 1.4;
   }
 
-  #unreleased-detail-affil {
+  #codex-detail-affil {
     font-size: 18px;
     color: var(--text-secondary);
   }
 
-  #unreleased-detail-squad {
+  #codex-detail-squad {
     font-size: 16px;
     color: var(--text-secondary);
   }
@@ -4186,7 +4186,7 @@
     font-size: 0.85em;
   }
 
-  #unreleased-detail-appears {
+  #codex-detail-appears {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -4250,7 +4250,7 @@
   }
 
   /* 카드 active */
-  .unreleased-card.active {
+  .codex-card.active {
     border-color: var(--border-strong);
     background: var(--bg-panel-active);
   }
@@ -5490,7 +5490,7 @@
   body.app-mode #scroll-btns,
   body.l2d-immersive #scroll-btns,
   body.tab-costume #scroll-btns,
-  body.tab-unreleased #scroll-btns { display: none; }
+  body.tab-codex #scroll-btns { display: none; }
 
 
 

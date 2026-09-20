@@ -6,7 +6,7 @@ const APP_DATA = {
   costume: null,
   souvenir: null,
   stage: null,
-  unreleased: null,
+  codex: null,
   nikkeImg: null,
   iconImg: null,
   chapImg: null,
@@ -304,7 +304,7 @@ function spineViewportBox(player) {
   return measured;
 }
 
-// L2D 파츠(스킨) on/off 토글 UI — costume.js/unreleased.js 공용
+// L2D 파츠(스킨) on/off 토글 UI — costume.js/codex.js 공용
 // skins: default를 제외한 spine.Skin 배열, enabledSet: 현재 켜져있는 스킨 이름 Set
 // opts.style 이 'button' 이면 스위치 줄 대신 버튼 칩으로 그린다. 항목이 한둘뿐인
 // 곳(코스튬 추가 파츠)은 줄 하나씩 차지하는 스위치보다 칩이 자리를 덜 먹는다.
@@ -816,7 +816,7 @@ function buildStageData(rows) {
   }));
 }
 
-function buildUnreleasedData(rows) {
+function buildCodexData(rows) {
   return rows.filter(r => r['이름1'] || r['이름2']).map(r => ({
     '이름1': r['이름1'], '소속1': r['소속1'], '스쿼드1': r['스쿼드1'], '등장1': r['등장1'], 'skel1': r['skel1'], 'atlas1': r['atlas1'], '이미지1': r['이미지1'],
     '이름2': r['이름2'], '소속2': r['소속2'], '스쿼드2': r['스쿼드2'], '등장2': r['등장2'], 'skel2': r['skel2'], 'atlas2': r['atlas2'], '이미지2': r['이미지2'],
@@ -1052,10 +1052,35 @@ async function fetchAll(tableName, orderColumn) {
   return allRows;
 }
 
+// 표 이름을 바꾸는 동안 쓰는 다리.
+//
+// 표 이름을 갈면 그 순간부터 이미 배포된 사이트가 옛 이름을 찾다가 통째로 못 뜬다.
+// 반대로 코드를 먼저 올리면 표를 갈기 전까지 못 뜬다. 어느 쪽을 먼저 해도 사이가
+// 비는데, 깃헙 페이지 배포가 몇 분 걸려서 그 사이가 짧지가 않다.
+// 그래서 새 이름으로 먼저 찾아보고, 그런 표가 없다(42P01)고 하면 옛 이름으로 한 번
+// 더 찾는다. 표를 다 갈고 나면 이 함수는 지우고 fetchAll 로 되돌린다.
+//
+//   2026-09-21  미실장_캐릭터 -> 캐릭터_도감
+async function fetchAllRenamed(tableName, oldName, orderColumn) {
+  try {
+    return await fetchAll(tableName, orderColumn);
+  } catch (err) {
+    // 없는 표를 물으면 PostgREST 는 PGRST205("Could not find the table ... in the
+    // schema cache")로, 그 아래 Postgres 는 42P01 로 답한다. 둘 다 받아 준다.
+    const code = (err && err.code) || '';
+    const msg = (err && err.message) || '';
+    const missing = code === 'PGRST205' || code === '42P01' ||
+                    /could not find the table|does not exist/i.test(msg);
+    if (!missing) throw err;
+    console.warn(`[표 이름] '${tableName}' 이 아직 없어서 옛 이름 '${oldName}' 으로 읽습니다.`);
+    return fetchAll(oldName, orderColumn);
+  }
+}
+
 async function loadAllData() {
   const [
     pickupRows, costumeRows, souvenirRows, stageRows,
-    unreleasedRows, nikkeImgRows, iconRows, chapRows,
+    codexRows, nikkeImgRows, iconRows, chapRows,
     configRows, eventRows,
   ] = await Promise.all([
     fetchAll('픽업_기록', '시작일'),
@@ -1067,7 +1092,7 @@ async function loadAllData() {
     // range() 로 두 쪽에 나눠 받는데, 정렬 없는 페이징은 행이 겹치거나 빠질 수도
     // 있다 -- 순서를 정해줘야 쪽 나누기가 안전해진다.
     fetchAll('스테이지_정보', '번호'),
-    fetchAll('미실장_캐릭터'),
+    fetchAllRenamed('캐릭터_도감', '미실장_캐릭터'),
     fetchAll('IMG_니케'),
     fetchAll('IMG_아이콘'),
     fetchAll('IMG_챕터'),
@@ -1081,7 +1106,7 @@ async function loadAllData() {
   APP_DATA.costume = buildCostumeData(costumeRows);
   APP_DATA.souvenir = buildSouvenirData(souvenirRows);
   APP_DATA.stage = buildStageData(stageRows);
-  APP_DATA.unreleased = buildUnreleasedData(unreleasedRows);
+  APP_DATA.codex = buildCodexData(codexRows);
   APP_DATA.nikkeImg = buildNikkeImgData(nikkeImgRows);
   APP_DATA.iconImg = buildIconImgData(iconRows);
   APP_DATA.chapImg = buildChapImgData(chapRows);

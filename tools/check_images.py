@@ -17,7 +17,7 @@ URL = 'https://ivregkjnayxoyjuupuru.supabase.co'
 KEY = ('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2cmVna2pu'
        'YXl4b3lqdXVwdXJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQxODQsImV4cCI6MjEwMDU5MDE4NH0'
        '.EwdZo5HAahijqmD-l43cuAk0N2dP7svmXRyeP6YWl7c')
-TABLES = ['픽업_기록', '유니크_코스튬', '기념품', '스테이지_정보', '미실장_캐릭터',
+TABLES = ['픽업_기록', '유니크_코스튬', '기념품', '스테이지_정보', '캐릭터_도감',
           'IMG_니케', 'IMG_아이콘', 'IMG_챕터', '메인_업데이트', '메인_이벤트', '솔로_레이드']
 EXT = re.compile(r'\.(png|jpe?g|webp|gif|svg|avif)$', re.I)
 
