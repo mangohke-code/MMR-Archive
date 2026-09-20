@@ -2775,7 +2775,7 @@
   }
 
   /* ===== L2D 뷰어 조작판 =====
-     유니크 코스튬과 미실장 캐릭터 뷰어가 같이 쓴다. 모델·동작·표정·파츠를
+     유니크 코스튬과 캐릭터 도감 뷰어가 같이 쓴다. 모델·동작·표정·파츠를
      그림 위에 흩어 놓는 대신 왼쪽 판 하나에 모으고, 판째로 접었다 편다
      (솔로 레이드 보스 뷰어와 같은 구조).
 
@@ -3576,7 +3576,7 @@
     margin-top: 2px;
   }
 
-  /* ===== 미실장 캐릭터 ===== */
+  /* ===== 캐릭터 도감 (내부 이름은 unreleased) ===== */
   #unreleased-container {
     max-width: 1900px;
     margin: 0 auto;
@@ -5486,7 +5486,7 @@
   body.app-mode #tab-soloraid { height: 100%; padding: 0; }
 
   /* 뷰어를 보는 동안은 페이지 스크롤 자체가 없어서 맨위/맨아래 버튼이 무의미하다.
-     유니크 코스튬·미실장도 뷰어가 화면을 거의 채워서 같은 이유로 감춘다. */
+     유니크 코스튬·캐릭터 도감도 뷰어가 화면을 거의 채워서 같은 이유로 감춘다. */
   body.app-mode #scroll-btns,
   body.l2d-immersive #scroll-btns,
   body.tab-costume #scroll-btns,
@@ -6513,7 +6513,7 @@
   #soloraid-layout.is-detail-open:not(.list-open) #soloraid-selector-col { display: none; }
 
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널
-     (유니크 코스튬/미실장 캐릭터 탭과 동일한 패턴) */
+     (유니크 코스튬/캐릭터 도감 탭과 동일한 패턴) */
   #soloraid-info {
     position: absolute;
     top: 0;

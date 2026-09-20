@@ -108,7 +108,7 @@
       byEvent[event].push(item);
     });
 
-    // 이벤트 그룹을 다시 시즌별로 묶어서 행(row)으로 구분 — 미실장 캐릭터 탭의 소속별
+    // 이벤트 그룹을 다시 시즌별로 묶어서 행(row)으로 구분 — 캐릭터 도감 탭의 소속별
     // 구분과 같은 느낌
     const bySeason = {};
     Object.entries(byEvent).forEach(([event, items]) => {

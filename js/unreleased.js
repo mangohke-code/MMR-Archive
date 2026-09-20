@@ -1,3 +1,6 @@
+  // 화면에 나오는 이름은 "캐릭터 도감" 이다(2026-09-21 에 "미실장 캐릭터" 에서 바꿨다).
+  // 파일 이름·요소 id·클래스·탭 키(unreleased)와 Supabase 표 이름(미실장_캐릭터)은
+  // 그대로 뒀다 — 바꿔 봐야 화면에 보이는 것은 없고 주소·표만 깨진다.
   const SURVEY_STORAGE_KEY = 'nikke_unreleased_survey';
   // 중국 서버 한정은 여기 넣지 않는다 — 목록에 없는 소속(앞으로 새로 생기는 것)이
   // 그 위에 붙어야 하므로 렌더링할 때 항상 맨 끝으로 따로 밀어 넣는다.
@@ -397,7 +400,7 @@
 
   // ===== 캐릭터 목록 렌더링 =====
 
-  // 미실장 캐릭터 표는 버전이 올라가면서 "바뀐 값만" 다음 번호 열에 적는다(안 바뀌면 빈 칸).
+  // 캐릭터 도감 표는 버전이 올라가면서 "바뀐 값만" 다음 번호 열에 적는다(안 바뀌면 빈 칸).
   // 그래서 보이는 버전 기준 값 = 그 버전 이하에서 마지막으로 채워져 있는 값이다.
   // 예: 릴리바이스는 소속1="필그림"/스쿼드1="갓데스", 소속2="랩쳐"/스쿼드2=빈칸 →
   //     2번까지 봤으면 소속은 "랩쳐", 스쿼드는 그대로 "갓데스".
@@ -802,7 +805,7 @@
                   player2.play();
                   markCostumeAnimActive(name, animOpts);
                 } catch (err) {
-                  console.error('[미실장 L2D] 애니메이션 적용 실패:', name, err);
+                  console.error('[캐릭터 도감 L2D] 애니메이션 적용 실패:', name, err);
                 }
               },
             };
@@ -821,7 +824,7 @@
                   player2.animationState.clearListeners();
                   player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
                 } catch (err) {
-                  console.error('[미실장 L2D] 초기화 실패:', err);
+                  console.error('[캐릭터 도감 L2D] 초기화 실패:', err);
                 }
               };
             }
@@ -836,13 +839,13 @@
                     try {
                       player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
                     } catch (err) {
-                      console.error('[미실장 L2D] 대기 애니메이션 복귀 실패:', err);
+                      console.error('[캐릭터 도감 L2D] 대기 애니메이션 복귀 실패:', err);
                     }
                     player2.animationState.clearListeners();
                   }
                 });
               } catch (err) {
-                console.error('[미실장 L2D] action 애니메이션 재생 실패:', err);
+                console.error('[캐릭터 도감 L2D] action 애니메이션 재생 실패:', err);
               }
             });
           }

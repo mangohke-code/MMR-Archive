@@ -567,7 +567,7 @@
 
   // 동작 버튼 줄(모델 아래) + 표정 버튼 줄(모델 위, 새로고침 버튼 아래).
   // 표정은 하나만 고를 수 있고, "기본"을 누르면 고른 동작으로 돌아간다.
-  // 코스튬 페이지 말고 미실장 캐릭터 페이지도 같은 UI 를 쓴다. 어느 상자에 그릴지와
+  // 코스튬 페이지 말고 캐릭터 도감 페이지도 같은 UI 를 쓴다. 어느 상자에 그릴지와
   // 고르면 뭘 할지만 넘겨받고 나머지는 똑같이 동작한다.
   function renderCostumeAnimControls(skeletonData, opts) {
     const motionId = (opts && opts.motionId) || 'costume-anim-toggle';
