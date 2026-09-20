@@ -1052,31 +1052,6 @@ async function fetchAll(tableName, orderColumn) {
   return allRows;
 }
 
-// 표 이름을 바꾸는 동안 쓰는 다리.
-//
-// 표 이름을 갈면 그 순간부터 이미 배포된 사이트가 옛 이름을 찾다가 통째로 못 뜬다.
-// 반대로 코드를 먼저 올리면 표를 갈기 전까지 못 뜬다. 어느 쪽을 먼저 해도 사이가
-// 비는데, 깃헙 페이지 배포가 몇 분 걸려서 그 사이가 짧지가 않다.
-// 그래서 새 이름으로 먼저 찾아보고, 그런 표가 없다(42P01)고 하면 옛 이름으로 한 번
-// 더 찾는다. 표를 다 갈고 나면 이 함수는 지우고 fetchAll 로 되돌린다.
-//
-//   2026-09-21  미실장_캐릭터 -> 캐릭터_도감
-async function fetchAllRenamed(tableName, oldName, orderColumn) {
-  try {
-    return await fetchAll(tableName, orderColumn);
-  } catch (err) {
-    // 없는 표를 물으면 PostgREST 는 PGRST205("Could not find the table ... in the
-    // schema cache")로, 그 아래 Postgres 는 42P01 로 답한다. 둘 다 받아 준다.
-    const code = (err && err.code) || '';
-    const msg = (err && err.message) || '';
-    const missing = code === 'PGRST205' || code === '42P01' ||
-                    /could not find the table|does not exist/i.test(msg);
-    if (!missing) throw err;
-    console.warn(`[표 이름] '${tableName}' 이 아직 없어서 옛 이름 '${oldName}' 으로 읽습니다.`);
-    return fetchAll(oldName, orderColumn);
-  }
-}
-
 async function loadAllData() {
   const [
     pickupRows, costumeRows, souvenirRows, stageRows,
@@ -1092,7 +1067,7 @@ async function loadAllData() {
     // range() 로 두 쪽에 나눠 받는데, 정렬 없는 페이징은 행이 겹치거나 빠질 수도
     // 있다 -- 순서를 정해줘야 쪽 나누기가 안전해진다.
     fetchAll('스테이지_정보', '번호'),
-    fetchAllRenamed('캐릭터_도감', '미실장_캐릭터'),
+    fetchAll('캐릭터_도감'),
     fetchAll('IMG_니케'),
     fetchAll('IMG_아이콘'),
     fetchAll('IMG_챕터'),
