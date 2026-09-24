@@ -577,7 +577,6 @@ function detectBossCode(meshNames, url) {
 // scale: 모델 전체에 곱할 배율. 기본 1.
 const DEFAULT_ROTATION = [0, 225, 0];
 const BOSS_TRANSFORM_OVERRIDES = {
-  bba001: { rotation: [25, 228, 0] }, // 마더 웨일 - 확정
   bbg001: { rotation: [40, 227, 0], position: [0, 0, 0.08], scale: 0.5 }, // 하베스터 - 확정
   mbg001: { position: [-0.1, -0.1, 0], scale: 1 }, // 알트아이젠 - 확정 (회전은 기본값)
 };
