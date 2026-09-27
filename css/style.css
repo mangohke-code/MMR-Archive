@@ -487,14 +487,6 @@
     border-radius: var(--radius-sm);
   }
 
-  /* ===== 공통 태그 ===== */
-  .tag {
-    display: inline-block;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: var(--radius-sm);
-  }
-
   /* ===== 메인 페이지 ===== */
   #main-container {
     max-width: 1700px;
@@ -754,11 +746,6 @@
     margin-bottom: 4px;
   }
 
-  .pickup-event {
-    font-size: 20px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-  }
 
   .pickup-date {
     display: flex;
@@ -1018,7 +1005,6 @@
     left: 14px;
     z-index: 6;
   }
-
 
 
   .expr-toggle {
@@ -1710,36 +1696,12 @@
 
   .calendar-bar.tl-bar .calendar-bar-tag { font-size: 13px; padding: 2px 7px; }
 
-  .calendar-month-block + .calendar-month-block {
-    border-top: 2px solid var(--border-strong);
-  }
 
-  /* 달 구분선. 스크롤해도 위에 붙어 있고, 위쪽에 굵은 선을 둬서 달이 바뀌는 지점이
-     한눈에 들어오게 한다. */
-  .calendar-month-title {
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    padding: 10px 14px;
-    font-size: 19px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--accent-strong);
-    background: var(--bg-panel-active);
-    border-top: 3px solid var(--border-accent);
-    border-bottom: 1px solid var(--border-strong);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-  }
-
-  .calendar-month-title:first-child {
-    border-top: none;
-  }
 
   /* 주 구분. 한 주씩 배경을 번갈아 줘서 어디까지가 한 주인지 바로 보이게 한다. */
   #pickup-calendar-view.is-all-months .calendar-week:nth-of-type(even) {
     background: var(--bg-panel-alt);
   }
-
 
 
   #pickup-calendar-weekdays {
@@ -2280,50 +2242,7 @@
   }
 
   /* 이벤트 블록 */
-  .period-block {
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    transition: box-shadow 0.2s;
-    position: relative;
-  }
 
-  .period-block::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 3px;
-    height: 100%;
-    background: linear-gradient(180deg, var(--accent), var(--accent-dim));
-  }
-
-  .period-block:hover {
-    box-shadow: var(--shadow-card-hover), 0 0 16px var(--accent-glow);
-  }
-
-  .period-header {
-    padding: 0.5rem 1rem 0.5rem 1.25rem;
-    border-bottom: 1px solid var(--border-subtle);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg-panel-alt);
-  }
-
-  .period-event {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent-strong);
-    letter-spacing: 0.02em;
-  }
-
-  .period-range {
-    font-size: 11px;
-    color: var(--text-secondary);
-    flex: 1;
-    letter-spacing: 0.04em;
-  }
 
   .badge-season {
     display: inline-flex;
@@ -2714,33 +2633,6 @@
     vertical-align: middle;
   }
 
-  .nikke-tags {
-    display: flex;
-    gap: 2px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: auto;
-    padding-top: 4px;
-  }
-
-  .tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 10px;
-    padding: 1px 4px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-panel-alt);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-subtle);
-  }
-
-  .tag img {
-    width: 14px;
-    height: 14px;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
 
   /* ===== 유니크 코스튬 ===== */
   #costume-container {
@@ -2855,20 +2747,6 @@
   .l2d-side h2:has(+ div:empty),
   .l2d-side div:empty { display: none; }
 
-  .l2d-side-row { display: flex; flex-wrap: wrap; gap: 5px; }
-
-  .l2d-btn {
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 5px 9px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-body);
-    color: var(--text-secondary);
-  }
-
-  .l2d-btn:hover { background: var(--bg-panel-active); color: var(--text-heading); }
 
   /* 접기 손잡이. 판 오른쪽 끝에 붙어 같이 움직인다. */
   .l2d-side-toggle {
@@ -3008,38 +2886,6 @@
     border-radius: 0;
   }
 
-  /* 구성요소(슬롯) 칸. 제 스크롤을 따로 두지 않고 판 전체와 같이 굴러간다.
-     낱개 목록은 마우스를 올리는 것이 아니라 화살표를 눌러야 펴진다 - 지나가다
-     제멋대로 펴지면 누르려던 것이 밀려난다. */
-  #costume-slot-toggle .part-group-body,
-  #codex-slot-toggle .part-group-body {
-    display: none;
-  }
-
-  #costume-slot-toggle .part-group.is-open .part-group-body,
-  #codex-slot-toggle .part-group.is-open .part-group-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-left: 10px;
-  }
-
-  .part-group-arrow {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 10px;
-  }
-
-  .part-group-arrow:hover { color: var(--text-heading); }
 
   /* 버튼 칩으로 그린 파츠 칸(추가 파츠) */
   .parts-toggle.is-button-style {
@@ -3653,11 +3499,6 @@
     min-width: 0;
   }
 
-  #survey-sections {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
 
   .survey-section {
     background: var(--bg-panel);
@@ -4031,10 +3872,6 @@
     color: var(--accent-strong);
   }
 
-  .codex-card-squad {
-    font-size: 15px;
-    color: var(--text-secondary);
-  }
 
   .codex-card-appear {
     font-size: 15px;
@@ -4264,44 +4101,6 @@
     gap: 1.5rem;
   }
 
-  #souvenir-filter-wrap {
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-    border-radius: var(--radius-lg);
-    padding: 1rem 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  #souvenir-filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-  }
-
-  #souvenir-filter-title {
-    font-size: 11px;
-    color: var(--text-faint);
-    letter-spacing: 0.06em;
-  }
-
-  #souvenir-filter-reset {
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border-subtle);
-    background: transparent;
-    color: var(--text-faint);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  #souvenir-filter-reset:hover {
-    color: var(--text-secondary);
-    border-color: var(--border-strong);
-  }
 
   /* 메인 뷰 */
   #souvenir-main-view {
@@ -4887,25 +4686,6 @@
     border-bottom-color: var(--stage-hard-border);
   }
 
-  #stage-blur-btn-wrap {
-    margin-bottom: 1rem;
-  }
-
-  #stage-blur-toggle {
-    font-size: 16px;
-    padding: 8px 18px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  #stage-blur-toggle:hover {
-    color: var(--text-heading);
-    border-color: var(--border-strong);
-  }
 
   #stage-table-wrap {
     overflow-x: auto;
@@ -4966,11 +4746,6 @@
   }
 
   /* 스포일러 방지 */
-  .spoiler-overlay-wrap {
-    position: relative;
-    display: inline-block;
-    width: 100%;
-  }
 
   .spoiler-blur {
     user-select: none;
@@ -5045,18 +4820,7 @@
   }
 
   /* ===== 역대 테두리 ===== */
-  #soloraid-container {
-    max-width: 1900px;
-    margin: 0 auto;
-  }
 
-  #soloraid-layout {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.25rem;
-    /* 아래 테두리 구역과 딱 붙지 않도록 */
-    margin-bottom: 1.5rem;
-  }
 
   #soloraid-selector {
     display: flex;
@@ -5166,112 +4930,6 @@
     aspect-ratio: 1 / 1;
   }
 
-  /* 상세가 열려 목록이 좁은 세로 열이 되면 5열이 못 들어간다. 속성별로 구역을 나눠
-     위아래로 쌓고, 속성 이름은 스크롤해도 구역 위에 붙어 있게 한다. */
-  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-attr-col-head {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-attr-col-body {
-    align-items: stretch;
-  }
-
-  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted .soloraid-item-img {
-    width: 108px;
-    height: 108px;
-    aspect-ratio: auto;
-  }
-
-  /* 좁은 세로 열이라 넓은 열만큼은 못 키워도, 안 나눴을 때보다는 크게 */
-  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted .soloraid-item-season {
-    font-size: 15px;
-  }
-
-  #soloraid-layout.is-detail-open #soloraid-selector.is-attr-sorted .soloraid-item-boss {
-    font-size: 19px;
-  }
-
-  /* 보스를 고르면 목록이 모델 왼쪽의 세로 열로 바뀐다. 카드가 39개라 그대로 두면
-     상세가 한참 아래로 밀려서, 옆에 붙여 놓고 목록에서만 스크롤되게 한다. */
-  /* 목록 열. 상세(오른쪽)와 같은 높이로 늘어나고, 스크롤은 이 안에서만 일어난다.
-     안쪽 목록을 absolute 로 채워서 목록 내용이 줄 높이를 밀어올리지 않게 한다. */
-  #soloraid-layout.is-detail-open #soloraid-selector-col {
-    position: relative;
-    flex: 0 0 auto;
-    width: 280px;
-    align-self: stretch;
-  }
-
-  #soloraid-layout.is-detail-open #soloraid-selector {
-    position: absolute;
-    inset: 0;
-    flex: 0 0 auto;
-    width: auto;
-    flex-wrap: nowrap;
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0 4px 0 0;
-  }
-
-  /* 상세와 테두리를 묶은 오른쪽 기둥. 테두리가 이 안에 있어서 왼쪽 끝이 모델 구역과
-     자동으로 맞고, 왼쪽 보스 목록은 테두리 높이만큼 아래까지 이어진다. */
-  #soloraid-main {
-    flex: 1 1 auto;
-    min-width: 0;
-    order: 1;   /* 보스 목록보다 앞 = 왼쪽 */
-  }
-
-  /* 보스 목록은 오른쪽 기둥으로 보낸다 */
-  #soloraid-layout.is-detail-open #soloraid-selector-col { order: 2; }
-
-  /* 보스를 안 골랐으면 오른쪽 기둥은 아예 자리를 차지하지 않는다(목록이 폭을 다 쓴다) */
-  #soloraid-layout:not(.is-detail-open) #soloraid-main {
-    display: none;
-  }
-
-  /* 세로 열에서는 카드를 가로형으로 압축한다. 원래 크기(150x200)로는 39개 중 3개밖에
-     안 보여서 목록을 훑기가 어렵다. 접힌(가로) 배치에서는 원래 크기 그대로다. */
-  #soloraid-layout.is-detail-open .soloraid-item {
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-item-img {
-    width: 108px;
-    height: 108px;
-    flex-shrink: 0;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-item-weak {
-    right: 3px;
-    bottom: 3px;
-    width: 30px;
-    height: 35px;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-item-season {
-    font-size: 14px;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-item-boss {
-    font-size: 18px;
-    line-height: 1.25;
-    /* 5시즌 보스처럼 공백 없는 긴 이름이 열을 넘어 가로 스크롤을 만들지 않게 한다 */
-    overflow-wrap: anywhere;
-  }
-
   /* 시즌/보스 이름 묶음. 가로형에서는 썸네일 오른쪽에 세로로 쌓이고 왼쪽 정렬이 된다 */
   .soloraid-item-text {
     display: flex;
@@ -5282,15 +4940,6 @@
     width: 100%;
   }
 
-  #soloraid-layout.is-detail-open .soloraid-item-text {
-    align-items: flex-start;
-    text-align: left;
-    gap: 2px;
-  }
-
-  #soloraid-layout.is-detail-open .soloraid-item-boss {
-    text-align: left;
-  }
 
   .soloraid-item {
     width: 190px;
@@ -5393,21 +5042,6 @@
     line-height: 1.3;
   }
 
-  #soloraid-top {
-    position: relative;
-    display: flex;
-    margin-bottom: 1.5rem;
-  }
-
-  .soloraid-spine-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-width: 0;
-    /* 오른쪽 정보란(#soloraid-info)이 접혀있어도 56px 폭을 항상 차지한다 */
-    padding-right: 56px;
-  }
 
   /* 높이를 빼서 계산하면 탭 바 높이가 바뀔 때마다 어긋난다. 세로 flex 로 나눠서
      탭 바가 제 높이를 갖고 남는 만큼을 본문이 전부 가져가게 한다. */
@@ -5491,7 +5125,6 @@
   body.l2d-immersive #scroll-btns,
   body.tab-costume #scroll-btns,
   body.tab-codex #scroll-btns { display: none; }
-
 
 
   /* 보스 검색 */
@@ -6293,14 +5926,6 @@
     display: block;
   }
 
-  .soloraid-bgm-link {
-    font-size: 12px;
-    color: var(--text-muted);
-    text-decoration: none;
-  }
-
-  .soloraid-bgm-link:hover { color: var(--text-heading); text-decoration: underline; }
-
 
   /* 목록으로 버튼과 검색란을 한 덩이로 묶어 같이 고정한다.
      서랍 안쪽 여백(12px)만큼 음수로 올려야 위가 안 뜬다. */
@@ -6490,27 +6115,6 @@
     border-radius: var(--radius-md);
   }
 
-  #soloraid-tiers-toggle i { transition: transform .2s ease; }
-  #soloraid-tiers-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
-
-  /* 상세 정보 — 평소엔 숨기고 버튼으로 연다 */
-  #soloraid-layout:not(.info-open) #soloraid-info { display: none; }
-
-  #soloraid-layout.info-open #soloraid-info {
-    flex: 0 0 auto;
-    width: 300px;
-    margin-left: 10px;
-  }
-
-  /* 보스 목록 — 오른쪽에서 밀려 나오는 패널 */
-  #soloraid-layout.is-detail-open #soloraid-selector-col {
-    order: 2;
-    flex: 0 0 auto;
-    width: 300px;
-    margin-left: 10px;
-  }
-
-  #soloraid-layout.is-detail-open:not(.list-open) #soloraid-selector-col { display: none; }
 
   /* 오른쪽 정보란: 평소엔 얇게 접혀있다가 마우스를 올리면 펼쳐지는 오버레이 패널
      (유니크 코스튬/캐릭터 도감 탭과 동일한 패턴) */
