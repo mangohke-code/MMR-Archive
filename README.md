@@ -1,6 +1,6 @@
 # M.M.R. Archive
 
-승리의 여신: 니케(GODDESS OF VICTORY: NIKKE)의 픽업 기록, 유니크 코스튬, 미실장 캐릭터,
+승리의 여신: 니케(GODDESS OF VICTORY: NIKKE)의 픽업 기록, 유니크 코스튬, 캐릭터 도감,
 기념품, 솔로 레이드, 스테이지 정보를 모아 둔 **비공식 팬 사이트**입니다.
 
 **https://mangohke-code.github.io/MMR-Archive/**

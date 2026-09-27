@@ -360,7 +360,6 @@
   }
 
   function renderFrameTiers(item) {
-    const tiersBtn = document.getElementById('soloraid-tiers-toggle');
     const container = document.getElementById('soloraid-tiers');
     const tiers = [1, 2, 3]
       .map(n => ({

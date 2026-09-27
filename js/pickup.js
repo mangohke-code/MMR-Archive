@@ -1037,12 +1037,6 @@
 
   // 지금 보고 있는 달 기준으로 방향(-1/1)만큼 옮긴다. 맨 처음/마지막 픽업이 있는 달을 벗어나면 무시.
   // 전체보기에서 위/아래(이전 달/다음 달) 로 스크롤한다
-  // 요소가 달력 안에서 몇 px 지점에 있는지. offsetTop 은 positioned 조상 기준이라
-  // 달력이 아닌 다른 요소가 기준이 될 수 있어서, 화면 좌표로 직접 계산한다.
-  function calendarOffsetOf(el, grid) {
-    return el.getBoundingClientRect().top - grid.getBoundingClientRect().top + grid.scrollTop;
-  }
-
   function scrollCalendarByMonth(direction) {
     const grid = document.getElementById('pickup-calendar-grid');
     const months = Array.from(grid.querySelectorAll('.tl-month'));

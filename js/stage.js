@@ -80,12 +80,6 @@
     return na - nb;
   }
 
-  // 스테이지 정보가 들어있는 챕터 — 실제로 열어볼 수 있는 챕터.
-  // 상세 화면의 이전/다음 이동도 이 목록을 따라가므로 빈 챕터로 넘어가지 않는다.
-  function getChapterList() {
-    return [...new Set(allStageData.map(s => s['챕터']))].sort(compareChapter);
-  }
-
   // 카드로 보여줄 챕터 — IMG_챕터에만 올라와 있고 스테이지 정보는 아직 없는 새 챕터도 넣는다.
   // 새 챕터가 나왔는데 스테이지를 아직 못 채웠어도 자리는 보이게 하려는 것.
   function getDisplayChapterList() {
