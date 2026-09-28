@@ -5139,6 +5139,12 @@
   body.tab-codex #scroll-btns,
   body.tab-contact #scroll-btns { display: none; }
 
+  /* 폰에서는 어느 탭이든 감춘다. 화면 끝으로는 손가락으로 튕기면 금방 가고,
+     오른쪽 아래를 늘 가려서 그 밑의 카드·버튼을 누르기 어렵게 했다. */
+  @media (max-width: 540px) {
+    #scroll-btns { display: none; }
+  }
+
 
   /* 보스 검색 */
   #soloraid-search, #soloraid-search-drawer {
