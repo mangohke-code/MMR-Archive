@@ -156,6 +156,7 @@
     const resetBtn = document.getElementById('pickup-filter-reset');
     resetBtn.addEventListener('click', () => {
       Object.keys(activeFilters).forEach(k => activeFilters[k].clear());
+      clearNameSearch();
       document.querySelectorAll('#pickup-filter-wrap .filter-chips').forEach(container => {
         if (container.id === 'filter-company') {
           syncCompanyChipVisuals();
@@ -339,9 +340,22 @@
     return /^\d+(\.\d+)?주년$/.test(String(v).trim());
   }
 
+  // 이름 검색. 띄어쓰기·대소문자는 무시하고 이름 어디든 들어 있으면 맞는 걸로 본다
+  // ("펌킨" 으로 "벨로타 : 펌킨 위치" 가 나온다).
+  let nameQuery = '';
+  const normName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+  const nameMatches = p => !nameQuery || normName(p['니케']).includes(nameQuery);
+
+  function clearNameSearch() {
+    nameQuery = '';
+    const input = document.getElementById('pickup-search-input');
+    if (input) input.value = '';
+  }
+
   function getFilteredData() {
     return allPickupData.filter(p => {
       if (!showRerun && p['복각']) return false;
+      if (!nameMatches(p)) return false;
       const year = String(new Date(p['시작일']).getFullYear());
       if (activeFilters.year.size > 0 && !activeFilters.year.has(year)) return false;
 
@@ -584,8 +598,9 @@
   function jumpToPickupNikke(nikkeName) {
     switchTab('pickup');
 
-    // 필터에 가려서 못 찾는 일이 없도록 필터 초기화
+    // 필터·검색어에 가려서 못 찾는 일이 없도록 초기화
     Object.keys(activeFilters).forEach(k => activeFilters[k].clear());
+    clearNameSearch();
     document.querySelectorAll('#pickup-filter-wrap .filter-chips').forEach(container => {
       if (container.id === 'filter-company') {
         syncCompanyChipVisuals();
@@ -609,7 +624,9 @@
     // 복각 카드도 보이도록 토글 켜기
     if (!showRerun) {
       showRerun = true;
-      document.getElementById('pickup-rerun-toggle').classList.add('active');
+      const toggle = document.getElementById('pickup-rerun-toggle');
+      toggle.classList.add('active');
+      toggle.setAttribute('aria-checked', 'true');
     }
 
     renderPickupTimeline();
@@ -680,7 +697,28 @@
     rerunToggle.addEventListener('click', () => {
       showRerun = !showRerun;
       rerunToggle.classList.toggle('active', showRerun);
+      rerunToggle.setAttribute('aria-checked', String(showRerun));
       renderCurrentView();
+    });
+    rerunToggle.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        rerunToggle.click();
+      }
+    });
+
+    // 이름 검색. 한 글자 칠 때마다 다시 그리면 무거워서 잠깐 멈췄을 때만 그린다.
+    const searchInput = document.getElementById('pickup-search-input');
+    let searchTimer = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        const q = normName(searchInput.value);
+        if (q === nameQuery) return;
+        nameQuery = q;
+        renderCurrentView();
+        updateYearNav();
+      }, 150);
     });
 
     initPickupCalendarNav();
@@ -732,6 +770,7 @@
     // 현재 몰아보기 기준 키 제외 필터 적용
     const data = allPickupData.filter(p => {
       if (!showRerun && p['복각']) return false;
+      if (!nameMatches(p)) return false;
       const year = String(new Date(p['시작일']).getFullYear());
       if (activeFilters.year.size > 0 && !activeFilters.year.has(year)) return false;
       if (activeFilters.season.size > 0) {

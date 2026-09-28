@@ -727,9 +727,12 @@
     border-color: var(--status-warn-border);
   }
 
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .pickup-card:hover {
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
+  }
   }
 
   .pickup-row {
@@ -1793,7 +1796,7 @@
 
   /* 주 구분. 한 주씩 배경을 번갈아 줘서 어디까지가 한 주인지 바로 보이게 한다. */
   #pickup-calendar-view.is-all-months .calendar-week:nth-of-type(even) {
-    background: var(--bg-panel-alt);
+    background: color-mix(in srgb, var(--bg-panel-alt) 60%, transparent);
   }
 
 
@@ -1848,7 +1851,7 @@
     row-gap: 6px;
     padding: 8px 4px 14px;
     min-height: 80px;
-    background: var(--bg-panel);
+    background: transparent;
     border-bottom: 1px solid var(--border-subtle);
   }
 
@@ -4494,23 +4497,11 @@
     transition: all 0.2s;
   }
 
+  @media (hover: hover) {
   .chapter-card:hover {
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
   }
-
-  .chapter-card {
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-card);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .chapter-card:hover {
-    box-shadow: var(--shadow-card-hover);
-    transform: translateY(-2px);
   }
 
   /* 스테이지 정보가 아직 없는 챕터 — 자리는 보이되 눌리지 않는다 */
@@ -6610,6 +6601,8 @@
                 color 0.18s, transform 0.12s;
   }
 
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .pickup-view-btn:hover, .pickup-group-btn:hover, .calendar-group-btn:hover,
   .calendar-nav-btn:hover:not(:disabled), .year-nav-btn:hover,
   .filter-chip:hover, .survey-chip:hover, .survey-all-btn:hover,
@@ -6624,6 +6617,7 @@
     border-color: var(--border-strong);
     box-shadow: var(--btn-shadow-hover);
     transform: translateY(-1px);
+  }
   }
 
   /* 누르는 순간은 도로 내려앉는다 */
@@ -6650,6 +6644,8 @@
     box-shadow: var(--btn-on-shadow);
   }
 
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .pickup-view-btn.active:hover, .pickup-group-btn.active:hover,
   .calendar-group-btn.active:hover, .filter-chip.active:hover, .survey-chip.active:hover,
   .anim-btn.active:hover, .detail-model-btn.active:hover, .mode-btn.active:hover,
@@ -6657,6 +6653,7 @@
     background: var(--btn-on-bg);
     color: var(--text-on-accent);
     box-shadow: var(--btn-on-shadow), 0 4px 14px var(--accent-glow);
+  }
   }
 
   /* 기업 필터의 오버스펙 상태는 금색 계열로 따로 구분한다(원래 규칙 그대로 되살린다) */
@@ -6686,12 +6683,15 @@
     transition: box-shadow 0.18s, transform 0.12s, filter 0.18s;
   }
 
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   #contact-send:hover:not(:disabled), #survey-confirm-btn:hover, .spoiler-reveal-btn:hover {
     background: var(--btn-on-bg);
     color: var(--text-on-accent);
     filter: brightness(1.08);
     box-shadow: var(--btn-on-shadow), 0 4px 16px var(--accent-glow);
     transform: translateY(-1px);
+  }
   }
 
   #contact-send:active:not(:disabled), #survey-confirm-btn:active, .spoiler-reveal-btn:active {
@@ -6847,13 +6847,19 @@
 
   /* 누를 수 있는 카드는 스칠 때 반사가 지나간다 */
   .pickup-card, .nikke-card, .codex-card, .soloraid-item {
-    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s, --sheen-x 0.8s ease;
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s, --sheen-x 0.35s ease-out;
   }
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .pickup-card:hover, .nikke-card:hover, .codex-card:not(.is-empty):hover, .soloraid-item:hover {
     --sheen-x: 0%;
   }
+  }
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .pickup-card:hover {
     box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card-hover);
+  }
   }
 
   /* 고른 카드는 막을 조금 더 진하게 */
@@ -6865,12 +6871,15 @@
   .tab-btn:not(.active) {
     background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
     box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line);
-    transition: color 0.2s, box-shadow 0.2s, --sheen-x 0.8s ease;
+    transition: color 0.2s, box-shadow 0.2s, --sheen-x 0.35s ease-out;
   }
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .tab-btn:not(.active):hover {
     --sheen-x: 0%;
     background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
     box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong);
+  }
   }
   #tab-nav { border-bottom-color: var(--vinyl-line); }
 
@@ -6883,8 +6892,10 @@
   #soloraid-sort-btn:not(.active), #stage-back-btn {
     background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
     transition: border-color 0.18s, box-shadow 0.18s, color 0.18s, transform 0.12s,
-                --sheen-x 0.8s ease;
+                --sheen-x 0.35s ease-out;
   }
+  /* 마우스가 있는 기기에서만. 터치는 누른 뒤에도 호버가 붙어 남는다. */
+  @media (hover: hover) {
   .pickup-view-btn:not(.active):hover, .pickup-group-btn:not(.active):hover,
   .calendar-group-btn:not(.active):hover, .calendar-nav-btn:hover:not(:disabled), .year-nav-btn:hover,
   .filter-chip:not(.active):hover, .survey-chip:not(.active):hover, .survey-all-btn:hover,
@@ -6894,6 +6905,7 @@
   #codex-survey-btn:hover, #soloraid-sort-btn:not(.active):hover, #stage-back-btn:hover {
     --sheen-x: 0%;
     background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+  }
   }
 
   /* 그림 위에 떠 있는 버튼(뷰어 막대·3D 조작·애니메이션·맨 위/아래)은 불투명하게 */
@@ -6912,4 +6924,216 @@
       background-position: left bottom;
     }
     #main-container .section-title::after { font-size: 10px; }
+  }
+
+  /* ===== 빠졌던 버튼들: 더 많은 기능 링크, 달력의 전체보기·순서 그대로 =====
+     공통 버튼 목록을 만들 때 빠져서 예전 평평한 모양이었다. */
+  #link-list a, #pickup-calendar-all, #pickup-calendar-strict {
+    --btn-cut: 7px;
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    color: var(--text-body);
+    border: 1px solid var(--border-card);
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
+    box-shadow: var(--btn-shadow);
+    transition: border-color 0.18s, box-shadow 0.18s, color 0.18s, transform 0.12s,
+                --sheen-x 0.35s ease-out;
+  }
+  #link-list a { --btn-cut: 10px; }
+
+  #pickup-calendar-all.active, #pickup-calendar-strict.active {
+    background: var(--btn-on-bg);
+    border-color: var(--accent-strong);
+    color: var(--text-on-accent);
+    box-shadow: var(--btn-on-shadow);
+  }
+
+  @media (hover: hover) {
+    #link-list a:hover, #pickup-calendar-all:not(.active):hover, #pickup-calendar-strict:not(.active):hover {
+      --sheen-x: 0%;
+      background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+      border-color: var(--border-strong);
+      color: var(--accent-strong);
+      box-shadow: var(--btn-shadow-hover);
+      transform: translateY(-1px);
+    }
+  }
+
+  #link-list a:active, #pickup-calendar-all:active, #pickup-calendar-strict:active {
+    transform: translateY(0);
+  }
+
+  @supports not (corner-shape: bevel) {
+    #link-list a, #pickup-calendar-all, #pickup-calendar-strict {
+      border-radius: 0;
+      clip-path: polygon(var(--btn-cut) 0, 100% 0, 100% calc(100% - var(--btn-cut)),
+                         calc(100% - var(--btn-cut)) 100%, 0 100%, 0 var(--btn-cut));
+    }
+  }
+
+  #link-list { flex-wrap: wrap; }
+
+  /* 달력 판도 비닐 막으로. 칸마다 날짜가 차 있어서 괄호·반사는 얹지 않는다. */
+  #pickup-calendar-grid {
+    background-color: var(--vinyl);
+    border-color: var(--vinyl-line);
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), var(--shadow-card);
+  }
+
+  /* ===== 복각 표시 — 글자를 스위치 안에 =====
+     스위치 옆에 "복각 표시" 글자를 따로 두면 툴바 가로를 110px 넘게 먹는다.
+     글자를 스위치 안에 넣어 70px 로 줄인다. 꺼지면 글자가 오른쪽, 켜지면 왼쪽. */
+  .toggle-inline { gap: 0; }
+  .toggle-inline .toggle-switch {
+    width: 70px;
+    height: 32px;
+    background: var(--btn-bg);
+    border-color: var(--border-card);
+    box-shadow: var(--btn-shadow);
+  }
+  .toggle-inline .toggle-switch::after {
+    top: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+  }
+  .toggle-inline.active .toggle-switch {
+    background: var(--btn-on-bg);
+    border-color: var(--accent-strong);
+    box-shadow: var(--btn-on-shadow);
+  }
+  .toggle-inline.active .toggle-switch::after {
+    transform: translateX(38px);
+    background: var(--text-on-accent);
+  }
+  .toggle-inline .toggle-label {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-muted);
+    transition: right 0.2s, color 0.2s;
+  }
+  .toggle-inline.active .toggle-label {
+    right: 34px;
+    color: var(--text-on-accent);
+  }
+  .toggle-inline:focus-visible {
+    outline: none;
+  }
+  .toggle-inline:focus-visible .toggle-switch {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ===== 픽업 이름 검색 ===== */
+  .search-box {
+    --btn-cut: 7px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 200px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--border-card);
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    background: var(--btn-bg);
+    box-shadow: var(--btn-shadow);
+    color: var(--text-faint);
+    cursor: text;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  .search-box:focus-within {
+    border-color: var(--border-accent);
+    box-shadow: var(--btn-shadow), 0 0 0 3px var(--accent-glow);
+    color: var(--accent);
+  }
+  .search-box i { font-size: 13px; }
+  .search-box input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-heading);
+    font: inherit;
+    font-size: 15px;
+  }
+  .search-box input::placeholder { color: var(--text-faint); }
+  @supports not (corner-shape: bevel) {
+    .search-box {
+      border-radius: 0;
+      clip-path: polygon(var(--btn-cut) 0, 100% 0, 100% calc(100% - var(--btn-cut)),
+                         calc(100% - var(--btn-cut)) 100%, 0 100%, 0 var(--btn-cut));
+    }
+  }
+
+  /* 폰: 첫 줄은 보기 버튼 셋이 나눠 쓰고, 둘째 줄에 복각·검색·필터를 나란히 둔다.
+     버튼 글자가 두 줄로 꺾이지 않게 줄바꿈을 막는다. */
+  @media (max-width: 540px) {
+    #pickup-view-btns { width: 100%; }
+    .pickup-view-btn { flex: 1; padding: 7px 8px; font-size: 15px; white-space: nowrap; }
+    #pickup-rerun-toggle { margin-left: 0; }
+    #pickup-search { flex: 1 1 100px; width: auto; min-width: 0; }
+    #pickup-filter-toggle { padding: 7px 12px; white-space: nowrap; }
+
+    #pickup-calendar-header { flex-wrap: wrap; gap: 8px; }
+    #pickup-calendar-month-picker { font-size: 20px; }
+    #pickup-calendar-today, #pickup-calendar-all, #pickup-calendar-strict {
+      padding: 6px 10px;
+      white-space: nowrap;
+    }
+  }
+
+  /* ===== 스테이지 챕터 카드 — 비닐 띠 =====
+     가운데 사선 띠가 남색 불투명 막이라 라이트 테마에서도 어둡게 떠 있었다.
+     비치는 비닐 띠에 위는 홀로그램 선, 아래는 금색 선을 긋는다. 상세의 챕터 넘기기도 같은 띠다. */
+  .chapter-label {
+    border: 0;
+    background:
+      var(--holo) top / 100% 1.5px no-repeat,
+      linear-gradient(90deg, transparent 10%, var(--gold) 50%, transparent 90%) bottom / 100% 1.5px no-repeat,
+      rgba(255, 255, 255, 0.66);
+    box-shadow: 0 4px 16px rgba(60, 40, 120, 0.18);
+    color: var(--accent-strong);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  [data-theme="dark"] .chapter-label {
+    background:
+      var(--holo) top / 100% 1.5px no-repeat,
+      linear-gradient(90deg, transparent 10%, var(--gold) 50%, transparent 90%) bottom / 100% 1.5px no-repeat,
+      rgba(20, 18, 34, 0.66);
+    box-shadow: 0 0 18px rgba(80, 70, 200, 0.3);
+    text-shadow: 0 0 10px rgba(140, 120, 255, 0.55);
+  }
+
+  /* 그림 위에 얹는 막: 반사 + 모서리 괄호 + 금색 밑단. 띠(z-index 1)보다 위라 반사가 띠까지 스친다. */
+  .chapter-card:not(.is-soon) .chapter-img::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background-image:
+      var(--sheen),
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(90deg, var(--gold), transparent);
+    background-size: 250% 100%, 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px, 40% 2px;
+    background-position: var(--sheen-x) 0, right 8px top 8px, right 8px top 8px,
+                         left 8px bottom 10px, left 8px bottom 10px, left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line);
+    border-radius: inherit;
+    transition: --sheen-x 0.35s ease-out;
+  }
+
+  @media (hover: hover) {
+    .chapter-card:not(.is-locked):hover .chapter-img::after { --sheen-x: 0%; }
   }

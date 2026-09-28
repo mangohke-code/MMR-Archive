@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=174">
+  <link rel="stylesheet" href="css/style.css?v=175">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -135,10 +135,16 @@
             <button class="pickup-group-btn" data-group="burst">버스트</button>
             <button class="pickup-group-btn" data-group="weapon">총기</button>
           </div>
-          <div id="pickup-rerun-toggle" class="toggle-switch-wrap">
-            <div class="toggle-switch"></div>
-            <span class="toggle-label">복각 표시</span>
+          <!-- 글자를 스위치 안에 넣어 옆자리를 안 차지한다 -->
+          <div id="pickup-rerun-toggle" class="toggle-switch-wrap toggle-inline" role="switch"
+               aria-checked="false" aria-label="복각 표시" tabindex="0" title="복각 픽업도 함께 보기">
+            <div class="toggle-switch"><span class="toggle-label">복각</span></div>
           </div>
+          <label id="pickup-search" class="search-box">
+            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+            <input id="pickup-search-input" type="search" placeholder="니케 이름" autocomplete="off"
+                   spellcheck="false" aria-label="니케 이름으로 검색">
+          </label>
           <button id="pickup-filter-toggle">▼ 필터</button>
         </div>
 
@@ -740,7 +746,7 @@
   <script src="js/config.js?v=2"></script>
   <script src="js/common.js?v=67"></script>
   <script src="js/main.js?v=19"></script>
-  <script src="js/pickup.js?v=41"></script>
+  <script src="js/pickup.js?v=42"></script>
   <script src="js/costume.js?v=52"></script>
   <script src="js/codex.js?v=2"></script>
   <script src="js/souvenir.js?v=14"></script>
