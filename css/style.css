@@ -41,6 +41,16 @@
     /* 은빛 원피스·치마의 홀로그램 광택. 얇은 선으로만 쓴다. */
     --holo: linear-gradient(90deg, #b3a3f4 0%, #f0b6de 30%, #a9d6f5 62%, #e6d18f 100%);
 
+    /* 버튼 — 평소엔 펄처럼 위가 살짝 밝은 면, 고르면 라벤더에 금색 밑단(코트 밑단) */
+    --btn-bg: linear-gradient(180deg, #ffffff 0%, #f2f0f9 100%);
+    --btn-bg-hover: linear-gradient(180deg, #ffffff 0%, #ebe7f8 100%);
+    --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(60, 40, 120, 0.08);
+    --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 10px rgba(127, 106, 224, 0.2);
+    --btn-on-bg: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+    --btn-on-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28),
+                     inset 0 -2px 0 color-mix(in srgb, var(--gold) 85%, transparent),
+                     0 2px 10px var(--accent-glow);
+
     /* 그림자 (카드 입체감 — 테두리 대신 사용) */
     --shadow-card: 0 1px 3px rgba(24, 24, 27, 0.08), 0 3px 10px rgba(24, 24, 27, 0.1);
     --shadow-card-hover: 0 2px 6px rgba(24, 24, 27, 0.1), 0 8px 20px rgba(24, 24, 27, 0.14);
@@ -130,6 +140,11 @@
     --accent-glow: rgba(138, 117, 238, 0.32);
 
     --gold: #d8b766;
+
+    --btn-bg: linear-gradient(180deg, #211f2d 0%, #181622 100%);
+    --btn-bg-hover: linear-gradient(180deg, #2a2639 0%, #1e1b29 100%);
+    --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 3px 12px rgba(138, 117, 238, 0.28);
 
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
     --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.3);
@@ -2990,7 +3005,7 @@
     min-width: 0;
     height: 8px;
     border-radius: 999px;
-    background: var(--bg-body);
+    background: var(--bg-inset);
     border: 1px solid var(--border-subtle);
     cursor: pointer;
     overflow: hidden;
@@ -6541,3 +6556,129 @@
     #contact-page { padding: 18px 16px; }
   }
 
+  /* ===== 버튼 공통 모양 =====
+     버튼마다 제 규칙이 따로 있어서 모양이 제각각(평평한 회색 + 옅은 테두리)이었다.
+     바탕·테두리·그림자·움직임만 여기서 한꺼번에 덮는다. 크기·모서리·글자는 각자 그대로다.
+     같은 선택자를 뒤에서 한 번 더 쓰는 식이라 앞 규칙보다 이긴다.
+
+     뺀 것:
+       .tab-btn               탭 줄은 따로 꾸며 둔 알약 모양
+       .souvenir-season-tab   테두리 없는 글자 탭
+       .nice-select-btn       드롭다운 안쪽 단추
+       솔로 레이드 애니메이션 목록 줄(.soloraid-anim-btn 과 모델·페이즈 줄)
+                              — 테두리로 묶음을, 바탕으로 재생 진행을 보여 주는 줄이라
+                                새 바탕을 얹으면 진행 막대가 가려진다 */
+  .pickup-view-btn, .pickup-group-btn, .calendar-group-btn, .calendar-nav-btn, .year-nav-btn,
+  .filter-chip, .survey-chip, .survey-all-btn, #survey-global-btns .survey-global-btn,
+  .anim-btn, .detail-model-btn, .mode-btn, .update-log-more, .costume-scroll-btn,
+  .scroll-btn, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn),
+  #theme-toggle, #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
+  #codex-survey-btn, #soloraid-sort-btn, #stage-back-btn {
+    background: var(--btn-bg);
+    border-color: var(--border-card);
+    box-shadow: var(--btn-shadow);
+    transition: background 0.18s, border-color 0.18s, box-shadow 0.18s,
+                color 0.18s, transform 0.12s;
+  }
+
+  .pickup-view-btn:hover, .pickup-group-btn:hover, .calendar-group-btn:hover,
+  .calendar-nav-btn:hover:not(:disabled), .year-nav-btn:hover,
+  .filter-chip:hover, .survey-chip:hover, .survey-all-btn:hover,
+  #survey-global-btns .survey-global-btn:hover,
+  .anim-btn:hover, .detail-model-btn:hover, .mode-btn:hover, .update-log-more:hover,
+  .costume-scroll-btn:hover, .scroll-btn:hover, .l2d-bar-btn:hover:not([disabled]),
+  .sr3d-btn:not(.soloraid-anim-btn):hover,
+  #theme-toggle:hover, #pickup-filter-toggle:hover, #pickup-filter-reset:hover,
+  #pickup-calendar-today:hover, #codex-survey-btn:hover, #soloraid-sort-btn:hover,
+  #stage-back-btn:hover {
+    background: var(--btn-bg-hover);
+    border-color: var(--border-strong);
+    box-shadow: var(--btn-shadow-hover);
+    transform: translateY(-1px);
+  }
+
+  /* 누르는 순간은 도로 내려앉는다 */
+  .pickup-view-btn:active, .pickup-group-btn:active, .calendar-group-btn:active,
+  .calendar-nav-btn:active, .year-nav-btn:active, .filter-chip:active, .survey-chip:active,
+  .survey-all-btn:active, #survey-global-btns .survey-global-btn:active,
+  .anim-btn:active, .detail-model-btn:active, .mode-btn:active, .update-log-more:active,
+  .costume-scroll-btn:active, .scroll-btn:active, .l2d-bar-btn:active,
+  .sr3d-btn:not(.soloraid-anim-btn):active,
+  #theme-toggle:active, #pickup-filter-toggle:active, #pickup-filter-reset:active,
+  #pickup-calendar-today:active, #codex-survey-btn:active, #soloraid-sort-btn:active,
+  #stage-back-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--btn-shadow);
+  }
+
+  /* 고른 상태 — 라벤더 바탕에 금색 밑단. 탭 줄의 선택 표시와 같은 말투다. */
+  .pickup-view-btn.active, .pickup-group-btn.active, .calendar-group-btn.active,
+  .filter-chip.active, .survey-chip.active, .anim-btn.active, .detail-model-btn.active,
+  .mode-btn.active, .sr3d-btn.active:not(.soloraid-anim-btn), #soloraid-sort-btn.active {
+    background: var(--btn-on-bg);
+    border-color: var(--accent-strong);
+    color: var(--text-on-accent);
+    box-shadow: var(--btn-on-shadow);
+  }
+
+  .pickup-view-btn.active:hover, .pickup-group-btn.active:hover,
+  .calendar-group-btn.active:hover, .filter-chip.active:hover, .survey-chip.active:hover,
+  .anim-btn.active:hover, .detail-model-btn.active:hover, .mode-btn.active:hover,
+  .sr3d-btn.active:not(.soloraid-anim-btn):hover, #soloraid-sort-btn.active:hover {
+    background: var(--btn-on-bg);
+    color: var(--text-on-accent);
+    box-shadow: var(--btn-on-shadow), 0 4px 14px var(--accent-glow);
+  }
+
+  /* 기업 필터의 오버스펙 상태는 금색 계열로 따로 구분한다(원래 규칙 그대로 되살린다) */
+  .filter-chip.active.overspec,
+  .filter-chip.active.overspec:hover {
+    background: var(--status-warn-bg);
+    color: var(--status-warn-text);
+    border-color: var(--status-warn-border);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--gold) 85%, transparent),
+                0 0 8px rgba(184, 121, 15, 0.25);
+  }
+
+  /* 스테이지의 노말/하드는 파랑·빨강으로 뜻을 나눈 버튼이라, 라벤더 빛과 금색 밑단을
+     얹으면 색이 섞여 보인다. 그 두 색만 남긴다(바탕·글자는 원래 규칙이 이긴다). */
+  #stage-detail .mode-btn.active,
+  #stage-detail .mode-btn.active:hover {
+    border-color: currentColor;
+    box-shadow: var(--btn-shadow);
+  }
+
+  /* 주요 버튼 — 처음부터 "고른 상태" 모양 */
+  #contact-send, #survey-confirm-btn, .spoiler-reveal-btn {
+    background: var(--btn-on-bg);
+    border-color: var(--accent-strong);
+    color: var(--text-on-accent);
+    box-shadow: var(--btn-on-shadow);
+    transition: box-shadow 0.18s, transform 0.12s, filter 0.18s;
+  }
+
+  #contact-send:hover:not(:disabled), #survey-confirm-btn:hover, .spoiler-reveal-btn:hover {
+    background: var(--btn-on-bg);
+    color: var(--text-on-accent);
+    filter: brightness(1.08);
+    box-shadow: var(--btn-on-shadow), 0 4px 16px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  #contact-send:active:not(:disabled), #survey-confirm-btn:active, .spoiler-reveal-btn:active {
+    transform: translateY(0);
+    filter: none;
+  }
+
+  #contact-send:disabled {
+    background: var(--bg-panel-alt);
+    color: var(--text-faint);
+    box-shadow: none;
+    filter: none;
+  }
+
+  /* 키보드로 옮겨 다닐 때만 보이는 초점 테두리 */
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
