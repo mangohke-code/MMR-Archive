@@ -4668,18 +4668,11 @@
     transform: translate(-50%, -50%) rotate(-8deg);
     width: 160%;
     padding: 10px 0;
-    background: rgba(20, 20, 60, 0.82);
-    border-top: 1.5px solid rgba(140, 140, 255, 0.5);
-    border-bottom: 1.5px solid rgba(140, 140, 255, 0.5);
-    box-shadow: 0 0 18px rgba(80, 80, 200, 0.35),
-                inset 0 1px 0 rgba(255,255,255,0.06);
     font-size: 32px;
     font-weight: 700;
-    color: var(--accent-strong);
     text-align: center;
     white-space: nowrap;
     letter-spacing: 0.1em;
-    text-shadow: 0 0 10px rgba(120,120,255,0.6);
     pointer-events: none;
     z-index: 1;
     line-height: 1.6;
@@ -5230,25 +5223,10 @@
   }
 
 
-  /* 보스 검색 */
-  #soloraid-search, #soloraid-search-drawer {
-    font: inherit;
-    font-size: 13px;
-    padding: 6px 10px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-panel-alt);
-    color: var(--text-body);
-  }
-
-  #soloraid-search { width: 220px; }
-
-  #soloraid-search-drawer {
-    width: 100%;
-    margin-bottom: 8px;
-  }
-
-  #soloraid-search::placeholder, #soloraid-search-drawer::placeholder { color: var(--text-faint); }
+  /* 보스 검색 — 픽업 검색창과 같은 .search-box 모양(맨 아래) */
+  #soloraid-search-box { width: 240px; }
+  #soloraid-search-drawer-box { width: 100%; height: 34px; }
+  #soloraid-search-drawer-box input { font-size: 14px; }
 
   .soloraid-item.is-filtered-out,
   .soloraid-attr-col.is-filtered-out { display: none; }
@@ -6046,7 +6024,7 @@
   }
 
   #sr3d-drawer-head #sr3d-back-home { width: 100%; }
-  #sr3d-drawer-head #soloraid-search-drawer { width: 100%; margin: 0; }
+  #sr3d-drawer-head #soloraid-search-drawer-box { width: 100%; margin: 0; }
 
   #sr3d-drawer-selector {
     display: flex;
@@ -6831,7 +6809,7 @@
   /* 비닐 카드 — 겹 순서: 반사 / 오른쪽 위 괄호(가로·세로) / 왼쪽 아래 괄호(가로·세로) / 금색 밑단 */
   .card, .event-card, .pickup-card, .nikke-card, .survey-section, .codex-squad-group,
   .codex-card, #souvenir-detail, #souvenir-bottom, .soloraid-item, .soloraid-tier-card,
-  #contact-page {
+  #contact-page, .souvenir-event-group {
     background-color: var(--vinyl);
     background-image:
       var(--sheen),
@@ -6918,7 +6896,7 @@
   @media (max-width: 540px) {
     .card, .event-card, .pickup-card, .nikke-card, .survey-section, .codex-squad-group,
     .codex-card, #souvenir-detail, #souvenir-bottom, .soloraid-item, .soloraid-tier-card,
-    #contact-page {
+    #contact-page, .souvenir-event-group {
       background-image: linear-gradient(90deg, var(--gold), transparent);
       background-size: 40% 2px;
       background-position: left bottom;
@@ -7136,4 +7114,69 @@
 
   @media (hover: hover) {
     .chapter-card:not(.is-locked):hover .chapter-img::after { --sheen-x: 0%; }
+  }
+
+  /* ===== 남아 있던 곳 마저 =====
+     기념품 이벤트 묶음: 비닐 카드 목록에 넣었다. 원래 테두리는 비닐의 안쪽 선이 대신한다. */
+  .souvenir-event-group { border-color: transparent; }
+
+  /* 픽업 타임라인 니케 카드의 위·아래 칸이 불투명해서 카드의 비닐 막과 반사를 가렸다 */
+  .nikke-card-top, .nikke-card-bottom {
+    background: color-mix(in srgb, var(--bg-panel-alt) 45%, transparent);
+  }
+  .nikke-attrs { background: transparent; }
+
+  /* 문의 입력칸 — 검색창과 같은 각진 비닐 칸 */
+  #contact-subject, #contact-body, #contact-email {
+    --btn-cut: 7px;
+    border-color: var(--border-card);
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
+    box-shadow: inset 0 1px 2px rgba(40, 30, 80, 0.06);
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  #contact-subject:focus, #contact-body:focus, #contact-email:focus {
+    outline: none;
+    border-color: var(--border-accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  @supports not (corner-shape: bevel) {
+    #contact-subject, #contact-body, #contact-email {
+      border-radius: var(--radius-sm);
+    }
+  }
+
+  /* ===== 폰 화면 버그 ===== */
+  @media (max-width: 720px) {
+    /* 캐릭터 도감 진행도: 왼쪽(메인 스토리 320px)이 폭을 다 먹어서 오른쪽 이벤트 칸이
+       폭 0 으로 찌그러져 아예 안 보였다. 위아래로 쌓는다. */
+    #survey-body { flex-direction: column; align-items: stretch; }
+    #survey-left { width: 100%; }
+  }
+
+  @media (max-width: 540px) {
+    /* 스테이지 상세: 제목이 남는 폭 0 에 끼어 "챕/터/0" 으로 한 글자씩 꺾였다 */
+    #stage-detail-header { gap: 0.5rem; }
+    #stage-chapter-title { font-size: 20px; white-space: nowrap; flex: 1 1 auto; }
+    #stage-detail .mode-btn { padding: 6px 14px; font-size: 15px; }
+    #soloraid-search-box { flex: 1 1 160px; width: auto; min-width: 0; }
+
+    /* 솔로 레이드 목록: 190px 카드가 한 줄에 하나씩만 놓여 오른쪽 절반이 비었다.
+       두 장씩 놓고 그림은 칸 폭에 맞춘다. (속성별 정렬의 열 안 카드는 그대로) */
+    #soloraid-selector > .soloraid-item { width: calc(50% - 6px); padding: 10px 8px; }
+    #soloraid-selector > .soloraid-item .soloraid-item-img { width: 100%; height: auto; aspect-ratio: 1; }
+
+    /* 속성별 정렬: 다섯 열을 폰 폭에 나누면 열이 60px 도 안 돼서 보스 이름이 한 글자씩
+       꺾였다. 열 폭을 지키고 목록 안에서 옆으로 밀어 보게 한다. */
+    #soloraid-selector.is-attr-sorted {
+      grid-template-columns: repeat(5, 140px);
+      gap: 10px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+    }
+    .soloraid-attr-col-head { font-size: 15px; padding: 7px 8px; }
+    .soloraid-attr-col-head img { height: 24px; }
+    #soloraid-selector.is-attr-sorted .soloraid-item-season { font-size: 13px; }
+    #soloraid-selector.is-attr-sorted .soloraid-item-boss { font-size: 15px; }
   }

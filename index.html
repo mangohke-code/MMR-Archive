@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=175">
+  <link rel="stylesheet" href="css/style.css?v=176">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -336,9 +336,9 @@
           <!-- 복각 표시 토글 + 코스튬 선택 -->
           <div id="costume-selector">
             <div id="costume-selector-toolbar">
-              <div id="costume-rerun-toggle" class="toggle-switch-wrap">
-                <div class="toggle-switch"></div>
-                <span class="toggle-label">복각 표시</span>
+              <div id="costume-rerun-toggle" class="toggle-switch-wrap toggle-inline" role="switch"
+                   aria-checked="false" aria-label="복각 표시" tabindex="0" title="복각 코스튬도 함께 보기">
+                <div class="toggle-switch"><span class="toggle-label">복각</span></div>
               </div>
             </div>
             <div id="costume-selector-inner"></div>
@@ -507,7 +507,11 @@
       <div id="sr3d-home">
         <div class="section-title">역대 솔로 레이드</div>
         <div id="soloraid-toolbar">
-          <input type="search" id="soloraid-search" placeholder="보스 이름 · 시즌 검색" autocomplete="off">
+          <label id="soloraid-search-box" class="search-box">
+            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="soloraid-search" placeholder="보스 이름 · 시즌 검색" autocomplete="off"
+                   spellcheck="false" aria-label="보스 이름이나 시즌으로 검색">
+          </label>
           <button id="soloraid-sort-btn" type="button"
                   data-tooltip="보스를 약점 속성별 열로 나눠서 봅니다">속성별 정렬</button>
         </div>
@@ -612,7 +616,11 @@
               <button type="button" class="sr3d-btn" id="sr3d-back-home">
                 <i class="fas fa-table-cells"></i> 목록으로
               </button>
-              <input type="search" id="soloraid-search-drawer" placeholder="보스 검색" autocomplete="off">
+              <label id="soloraid-search-drawer-box" class="search-box">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" id="soloraid-search-drawer" placeholder="보스 검색" autocomplete="off"
+                       spellcheck="false" aria-label="보스 검색">
+              </label>
             </div>
             <div id="sr3d-drawer-selector" data-tooltip-off></div>
           </div>
@@ -747,7 +755,7 @@
   <script src="js/common.js?v=67"></script>
   <script src="js/main.js?v=19"></script>
   <script src="js/pickup.js?v=42"></script>
-  <script src="js/costume.js?v=52"></script>
+  <script src="js/costume.js?v=53"></script>
   <script src="js/codex.js?v=2"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">

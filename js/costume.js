@@ -20,10 +20,18 @@
 
     const toggle = document.getElementById('costume-rerun-toggle');
     toggle.classList.toggle('active', showRerunCostume);
+    toggle.setAttribute('aria-checked', String(showRerunCostume));
     toggle.addEventListener('click', () => {
       showRerunCostume = !showRerunCostume;
       toggle.classList.toggle('active', showRerunCostume);
+      toggle.setAttribute('aria-checked', String(showRerunCostume));
       renderCostumeSelector(allCostumeData);
+    });
+    toggle.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle.click();
+      }
     });
 
     // 탭이 display:none일 때는 폭을 잴 수 없으므로, 탭이 열릴 때/창 크기 변경 시 재계산
@@ -147,7 +155,10 @@
     if (isRerun && !showRerunCostume) {
       showRerunCostume = true;
       const toggle = document.getElementById('costume-rerun-toggle');
-      if (toggle) toggle.classList.add('active');
+      if (toggle) {
+        toggle.classList.add('active');
+        toggle.setAttribute('aria-checked', 'true');
+      }
       renderCostumeSelector(allCostumeData);
     }
 
