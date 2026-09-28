@@ -41,9 +41,25 @@
     /* 은빛 원피스·치마의 홀로그램 광택. 얇은 선으로만 쓴다. */
     --holo: linear-gradient(90deg, #b3a3f4 0%, #f0b6de 30%, #a9d6f5 62%, #e6d18f 100%);
 
+    /* 비닐 — 살짝 비치는 막. 카드·버튼 바탕으로 쓴다(맨 아래 "비닐 + 관측 장비" 참고) */
+    --vinyl: rgba(255, 255, 255, 0.58);
+    --vinyl-active: rgba(231, 228, 242, 0.82);
+    --vinyl-edge: rgba(255, 255, 255, 0.95);
+    --vinyl-line: rgba(120, 100, 200, 0.2);
+    --hud: rgba(127, 106, 224, 0.5);
+    --grid: rgba(127, 106, 224, 0.07);
+    --blob-a: rgba(127, 106, 224, 0.13);
+    --blob-b: rgba(201, 161, 74, 0.1);
+    /* 비닐에 비스듬히 비치는 홀로그램 반사. 색은 --holo 와 같다. */
+    --sheen: linear-gradient(115deg, rgba(179, 163, 244, 0) 30%, rgba(179, 163, 244, 0.32) 42%,
+             rgba(240, 182, 222, 0.26) 50%, rgba(169, 214, 245, 0.26) 58%, rgba(230, 209, 143, 0) 70%);
+
     /* 버튼 — 평소엔 펄처럼 위가 살짝 밝은 면, 고르면 라벤더에 금색 밑단(코트 밑단) */
-    --btn-bg: linear-gradient(180deg, #ffffff 0%, #f2f0f9 100%);
-    --btn-bg-hover: linear-gradient(180deg, #ffffff 0%, #ebe7f8 100%);
+    --btn-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(242, 240, 249, 0.55) 100%);
+    --btn-bg-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(235, 231, 248, 0.72) 100%);
+    /* 그림(뷰어·3D) 위에 떠 있는 버튼은 비치면 글자가 안 읽혀서 불투명하게 둔다 */
+    --btn-bg-solid: linear-gradient(180deg, #ffffff 0%, #f2f0f9 100%);
+    --btn-bg-solid-hover: linear-gradient(180deg, #ffffff 0%, #ebe7f8 100%);
     --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(60, 40, 120, 0.08);
     --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 10px rgba(127, 106, 224, 0.2);
     --btn-on-bg: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
@@ -141,8 +157,21 @@
 
     --gold: #d8b766;
 
-    --btn-bg: linear-gradient(180deg, #211f2d 0%, #181622 100%);
-    --btn-bg-hover: linear-gradient(180deg, #2a2639 0%, #1e1b29 100%);
+    --vinyl: rgba(40, 34, 64, 0.5);
+    --vinyl-active: rgba(60, 52, 96, 0.72);
+    --vinyl-edge: rgba(255, 255, 255, 0.1);
+    --vinyl-line: rgba(160, 140, 255, 0.2);
+    --hud: rgba(171, 156, 246, 0.5);
+    --grid: rgba(150, 130, 255, 0.06);
+    --blob-a: rgba(138, 117, 238, 0.16);
+    --blob-b: rgba(216, 183, 102, 0.07);
+    --sheen: linear-gradient(115deg, rgba(179, 163, 244, 0) 30%, rgba(179, 163, 244, 0.16) 42%,
+             rgba(240, 182, 222, 0.12) 50%, rgba(169, 214, 245, 0.12) 58%, rgba(230, 209, 143, 0) 70%);
+
+    --btn-bg: linear-gradient(180deg, rgba(58, 50, 92, 0.55) 0%, rgba(30, 26, 46, 0.45) 100%);
+    --btn-bg-hover: linear-gradient(180deg, rgba(70, 60, 112, 0.65) 0%, rgba(38, 32, 58, 0.55) 100%);
+    --btn-bg-solid: linear-gradient(180deg, #211f2d 0%, #181622 100%);
+    --btn-bg-solid-hover: linear-gradient(180deg, #2a2639 0%, #1e1b29 100%);
     --btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.4);
     --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 3px 12px rgba(138, 117, 238, 0.28);
 
@@ -6721,4 +6750,166 @@
   button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+
+  /* ===== 비닐 + 관측 장비 =====
+     살짝 비치는 비닐 막(반투명 바탕, 위쪽 빛 한 줄, 스칠 때 지나가는 홀로그램 반사)에
+     실험실 기록 장비 같은 표식(모눈 바탕, 모서리 조준 괄호, 기록 번호, 고정폭 글자)을 섞는다.
+
+     - 카드의 꾸밈은 전부 배경 그림 여러 겹으로 그린다. ::before/::after 를 쓰는 카드가
+       있어서 가상 요소를 새로 달면 겹친다.
+     - backdrop-filter(뒤 흐림)는 안 쓴다. 뒤에 비칠 것이 옅은 모눈뿐이라 흐려도 티가 안 나고,
+       카드 수십 장에 걸면 스크롤이 무거워진다.
+     - 뷰어(L2D·3D)·드롭다운·말풍선은 비치면 안 읽혀서 손대지 않는다. */
+
+  /* 반사가 지나가는 위치. 등록해 두어야 hover 때 부드럽게 움직인다
+     (모르는 브라우저는 움직임 없이 바로 바뀐다). */
+  @property --sheen-x {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 100%;
+  }
+
+  /* 모눈 바탕 + 오른쪽 위 라벤더·왼쪽 아래 금빛 번짐. 화면에 고정해 두고 글만 흐른다.
+     background-attachment: fixed 는 스크롤마다 다시 그려서 느리다. 고정된 막 한 장으로 깐다. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 520px at 100% 0%, var(--blob-a), transparent 70%),
+      radial-gradient(760px 480px at 0% 100%, var(--blob-b), transparent 70%),
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 28px 28px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 28px 28px;
+  }
+
+  /* 사이트 이름 위의 장비 표식 */
+  .site-code {
+    margin-bottom: 6px;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    opacity: 0.85;
+  }
+
+  /* 메인 페이지 구역 제목 뒤로 눈금선을 긋고 끝에 구역 번호를 찍는다.
+     제목이 하나뿐인 탭(솔로 레이드)은 번호가 늘 01 이라 뺀다. */
+  #main-container { counter-reset: mmr-sec; }
+  #main-container .section-title { counter-increment: mmr-sec; }
+  #main-container .section-title::after {
+    content: '// ' counter(mmr-sec, decimal-leading-zero);
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-self: center;
+    padding-left: 1rem;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), transparent)
+                1rem center / calc(100% - 1rem - 7ch) 1px no-repeat;
+  }
+
+  /* 카드 구석의 기록 번호(main.js 의 cardCode) */
+  .pickup-card-info[data-code]:not([data-code=''])::before,
+  .event-info[data-code]:not([data-code=''])::before {
+    content: attr(data-code);
+    display: block;
+    margin-bottom: 2px;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    opacity: 0.8;
+  }
+
+  /* 비닐 카드 — 겹 순서: 반사 / 오른쪽 위 괄호(가로·세로) / 왼쪽 아래 괄호(가로·세로) / 금색 밑단 */
+  .card, .event-card, .pickup-card, .nikke-card, .survey-section, .codex-squad-group,
+  .codex-card, #souvenir-detail, #souvenir-bottom, .soloraid-item, .soloraid-tier-card,
+  #contact-page {
+    background-color: var(--vinyl);
+    background-image:
+      var(--sheen),
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(90deg, var(--gold), transparent);
+    background-size: 250% 100%, 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px, 40% 2px;
+    background-position: var(--sheen-x) 0, right 7px top 7px, right 7px top 7px,
+                         left 7px bottom 9px, left 7px bottom 9px, left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card);
+  }
+
+  /* 누를 수 있는 카드는 스칠 때 반사가 지나간다 */
+  .pickup-card, .nikke-card, .codex-card, .soloraid-item {
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s, --sheen-x 0.8s ease;
+  }
+  .pickup-card:hover, .nikke-card:hover, .codex-card:not(.is-empty):hover, .soloraid-item:hover {
+    --sheen-x: 0%;
+  }
+  .pickup-card:hover {
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card-hover);
+  }
+
+  /* 고른 카드는 막을 조금 더 진하게 */
+  .codex-card.active, .soloraid-item.active {
+    background-color: var(--vinyl-active);
+  }
+
+  /* 탭 줄 — 탭도 비닐 조각으로. 고른 탭은 지금처럼 라벤더. */
+  .tab-btn:not(.active) {
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line);
+    transition: color 0.2s, box-shadow 0.2s, --sheen-x 0.8s ease;
+  }
+  .tab-btn:not(.active):hover {
+    --sheen-x: 0%;
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong);
+  }
+  #tab-nav { border-bottom-color: var(--vinyl-line); }
+
+  /* 버튼 — 바탕은 반투명 토큰(--btn-bg)이고 그 위에 반사를 한 겹 얹는다 */
+  .pickup-view-btn:not(.active), .pickup-group-btn:not(.active), .calendar-group-btn:not(.active),
+  .calendar-nav-btn, .year-nav-btn, .filter-chip:not(.active), .survey-chip:not(.active),
+  .survey-all-btn, #survey-global-btns .survey-global-btn, .detail-model-btn:not(.active),
+  .mode-btn:not(.active), .update-log-more, #theme-toggle, #pickup-filter-toggle,
+  #pickup-filter-reset, #pickup-calendar-today, #codex-survey-btn,
+  #soloraid-sort-btn:not(.active), #stage-back-btn {
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
+    transition: border-color 0.18s, box-shadow 0.18s, color 0.18s, transform 0.12s,
+                --sheen-x 0.8s ease;
+  }
+  .pickup-view-btn:not(.active):hover, .pickup-group-btn:not(.active):hover,
+  .calendar-group-btn:not(.active):hover, .calendar-nav-btn:hover:not(:disabled), .year-nav-btn:hover,
+  .filter-chip:not(.active):hover, .survey-chip:not(.active):hover, .survey-all-btn:hover,
+  #survey-global-btns .survey-global-btn:hover, .detail-model-btn:not(.active):hover,
+  .mode-btn:not(.active):hover, .update-log-more:hover, #theme-toggle:hover,
+  #pickup-filter-toggle:hover, #pickup-filter-reset:hover, #pickup-calendar-today:hover,
+  #codex-survey-btn:hover, #soloraid-sort-btn:not(.active):hover, #stage-back-btn:hover {
+    --sheen-x: 0%;
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+  }
+
+  /* 그림 위에 떠 있는 버튼(뷰어 막대·3D 조작·애니메이션·맨 위/아래)은 불투명하게 */
+  .anim-btn, .l2d-bar-btn, .sr3d-btn, .scroll-btn, .costume-scroll-btn {
+    --btn-bg: var(--btn-bg-solid);
+    --btn-bg-hover: var(--btn-bg-solid-hover);
+  }
+
+  /* 폰은 화면이 좁아 카드가 빽빽하다. 괄호·반사를 빼고 막과 금색 밑단만 남긴다. */
+  @media (max-width: 540px) {
+    .card, .event-card, .pickup-card, .nikke-card, .survey-section, .codex-squad-group,
+    .codex-card, #souvenir-detail, #souvenir-bottom, .soloraid-item, .soloraid-tier-card,
+    #contact-page {
+      background-image: linear-gradient(90deg, var(--gold), transparent);
+      background-size: 40% 2px;
+      background-position: left bottom;
+    }
+    #main-container .section-title::after { font-size: 10px; }
   }

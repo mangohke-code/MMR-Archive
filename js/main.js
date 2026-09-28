@@ -51,6 +51,14 @@
     }
   }
 
+  // 카드 구석에 찍는 기록 번호(예: PU-2026-1008). 시작일에서 만든다. 꾸밈용이라
+  // 날짜가 없으면 그냥 안 찍는다.
+  function cardCode(prefix, date) {
+    const d = new Date(date);
+    if (!date || isNaN(d)) return '';
+    return `${prefix}-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   function formatLogDate(date) {
     if (!date) return '-';
     const d = new Date(date);
@@ -66,7 +74,7 @@
     container.innerHTML = events.map(e => `
       <div class="event-card">
         <img src="${e['이미지']}" alt="${e['이벤트명']}" onerror="this.style.display='none'">
-        <div class="event-info">
+        <div class="event-info" data-code="${cardCode('EV', e['시작일'])}">
           <div class="event-name">${e['이벤트명']}</div>
           <div class="event-meta">
             <span class="event-date">${formatDate(e['시작일'])} ~ ${formatDate(e['종료일'])}</span>
@@ -114,7 +122,7 @@
       return `
         <div class="pickup-card" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
-          <div class="pickup-card-info">
+          <div class="pickup-card-info" data-code="${cardCode('PU', p['시작일'])}">
             <div class="pickup-name-wrap"><div class="pickup-name">${p['니케']}</div></div>
             <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
             <div class="pickup-badge-row">
@@ -132,7 +140,7 @@
       return `
         <div class="pickup-card rerun" data-nikke="${p['니케']}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
-          <div class="pickup-card-info">
+          <div class="pickup-card-info" data-code="${cardCode('PU', p['시작일'])}">
             <div class="pickup-name-wrap"><div class="pickup-name">${p['니케']}</div></div>
             <div class="pickup-date">${formatPickupDateMain(p['시작일'])} ~ ${formatPickupDateMain(p['종료일'])}</div>
             <div class="pickup-badge-row">
@@ -226,7 +234,7 @@
       return `
         <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
-          <div class="pickup-card-info">
+          <div class="pickup-card-info" data-code="${cardCode('CS', startDate)}">
             <div class="pickup-name-wrap"><div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div></div>
             <div class="pickup-date">${formatPickupDateMain(startDate)} ~ ${formatPickupDateMain(endDate)}</div>
             <div class="pickup-badge-row">
