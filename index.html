@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=159">
+  <link rel="stylesheet" href="css/style.css?v=165">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -35,6 +35,7 @@
     <button class="tab-btn" data-tab="souvenir">기념품 목록</button>
     <button class="tab-btn" data-tab="soloraid">솔로 레이드</button>
     <button class="tab-btn" data-tab="stage">스테이지 정보</button>
+    <button class="tab-btn tab-btn-contact" data-tab="contact">문의</button>
   </nav>
 
   <div id="loading-overlay">
@@ -682,6 +683,34 @@
 
       </div>
     </div>
+
+    <!-- 문의. 보내는 법·스팸 막는 법은 js/contact.js -->
+    <div id="tab-contact" class="tab-content">
+      <div id="contact-page">
+        <h2 id="contact-title">문의</h2>
+        <p id="contact-intro">잘못된 정보, 삭제 요청, 있었으면 하는 기능 등 무엇이든 보내 주세요.</p>
+
+        <label class="contact-label" for="contact-subject">제목</label>
+        <input type="text" id="contact-subject" maxlength="100" autocomplete="off">
+
+        <label class="contact-label" for="contact-body">내용</label>
+        <textarea id="contact-body" rows="10" maxlength="2000"></textarea>
+        <div id="contact-count">0 / 2000</div>
+
+        <label class="contact-label" for="contact-email">답변 받을 이메일 <span class="contact-optional">(선택)</span></label>
+        <input type="email" id="contact-email" maxlength="254" autocomplete="email"
+          placeholder="답변이 필요할 때만 적어 주세요">
+        <p class="contact-note">이메일은 답변할 때만 쓰고, 사이트 운영자 말고는 볼 수 없어요.</p>
+
+        <!-- 사람 눈에는 안 보이는 칸. 봇만 채운다. -->
+        <input type="text" id="contact-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <div id="contact-actions">
+          <span id="contact-status" aria-live="polite"></span>
+          <button type="button" id="contact-send" disabled>보내기</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <footer id="site-footer">
@@ -697,7 +726,8 @@
     <p class="footer-meta">
       사이트 코드 &copy; 2026 mangohke ·
       <a href="https://github.com/mangohke-code/MMR-Archive/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> ·
-      <a href="https://github.com/mangohke-code/MMR-Archive" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/mangohke-code/MMR-Archive" target="_blank" rel="noopener">GitHub</a> ·
+      <a href="#contact" class="contact-open-btn">문의</a>
     </p>
   </footer>
 
@@ -724,6 +754,7 @@
   <script type="module" src="js/soloraid3d.js?v=342"></script>
   <script src="js/soloraid.js?v=37"></script>
   <script src="js/stage.js?v=13"></script>
+  <script src="js/contact.js?v=3"></script>
 
   <script>
   // 이미지 전용 캐시. 자세한 이유는 sw.js 위쪽 주석 참고.
