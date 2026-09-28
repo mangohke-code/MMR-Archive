@@ -58,18 +58,6 @@ function getPhaseConfig(bossKey, bossCode) {
   return { mode: raw.mode || 'cumulative', merge: raw.merge || null };
 }
 
-// 메시별 위치/크기 보정 - 극히 드물게, 원본 FBX에 애니메이션이 아예 없고 뼈대 바인드
-// 포즈 오프셋/스케일도 0에 가까워서(게임 엔진 쪽 런타임 부착 시스템으로 위치·크기를
-// 잡는 걸로 추정) 변환 결과물만으로는 원래 위치를 알 수 없는 파츠가 있다.
-// offset: 스켈레톤 루트 본에 더할 로컬 위치, scale: 루트 본에 적용할 절대 배율(기존
-// 바인드 포즈 스케일은 무시하고 이 값으로 고정 - 보스마다 파이프라인이 우연히 넣는
-// 베이스 스케일이 달라질 수 있어서 상대 배율보다 절대값이 예측 가능하다).
-const MESH_TRANSFORM_OVERRIDES = {
-  // 온리 원 - 왕좌에 앉은 작은 인형 파츠. 크기는 원본 그대로(확대 안 함).
-  // 위치는 사용자가 콘솔에서 직접 눈으로 확인해서 확정한 값 (y=0.315, z=-0.001).
-  xbg003_rp_skin: { offset: [0, 0.315, -0.001] },
-};
-
 // 파츠를 부위별로 묶는다. 좌우로 갈린 파츠(arm_l / arm_r)가 한 묶음에 들어간다.
 // 위에서부터 먼저 맞는 것을 쓴다 — 발광 껍데기는 부위보다 먼저 걸러야
 // head_skin_fx 가 "머리" 로 새지 않는다.
@@ -569,18 +557,6 @@ function detectBossCode(meshNames, url) {
   return f ? f[1].toLowerCase() : null;
 }
 
-// 보스 전체(모델 통째로) 회전/위치/크기 보정 - 보스마다 원본 좌표축이 조금씩 달라서
-// 공통 기본값(회전만 좌우 225도)으로 안 맞으면 여기 개별 등록한다.
-// rotation: [pitch, yaw, roll] 도 단위 - 기본값은 FBX2glTF 변환 시 공통으로 어긋나는
-//   좌우 225도만 보정한 값.
-// position: [x, y, z] - 모델 전체(바깥쪽 그룹)에 더할 오프셋. 기본 0.
-// scale: 모델 전체에 곱할 배율. 기본 1.
-const DEFAULT_ROTATION = [0, 225, 0];
-const BOSS_TRANSFORM_OVERRIDES = {
-  bbg001: { rotation: [40, 227, 0], position: [0, 0, 0.08], scale: 0.5 }, // 하베스터 - 확정
-  mbg001: { position: [-0.1, -0.1, 0], scale: 1 }, // 알트아이젠 - 확정 (회전은 기본값)
-};
-
 // 신형 추출본의 기본 배율·높이 보정. 시점 초기화도 이 값으로 돌아간다.
 //   온리 원 - 소환수(ziz/behamoth/leviathan)가 본체에서 떨어져 있어서 정규화가
 //   그만큼 작게 잡는다. 화면에 맞게 1.3 배, 0.3 아래로.
@@ -621,8 +597,7 @@ const CATALOG_FIT_BASE = {
 
 // 같은 보스라도 모델 항목(페이즈)마다 다르게 줘야 하면 "코드@페이즈" 로 적는다.
 // 변종은 파일 이름(bossKey)으로도 찾는다 — 원종과 코드가 같기 때문이다.
-function catalogFitBase(bossKey, bossCode, isCatalogExport, labelPhase) {
-  if (!isCatalogExport) return {};
+function catalogFitBase(bossKey, bossCode, labelPhase) {
   return CATALOG_FIT_BASE[bossKey + '@' + labelPhase]
     || CATALOG_FIT_BASE[bossKey]
     || CATALOG_FIT_BASE[bossCode + '@' + labelPhase]
@@ -641,28 +616,16 @@ const PHASE_CAM_DIST = [
 const CLIP_CAM_LIFT = [
 ];
 
-function getBossTransform(bossCode, isCatalogExport) {
-  // 신형 추출본은 루트 노드에 방향 회전이 이미 들어 있고(쿼터니언 [0,-1,0,0] = yaw 180도)
-  // GLTFLoader 가 그걸 적용한다. 보스별 보정값은 구형 파이프라인이 어긋나게 뽑아준 걸
-  // 손으로 맞춘 값이라, 신형에 얹으면 회전이 두 번 걸려 오히려 망가진다.
-  // 같은 보스를 신형으로 다시 올리면 이 함수가 알아서 보정을 건너뛴다.
-  // 좌우 180도가 이 보스들의 정면이다(테스트 뷰어에서 확인).
+function getBossTransform(bossCode) {
+  // 추출본은 루트 노드에 방향 회전이 이미 들어 있고(쿼터니언 [0,-1,0,0] = yaw 180도)
+  // GLTFLoader 가 그걸 적용한다. 좌우 180도가 이 보스들의 정면이다(테스트 뷰어에서 확인).
   // 정규화가 전체 바운딩 기준이라, 화면에서 벗어난 파츠까지 세면 보스가 작게 잡히는
   // 보스가 있다. 그런 보스만 기본 배율·높이를 손으로 맞춰 둔다.
-  if (isCatalogExport) {
-    const fit = CATALOG_FIT_OVERRIDES[bossCode];
-    return {
-      rotation: [0, 180, 0],
-      position: fit && fit.position ? fit.position.slice() : [0, 0, 0],
-      scale: fit && fit.scale ? fit.scale : 1,
-    };
-  }
-
-  const raw = BOSS_TRANSFORM_OVERRIDES[bossCode] || {};
+  const fit = CATALOG_FIT_OVERRIDES[bossCode];
   return {
-    rotation: raw.rotation || DEFAULT_ROTATION,
-    position: raw.position || [0, 0, 0],
-    scale: raw.scale || 1,
+    rotation: [0, 180, 0],
+    position: fit && fit.position ? fit.position.slice() : [0, 0, 0],
+    scale: fit && fit.scale ? fit.scale : 1,
   };
 }
 
@@ -2143,8 +2106,6 @@ function disposeState(container) {
     const el = document.getElementById(id);
     if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
   });
-  const barEl = document.getElementById('soloraid-playbar');
-  if (barEl) barEl.classList.add('hidden');
   const restartBtn = document.getElementById('soloraid-spine-restart');
   if (restartBtn) restartBtn.onclick = null;
 
@@ -2253,33 +2214,25 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
   // 그래서 ambient는 낮게 유지한 채(검정을 검정으로 두려고) 방향광만 크게 올린다.
   // 이 값에서 백빙룡 71 → 109, 검은 뱀 29 → 47 로 올라가고, 흰색이 날아가는 픽셀은
   // 1% 미만이라 하이라이트도 뭉개지지 않는다.
-  // 조명은 모델을 읽은 뒤 종류에 맞게 세운다(setupLights).
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 4.0);
+  //
+  // 위 숫자들(0.6 / 4.0 / 1.6)은 예전 FBX 변환 모델을 맞추며 올린 값이다 — 그 모델들은
+  // 재질이 뿌옇게 나와서 방향광을 세게 줘야 형태가 보였다. 지금 추출본은 텍스처와
+  // 발광이 제대로 들어오므로 그 보정이 오히려 과해서, 중립적인 값으로 둔다.
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
   dirLight.position.set(1, 2, 1);
-  const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.6);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
   dirLight2.position.set(-1, 0.5, -1);
   scene.add(ambientLight, dirLight, dirLight2);
-
-  // 위 숫자들은 구형(FBX 변환) 모델을 눈으로 맞춰 가며 올린 값이다 — 그 모델들은
-  // 재질이 뿌옇게 나와서 방향광을 세게 줘야 형태가 보였다. 신형은 텍스처와 발광이
-  // 제대로 들어오므로 그 보정이 오히려 과하다. 중립적인 값으로 되돌린다.
-  function setupLights(isCatalogExport) {
-    if (!isCatalogExport) return;
-    ambientLight.intensity = 1.0;
-    dirLight.intensity = 1.4;
-    dirLight2.intensity = 0.6;
-  }
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
 
-  // 후처리 사슬. 신형 추출본에서만 쓴다 — 구형은 발광이 없어서 걸어봐야 손해다.
+  // 후처리 사슬(톤매핑 + 블룸).
   let composer = null;
   let bloomPass = null;
 
-  function setupPostFx(enable) {
-    if (!enable) return;
+  function setupPostFx() {
     // 톤매핑 없이 그대로 그리면 밝은 값이 255 에서 잘려 색이 날아간다.
     // ACES 는 중간톤을 눌러서 그냥 켜면 어두워진다 — 노출로 되돌린다.
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -2341,20 +2294,15 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     //    root_phase2 아래에 달린 2페이즈 현역 파츠다)
     //  - 등장·사망 클립이 리그를 통째로 딴 곳으로 옮긴다 (카메라가 따라가야 한다)
     //
-    // 판별은 씬 루트에 "*_var" 래퍼 노드가 있는지로 한다. 신형은 모델 전체가 그 노드
-    // 하나에 담겨 나오고, 기존 변환본은 루트가 전부 "*_skin" 이라 겹치지 않는다.
-    // asset.generator 로 보면 안 된다 — Draco 압축을 한 번 태우면 그 값이 변환 도구
-    // 이름으로 덮어써져서(기존 모델도 전부 'glTF-Transform') 구분이 사라진다.
-    // 노드 이름은 압축을 거쳐도 그대로 남는다.
-    const isCatalogExport =
-      gltf.scene.children.some(o => /_var$/i.test(o.name || ''))
-      || /NikkeCatalogExplorer/i.test((gltf.asset && gltf.asset.generator) || '');
+    // 예전에는 FBX2glTF 로 변환한 구형 파일도 받아서 곳곳에 구형용 길을 따로 뒀다.
+    // 2026-09 에 모델 19개가 전부 추출본으로 바뀌어 그 길은 다 걷어냈다. 혹시 구형이
+    // 다시 올라오면 화면이 틀어질 테니 콘솔에만 알린다 — 추출본은 씬 루트에 "*_var"
+    // 래퍼 노드가 있다(Draco 를 태우면 asset.generator 는 덮어써지지만 노드 이름은 남는다).
+    if (!gltf.scene.children.some(o => /_var$/i.test(o.name || ''))
+        && !/NikkeCatalogExplorer/i.test((gltf.asset && gltf.asset.generator) || '')) {
+      console.warn('[솔로 레이드 3D] 추출본이 아닌 모델입니다. 방향·크기가 틀어질 수 있습니다.');
+    }
 
-    // FBX 원본이 항상 정면 기준으로 돌아간 상태로 나온다 —
-    // FBX2glTF 변환 시 좌표축 관례(Maya 등)와 우리가 카메라를 세팅하는 기준이 어긋나는 것으로
-    // 보인다. 기본은 대부분 보스에 맞는 공통값(좌우 225도)이고, 안 맞는 보스는
-    // BOSS_TRANSFORM_OVERRIDES에 개별 등록한다.
-    //
     // 좌우(yaw)/상하(pitch)를 같은 Object3D의 rotation.x/y에 그대로 넣으면 오일러 회전
     // 순서(XYZ) 때문에 서로 얽혀서, 좌우를 크게 돌려놓은 상태에서 상하를 조정하면 화면에서는
     // 대각선/옆으로 도는 것처럼 보인다. 그래서 바깥쪽 그룹에서 좌우 회전 + 전체 위치/크기를,
@@ -2369,8 +2317,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     yawGroup.add(pitchGroup);
     scene.add(yawGroup);
 
-    setupLights(isCatalogExport);
-    setupPostFx(isCatalogExport);
+    setupPostFx();
 
     // 모델 고르는 칩 이름이 가리키는 페이즈. 같은 파일을 항목 둘로 등록해 쓰는 보스가
     // 있어서, 보정도 항목별로 달리 줘야 하는 경우가 있다.
@@ -2385,11 +2332,11 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
         : from.includes(currentPhase);
     }
 
-    const bossTransform = getBossTransform(bossCode, isCatalogExport);
+    const bossTransform = getBossTransform(bossCode);
     const [pitchDeg, yawDeg, rollDeg] = bossTransform.rotation;
     // 맞춰 둔 기준 각도. 슬라이더에는 안 들어가서 패널은 0 에서 출발한다 —
     // 배율·높이를 CATALOG_FIT_BASE 로 옮긴 것과 같은 방식이다.
-    const fitBase0 = catalogFitBase(bossKey, bossCode, isCatalogExport, optLabelPhase);
+    const fitBase0 = catalogFitBase(bossKey, bossCode, optLabelPhase);
     const basePitch = fitBase0.pitch || 0;
     const baseYaw = fitBase0.yaw || 0;
     yawGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg + baseYaw);
@@ -2476,10 +2423,10 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     // 표시 방식 토글. 파츠가 이상하게 보일 때 원인을 좁히는 데 쓴다.
     //  - 와이어프레임: 지오메트리 자체가 뚫렸는지
-    //  - 알파컷: 텍스처 알파 때문인지 (신형은 기본 꺼짐)
+    //  - 알파컷: 텍스처 알파 때문인지 (기본 꺼짐)
     //  - 단면: 양면 렌더링의 깊이 정렬 문제인지
     let optWire = false;
-    let optAlpha = !isCatalogExport;
+    let optAlpha = false;
     let optSingle = false;
 
     function applyLookFlags() {
@@ -2491,7 +2438,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
           if (!glow && !mt.userData.translucent && !/^fx_/i.test(mt.name || '')) {
             // 끈 상태에서도 완전 투명(0)만은 잘라낸다 — 아니면 LED 발광판의 투명
             // 테두리가 네모로 통째로 보인다. 로드할 때 준 값과 같아야 한다.
-            mt.alphaTest = optAlpha ? 0.5 : (isCatalogExport ? 0.05 : 0);
+            mt.alphaTest = optAlpha ? 0.5 : 0.05;
           }
           mt.side = optSingle ? THREE.FrontSide : THREE.DoubleSide;
           mt.needsUpdate = true;
@@ -2533,16 +2480,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       mats.forEach(m => {
         m.side = THREE.DoubleSide;
-        // FBX2glTF가 재질마다 emissive를 회색(약 0x757575)으로 기본 설정해서 내보내는데,
-        // 이게 실제 조명/텍스처 명암과 무관하게 표면 전체에 균일한 회색을 더해버려서
-        // 어두운 톤의 보스가 반투명한 것처럼 뿌옇게 보이는 원인이었다 - 원본 FBX 뷰어에는
-        // 없는 값이라 강제로 꺼둔다.
-        // 구형은 FBX2glTF 가 박아 넣은 회색 emissive 를 지운다.
-        // 신형은 실제 발광색이라 보존하되, 원본 값을 따로 기억해 둔다 —
+        // emissive 는 실제 발광색이라 보존하되, 원본 값을 따로 기억해 둔다 —
         // 화면에는 기본으로 끄고 사용자가 고를 때 되살린다.
-        if (!isCatalogExport) {
-          if (m.emissive) m.emissive.setRGB(0, 0, 0);
-        } else if (m.emissive && (m.emissive.r || m.emissive.g || m.emissive.b)) {
+        if (m.emissive && (m.emissive.r || m.emissive.g || m.emissive.b)) {
           // 재질 하나를 여러 메쉬가 나눠 쓰기 때문에 이 블록이 재질마다 여러 번 돈다.
           // 나눗셈을 그때마다 하면 밝기가 계속 깎인다(5.584 -> 0.087 까지 내려갔었다).
           if (!m.userData.glowColor) {
@@ -2593,31 +2533,19 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
         } else {
           m.transparent = false;
           m.depthWrite = true;
-          // 신형 추출본은 알파 컷아웃을 끈다.
+          // 알파 컷아웃을 끈다.
           //
-          // 이 파일들은 재질이 alphaMode=MASK / cutoff=0.5 로 나오는데, 미사일·총구·
+          // 추출본은 재질이 alphaMode=MASK / cutoff=0.5 로 나오는데, 미사일·총구·
           // 지네관절 같은 가늘고 긴 파츠는 텍스처 알파가 0.5 언저리라 그대로 두면
           // 중간중간 뚫려서 뚝뚝 끊긴 모습이 된다(테스트 뷰어에서 컷아웃을 끄면
-          // 멀쩡하게 나오는 것으로 확인). 구형 변환본은 알파를 실제 구멍 모양으로
-          // 쓰는 파츠가 있어서 기존 값을 유지한다.
+          // 멀쩡하게 나오는 것으로 확인).
           // 0 으로 완전히 끄면 LED 발광판처럼 텍스처 대부분이 투명한 파츠가
           // 빨간 네모로 통째로 보인다. 아주 낮은 값으로 두면 완전 투명한 부분만
           // 잘리고, 알파가 0.3~0.5 언저리라 끊겨 보이던 가는 파츠는 그대로 남는다.
-          m.alphaTest = isCatalogExport ? 0.05 : 0.5;
+          m.alphaTest = 0.05;
         }
       });
 
-      // 메쉬별 보정도 구형 전용 — 신형은 트랜스폼이 파일에 제대로 들어 있다.
-      const xform = isCatalogExport ? null : MESH_TRANSFORM_OVERRIDES[obj.name];
-      if (xform) {
-        const root = obj.isSkinnedMesh && obj.skeleton && obj.skeleton.bones[0] ? obj.skeleton.bones[0] : obj;
-        if (xform.offset) {
-          root.position.x += xform.offset[0];
-          root.position.y += xform.offset[1];
-          root.position.z += xform.offset[2];
-        }
-        if (xform.scale) root.scale.setScalar(xform.scale);
-      }
     });
 
     // 스킬/등장 연출 전용 이펙트(fx_ 접두사) 메시는 기본적으로 꺼둔다 — idle 애니메이션만
@@ -2717,7 +2645,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     // 그래서 전환이 끝난 시점의 자세를 미리 한 번 떠 두고, 2페이즈 클립을 재생할 때는
     // 초기 자세 대신 그 자세로 되돌린다. 클립이 실제로 건드리는 본은 어차피 클립이
     // 덮어쓰므로, 트랙이 없는 본(=깃털)만 전환 상태를 유지하게 된다.
-    const phaseChangeClip = isCatalogExport ? findPhaseChangeClip(gltf.animations || []) : null;
+    const phaseChangeClip = findPhaseChangeClip(gltf.animations || []);
     let phaseEndPose = null;
     if (phaseChangeClip) {
       const probe = new THREE.AnimationMixer(gltf.scene);
@@ -3069,7 +2997,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       (gltf.animations || []).map(c => foldPhase(clipPhase(c.name))).filter(Boolean));
     const singleFilePhases = clipPhaseKeys.size > 1;
     const phaseGroups = {};
-    if (!isCatalogExport || singleFilePhases) {
+    if (singleFilePhases) {
       meshes.forEach(m => {
         const p = meshPhase(m.name);
         if (p) (phaseGroups[p] = phaseGroups[p] || []).push(m);
@@ -3094,10 +3022,10 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     const minPhase = lockedPhase || (phaseKeys.length > 0 ? phaseKeys[0] : null);
     // 모든 보스는 항상 1페이즈(가장 낮은 페이즈)로 시작 - 다른 페이즈는 직접 선택해야 보인다.
     let currentPhase = minPhase;
-    // 신형 추출본은 파일 하나가 곧 페이즈 하나라, 메쉬 이름의 phase 태그를 무시해야 한다.
+    // 추출본은 파일 하나가 곧 페이즈 하나라, 메쉬 이름의 phase 태그를 무시해야 한다.
     // 이걸 빼먹으면 2페이즈 파일의 "2phase_" 파츠들이 currentPhase(null) 와 비교돼
     // 전부 숨겨진다 — 실제로 11개 중 6개가 사라졌었다.
-    const phaseOf = (name) => ((isCatalogExport && !singleFilePhases) ? null : meshPhase(name));
+    const phaseOf = (name) => (singleFilePhases ? meshPhase(name) : null);
 
     const partTable = hasPhasePartTable(bossKey);
     const isPhaseVisible = (p, current) => {
@@ -3398,125 +3326,78 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       }
     }
 
-    // 신형 추출본은 정규화 후 정면에서 본다.
+    // 정규화 후 정면에서 본다.
     //
     // 예전에는 바운딩박스 중심에서 x·z 로 똑같이 물러난 자리에 카메라를 뒀는데, 그러면
     // 항상 45도 대각선에서 보게 된다 — 테스트 뷰어는 정면(x=0, z=거리)이라 화면이
     // 전혀 다르게 보였다. 좌우·상하가 다 틀어져 보인 원인이 이것이다.
     let normHeight = 1;
-    if (isCatalogExport) {
-      normGroup.position.set(0, 0, 0);
-      normGroup.scale.setScalar(1);
-      normGroup.updateWorldMatrix(true, true);
+    normGroup.position.set(0, 0, 0);
+    normGroup.scale.setScalar(1);
+    normGroup.updateWorldMatrix(true, true);
 
-      // 뼈를 씬 루트별로 묶어서 상자를 따로 잰다. 보스 몸에서 뚝 떨어져 떠 있는
-      // 딴 개체가 상자를 부풀리면 보스가 그만큼 작게 잡히기 때문이다 -
-      // 리버렐리오 바디는 해파리를 넣으면 229, 빼면 50.8 이라 보스가 제 크기의
-      // 1/5 로 잡혔다. 파츠를 꺼도 소용없다. 정규화는 뼈 위치로만 재기 때문에
-      // 보이고 안 보이고와 무관하다.
-      //
-      // 배포된 16종으로 대조해 보니 리버렐리오 말고는 값이 소수점까지 그대로다.
-      // 대부분 리그가 하나뿐이라 아무 일도 안 하고, 둘인 애니힐리오는 두 뭉치가
-      // 맞닿아 있어 둘 다 남는다.
-      const fitGroups = new Map();
-      const nv = new THREE.Vector3();
-      meshes.forEach(m => {
-        if (!m.isSkinnedMesh || !m.skeleton) return;
-        m.skeleton.bones.forEach(b => {
-          if (DEBRIS_BONE_RE.test(b.name || '')) return;
-          let root = b;
-          while (root.parent && root.parent !== gltf.scene) root = root.parent;
-          let gbox = fitGroups.get(root);
-          if (!gbox) { gbox = new THREE.Box3(); fitGroups.set(root, gbox); }
-          b.getWorldPosition(nv);
-          gbox.expandByPoint(normGroup.worldToLocal(nv.clone()));
-        });
+    // 뼈를 씬 루트별로 묶어서 상자를 따로 잰다. 보스 몸에서 뚝 떨어져 떠 있는
+    // 딴 개체가 상자를 부풀리면 보스가 그만큼 작게 잡히기 때문이다 -
+    // 리버렐리오 바디는 해파리를 넣으면 229, 빼면 50.8 이라 보스가 제 크기의
+    // 1/5 로 잡혔다. 파츠를 꺼도 소용없다. 정규화는 뼈 위치로만 재기 때문에
+    // 보이고 안 보이고와 무관하다.
+    //
+    // 배포된 16종으로 대조해 보니 리버렐리오 말고는 값이 소수점까지 그대로다.
+    // 대부분 리그가 하나뿐이라 아무 일도 안 하고, 둘인 애니힐리오는 두 뭉치가
+    // 맞닿아 있어 둘 다 남는다.
+    const fitGroups = new Map();
+    const nv = new THREE.Vector3();
+    meshes.forEach(m => {
+      if (!m.isSkinnedMesh || !m.skeleton) return;
+      m.skeleton.bones.forEach(b => {
+        if (DEBRIS_BONE_RE.test(b.name || '')) return;
+        let root = b;
+        while (root.parent && root.parent !== gltf.scene) root = root.parent;
+        let gbox = fitGroups.get(root);
+        if (!gbox) { gbox = new THREE.Box3(); fitGroups.set(root, gbox); }
+        b.getWorldPosition(nv);
+        gbox.expandByPoint(normGroup.worldToLocal(nv.clone()));
       });
-      const nb = new THREE.Box3();
-      if (fitGroups.size) {
-        const gs = new THREE.Vector3();
-        const widest = box => Math.max(box.getSize(gs).x, gs.y, gs.z);
-        let main = null, mainMax = -1;
-        fitGroups.forEach(gbox => {
-          const w = widest(gbox);
-          if (w > mainMax) { mainMax = w; main = gbox; }
-        });
-        // 가장 큰 뭉치에 그 크기의 절반만큼 여유를 주고, 거기 안 닿는 뭉치는 뺀다.
-        const reach = main.clone().expandByScalar(mainMax * 0.5);
-        fitGroups.forEach(gbox => { if (gbox.intersectsBox(reach)) nb.union(gbox); });
-      }
-      if (!nb.isEmpty()) {
-        const ns = nb.getSize(new THREE.Vector3());
-        const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
-        const fitBase = catalogFitBase(bossKey, bossCode, isCatalogExport, optLabelPhase);
-        const bs = fitBase.scale || 1;
-        normGroup.scale.setScalar(k * bs);
-        normGroup.position.set(0, -nb.min.y * k * bs + (fitBase.y || 0), 0);
-        // 눈높이는 기준 보정 전 크기로 잡는다 — 맞춰 둔 시점을 그대로 유지한다.
-        normHeight = ns.y * k;
-      }
+    });
+    const nb = new THREE.Box3();
+    if (fitGroups.size) {
+      const gs = new THREE.Vector3();
+      const widest = box => Math.max(box.getSize(gs).x, gs.y, gs.z);
+      let main = null, mainMax = -1;
+      fitGroups.forEach(gbox => {
+        const w = widest(gbox);
+        if (w > mainMax) { mainMax = w; main = gbox; }
+      });
+      // 가장 큰 뭉치에 그 크기의 절반만큼 여유를 주고, 거기 안 닿는 뭉치는 뺀다.
+      const reach = main.clone().expandByScalar(mainMax * 0.5);
+      fitGroups.forEach(gbox => { if (gbox.intersectsBox(reach)) nb.union(gbox); });
+    }
+    if (!nb.isEmpty()) {
+      const ns = nb.getSize(new THREE.Vector3());
+      const k = 1 / (Math.max(ns.x, ns.y, ns.z) || 1);
+      const fitBase = catalogFitBase(bossKey, bossCode, optLabelPhase);
+      const bs = fitBase.scale || 1;
+      normGroup.scale.setScalar(k * bs);
+      normGroup.position.set(0, -nb.min.y * k * bs + (fitBase.y || 0), 0);
+      // 눈높이는 기준 보정 전 크기로 잡는다 — 맞춰 둔 시점을 그대로 유지한다.
+      normHeight = ns.y * k;
     }
 
-    const box = new THREE.Box3().setFromObject(gltf.scene);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const radius = size.length() || 1;
+    // 카메라와 시선을 같은 값만큼 올린다 — 각도는 그대로 두고 눈높이만 바꾼다.
+    const fitOv = CATALOG_FIT_OVERRIDES[bossCode] || {};
+    const camLift = fitOv.camY || 0;
+    camera.position.set(0, normHeight * 0.55 + camLift, fitOv.camDist || 2.3);
+    controls.target.set(0, normHeight * 0.5 + camLift, 0);
 
-    if (isCatalogExport) {
-      // 카메라와 시선을 같은 값만큼 올린다 — 각도는 그대로 두고 눈높이만 바꾼다.
-      const fitOv = CATALOG_FIT_OVERRIDES[bossCode] || {};
-      const camLift = fitOv.camY || 0;
-      camera.position.set(0, normHeight * 0.55 + camLift, fitOv.camDist || 2.3);
-      controls.target.set(0, normHeight * 0.5 + camLift, 0);
-    } else {
-      camera.position.set(center.x + radius * 0.8, center.y + radius * 0.5, center.z + radius * 0.8);
-      controls.target.copy(center);
-    }
-
-    // 보스마다 크기가 제각각이라 줌 한계도 모델 크기(radius) 기준 상대값으로 준다 —
-    // 너무 가까이 가면 파츠를 뚫고 들어가 안 보이고, 너무 멀어지면 화면에서 안 보일 만큼
-    // 작아지는 걸 막는다.
-    if (isCatalogExport) {
-      controls.minDistance = 0.4;
-      controls.maxDistance = 12;
-      camera.near = 0.01;
-      camera.far = 100;
-      camera.updateProjectionMatrix();
-    } else {
-      controls.minDistance = radius * 0.05;
-      controls.maxDistance = radius * 3;
-    }
+    // 줌 한계. 정규화로 크기를 맞춰 두었으니 보스마다 같은 값을 쓴다 — 너무 가까이 가면
+    // 파츠를 뚫고 들어가 안 보이고, 너무 멀어지면 화면에서 안 보일 만큼 작아진다.
+    controls.minDistance = 0.4;
+    controls.maxDistance = 12;
+    camera.near = 0.01;
+    camera.far = 100;
+    camera.updateProjectionMatrix();
 
     controls.update();
-
-    // 스킨드메쉬의 지오메트리 바운딩박스는 바인드 포즈 기준이라, 재생 위치가 바인드와
-    // 멀리 떨어진 모델(신형 추출본이 그렇다)에서는 카메라가 빈 곳을 보게 된다.
-    // 기존 보스는 둘이 일치해서 이 보정이 아예 걸리지 않는다 — 어긋난 경우에만 고친다.
-    const probe = new THREE.Vector3();
-    if (!isCatalogExport && focusMesh && rigCenter(focusMesh, probe, focusBone) && !box.containsPoint(probe)) {
-      const boneBox = new THREE.Box3();
-      const bv = new THREE.Vector3();
-      meshes.forEach(m => {
-        if (!m.isSkinnedMesh || !m.skeleton) return;
-        m.skeleton.bones.forEach(b => {
-          if (DEBRIS_BONE_RE.test(b.name || '')) return;
-          boneBox.expandByPoint(b.getWorldPosition(bv));
-        });
-      });
-      if (!boneBox.isEmpty()) {
-        const bSize = boneBox.getSize(new THREE.Vector3());
-        const bCenter = boneBox.getCenter(new THREE.Vector3());
-        const bRadius = bSize.length() || 1;
-        camera.position.set(bCenter.x + bRadius * 0.8, bCenter.y + bRadius * 0.4, bCenter.z + bRadius * 0.8);
-        controls.target.copy(bCenter);
-        controls.minDistance = bRadius * 0.05;
-        controls.maxDistance = bRadius * 4;
-        camera.near = bRadius / 500;
-        camera.far = bRadius * 50;
-        camera.updateProjectionMatrix();
-        controls.update();
-      }
-    }
 
     homeCamPos = camera.position.clone();
     homeTarget = controls.target.clone();
@@ -3615,7 +3496,7 @@ function noFollowClip(bossKey, name) {
     });
 
     // 팬으로 시선을 옮길 수 있는 범위. 너무 멀리 밀어내면 모델을 다시 찾기 어렵다.
-    const PAN_LIMIT = isCatalogExport ? 1.2 : radius * 0.6;
+    const PAN_LIMIT = 1.2;
 
     function clampPan() {
       // 추적이 켜져 있으면 시선을 모델 쪽으로 멀리 옮겨야 한다. 여기서 되돌리면
@@ -4466,10 +4347,7 @@ function noFollowClip(bossKey, name) {
         return fix ? fix.label : fallback;
       };
 
-      // 구형 변환본은 클립이 idle(또는 페이즈별 idle) 뿐이고 그 전환은 페이즈 토글이
-      // 이미 담당한다. 거기에 애니메이션 목록까지 띄우면 역할이 겹치고, 클립만 바꾸면
-      // 파츠 표시와 어긋난다. 신형 추출본에서만 목록을 낸다.
-      if (isCatalogExport && clips.length > 1) {
+      if (clips.length > 1) {
         animEl.classList.remove('hidden');
 
         // 묶음과 그 구성 클립을 한 목록에 계층으로 편다.
@@ -4713,7 +4591,9 @@ function noFollowClip(bossKey, name) {
     if (onLoaded) onLoaded({ meshCount: meshes.length });
 
     // ── 재생바 ────────────────────────────────────────────────────
-    const barEl = document.getElementById('soloraid-playbar');
+    // 애니메이션이 하나도 없는 모델이면 재생바를 감춘다.
+    // (예전에는 없는 id(#soloraid-playbar)를 찾고 있어서 이 줄이 한 번도 안 돌았다.)
+    const barEl = document.getElementById('sr3d-bar');
     const lineEl = document.getElementById('soloraid-timeline');
     const fillEl = document.getElementById('soloraid-timeline-fill');
     const codeEl = document.getElementById('soloraid-timecode');
@@ -4913,7 +4793,7 @@ function noFollowClip(bossKey, name) {
     if (zeroBtn) {
       zeroBtn.onclick = () => {
         if (container.__soloRaidModel3D !== state || !SL.yaw) return;
-        const t = getBossTransform(bossCode, isCatalogExport);
+        const t = getBossTransform(bossCode);
         SL.yaw.value = t.rotation[1]; SL.pitch.value = t.rotation[0]; SL.roll.value = t.rotation[2];
         SL.px.value = t.position[0]; SL.py.value = t.position[1]; SL.pz.value = t.position[2];
         SL.sc.value = t.scale;
