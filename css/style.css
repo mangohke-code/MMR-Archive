@@ -326,11 +326,26 @@
   }
 
   header h1 {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     font-size: 52px;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-heading);
   }
+
+  /* 파비콘과 같은 그림. 글자 높이에 맞춰 제목 앞에 둔다. 그림 자체가 둥근
+     모서리라 따로 깎지 않는다. */
+  .site-logo {
+    width: 1.05em;
+    height: 1.05em;
+    flex: none;
+    border-radius: 22%;
+  }
+
+  /* 로고 바탕이 검정이라 어두운 테마에서는 페이지 바탕에 묻힌다. 테두리만 얇게 두른다. */
+  [data-theme="dark"] .site-logo { box-shadow: 0 0 0 1px var(--border-strong); }
 
   .site-tagline {
     margin-top: 4px;
