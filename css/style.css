@@ -7180,3 +7180,96 @@
     #soloraid-selector.is-attr-sorted .soloraid-item-season { font-size: 13px; }
     #soloraid-selector.is-attr-sorted .soloraid-item-boss { font-size: 15px; }
   }
+
+  /* ===== 달력 픽업 막대 — 각진 모양 =====
+     버튼처럼 왼쪽 위·오른쪽 아래를 잘라낸다. 한 픽업이 여러 주에 걸쳐 끊겨 그려지므로
+     시작 조각(is-start)에서 왼쪽 위, 끝 조각(is-end)에서 오른쪽 아래만 자른다.
+     중간 조각은 네모 그대로라 다음 주 막대와 이어져 보인다.
+     overflow: hidden 이라 왼쪽 속성 색 띠도 잘린 선을 따라 비스듬히 잘린다. */
+  .calendar-bar {
+    --bar-cut: 7px;
+    border-radius: 0;
+    corner-shape: bevel;
+  }
+  .calendar-bar.is-start {
+    border-top-left-radius: var(--bar-cut);
+    border-bottom-left-radius: 0;
+  }
+  .calendar-bar.is-end {
+    border-bottom-right-radius: var(--bar-cut);
+    border-top-right-radius: 0;
+  }
+  /* 전체보기의 가로 타임라인 막대는 늘 한 덩어리다 */
+  .calendar-bar.tl-bar {
+    --bar-cut: 9px;
+    border-radius: var(--bar-cut) 0 var(--bar-cut) 0;
+  }
+  @supports not (corner-shape: bevel) {
+    .calendar-bar, .calendar-bar.is-start, .calendar-bar.is-end, .calendar-bar.tl-bar {
+      border-radius: 0;
+    }
+  }
+
+  /* ===== 캐릭터 도감 — 메인 스토리 진행도 =====
+     흰 목록 줄에 옅은 바탕만 바뀌어서 어디까지 골랐는지 잘 안 보였다.
+     줄마다 떨어진 각진 비닐 단추로 바꾸고, 오른쪽 이벤트 칩과 같은 말투로 맞춘다.
+       고른 챕터(active-top)  라벤더로 채우고 금색 밑단 — 이벤트 칩의 "고름"과 같다
+       그 아래 본 챕터(active) 라벤더를 옅게 깔고 글자를 진하게 */
+  #survey-chapter-bar {
+    gap: 4px;
+    padding: 2px 6px 2px 2px;
+  }
+  .chapter-bar-item::before { display: none; }
+
+  #survey-chapter-bar .chapter-bar-fill {
+    --btn-cut: 7px;
+    height: 34px;
+    border: 1px solid var(--border-card);
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
+    box-shadow: var(--btn-shadow);
+    transition: border-color 0.18s, box-shadow 0.18s, --sheen-x 0.35s ease-out;
+  }
+  #survey-chapter-bar .chapter-bar-label { color: var(--text-muted); }
+
+  #survey-chapter-bar .chapter-bar-item.active .chapter-bar-fill {
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel));
+    border-color: var(--border-strong);
+  }
+  #survey-chapter-bar .chapter-bar-item.active .chapter-bar-label { color: var(--accent-strong); }
+
+  #survey-chapter-bar .chapter-bar-item.active-top .chapter-bar-fill {
+    background: var(--btn-on-bg);
+    border-color: var(--accent-strong);
+    box-shadow: var(--btn-on-shadow);
+  }
+  #survey-chapter-bar .chapter-bar-item.active-top .chapter-bar-label { color: var(--text-on-accent); }
+
+  @media (hover: hover) {
+    #survey-chapter-bar .chapter-bar-item:not(.active):not(.active-top):hover .chapter-bar-fill {
+      --sheen-x: 0%;
+      background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+      border-color: var(--border-strong);
+      box-shadow: var(--btn-shadow-hover);
+    }
+    #survey-chapter-bar .chapter-bar-item:not(.active):not(.active-top):hover .chapter-bar-label { color: var(--accent); }
+    #survey-chapter-bar .chapter-bar-item.active:hover .chapter-bar-fill {
+      background: color-mix(in srgb, var(--accent) 24%, var(--bg-panel));
+    }
+    #survey-chapter-bar .chapter-bar-item.active-top:hover .chapter-bar-fill {
+      background: var(--btn-on-bg);
+      box-shadow: var(--btn-on-shadow), 0 4px 14px var(--accent-glow);
+    }
+  }
+
+  @supports not (corner-shape: bevel) {
+    #survey-chapter-bar .chapter-bar-fill {
+      border-radius: 0;
+      clip-path: polygon(var(--btn-cut) 0, 100% 0, 100% calc(100% - var(--btn-cut)),
+                         calc(100% - var(--btn-cut)) 100%, 0 100%, 0 var(--btn-cut));
+    }
+  }
+
+  /* 전체보기(가로 타임라인)는 날짜가 가로로 하루씩 이어져서 요일 7칸 머리줄과 맞지 않는다 */
+  #pickup-calendar-view.is-all-months #pickup-calendar-weekdays { display: none; }
