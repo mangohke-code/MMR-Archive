@@ -1,0 +1,51 @@
+# Supabase 무료 플랜은 7일 동안 요청이 없으면 프로젝트를 일시 정지한다.
+# 정지되면 사이트가 데이터를 못 불러와서 로딩 화면에서 멈춘다.
+# 사흘마다 표 하나에서 한 줄만 읽어서 깨워 둔다.
+#
+#  - 키는 사이트가 이미 공개로 쓰는 anon 키다(js/config.js). 따로 비밀값을 두지 않고
+#    그 파일에서 읽으니, 키를 바꿔도 여기는 안 고쳐도 된다.
+#  - 방문_기록에는 쓰지 않는다. 쓰면 방문 통계에 가짜 방문이 섞인다.
+#  - 실패하면 GitHub 가 저장소 주인에게 메일을 보낸다.
+#  - GitHub 는 저장소에 60일 동안 활동이 없으면 예약 작업을 스스로 끈다.
+#    그때도 메일이 오고, Actions 탭에서 다시 켜면 된다.
+name: Supabase 깨우기
+
+on:
+  schedule:
+    # 매달 1·4·7…31일 03:17 UTC (한국 12:17). 간격이 길어야 3일이다.
+    # 정각은 GitHub 쪽이 붐벼서 늦게 도는 일이 잦아 17분으로 비켜 둔다.
+    - cron: '17 3 */3 * *'
+  # Actions 탭에서 손으로 돌릴 때
+  workflow_dispatch:
+  # 이 파일을 고쳐서 올렸을 때 한 번 돌려 본다
+  push:
+    branches: [main]
+    paths: ['.github/workflows/supabase-keepalive.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: js/config.js
+          sparse-checkout-cone-mode: false
+
+      - name: 표 하나에서 한 줄 읽기
+        run: |
+          URL=$(grep -o "https://[a-z0-9]*\.supabase\.co" js/config.js | head -1)
+          KEY=$(grep -o "eyJ[A-Za-z0-9_.-]*" js/config.js | head -1)
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "js/config.js 에서 주소나 키를 못 찾았다"; exit 1
+          fi
+          # 솔로_레이드?select=시즌&limit=1
+          CODE=$(curl -s -o body.json -w "%{http_code}" --retry 3 --retry-all-errors --retry-delay 20 \
+            "$URL/rest/v1/%EC%86%94%EB%A1%9C_%EB%A0%88%EC%9D%B4%EB%93%9C?select=%EC%8B%9C%EC%A6%8C&limit=1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "HTTP $CODE"
+          cat body.json; echo
+          [ "$CODE" = "200" ]
