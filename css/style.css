@@ -6677,6 +6677,46 @@
     filter: none;
   }
 
+  /* ===== 버튼 모양 — 모서리 잘라낸 각진 모양 =====
+     둥근 알약 모양 대신 왼쪽 위·오른쪽 아래 모서리를 비스듬히 잘라낸다(니케 UI 느낌).
+     corner-shape: bevel 이면 테두리·그림자·금색 밑단이 잘린 선을 그대로 따라간다.
+     --btn-cut 은 잘라내는 크기다. 버튼 높이에 맞춰 무리별로 다르게 준다.
+
+     솔로 레이드 애니메이션 목록 줄은 뺀다 — 왼쪽 묶음 선이 잘린 모서리에 걸린다. */
+  .tab-btn, #theme-toggle,
+  .pickup-view-btn, .pickup-group-btn, .calendar-group-btn, .calendar-nav-btn, .year-nav-btn,
+  .filter-chip, .survey-chip, .survey-all-btn, #survey-global-btns .survey-global-btn,
+  .anim-btn, .detail-model-btn, .mode-btn, .update-log-more, .costume-scroll-btn,
+  .scroll-btn, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn),
+  #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
+  #codex-survey-btn, #soloraid-sort-btn, #stage-back-btn,
+  #contact-send, #survey-confirm-btn, .spoiler-reveal-btn {
+    --btn-cut: 7px;
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+  }
+
+  /* 큰 것은 크게, 작은 칩은 작게 자른다 */
+  .tab-btn, #theme-toggle, #contact-send, #survey-confirm-btn, .spoiler-reveal-btn { --btn-cut: 10px; }
+  .filter-chip, .survey-chip, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn) { --btn-cut: 5px; }
+
+  /* corner-shape 를 모르는 브라우저(사파리·파이어폭스 등)는 모서리를 잘라내서 흉내 낸다.
+     모양은 같고, 사선 부분의 테두리 선과 바깥 빛만 빠진다. */
+  @supports not (corner-shape: bevel) {
+    .tab-btn, #theme-toggle,
+    .pickup-view-btn, .pickup-group-btn, .calendar-group-btn, .calendar-nav-btn, .year-nav-btn,
+    .filter-chip, .survey-chip, .survey-all-btn, #survey-global-btns .survey-global-btn,
+    .anim-btn, .detail-model-btn, .mode-btn, .update-log-more, .costume-scroll-btn,
+    .scroll-btn, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn),
+    #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
+    #codex-survey-btn, #soloraid-sort-btn, #stage-back-btn,
+    #contact-send, #survey-confirm-btn, .spoiler-reveal-btn {
+      border-radius: 0;
+      clip-path: polygon(var(--btn-cut) 0, 100% 0, 100% calc(100% - var(--btn-cut)),
+                         calc(100% - var(--btn-cut)) 100%, 0 100%, 0 var(--btn-cut));
+    }
+  }
+
   /* 키보드로 옮겨 다닐 때만 보이는 초점 테두리 */
   button:focus-visible {
     outline: 2px solid var(--accent);
