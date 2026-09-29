@@ -4858,11 +4858,15 @@
     opacity: 0.35;
   }
 
+  /* 가운데 맞춤은 transform 이 아니라 translate 속성으로 한다. 버튼 공통 호버가
+     transform: translateY(-1px) 로 살짝 띄우는데, 여기서 transform 을 쓰면 호버 때
+     가운데 맞춤이 통째로 지워져 버튼이 오른쪽 아래로 튀었다(누르려 하면 도망감).
+     translate 와 transform 은 따로 먹어서 둘 다 적용된다. */
   .spoiler-reveal-btn {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    translate: -50% -50%;
     z-index: 10;
     font-size: 15px;
     padding: 6px 16px;
