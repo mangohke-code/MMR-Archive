@@ -249,7 +249,8 @@
     overlay.style.position = 'absolute';
     overlay.style.top = '50%';
     overlay.style.left = leftOffset + 'px';
-    overlay.style.transform = 'translate(-50%, -50%)';
+    // 가운데 맞춤(-50%, -50%)은 .spoiler-reveal-btn 의 translate 속성이 한다.
+    // 여기서 transform 으로 또 옮기면 두 번 밀려 왼쪽 위로 치우친다.
     overlay.style.zIndex = '10';
     overlay.textContent = '스포일러 해제';
     overlay.addEventListener('click', () => {
