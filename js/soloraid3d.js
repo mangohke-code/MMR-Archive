@@ -1159,6 +1159,10 @@ const CLIP_CAM_MOVE = [
   { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8, y: 0.27 },
   { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
     back: 1.66, pivot: /^(Pelvis|body_bone\d+|head_bone\d+)$/i },
+  // 마더웨일 사망 - 파일 카메라가 몸 바로 앞에 붙어 있어(1.2초에 얼굴이 화면을
+  // 꽉 채운다) 시선축을 따라 두 배로 물린다. 물린 뒤 0.47초 몸통이 화면 7할쯤,
+  // 2~6초는 떨어지는 전체가 화면 안에 든다.
+  { boss: /^bba001/i, re: /_dead$/i, back: 2.0 },
 ];
 
 // 한 클립에 여러 줄을 두면 시간순 구간이 된다(from·to, 클립 로컬 초).
