@@ -7357,3 +7357,58 @@
       border-radius: 0;
     }
   }
+
+  /* ===== 유니크 코스튬·캐릭터 도감 카드 — 각진 모양 =====
+     다른 탭 카드와 같이 왼쪽 위·오른쪽 아래를 잘라낸다. */
+  .costume-portrait-img, .codex-card, .codex-card-portrait, .codex-squad-group, .survey-section {
+    --card-cut: 12px;
+    border-radius: var(--card-cut) 0 var(--card-cut) 0;
+    corner-shape: bevel;
+  }
+  .codex-card-portrait { --card-cut: 8px; }
+  .codex-squad-group { --card-cut: 16px; }
+
+  /* ===== 카드 안 배지·아이콘 칸 — 각진 모양 =====
+     신규·복각·한정·콜라보·D-day·픽업 예정·시즌·미등장 같은 글자 배지는 작게(4px),
+     속성 아이콘 칸은 조금 크게(7px) 자른다. 알약 모양이던 공지 배지와
+     코스튬 "표시 중" 표시도 같은 모양으로. */
+  .badge, .badge-season, .badge-pickup-type, .pickup-remaining-badge,
+  .nikke-badge-limited, .nikke-badge-collab, .nikke-badge-rerun,
+  .nikke-active-badge, .nikke-upcoming-badge,
+  .costume-rerun-badge, .costume-remaining-badge, .costume-active-badge,
+  .codex-card-badge, .notice-badge, .calendar-bar-tag, .pickup-upcoming-badge,
+  .group-badge-limited, .group-badge-collab, .group-badge-rerun,
+  .costume-portrait-item.active .costume-portrait-img::after {
+    --tag-cut: 4px;
+    border-radius: var(--tag-cut) 0 var(--tag-cut) 0;
+    corner-shape: bevel;
+  }
+  .notice-badge, .costume-portrait-item.active .costume-portrait-img::after { --tag-cut: 6px; }
+
+  .nikke-attr-chip {
+    border-radius: 7px 0 7px 0;
+    corner-shape: bevel;
+  }
+
+  /* 배지 크기 맞추기 — 같은 줄에 놓이는데 크기가 달랐다.
+     메인 카드: "신규/복각"(16px) 옆의 "종료까지 D-n"(15px)
+     픽업 기록 카드: "픽업 중/예정"(13px) 옆의 "D-n"(15px) */
+  .pickup-remaining-badge { font-size: 16px; }
+  .nikke-date .pickup-remaining-badge, .nikke-date .pickup-upcoming-badge {
+    padding: 1px 6px;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+
+  @supports not (corner-shape: bevel) {
+    .costume-portrait-img, .codex-card, .codex-card-portrait, .codex-squad-group, .survey-section,
+    .badge, .badge-season, .badge-pickup-type, .pickup-remaining-badge,
+    .nikke-badge-limited, .nikke-badge-collab, .nikke-badge-rerun,
+    .nikke-active-badge, .nikke-upcoming-badge,
+    .costume-rerun-badge, .costume-remaining-badge, .costume-active-badge,
+    .codex-card-badge, .notice-badge, .calendar-bar-tag, .nikke-attr-chip, .pickup-upcoming-badge,
+    .group-badge-limited, .group-badge-collab, .group-badge-rerun,
+    .costume-portrait-item.active .costume-portrait-img::after {
+      border-radius: 2px;
+    }
+  }
