@@ -7325,3 +7325,35 @@
                          calc(100% - var(--card-cut)) 100%, 0 100%, 0 var(--card-cut));
     }
   }
+
+  /* ===== 메인 페이지·픽업 기록 카드 — 각진 모양 =====
+     버튼·챕터 카드와 같은 말투로 왼쪽 위·오른쪽 아래를 비스듬히 잘라낸다.
+     모서리 괄호가 있는 오른쪽 위·왼쪽 아래는 네모로 둔다. --card-cut 은 카드 크기에 맞춰. */
+  #main-notice, .event-card, .pickup-card, .nikke-card, .group-nikke-item,
+  #pickup-filter-wrap, #pickup-calendar-grid {
+    --card-cut: 12px;
+    border-radius: var(--card-cut) 0 var(--card-cut) 0;
+    corner-shape: bevel;
+  }
+  .event-card, .pickup-card:not(.rerun) { --card-cut: 18px; }
+  .group-nikke-item { --card-cut: 8px; }
+
+  /* 니케 카드는 위 배지가 튀어나올 수 있어 overflow 를 열어 두었다. 카드가 안을 잘라
+     주지 않으므로 위·아래 칸이 각자 같은 모서리를 따라간다. */
+  .nikke-card-top {
+    border-radius: var(--card-cut) 0 0 0;
+    corner-shape: bevel;
+  }
+  .nikke-card-bottom {
+    border-radius: 0 0 var(--card-cut) 0;
+    corner-shape: bevel;
+  }
+
+  /* corner-shape 를 모르는 브라우저는 그냥 네모로 둔다(잘라내기 흉내는 그림자·밖으로
+     나온 배지까지 잘라서 뺀다) */
+  @supports not (corner-shape: bevel) {
+    #main-notice, .event-card, .pickup-card, .nikke-card, .group-nikke-item,
+    #pickup-filter-wrap, #pickup-calendar-grid, .nikke-card-top, .nikke-card-bottom {
+      border-radius: 0;
+    }
+  }
