@@ -563,6 +563,8 @@ function detectBossCode(meshNames, url) {
 //   camY - 카메라 눈높이. 카메라와 시선을 같은 값만큼 올려서 각도는 그대로 둔다.
 //   camDist - 기본 시점 거리. 안 적으면 공용값 2.3 을 쓴다. 이 값을 줄이면
 //     모델은 그대로 두고 카메라만 다가간다 — 눈높이·각도는 안 바뀐다.
+//   camDrop - 카메라만 이만큼 내린다(시선은 그대로). camY 와 달리 각도가 바뀐다 —
+//     카메라가 시선보다 낮아져서 아래에서 올려다보는 구도가 된다.
 const CATALOG_FIT_OVERRIDES = {
   xbg003: { scale: 1.0, position: [0, 0, 0], camY: 0.05 },
   // 미러 컨테이너는 옆으로 넓고 위아래로 낮아서, 세로 크기로 잡는 기본 눈높이가
@@ -575,6 +577,10 @@ const CATALOG_FIT_OVERRIDES = {
   // idle 12초를 훑어 잰 바운딩 중심이 x -0.309 / z +0.263 이라 그만큼 되민다.
   // position 은 yawGroup 에 걸려서 월드 좌표 그대로다(정규화 안쪽이 아니다).
   bbg008: { position: [0.309, 0, -0.263] },
+  // 마더웨일 - 정면 조금 아래에서 올려다보는 구도(약 4.5도).
+  // 카메라는 바닥 격자(높이 0)보다 위에 있어야 한다. 0.35 는 바닥 밑(-0.07)으로 들어가
+  // 격자를 아래에서 봤고, 0.25 는 바닥과 거의 같은 높이(0.01)라 격자가 한 줄로 보였다.
+  bba001: { camDrop: 0.2 },
 };
 
 // 정규화 직후에 한 번 더 먹이는 기준 보정. 이 값이 들어간 상태가 곧 "배율 1.0 / Y 0" 이다.
@@ -590,6 +596,7 @@ const CATALOG_FIT_BASE = {
   'mbg003@1': { scale: 1.3, y: 0 },
   ebg001_island: { pitch: 10 }, // 아일랜드 이터 - 기준 상하 각도
   eba001: { y: 0.2 },           // 스톰브링어 - 기준 높이
+  bba001: { y: 0.1 },           // 마더웨일 - 기준 높이
   // 그레이브 디거 - 땅을 파는 모양이라 앞뒤로 길다(보이는 범위 x 0.32,
   // y 0.32, z 1.01). 정규화가 긴 쪽인 깊이로 잡아서 화면에서 매우 작아진다.
   mbg002: { scale: 2.2, y: -1.45 },
@@ -3386,7 +3393,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     // 카메라와 시선을 같은 값만큼 올린다 — 각도는 그대로 두고 눈높이만 바꾼다.
     const fitOv = CATALOG_FIT_OVERRIDES[bossCode] || {};
     const camLift = fitOv.camY || 0;
-    camera.position.set(0, normHeight * 0.55 + camLift, fitOv.camDist || 2.3);
+    camera.position.set(0, normHeight * 0.55 + camLift - (fitOv.camDrop || 0), fitOv.camDist || 2.3);
     controls.target.set(0, normHeight * 0.5 + camLift, 0);
 
     // 줌 한계. 정규화로 크기를 맞춰 두었으니 보스마다 같은 값을 쓴다 — 너무 가까이 가면
