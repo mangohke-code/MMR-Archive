@@ -7412,3 +7412,33 @@
       border-radius: 2px;
     }
   }
+
+  /* ===== 기념품·솔로 레이드 카드 — 각진 모양 =====
+     다른 탭 카드와 같이 왼쪽 위·오른쪽 아래를 잘라낸다. 카드 안 그림 칸도 같은 말투로. */
+  #souvenir-detail, #souvenir-bottom, .souvenir-event-group,
+  #souvenir-detail-img-wrap, .souvenir-strip-item,
+  .soloraid-item, .soloraid-item-img, .soloraid-tier-card, .soloraid-tier-img,
+  .soloraid-attr-col-head, #sr3d-drawer .soloraid-item-img {
+    --card-cut: 12px;
+    border-radius: var(--card-cut) 0 var(--card-cut) 0;
+    corner-shape: bevel;
+  }
+  #souvenir-detail, #souvenir-bottom { --card-cut: 18px; }
+  .souvenir-strip-item, #sr3d-drawer .soloraid-item-img { --card-cut: 8px; }
+  .soloraid-attr-col-head { --card-cut: 8px; }
+
+  /* 보스 상세 서랍의 시즌 표시·약점 속성 — 알약 모양을 각진 태그로 */
+  #sr3d-drawer #soloraid-season-label, #sr3d-drawer #soloraid-attr .soloraid-attr-pill {
+    border-radius: 6px 0 6px 0;
+    corner-shape: bevel;
+  }
+
+  @supports not (corner-shape: bevel) {
+    #souvenir-detail, #souvenir-bottom, .souvenir-event-group,
+    #souvenir-detail-img-wrap, .souvenir-strip-item,
+    .soloraid-item, .soloraid-item-img, .soloraid-tier-card, .soloraid-tier-img,
+    .soloraid-attr-col-head, #sr3d-drawer .soloraid-item-img,
+    #sr3d-drawer #soloraid-season-label, #sr3d-drawer #soloraid-attr .soloraid-attr-pill {
+      border-radius: 2px;
+    }
+  }
