@@ -747,9 +747,16 @@
     flex-direction: row;
   }
 
+  /* 카드 높이는 오른쪽 글자 칸이 정한다(이름·기간·배지 두 줄이면 150px 을 조금 넘는다).
+     그림을 150px 로 고정하면 위에 붙고 아래에 빈 띠가 남아 비대칭이었고, 그 빈 띠에
+     카드 모서리 괄호가 걸쳐 그림과 겹쳐 보였다. 카드 높이만큼 위아래로 늘여 채운다.
+     contain: size — 그림의 원본 비율이 카드 높이를 정하지 못하게 한다(없으면 세로로 긴
+     초상화 비율대로 카드가 300px 까지 늘어난다). */
   .pickup-img-rerun {
+    contain: size;
     width: 150px;
-    height: 150px;
+    min-height: 150px;
+    align-self: stretch;
     flex-shrink: 0;
     object-fit: cover;
     object-position: center 18%;
