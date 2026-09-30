@@ -13,8 +13,11 @@ import sys
 import tempfile
 
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SRC = os.path.join(BASE, '이미지', '보스')
-UPLOAD = os.path.join(BASE, '업로드용 보스 3D')
+# 2026-09-30 원본 폴더가 이미지 -> 리소스 로 옮겨졌다.
+# REPACK_SRC / REPACK_OUT 으로 바꿔 지정할 수 있다 — 새로 뽑은 원본을 올라가 있는
+# 파일과 섞지 않고 따로 묶어 볼 때(정보모음-web/_local/new, 깃에 안 올라간다).
+SRC = os.environ.get('REPACK_SRC') or os.path.join(BASE, '리소스', '보스')
+UPLOAD = os.environ.get('REPACK_OUT') or os.path.join(BASE, '업로드용 보스 3D')
 WEBP = os.path.join(BASE, '정보모음-web', 'tools', 'glb_webp.py')
 
 # (원본 상대경로, 출력 이름)
@@ -33,9 +36,14 @@ JOBS = [
     ('추출프로그램 업데이트 이후/mbg003_베히모스 P.S.I.D_mbg003_psid.glb', 'mbg003_1phase'),
     ('추출프로그램 업데이트 이후/mbg003_베히모스 P.S.I.D.glb', 'mbg003_2phase'),
     # 검은 뱀은 스팟 번들이 둘인데, 카메라 셋은 본 번들에만 있다.
-    # " · summon" 변형에는 카메라 클립이 아예 없어서 본 번들을 쓴다
-    # (메쉬·재질·스킨·모델 클립 27개는 양쪽이 같다).
-    ('추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A.glb', 'bbg008'),
+    # " · summon" 변형에는 카메라 클립이 아예 없어서 본 번들을 쓴다.
+    # 2026-09-30 재추출부터 가운데 본체와 좌우 머리가 파일 셋으로 나온다(그 전에는
+    # 추출기가 모든 클립을 왼쪽 머리에 붙여서 본체·오른쪽 머리가 빠져 있었다).
+    # 셋은 뼈·메쉬 이름이 같아서 SUFFIXES 로 머리 쪽 이름을 갈라 합친다.
+    # _sd_bbg008_var 는 보스 프리팹 밖 리그(outsidePrefab)라 넣지 않는다.
+    (['추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A.glb',
+      '추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A_bbg008_left_var.glb',
+      '추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A_bbg008_right_var.glb'], 'bbg008'),
     # 거대 질량체 두 마리는 예전에 이 목록에 없었다(다른 경로로 만들어 올린 듯하다).
     ('추출프로그램 업데이트 이후/eba004_거대 질량체.glb', 'eba004'),
     ('추출프로그램 업데이트 이후/eba004_거대 질량체Q.glb', 'eba004_dmtr'),
@@ -63,8 +71,10 @@ JOBS = [
     # 2026-09-18 재추출에서 파일 이름이 바뀌었다(에셋 이름 -> 보스 이름 · 변종).
     #   eba002_eba002 H.S.T.A        -> eba002_리버렐리오 바디 H.S.T.A. · singleraid
     #   ..._eba002_hsta              -> ..._eba002_hsta_singleraid
+    # 2026-09-30 재추출(부속 파일 이름이 리그 이름 기준으로 바뀜)
+    #   ..._eba002_hsta_singleraid   -> ..._eba002_2phase_var
     (['추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid.glb',
-      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_hsta_singleraid.glb',
+      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_2phase_var.glb',
       '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb'],
      'eba002'),
     # 시즌 42 앨트루이아. 시즌 34 것(Z.E.U.S.)과 메쉬·카메라·공유 클립 20개가
@@ -89,10 +99,35 @@ JOBS = [
 # 트랙 이름의 앞머리로 찾는다). 2페이즈 쪽 이름을 갈아 둔다.
 #
 # 짝짓기는 extras.pairedClip 을 먼저 보므로 이름을 바꿔도 짝은 안 어긋난다.
+#
+# 2026-09-30 재추출부터는 동작 주인을 게임 타임라인·애니메이터 바인딩으로 정해서,
+# 연출이 두 몸을 같이 묶으면 양쪽 파일에 같은 이름의 동작이 하나씩 실린다.
+#   1페 몸 파일의 eba002_2phase_death  - root 만 움직이는 2채널(사망 내내 1페 몸은 꺼짐)
+#   2페 몸 파일의 eba002_1phase_intro  - 같은 식(1페 등장 내내 2페 몸은 꺼짐)
+# 합치면 이름이 겹쳐 뒤엣것에 _2 가 붙고, 연출 카메라가 이름으로 짝을 찾다가 먼저
+# 온 빈 동작에 붙는다(2페 사망이 카메라만 돌고 몸은 안 움직였다). 빈 쪽 이름을 간다.
 RENAMES = {
-    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_hsta_singleraid.glb': {
-        'eba002_2phase_intro_camera': 'eba002_2phase_intro_02_camera',
+    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid.glb': {
+        'eba002_2phase_death': 'eba002_2phase_death_1pvar',
     },
+    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_2phase_var.glb': {
+        'eba002_2phase_intro_camera': 'eba002_2phase_intro_02_camera',
+        'eba002_1phase_intro': 'eba002_1phase_intro_2pvar',
+    },
+}
+
+# 리그 전체의 이름 뒤에 꼬리를 붙여 합칠 파일. { 원본 상대경로: (꼬리, 그대로 둘 노드 이름) }
+#
+# 검은 뱀 좌우 머리는 본체와 뼈·메쉬 이름이 전부 같다. 그대로 합치면 three.js 가
+# 트랙을 이름으로 묶어서 머리 클립이 본체 뼈를 움직인다. 노드는 전부, 클립은 본체와
+# 이름이 겹치는 것만(recall_enter_01, destroy_01) 꼬리를 붙인다. 꼬리를 앞이 아니라
+# 뒤에 붙이는 건 뷰어의 뼈 이름 규칙(root·Helper_ 로 시작하는 기준 뼈 가르기)이
+# 앞머리로 보기 때문이다. 루트(bbg008_left_var 등)는 이미 고유해서 그대로 둔다.
+SUFFIXES = {
+    '추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A_bbg008_left_var.glb':
+        ('_left', {'bbg008_left_var'}, {'bbg008_recall_enter_01', 'bbg008_destroy_01'}),
+    '추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A_bbg008_right_var.glb':
+        ('_right', {'bbg008_right_var'}, {'bbg008_recall_enter_01', 'bbg008_destroy_01'}),
 }
 
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
@@ -116,16 +151,56 @@ def rename_in_glb(src, dst, table):
             chunks.append([ty, f.read(ln)])
     doc = json.loads(chunks[0][1].decode('utf-8'))
     hit = 0
+    seen = set()
     for key in ('nodes', 'animations'):
         for item in doc.get(key) or []:
             fixed = table.get(item.get('name'))
             if fixed:
+                seen.add(item.get('name'))
                 item['name'] = fixed
                 hit += 1
-    # 노드 하나 + 클립 하나가 짝이다. 수가 안 맞으면 원본이 바뀐 것이니 멈춘다.
-    if hit != 2 * len(table):
-        raise RuntimeError('이름 바꾸기 대상이 %d개다(%d개여야 한다): %s'
-                           % (hit, 2 * len(table), os.path.basename(src)))
+    # 카메라는 노드 하나 + 클립 하나가 짝이고, 동작만 가르는 이름은 클립 하나다.
+    # 적어 둔 이름이 하나라도 안 보이면 원본이 바뀐 것이니 멈춘다.
+    missing = [k for k in table if k not in seen]
+    if missing:
+        raise RuntimeError('이름 바꾸기 대상이 없다: %s (%s)'
+                           % (', '.join(missing), os.path.basename(src)))
+    raw = json.dumps(doc, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    raw += b' ' * ((4 - len(raw) % 4) % 4)
+    chunks[0][1] = raw
+    body = b''
+    for ty, data in chunks:
+        pad = b'\x00' if ty == 0x004E4942 else b' '
+        data = data + pad * ((4 - len(data) % 4) % 4)
+        body += struct.pack('<II', len(data), ty) + data
+    with open(dst, 'wb') as f:
+        f.write(struct.pack('<III', 0x46546C67, 2, 12 + len(body)) + body)
+
+
+def suffix_in_glb(src, dst, suffix, keep_nodes, clip_names):
+    """노드·메쉬 이름 전부와 지정한 클립 이름에 꼬리를 붙여 새 파일로 쓴다(SUFFIXES)."""
+    with open(src, 'rb') as f:
+        struct.unpack('<III', f.read(12))
+        chunks = []
+        while True:
+            hdr = f.read(8)
+            if len(hdr) < 8:
+                break
+            ln, ty = struct.unpack('<II', hdr)
+            chunks.append([ty, f.read(ln)])
+    doc = json.loads(chunks[0][1].decode('utf-8'))
+    for n in doc.get('nodes') or []:
+        if n.get('name') and n['name'] not in keep_nodes:
+            n['name'] += suffix
+    # 메쉬 이름도 갈라야 한다. three.js 는 프리미티브가 여럿인 메쉬를 노드 이름이
+    # 아니라 메쉬 이름으로 부른다(bbg008_body_skin_2, _3 …). 안 가르면 머리 메쉬가
+    # 본체와 같은 이름에 번호만 달라서 이름 규칙으로 못 고른다.
+    for m in doc.get('meshes') or []:
+        if m.get('name'):
+            m['name'] += suffix
+    for a in doc.get('animations') or []:
+        if a.get('name') in clip_names:
+            a['name'] += suffix
     raw = json.dumps(doc, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
     raw += b' ' * ((4 - len(raw) % 4) % 4)
     chunks[0][1] = raw
@@ -190,6 +265,10 @@ def main():
                 continue
             rels = rel if isinstance(rel, list) else [rel]
             srcs = [os.path.join(SRC, r.replace('/', os.sep)) for r in rels]
+            # 폴더 없이 적힌 원본(마더웨일)도 새 원본은 이 폴더에 모여 있다
+            srcs = [p if os.path.exists(p) else
+                    os.path.join(SRC, '추출프로그램 업데이트 이후', os.path.basename(p))
+                    for p in srcs]
             missing = [r for r, p in zip(rels, srcs) if not os.path.exists(p)]
             if missing:
                 print('건너뜀(원본 없음):', missing[0])
@@ -200,6 +279,10 @@ def main():
                 if table:
                     fixed = os.path.join(tmp, 'ren%d.glb' % i)
                     rename_in_glb(srcs[i], fixed, table)
+                    srcs[i] = fixed
+                if r in SUFFIXES:
+                    fixed = os.path.join(tmp, 'suf%d.glb' % i)
+                    suffix_in_glb(srcs[i], fixed, *SUFFIXES[r])
                     srcs[i] = fixed
             a = os.path.join(tmp, 'a.glb')
             b = os.path.join(tmp, 'b.glb')
@@ -215,6 +298,7 @@ def main():
             run(GT + ['prune', a, b])
             run(GT + ['draco', b, c])
             dst = os.path.join(UPLOAD, out + '.glb')
+            os.makedirs(UPLOAD, exist_ok=True)
             run([sys.executable, WEBP, c, dst])
             print('%-16s %7.1f MB -> %5.1f MB' % (
                 out, sum(os.path.getsize(p) for p in srcs) / 1e6,

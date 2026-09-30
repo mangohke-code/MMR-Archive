@@ -9,7 +9,6 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
@@ -430,6 +429,10 @@ const DEFAULT_OFF_MESHES = [
   // 2페이즈 파일에 3페이즈가 같이 들어 있고 이 파츠에는 페이즈 꼬리표가 없어서,
   // 페이즈를 조건으로 단 줄이 필요하다.
   { boss: /^mbg003/i, re: /_vulcan_skin$/i, phase: '3' },
+  // 검은 뱀 좌우 머리 - 평소에는 없다. 게임은 머리 둘을 담은 heads 묶음을 등장
+  // take2(3.23~10.67초)와 2페 스킬02(2.33~5.00초)에만 켠다. 그 구간은 파일의
+  // meshActivation 이 켠다(경로 …/heads 로 매칭).
+  { boss: /^bbg008/i, re: /_skin_(left|right)(_\d+)?$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -572,11 +575,6 @@ const CATALOG_FIT_OVERRIDES = {
   xba001: { scale: 1.0, position: [0, 0, 0], camY: 0.33 },
   // 퀸 001 - 공용 거리 2.3 에서는 멀어 보인다(화면 세로 0.53). 1.84 로 당기면 0.66.
   xba002: { camDist: 1.84 },
-  // 검은 뱀 - 원본 파일이 모델을 원점에서 비켜 놓았다. 정규화는 높이(y)만 맞추고
-  // 좌우·앞뒤는 파일 값을 그대로 두기 때문에, 격자 한가운데가 아니라 왼쪽 앞에 선다.
-  // idle 12초를 훑어 잰 바운딩 중심이 x -0.309 / z +0.263 이라 그만큼 되민다.
-  // position 은 yawGroup 에 걸려서 월드 좌표 그대로다(정규화 안쪽이 아니다).
-  bbg008: { position: [0.309, 0, -0.263] },
   // 마더웨일 - 정면 조금 아래에서 올려다보는 구도(약 4.5도).
   // 카메라는 바닥 격자(높이 0)보다 위에 있어야 한다. 0.35 는 바닥 밑(-0.07)으로 들어가
   // 격자를 아래에서 봤고, 0.25 는 바닥과 거의 같은 높이(0.01)라 격자가 한 줄로 보였다.
@@ -732,7 +730,8 @@ const FOCUS_OVERRIDES = [
   // 애니힐리오: 사망 연출에서 무기 본(mwp/bwp 45개)이 떨어져 나가는데,
   // 동체 메쉬의 본 93개를 그냥 평균내면 그쪽으로 끌려간다. 사람 몸통만 잡는다.
   { boss: /^xba003/i, mesh: /2phase_body_skin_2$/i, bone: TORSO_BONE_RE },
-  { boss: /^bbg008/i, bone: HEAD_BONE_RE },
+  // 본체 메쉬를 못 박는다 - 좌우 머리도 본 수가 같아서 자동으로 고르면 머리가 걸릴 수 있다.
+  { boss: /^bbg008/i, mesh: /^bbg008_body_skin(_\d+)?$/i, bone: HEAD_BONE_RE },
   { boss: /^mbg002/i, mesh: /1phase_skin(_\d+)?$/i },
 ];
 
@@ -790,38 +789,6 @@ function focusBonesOf(mesh) {
 //  - boneFilter 가 정규식이면: 스켈레톤 전체에서 그 본들만 평균낸다(보스별 지정).
 //  - 'all' 이면: 기준 메쉬에 매달린 본 전부(메쉬를 이름으로 지정한 경우).
 //  - 없으면: 기준 메쉬의 본 중 중심축 -> 전체 순으로 물러난다.
-// 컷 단위 겨냥 보정이 쓰는 중심. rigCenter 는 메쉬 하나의 본 "평균"이라
-// 본이 한쪽에 몰린 보스에서는 눈에 보이는 한가운데와 어긋난다. 프로비던스 등장
-// 6.22초에서 그 차이가 화면 가로로 0.47 이나 났다. 여기서는 보이는 메쉬 전부의
-// 본을 모아 bbox 한가운데를 쓴다 - 화면에 잡히는 덩어리의 중앙에 가깝다.
-function visualCenter(meshes, out) {
-  const v = new THREE.Vector3();
-  let n = 0;
-  let mnx = Infinity, mny = Infinity, mnz = Infinity;
-  let mxx = -Infinity, mxy = -Infinity, mxz = -Infinity;
-  const seen = new Set();
-  for (const m of meshes) {
-    if (!m.isSkinnedMesh || !m.skeleton || !m.visible) continue;
-    if (/_fx(_\d+)?$/i.test(m.name || '')) continue;
-    for (const b of m.skeleton.bones) {
-      if (seen.has(b)) continue;
-      seen.add(b);
-      const name = b.name || '';
-      if (DEBRIS_BONE_RE.test(name) || ANCHOR_BONE_RE.test(name)) continue;
-      if (!isBoneVisible(b)) continue;
-      b.getWorldPosition(v);
-      if (!isFinite(v.x) || !isFinite(v.y) || !isFinite(v.z)) continue;
-      if (v.x < mnx) mnx = v.x; if (v.x > mxx) mxx = v.x;
-      if (v.y < mny) mny = v.y; if (v.y > mxy) mxy = v.y;
-      if (v.z < mnz) mnz = v.z; if (v.z > mxz) mxz = v.z;
-      n++;
-    }
-  }
-  if (!n) return null;
-  out.set((mnx + mxx) / 2, (mny + mxy) / 2, (mnz + mxz) / 2);
-  return out;
-}
-
 function rigCenter(mesh, out, boneFilter) {
   if (!mesh || !mesh.skeleton) return null;
   const v = new THREE.Vector3();
@@ -935,438 +902,20 @@ const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_.+)?$/i;
 //     steps: [{ re: /_skill_loop_04$/i, from: 1.17 }, { re: /_skill_fire_04$/i }] }
 const SYNTHETIC_SEQUENCES = [];
 
-// 내보내기가 인게임 카메라를 같이 넣어 준다 — 카메라 노드 하나에 등장·사망용
-// 카메라 클립이 붙는다. 클립이 자기 트랜스폼을 직접 움직이므로 커브 값이 곧 카메라
-// 위치·회전이고, 노드가 모델과 같은 그룹 안에 있어 좌표계도 저절로 맞는다.
-// 게임 카메라가 보스를 너무 멀리서 잡는 보스. 카메라 "움직임" 은 그대로 두고
-// 모델 쪽으로 당기기만 한다.
-// 애니힐리오·거대 질량체·검은 뱀은 원본 거리가 맞아서 건드리지 않는다 —
-// 자동 판정으로 걸면 그쪽 프레이밍까지 바뀐다(검은 뱀 등장이 42% 에서 57% 로 커졌다).
-// 온리 원은 아직 화각이 60 도로 하드코딩된 파일이라 멀게 잡힌다.
-// 프로비던스는 연출별 화각(등장 40.5도 / 사망 45도)이 들어오면서 필요 없어졌다.
-//   pull : 너무 멀리서 잡아서 모델 쪽으로 당긴다
-//   aim  : 보스를 화면 한쪽으로 밀어놔서 겨누는 방향만 돌린다
-//          (프로비던스 등장은 좌 6~9도 / 하 11~25도 로 밀려 화면 밖으로 나간다)
-// 연출 홀더(cutsceneAnchor)를 적용할 카메라.
+// 연출 카메라는 추출본 값(위치·회전·화각)을 그대로 쓴다.
 //
-// 게임은 연출마다 "홀더" 노드를 두고 그 아래에서 카메라를 움직인다. 추출본의
-// 카메라 커브가 그 홀더를 반영한 것도 있고 아닌 것도 있는데, 어느 쪽인지
-// 파일이 말해주지 않는다(추출 쪽에서 구조적 근거를 못 찾았다).
+// 2026-09-30 추출기가 카메라 식을 고쳤다(카메라 = vcam 부모 월드 × 클립(0)⁻¹ ×
+// 클립(t) × 음수스케일 부호, 유니티에서 타임라인을 재생해 218개 카메라를 대조).
+// 그 전의 카메라 값은 틀려서 보스마다 보정을 표로 들고 있었다 — 홀더 끼우기,
+// 좌우 밀기·뒤로 물리기·반대편으로 돌리기, 겨냥 다시 잡기, 게이트핏 화각 환산,
+// 시선 뒤집기, 멀면 당기기, 파고들면 물리기. 새 파일로 바꾸면서 보정 없이 인게임과
+// 맞는 것을 보스마다 눈으로 확인했고, 전부 걷어냈다.
 //
-// 그래서 연출별로 적어 둔다. 홀더 행렬 자체는 게임 값이고
-// (extras.cutsceneAnchorNoMirror), 여기서 정하는 건 "적용할지 말지" 뿐이다.
-// 41개 카메라를 적용/미적용 두 상태로 재서, 인게임 영상과 맞는 쪽을 골랐다.
-//   프로비던스 등장  거리/세로 12.32 -> 4.40,  화면 점유 11% -> 28%
-//   프로비던스 사망           13.57 -> 4.39,            9% -> 31%
-//   온리 원 등장               6.66 -> 1.63,           22% -> 79%
-//   그레이브 디거 사망  겨냥 83.4도 -> 25.5도
-//   아일랜드 이터 2페 등장   136.9도 -> 33.3도
-//   아일랜드 이터 사망        48.0도 -> 22.7도
-//   사치스러운 거미 사망     171.6도 -> 98.1도 (아직 이상하지만 나아진다)
-//
-// 나머지 34개는 적용하면 오히려 무너진다(겨냥이 100도 넘게 튄다).
-const CUTSCENE_ANCHOR_ON = [
-  /^xbg002_appearance_camera$/i,
-  /^xbg002_dead_camera$/i,
-  /^ebg001_phase002_appearance_camera$/i,
-  /^mbg002_dead_camera$/i,
-  // 온리 원 take01 - 홀더 없이는 세로 중심이 클립 내내 -13.8 -> -1.7 도로
-  // 12도를 훑고 지나간다(게이트핏 세로 반각이 8.6도라 앞부분이 화면 밖이다).
-  // x z 를 넣으면 -4.5 +- 0.8 도로 고정되고 크기도 화면 높이의 90~130% 가 된다.
-  // 홀더 평행이동 x 0.0 / y -4.8 / z +125.9, 회전 X축 25.0도(회전·y 는 안 쓴다).
-  /^xbg003_take01_camera$/i,
-  // 온리 원 등장 - 위 설명과 같다. RAW_CAM_BOSS 의 holder 와 짝이다.
-  /^xbg003_appear_camera$/i,
-];
-
-// 홀더에서 수평 평행이동(x, z)만 꺼내 쓴다.
-//
-// 회전을 넣으면 카메라 무빙이 파일 값과 달라지는데, 인게임 영상과 대조해 보면
-// 무빙 자체는 파일 값이 이미 맞다.
-//
-// y 를 빼는 이유는 따로다. 홀더의 수평 성분은 "모델이 놓인 자리"인데(그레이브
-// 디거 사망에서 모델 중심 x=297.74, 홀더 x=297.69 로 일치한다) y 는 그렇지
-// 않다 - 같은 보스에서 모델 y=2.77, 홀더 y=11.65 로 8.88 차이가 난다.
-// y 는 카메라 리그가 지면에서 얼마나 높이 달려 있는지를 담은 값이고, 모델은
-// 이미 제 높이에 있다. 그래서 y 까지 더하면 카메라가 두 번 올라가고, 파일
-// 회전이 원래 6~21도 위를 보는 탓에 보스가 화면 아래로 밀려 잘려 나간다.
-//
-// 화면 안에 들어오는 정점 비율(9샘플 평균):
-//                     홀더 없음   x z 만   전부
-//   프로비던스 등장        82%      96%     70%
-//   프로비던스 사망       100%      97%     63%
-//   아일랜드 이터 2페        5%      66%     61%
-//   그레이브 디거 사망       0%      94%     79%
-// 연출 카메라의 화각을 화면비에 맞춰 고친다.
-//
-// 파일에 든 값은 Cinemachine 의 m_Lens.FieldOfView 이고 유니티 기준 세로 화각인데,
-// 게임은 센서가 정사각(1,1)이고 게이트핏이 가로라서 그 각도가 실제로는 가로에
-// 걸린다. 세로는 화면비에 따라 정해진다. three.js 의 camera.fov 는 세로라서
-// 그대로 넣으면 화면이 그만큼 넓어지고 보스가 작게 잡힌다 — 16:9 에서 1.778 배다.
-//
-// 인게임 영상과 맞춰 본 값(세로 화면 점유):
-//   온리 원 등장 후반   22% -> 39.1%   인게임 39%
-//   프로비던스 등장 중반 37% -> 65.8%   인게임 71%
-//   프로비던스 등장 초반 63% -> 112%    인게임 90% 이상(상하 잘림)
-//
-// 상수를 박지 않고 캔버스 비율에서 유도한다. 창 모양이 바뀌어도 게임과 같이
-// 가로 화각을 지키고 세로만 따라 움직인다.
-// 화면비는 게임 기준으로 고정한다. 캔버스 비율을 쓰면 창 모양에 따라 보스
-// 크기가 달라져서 인게임과 대조할 수가 없다 - 창이 1.539 일 때 16:9 보다
-// 세로 화각이 1.155 배 넓어지고 점유가 0.87 배로 줄었다.
-const GAME_ASPECT = 16 / 9;
-
-// 컷 단위 겨냥 보정을 켜는 보스.
-//
-// 파일의 회전은 보스를 시선축 아래 6~18도에 두다가 중간에 위로 올린다
-// (-17.8도 ~ +4.1도). 인게임은 "정중앙 고정"이라 그대로 쓰면 어긋난다.
-// 매 프레임 겨냥하면 구도는 맞지만 카메라가 보스를 따라다녀서 무빙이 죽는다.
-// 게임 연출은 컷 안에서 방향이 고정돼 있고 컷이 바뀔 때 튀므로, 컷이 시작될
-// 때 한 번만 "보스가 화면 중앙에 오는 회전"과 파일 회전의 차이를 재서 그 컷
-// 동안 같은 값을 계속 더한다.
-//   - 컷 안에서는 파일 회전 그대로 움직인다(무빙 유지)
-//   - 구도는 컷 머리에서 맞춰진다
-// 컷은 카메라 위치가 한 프레임에 크게 튀는 지점으로 잡는다. 프로비던스 등장은
-// 3.30초까지 카메라가 완전히 정지해 있다가 3.40초에 거리 7.19 -> 4.34 로 뛴다.
-//
-// 인게임 스크린샷과 대조해 맞는 것을 확인한 보스만 올린다.
-//   프로비던스 - 등장 0.77/0.90/3.90/6.22초 네 지점을 인게임과 대조했다.
-const AIM_CUT_BOSS = [
-  /^xbg002/i,
-];
-
-function aimCutForBoss(bossKey) {
-  return AIM_CUT_BOSS.some(re => re.test(bossKey || ''));
-}
-
-// 게이트핏(가로 화각 -> 16:9 세로 환산)을 끄고 파일 화각을 그대로 쓰는 보스.
-// 온리 원에서는 게이트핏 쪽이 인게임과 맞았는데, 애니힐리오는 반대다 -
-// 12phase_appeanrance · 2phase_appearance · death 세 클립을 인게임과 대보면
-// 파일 화각(40도) 그대로가 맞다. 왜 갈리는지는 아직 모른다.
-const GATEFIT_OFF_BOSS = [
-  /^xba003/i,
-  // 하베스터·사치스러운 거미 - 파일 화각 60도 그대로가 인게임과 맞는다.
-  // 게이트핏을 걸면 36도로 좁아져서, 같은 크기로 보이게 하려면 카메라가
-  // 훨씬 멀어져야 하고 그러면 원근이 죽는다. 인게임 사망 스크린샷은 가까이서
-  // 넓은 화각으로 잡아 다리가 좌우 화면 밖으로 뻗어 나간다.
-  /^bbg001/i,
-  // 리버렐리오 바디 - 파일 화각(등장 45도 · 전환/사망 40도) 그대로가 인게임과
-  // 맞는다. 게이트핏을 걸면 26.2 / 23.1 도로 좁아져 1.7 배쯤 가깝게 보인다.
-  // 등장 3.44 초 기준 보스 세로 점유가 게이트핏 121% / 파일 값 68% 인데
-  // 인게임이 75% 다.
-  /^eba002/i,
-];
-
-function gateFitOffFor(bossKey) {
-  return GATEFIT_OFF_BOSS.some(re => re.test(bossKey || ''));
-}
-
-// 연출 카메라를 그 자리에서 밀어 두는 자리. 파일 값 위에 얹는 평행이동이라
-// 회전·화각·카메라 워크는 그대로 남고 구도만 옮겨진다.
-// 카메라 로컬 기준이다 - x 는 화면 오른쪽, y 는 화면 위, z 는 뒤.
-// RAW_CAM_BOSS 로 파일 값 그대로 쓰는 연출에는 안 걸린다.
-//
-// spin - 모델을 지나는 세로축 기준으로 카메라 리그를 통째로 돌린다(도).
-//   추출본에 카메라 위치가 반대편으로 들어온 연출을 되돌리는 데 쓴다.
-// roll - 화면 기울기(도). 양수면 화면이 반시계로 돈다.
-// back - 시선축을 따라 뒤로 물리는 배율. RAW_CAM_BOSS 의 back 과 같은 방식이다.
-//   z 로 고정값을 주면 안 되는 연출에 쓴다 - 컷마다 거리가 크게 달라지는 연출은
-//   같은 값이 먼 컷에서는 조금, 가까운 컷에서는 과하게 먹는다.
-//   pivot 은 물리는 "양" 을 재는 기준 본이다(방향은 늘 시선축이라 대충 맞으면 된다).
-//
-// 주의 - 파일 값을 얹은 직후, 뒤집기(cinematic.flip) 앞에서 적용된다. 뒤집기가
-// 걸리는 연출에 쓰면 앞뒤·좌우가 반대로 먹으니 그때는 눈으로 확인하고 부호를 뒤집을 것.
-const CLIP_CAM_MOVE = [
-  // 아일랜드 이터 2페이즈 등장 - 보스가 화면 오른쪽으로 치우쳐 있다.
-  // 카메라를 오른쪽으로 밀면 보스가 가운데로 온다. 7.8초 기준으로 맞췄다.
-  //
-  // 값은 그 시각의 "카메라 기준 가로 좌표" 를 그대로 적은 것이다. 7.8초에서
-  // 보스 본들의 카메라 로컬 x 가 전부 0.216 근처였다(body_bone001 0.216 /
-  // core_bone001 0.216 / head_bone001 0.219 / frame_bone001 0.218 /
-  // phase002·003_skin 바운딩 중심 0.212 · 0.218). 그만큼 밀면 0 이 된다.
-  // 화면비와 무관한 값이라 창 크기가 달라져도 가운데에 선다.
-  //
-  // 거리·높이 - 마지막 프레임(11.20초)을 인게임 스크린샷과 맞춘 값이다.
-  // 16:9 로 렌더해서 보스 실루엣을 재고, 인게임에서 잰 값에 맞췄다.
-  //   인게임   가로 73.2%,  세로 중심 +0.268
-  //   맞추기 전 가로 92.6%,  세로 중심 +0.187  (화면 밖으로 잘렸다)
-  //   맞춘 뒤  가로 73.2%,  세로 중심 +0.268
-  // 세로 크기는 인게임 67.7% 에 못 맞춘다(맞춘 뒤 82.8%). 뷰어 쪽 자세가
-  // 인게임보다 세로로 길어서 카메라로는 못 좁힌다 - 가로를 기준으로 삼았다.
-  //
-  // 실루엣을 잴 때 1페이즈 파편은 빼야 한다. 전환 연출은 CLIP_SOLO_PARTS 로
-  // 파츠를 전부 켜 두는데, 버려진 1페이즈 껍데기가 화면 아래(세로 -0.9 ~ -4.25)
-  // 까지 늘어져 있어서 같이 세면 세로 폭이 274% 로 잡힌다.
-  //
-  // 거리는 z 고정값으로는 못 맞춘다 - 카메라가 1.60 에서 0.44 까지 붙었다
-  // 떨어졌다 해서 같은 값이 먼 컷에서는 조금, 가까운 컷에서는 과하게 먹는다.
-  // 검은 뱀 사망 - 연출 내내 보스가 화면 왼쪽에 치우쳐 있다. 5초를 훑어 재니
-  // 실루엣 무게중심이 평균 -0.329 였고, 화면을 꽉 채우는 두 프레임(0.6~0.9초)을
-  // 빼면 거의 모든 지점이 음수다. 카메라를 왼쪽으로 밀어 보스를 오른쪽으로 옮긴다.
-  //   -0.35 로 재 보니 평균이 +0.073 으로 넘어가서 -0.29 로 줄였다.
-  { boss: /^bbg008/i, re: /_death$/i, x: -0.29 },
-  // 그레이브 디거 등장 - 인게임이 훨씬 멀다. 마지막 프레임(6.65초)을 인게임
-  // 스크린샷과 맞췄다. 16:9 로 렌더한 실루엣 기준:
-  //   인게임      가로 10.4%  세로 18.1%
-  //   맞추기 전   가로 45.1%  세로 61.9%
-  //   맞춘 뒤     가로 10.4%  세로 16.9%
-  // 세로까지 같이 맞는 것으로 보아 각도 차이로 보이던 것도 거리 때문이었다.
-  //   인게임에 맞춘 값은 back 3.76 인데 그보다 가깝게 보고 싶다고 해서 낮췄다.
-  //   가로 폭은 back 에 대해 45.1 / (1 + 1.211 x (back - 1)) 로 움직인다
-  //   (두 지점을 재서 낸 식 - 3.76 에서 10.6%, 3.30 에서 12.1% 로 맞는다).
-  //     3.76 -> 10.4%   인게임과 같음
-  //     3.30 -> 12.1%
-  //     2.83 -> 14.3%
-  //     2.43 -> 17.4%   (식의 예측은 16.5% - back 이 작아질수록 조금씩 어긋난다)
-  //     2.00 -> 21.7%   지금 값
-  //   roll 은 마지막 프레임의 화면 기울기가 0 이 되는 값이다. 파일 카메라 자체가
-  //   뒤 컷에서 +20.5도쯤 기울어 있어서 그걸 상쇄한다. 2.683초 컷을 경계로 파일
-  //   기울기가 반대라(앞 컷 -7 ~ -11.6도) 앞 컷은 그만큼 더 기운 채로 남는다.
-  { boss: /^mbg002/i, re: /^mbg002_appearance$/i, back: 2.00, roll: -20.5 },
-  // 사치스러운 거미 등장 - back 1.5 를 줬었는데 게이트핏을 끄면서 필요 없어졌다.
-  // 화각이 36도에서 60도로 넓어져 그것만으로 충분히 멀어진다(세로 21~66%).
-  // 사치스러운 거미 사망 - 카메라 위치가 반대편으로 들어와 있어 뒷모습만 보였다.
-  // spin 으로 반대편에 세우면 앞모습이 된다(사용자 확인).
-  //
-  // 거리는 인게임이 파일 값보다도 조금 더 가깝다. 같은 프레임(1.20초)을 대보면
-  // 인게임은 세로 86% 에 다리가 좌우 화면 밖으로 나가는데 파일 값은 73.9% 다.
-  // back 을 1 보다 작게 줘서 조금 더 다가간다.
-  // (back 1.6 을 줬을 때는 인게임보다 훨씬 멀어졌다 - 그때 잘못 짚었다)
-  //   x - 2.30초 기준으로 보스를 화면 한가운데에 세운다. 그 시각 본 바운딩
-  //       중심의 카메라 로컬 가로 좌표가 +0.126 이라 그만큼 되민다.
-  //       이 연출은 뒤집기가 안 걸린다(f = +1). spin 으로 반대편에 세우고 나면
-  //       카메라가 이미 보스를 향하고 있어서 camNeedsFlip 이 참이 아니다.
-  //       -0.126 을 줬더니 +0.252 로 두 배가 됐다 - 부호를 확인하고 넣을 것.
-  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, back: 0.49, spin: 180, x: 0.126 },
-  // 검은 뱀 등장 take2 - 카메라가 3.43초에 각도를 오른쪽으로 돌린다. 그 앞뒤로
-  // 원하는 그림이 달라서 구간을 갈랐다. 한 값으로는 둘 다 못 맞춘다.
-  //   앞  얼굴 옆모습 클로즈업(인게임은 머리가 화면을 가득 채우고 가운데에 온다)
-  //   뒤  몸 전체가 보이고 마지막에 가운데에 선다
-  { boss: /^bbg008/i, re: /_appearance_take2$/i, to: 3.43 },
-  { boss: /^bbg008/i, re: /_appearance_take2$/i, from: 3.43, x: -0.36, back: 1.4 },
-  // 온리 원 등장 - 파일이 스스로 만드는 줌이 인게임보다 훨씬 약하다.
-  // 카메라-보스 거리가 190 -> 136 -> 186 으로 1.39 배밖에 안 움직이는데,
-  // 인게임은 중간 구간에서 받침대가 안 보일 만큼 바짝 붙는다.
-  // 시작과 끝은 이미 인게임과 맞으므로(10초 세로 점유 39% 대 39%) 중간만
-  // 당긴다. 열쇠 프레임으로 이어서 카메라가 도는 중에 툭 끊기지 않게 한다.
-  // (지금은 뺐다 - 파일 값만으로 보는 중. 되살리려면 주석을 벗기면 된다)
-  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 0,   back: 1 },
-  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 3,   back: 1 },
-  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 5,   back: 0.45 },
-  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 6.5, back: 0.45 },
-  // { boss: /^xbg003/i, re: /^xbg003_appearance$/i, at: 8.5, back: 1 },
-  // 온리 원 take01 - 홀더를 켜면 구도는 안정되는데 너무 가깝다. 뒤로 뺀다.
-  { boss: /^xbg003/i, re: /^xbg003_take01$/i, back: 1.8, y: 0.27 },
-  { boss: /^ebg001_island/i, re: /_phase002_appearance$/i, x: 0.216, y: -0.036,
-    back: 1.66, pivot: /^(Pelvis|body_bone\d+|head_bone\d+)$/i },
-  // 마더웨일 사망 - 파일 카메라가 몸 바로 앞에 붙어 있어(1.2초에 얼굴이 화면을
-  // 꽉 채운다) 시선축을 따라 두 배로 물린다. 물린 뒤 0.47초 몸통이 화면 7할쯤,
-  // 2~6초는 떨어지는 전체가 화면 안에 든다.
-  { boss: /^bba001/i, re: /_dead$/i, back: 2.0 },
-];
-
-// 한 클립에 여러 줄을 두면 시간순 구간이 된다(from·to, 클립 로컬 초).
-// 안 적으면 연출 전체다. 여러 줄이 겹치면 먼저 걸리는 줄이 이긴다.
-function clipCamMoveFor(bossKey, clipName) {
-  const hit = CLIP_CAM_MOVE.filter(
-    o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
-  if (!hit.length) return null;
-  return hit.slice().sort(
-    (a, b) => camMoveTime(a) - camMoveTime(b));
-}
-
-function camMoveTime(o) {
-  return (typeof o.at === 'number') ? o.at : (o.from || 0);
-}
-
-// 보간할 수 있는 값들. back 만 기본값이 1 이고 나머지는 0 이다.
-const CAM_MOVE_KEYS = ['x', 'y', 'z', 'back', 'roll', 'spin'];
-const camMoveLerp = {};
-
-// 지금 시각에 걸리는 구간을 고른다.
-// 두 가지 적는 법이 있다.
-//
-//   from / to  구간이다. 그 구간에 들어오면 값이 그대로 걸린다. 경계에서 값이
-//              툭 바뀌므로 화면이 한 번 튄다 - 컷이 있는 자리에만 쓴다.
-//   at         열쇠 프레임이다. 사이 값을 부드럽게 이어 준다. 카메라가 도는
-//              도중에 거리를 바꿔야 하는 연출은 이쪽이다.
-//
-// 한 클립 안에서 둘을 섞지 말 것. at 을 적은 줄이 하나라도 있으면 그 클립은
-// 전부 열쇠 프레임으로 읽는다.
-function clipCamMoveAt(list, t) {
-  if (!list) return null;
-  if (typeof list[0].at === 'number') {
-    let i = 0;
-    while (i + 1 < list.length && t >= list[i + 1].at) i++;
-    const a = list[i], b = list[i + 1];
-    if (!b || t <= a.at) return a;
-    // 양 끝에서 기울기가 0 이 되는 곡선. 그냥 직선으로 이으면 열쇠 프레임마다
-    // 속도가 꺾여서 카메라가 덜컹거린다.
-    const r = (t - a.at) / (b.at - a.at);
-    const w = r * r * (3 - 2 * r);
-    const out = camMoveLerp;
-    for (const k in out) delete out[k];
-    out.pivot = a.pivot || b.pivot;
-    CAM_MOVE_KEYS.forEach(k => {
-      if (typeof a[k] !== 'number' && typeof b[k] !== 'number') return;
-      const d = (k === 'back') ? 1 : 0;
-      const va = (typeof a[k] === 'number') ? a[k] : d;
-      const vb = (typeof b[k] === 'number') ? b[k] : d;
-      out[k] = va + (vb - va) * w;
-    });
-    return out;
-  }
-  for (const o of list) {
-    if (t >= (o.from || 0) && t < (typeof o.to === 'number' ? o.to : Infinity)) return o;
-  }
-  return null;
-}
-
-// 연출 카메라를 파일 값 그대로 쓰는 보스. 뒤집기·겨냥·거리·기울기·구조·확대·물림·게이트핏·타임라인 배치를
-// 전부 건너뛰고 위치·회전·화각을 파일에서 읽은 그대로 쓴다.
-//
-// 에고비스타는 등장·사망 둘 다 보정을 얹은 쪽보다 원본이 인게임에 가깝다
-// (인게임 영상 대조). 이 보스만 따로 끄면 되는 이유는 아래가 전부 비어 있어서다.
-//   CUTSCENE_ANCHOR_ON · CLIP_TRIM · HIDDEN_CLIPS · CLIP_CAM_LIFT · CAMERA_FIX
-//   타임라인 배치도 어긋나지 않는다(timelineStart = pairedClipTimelineStart = 0)
-//   메쉬 활성 구간도 연출 내내 켜짐이라 걸러져 남는 게 없다
-// 그래서 여기서 끄는 결과가 파일 값을 그대로 본 화면과 정확히 같다.
-// back - 원본 카메라를 모델 중심 기준으로 뒤로 물리는 배율(1 이면 파일 그대로).
-//   중심에서 카메라로 뻗은 선 위에서만 움직이므로 회전과 화각은 손대지 않는다.
-//   그래서 카메라 워크도, 보스가 화면에 잡히는 자리도 그대로고 크기만 줄어든다.
-//   거리에 비례하니 가까이 붙는 컷도 같은 비율로 물러난다.
-// pivot - 물러날 기준점을 낼 본. 이 본들의 평균이 중심이다.
-//   몸 전체 바운딩으로 잡으면 안 된다 - 사망 연출은 파츠가 사방으로 흩어져서
-//   중심이 카메라 코앞까지 끌려오고, 그러면 물러나는 양이 거의 0 이 된다.
-//   흔들리지 않는 몸통 본만 골라 쓴다.
-// clip - 그 보스 안에서 이 연출만 따로 잡을 때. 적으면 보스 한 줄보다 먼저 걸린다.
-const RAW_CAM_BOSS = [
-  { boss: /^xbg005/i, back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head)$/i },
-  // 앨트루이아 - 등장·사망 둘 다 원본이 인게임에 가깝다. 거리는 그대로 두고
-  // (back 없음) 보정만 끈다. 이쪽도 홀더·잘라내기·감추기·눈높이·카메라 보정
-  // 표가 전부 비어 있고 타임라인도 안 어긋난다(tlStart = pairStart = 0).
-  { boss: /^xbg004/i },
-  // 퀸 001 · 거대 질량체(원종/Q) · 미러 컨테이너 - 위와 같은 조건이다.
-  { boss: /^xba002/i },
-  { boss: /^eba004/i },
-  { boss: /^xba001/i },
-  // 베히모스 - 페이즈 전환 다섯 컷만 조금 물린다. 등장·사망은 파일 값 그대로.
-  //   1페이즈 take1 · take2, 2페이즈 b1_take1_a · take2 · take3
-  { boss: /^mbg003/i,
-    clip: /^mbg003_(?:1phase_take[12]|2phase_b1_take1_a|2phase_take[23])$/i,
-    back: 1.12, pivot: /(^|_)(pelvis|spine_\d+|head(_\d+)?)$/i },
-  { boss: /^mbg003/i },
-  // 스톰브링어 - 여기도 원본이 인게임에 가깝다. 다만 이 보스는 파일 값 그대로와
-  // 완전히 같지는 않다. CLIP_TRIM(등장 앞 3.5초)과 HIDDEN_CLIPS(idle_2 · shot_*)
-  // 가 남아 있어서다. 둘 다 카메라를 건드리지 않으므로 구도는 원본 그대로다.
-  { boss: /^eba001/i },
-  // 아일랜드 이터 - 1페이즈 등장과 사망만 원본이다. 2페이즈 등장은 홀더
-  // (CUTSCENE_ANCHOR_ON)를 쓰므로 여기 넣으면 안 된다.
-  { boss: /^ebg001_island/i, clip: /^ebg001_(?:phase001_appearance|island_dead)$/i },
-  // 검은 뱀 - 등장 두 컷과 사망 모두 원본이 인게임에 가깝다.
-  // 화각이 연출마다 다르다(등장1 33도 / 등장2 55.4도 / 사망 44도).
-  { boss: /^bbg008/i },
-  // 그레이브 디거 - 등장만 원본이다. 사망은 홀더(CUTSCENE_ANCHOR_ON)를 쓰고,
-  // 그걸 적용해야 겨냥이 83.4도에서 25.5도로 잡힌다. 여기 넣으면 안 된다.
-  //
-  // 등장 카메라에도 홀더가 들어 있는데(z -434.92) 적용하면 12배쯤 멀어진다.
-  // 마지막 프레임 기준 보스 가로 폭이 45.1% -> 2.8% 가 되는데 인게임은 10.4%다.
-  // 이 보스의 등장 홀더는 쓰지 않는다.
-  { boss: /^mbg002/i, clip: /^mbg002_appearance$/i },
-  // 온리 원 등장 - 인게임 카메라 값만으로 어떻게 보이는지 확인하는 중이다.
-  // 이 줄이 있으면 겨냥 보정(CAMERA_LOOK_AT)과 뒤따르는 단계가 전부 꺼진다.
-  // take01 은 여기 없으므로 홀더와 CLIP_CAM_MOVE 가 그대로 걸린다.
-  { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, holder: 0.85 },
-  { boss: /^xbg003/i, clip: /^xbg003_death$/i, back: 0.7 },
-];
-
-// clip 을 적어 둔 줄이 먼저다. 없으면 보스만 적힌 줄로 떨어진다.
-function rawCamFor(bossKey, clipName) {
-  return RAW_CAM_BOSS.find(
-      o => o.boss.test(bossKey || '') && o.clip && o.clip.test(clipName || ''))
-    || RAW_CAM_BOSS.find(o => o.boss.test(bossKey || '') && !o.clip)
-    || null;
-}
-
-// 컷 안에서 겨냥이 대상을 따라가는 속도(초). 클수록 느리게 붙는다.
-// 게임 쪽 CinemachineComposer 의 m_HorizontalDamping / m_VerticalDamping 이
-// 둘 다 0.5 라 그 값을 쓴다.
-const AIM_DAMP = 0.5;
-
-function gateFitFov(fovDeg, aspect) {
-  const a = (aspect > 1e-6) ? aspect : 1;
-  const halfW = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
-  return THREE.MathUtils.radToDeg(2 * Math.atan(halfW / a));
-}
-
-// scale 은 홀더를 얼마나 끼울지다(기본 1 = 통째로).
-//
-// 홀더는 거리를 재는 원점을 옮기기 때문에, 끼우는 양이 카메라가 당겨지는
-// "비율" 을 바꾼다. 온리 원 등장으로 재보면 이렇다.
-//   0     거리 190 -> 136   1.39 배   (파일 값 그대로. 인게임보다 한참 약하다)
-//   0.85  거리  77 ->  23   3.4 배
-//   1     거리  57 -> 3.9   14 배     (지나쳐서 카메라가 보스 안으로 들어간다)
-// back 은 거리에 곱하는 값이라 이 비율을 못 바꾼다 - 여기서만 된다.
-function cutsceneAnchorOf(node, scale) {
-  if (!node || !node.userData) return null;
-  // 2026-09-30 이후 추출 빌드는 카메라 곡선에 부모 체인(홀더 포함)을 이미 넣어 온다
-  // (cutsceneAnchorApplied: true). 여기서 또 끼우면 두 번 걸린다. 예전 추출본은
-  // false 라 아래 표대로 동작한다. 새 추출본과 예전 추출본의 카메라 값은 서로 달라서
-  // 섞어 쓰면 안 된다 — 새로 뽑은 보스는 아래 보정 표들도 다시 확인할 것.
-  if (node.userData.cutsceneAnchorApplied === true) return null;
-  if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
-  const a = node.userData.cutsceneAnchorNoMirror || node.userData.cutsceneAnchor;
-  if (!Array.isArray(a) || a.length !== 16) return null;
-  const k = (typeof scale === 'number') ? scale : 1;
-  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, a[12] * k, 0, a[14] * k, 1];
-}
-
-// 뷰어가 연출 카메라에 손대는 보정은 이제 없다. 화면은 파일 값과
-// cutsceneAnchor 평행이동만으로 정해진다.
-const CAMERA_FIX = [];
-
-// 인게임 카메라가 바라보는 대상. Cinemachine 은 위치(Body)와 겨냥(Aim)을 따로
-// 계산하는데, 내보내기에 겨냥 결과가 안 실려 오는 연출이 있다 — 미러 컨테이너
-// 사망 카메라는 위치가 대상 주위를 정확히 돈다(거리 6.5~7.4 로 일정). 각도만
-// 10~60 도씩 어긋난다. 그래서 위치·화각은 게임 값 그대로 쓰고, 겨냥만 이 본으로
-// 매 프레임 다시 잡는다.
-//   미러 컨테이너는 등장·사망 카메라가 전부 그렇다. 몸통 한가운데서 계속 도는
-//   사각 부품(xba001_head)이 그 카메라들이 따라다니는 대상이다.
-// clip 을 적지 않으면 그 보스의 연출 카메라 전부에 걸린다.
-const CAMERA_LOOK_AT = [
-  // 온리 원 등장 - 위치는 맞는데 겨냥만 어긋난다. 파일 값으로 재보면 가로는
-  // 10초 내내 +-1도 안에 들어오는데(정확하다), 세로는 5.5~7 초 구간에서만
-  // 보스가 화면 중앙에서 10.5 도 아래로 내려간다. 게이트핏 세로 반각이 8.6 도라
-  // 그 구간이 통째로 화면 밖이 된다 - 6.43 초에 화면이 비는 게 이것이다.
-  //   t     0     2     4    4.77    6    6.43    7     8    10
-  //   머리 -1.0   0.8   2.3   0.2   -6.9  -10.5  -7.7  -3.6  -2.7   (도)
-  // 나머지 구간은 +-3.6 도라 겨냥을 다시 잡아도 크게 안 변한다.
-  // (지금은 뺐다 - RAW_CAM_BOSS 로 파일 값만 쓰는 중이라 어차피 안 걸린다)
-  // { boss: /^xbg003/i, clip: /^xbg003_appearance$/i, bone: /^xbag03_head_01$/i },
-];
-
-// 한 클립에 여러 줄을 두면 시간순 단계가 된다. from 이 없으면 0초부터다.
-function cameraLookAtFor(bossKey, clipName) {
-  const hit = CAMERA_LOOK_AT.filter(
-    o => o.boss.test(bossKey || '') && (!o.clip || o.clip.test(clipName || '')));
-  return hit.length ? hit.slice().sort((a, b) => (a.from || 0) - (b.from || 0)) : null;
-}
-
-// 같은 보스 안에서 그 연출 하나만 따로 손봐야 할 때. 보스 설정 위에 덧씌운다.
-const CLIP_CAMERA_FIX = [];
-
-function cameraFixFor(bossKey, clipName) {
-  const base = CAMERA_FIX.find(o => o.boss.test(bossKey || '')) || {};
-  if (clipName === undefined) return base;
-  const extra = CLIP_CAMERA_FIX.filter(
-    o => o.boss.test(bossKey || '') && (!o.clip || o.clip.test(clipName || '')));
-  return extra.length ? Object.assign({}, base, ...extra) : base;
-}
-
-function cameraNeedsPull(bossKey) {
-  const f = cameraFixFor(bossKey);
-  return !!(f.pull || f.fit);
-}
+// 뷰어가 하는 일은 둘뿐이다(applyCinematicCamera 의 syncCinematicTimeline).
+//   타임라인 맞추기 - 카메라와 모델 클립이 타임라인에서 다른 시각에 시작하는
+//                    연출(사치스러운 거미 등장은 모델이 4.73초 늦다)
+//   메쉬 활성 구간 - 연출 중에만 켜지고 꺼지는 메쉬(검은 뱀 좌우 머리 등)
+// 화각은 파일 값(fovDegrees)을 three.js 세로 화각으로 그대로 넣는다.
 
 // 내보내기가 연출마다 카메라를 따로 넣어 준다 — 화각이 연출별로 다르기 때문이다
 // (프로비던스는 등장 40.5도, 사망 45도). 그래서 노드를 전부 모은다.
@@ -1569,33 +1118,6 @@ function findSequences(clips, bossKey) {
   return out;
 }
 
-// 좌우 머리가 따로 있는 보스가 있다. 검은 뱀은 특정 패턴에서 양옆에 머리가 하나씩
-// 더 생겨 셋이 동시에 움직인다.
-//
-// 그 연출이 클립 세 벌로 들어 있다 — 가운데(이름 그대로), _left_, _right_.
-// 좌우 위치가 애니메이션 자체에 들어 있어서(Helper_Chain_Root 이동이 최대 147 만큼
-// 다르다) 모델을 셋 세워 각자 제 클립을 틀면 배치까지 그대로 재현된다.
-// 머리 셋을 동시에 물려서 틀는 보스. 검은 뱀 하나뿐이라 대상을 적어 둔다.
-// 이름만으로 가르면 스톰브링어의 이동 방향 셋(move_back_01 / _left_01 /
-// _right_01)이 같이 걸려서, 따로 틀어야 할 이동이 한 덩어리로 묶인다.
-const TRIO_BOSS = [/^bbg008/i];
-
-function findTrios(clips, bossKey) {
-  if (!TRIO_BOSS.some(re => re.test(bossKey || ''))) return [];
-  const byName = new Map(clips.map(c => [c.name, c]));
-  const out = [];
-  clips.forEach(c => {
-    // "..._left_take2" 와 "..._leftfire_02" 두 꼴이 다 있다.
-    // 가운데 짝은 left 를 뺀 이름(appearance_take2 / skill_fire_02)이다.
-    const m = (c.name || '').match(/^(.*)_left(_?)(.*)$/i);
-    if (!m) return;
-    const center = byName.get(m[1] + '_' + m[3]);
-    const right = byName.get(m[1] + '_right' + m[2] + m[3]);
-    if (center && right) out.push({ center, left: c, right });
-  });
-  return out;
-}
-
 // 이름 끝에 붙은 페이즈 태그를 뗀다. "xbg003_idle_1phase" -> "xbg003_idle"
 // 대기 동작인지, 반복하는 클립인지 같은 판정은 이 꼬리표를 떼고 봐야 맞는다.
 function stripPhaseTail(name) {
@@ -1694,6 +1216,15 @@ const HIDDEN_CLIPS = [
   { boss: /^xba001/i, re: /_appearance_take1$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
+  // 검은 뱀 좌우 머리 클립 - 본체 클립에 딸려서 같이 돈다(SIMUL_CLIPS). 혼자 틀면
+  // 꺼져 있는 머리만 움직여서 볼 게 없다. destroy 는 게임이 쓰지 않는다(inGameUse []).
+  { boss: /^bbg008/i, re: /_(left|right)(_take2|fire_02)$/i },
+  { boss: /^bbg008/i, re: /_(recall_enter_01|destroy_01)_(left|right)$/i },
+  // 리버렐리오 바디 - 게임이 연출 동안 꺼진 몸의 root 를 원점에 붙잡아 두는 동작.
+  // 키가 처음부터 끝까지 전부 0 이라 아무것도 안 움직인다. 합칠 때 이름이 겹쳐서
+  // repack 이 _1pvar / _2pvar 를 붙여 갈라 둔 것이다(tools/repack.py RENAMES).
+  { boss: /^eba002/i, re: /^eba002_2phase_death_1pvar$/i },
+  { boss: /^eba002/i, re: /^eba002_1phase_intro_2pvar$/i },
   // 스톰브링어 idle_2 도 0.03초짜리다.
   { boss: /^eba001/i, re: /^eba001_idle_2$/i },
   { boss: /^eba001/i, re: /^eba001_shot_/i },
@@ -1768,10 +1299,8 @@ function applyClipTrim(clips, bossKey) {
 // 한 연출을 몸 여러 벌이 나눠 맡는 보스. 대표 클립을 재생할 때 딸림 클립을
 // 같은 믹서에 같이 얹는다.
 //
-// 검은 뱀(playTrio)과는 경우가 다르다. 그쪽은 같은 몸 하나를 복제해서 좌·우
-// 머리를 만드는 것이고, 여기는 서로 다른 리그가 이미 한 파일에 다 들어 있다.
-// 복제할 게 없으니 액션만 하나 더 얹으면 된다 - 클립끼리 건드리는 뼈가 하나도
-// 안 겹치므로 서로 싸우지 않는다.
+// 서로 다른 리그가 이미 한 파일에 다 들어 있으니 액션만 하나 더 얹으면 된다 -
+// 클립끼리 건드리는 뼈가 하나도 안 겹치므로 서로 싸우지 않는다.
 //
 // 리버렐리오 바디는 몸이 세 벌이다(1페이즈 · 2페이즈 · 해파리). 실측한 길이와
 // 대상 리그는 이렇다.
@@ -1790,6 +1319,15 @@ const SIMUL_CLIPS = [
     with: [/^eba002_2phase_intro_02$/i, /^eba002_2phase_intro_03jelly$/i] },
   { boss: /^eba002/i, main: /^eba002_2phase_death$/i,
     with: [/^eba002_2phase_death_jelly$/i] },
+  // 검은 뱀 - 가운데 본체와 좌우 머리가 리그 셋이다(2026-09-30 재추출부터 머리가 따로
+  // 나온다. tools/repack.py 가 머리 쪽 이름에 _left / _right 를 붙여 합친다).
+  // 등장 take2 는 셋이 타임라인 3.23~10.67초에 같이 돈다(7.433초, 길이 같음).
+  // 머리는 4.75~6.75초에 땅 위로 올라왔다가 다시 파고든다.
+  { boss: /^bbg008/i, main: /^bbg008_appearance_take2$/i,
+    with: [/^bbg008_appearance_left_take2$/i, /^bbg008_appearance_right_take2$/i] },
+  // 2페 스킬02 - 셋이 2.33~5.00초에 같이 돈다(2.667초).
+  { boss: /^bbg008/i, main: /^bbg008_2phase_skill_fire_02$/i,
+    with: [/^bbg008_2phase_skill_leftfire_02$/i, /^bbg008_2phase_skill_rightfire_02$/i] },
 ];
 
 function simulClipsFor(bossKey, name, clips) {
@@ -1934,9 +1472,7 @@ const CLIP_SOLO_PARTS = [
 ];
 
 // 연출 중에만 모델을 돌린다. 등장·사망만 보스가 반대로 서 있는 경우를 위한 것.
-// 카메라를 반대편으로 옮기는 것(CAMERA_FIX.idleFlip)과 달리 거리·담김 계산이
-// 안 어긋난다. 조작 패널의 표시값은 건드리지 않는다 — 기준 180도 그대로 보인다.
-// 에고비스타로 재보니 뒷모습의 원인은 모델이 아니라 idleFlip 이었다(그건 걷어냈다).
+// 조작 패널의 표시값은 건드리지 않는다 — 기준 180도 그대로 보인다.
 // 지금은 해당되는 보스가 없다.
 const CLIP_MODEL_YAW = [];
 
@@ -2636,6 +2172,15 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.
     const camNodes = findCameraNodes(gltf.scene);
+    // 동작마다 파일이 적어 준 게임 정보(timeline·timelineStart·meshActivation 등).
+    // gltf.animations 는 파일의 animations 와 순서가 같다.
+    const clipExtrasByName = new Map();
+    ((gltf.parser && gltf.parser.json && gltf.parser.json.animations) || []).forEach((a, i) => {
+      const c = (gltf.animations || [])[i];
+      if (c && !clipExtrasByName.has(c.name)) clipExtrasByName.set(c.name, a.extras || {});
+    });
+    const clipExtrasOf = name => clipExtrasByName.get(name) || {};
+
     const camPairs = camNodes.length
       ? pairCameraClips(gltf.animations || [], camNodes)
       : { cams: [], byModel: new Map() };
@@ -2719,256 +2264,6 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     // 잘라낸 클립은 잘라낸 지점의 자세에서 시작해야 한다.
     trimmedClips.forEach(t => syntheticPoses.set(t.name, poseAtClipTime(t.src, t.from)));
 
-    // Unity 카메라는 +Z 를 보고 glTF/three 카메라는 -Z 를 본다. 내보내기가 이 차이를
-    // 보정하지 않으면 시선이 정확히 180 도 뒤집혀서, 본체를 등지고 반대편 허공을 찍는다.
-    // (거대 질량체 death 는 본체가 시선에서 149~179 도 벗어나 있었다.)
-    // 내보내기가 나중에 고쳐질 수도 있으니 값을 박아두지 않고, 로드할 때 실제로 재서
-    // 본체가 화면 앞에 오는 쪽을 고른다.
-    const CAM_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-    let cameraFlip = false;
-
-    // 연출마다 따로 재 둔 좌우 뒤집기. 한 보스 안에서도 카메라마다 다른 파일이 있다
-    // (베히모스 dead_camera 만 다른 축이다). 파일에 적힌 viewAxis 는 그대로 쓰면
-    // 오히려 어긋나서, 실제로 어느 쪽이 본체를 향하는지 재서 정한다.
-    const camFlipByClip = new Map();
-    const camNeedsFlip = (modelName) =>
-      camFlipByClip.has(modelName) ? camFlipByClip.get(modelName) : cameraFlip;
-
-    // 게임 카메라가 보스를 너무 멀리서 잡는 클립이 있다(프로비던스·온리 원의 등장·사망은
-    // 모델이 화면 높이의 20% 아래로 떨어진다). 화면비가 게임(세로)과 뷰어(가로)가 달라서
-    // 같은 화각이라도 훨씬 작아 보인다.
-    // 카메라의 "움직임" 은 그대로 두고 모델 쪽으로 당기기만 한다 — 시선 방향과 궤적 모양은
-    // 유지되고 거리만 줄어든다. 클립마다 한 번 재서 상수로 쓰므로 프레임마다 흔들리지 않는다.
-    const CAM_FILL = 0.62; // 모델이 화면 높이에서 차지하길 바라는 비율
-    const camZoom = new Map();
-
-    function measureCameraZoom() {
-      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      if (!cameraNeedsPull(bossKey)) return;
-      const saved = capturePose(gltf.scene);
-      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
-      const center = new THREE.Vector3();
-      try {
-        camPairs.byModel.forEach((pair, modelName) => {
-          const camClip = pair.clip, node = pair.node;
-          const fovRad = THREE.MathUtils.degToRad(node.isPerspectiveCamera ? node.fov : 60);
-          const wantHalf = Math.tan(fovRad * CAM_FILL / 2);
-          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
-          if (!modelClip) return;
-          const dur = Math.min(camClip.duration, modelClip.duration);
-          const ratios = [];
-          for (const frac of [0.2, 0.35, 0.5, 0.65, 0.8]) {
-            restorePose(poseFor(modelName));
-            const probe = new THREE.AnimationMixer(gltf.scene);
-            probe.clipAction(modelClip).play();
-            probe.clipAction(camClip).play();
-            probe.setTime(dur * frac);
-            gltf.scene.updateMatrixWorld(true);
-            if (rigCenter(focusMesh, center, focusBone)) {
-              const r = rigSpread(focusMesh, center, focusBone);
-              node.matrixWorld.decompose(pos, quat, scl);
-              const d = center.distanceTo(pos);
-              if (r > 1e-6 && d > 1e-6) ratios.push((r / wantHalf) / d);
-            }
-            probe.stopAllAction();
-            probe.uncacheRoot(gltf.scene);
-          }
-          if (!ratios.length) return;
-          ratios.sort((a, b) => a - b);
-          const k = ratios[Math.floor(ratios.length / 2)];
-          // pull 은 멀 때만 당긴다. fit 은 가까울 때 뒤로도 물린다.
-          const twoWay = !!cameraFixFor(bossKey).fit;
-          if (k < 0.98 || (twoWay && k > 1.02)) {
-            camZoom.set(modelName, Math.max(0.12, Math.min(6, k)));
-          }
-        });
-      } finally {
-        restorePose(saved);
-        gltf.scene.updateMatrixWorld(true);
-      }
-    }
-
-    // 연출 카메라가 보스를 화면 한쪽으로 밀어놓는 경우가 있다.
-    // 카메라의 움직임(궤적·거리)은 그대로 두고 겨누는 방향만 상수로 돌린다.
-    // 클립마다 여러 시점에서 "카메라가 보스를 보려면 얼마나 돌려야 하는지" 를 재고,
-    // 그 평균을 한 번만 적용한다 — 매 프레임 다시 겨누면 원래 카메라 워크가 사라진다.
-    const camAim = new Map();
-
-    // 연출 중간에 카메라가 모델 안으로 파고드는 구간이 있다
-    // (온리 원 등장 5초에 거리 0.14 — 화면에 보이는 정점이 1% 뿐이다).
-    // 클립 전체 거리의 중앙값을 재서 그보다 가까워지지 않게만 막는다.
-    // 나머지 구간은 원래 거리 그대로라 카메라 워크는 유지된다.
-    const camNear = new Map();
-
-    function measureCameraNear() {
-      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      if (!cameraFixFor(bossKey).near) return;
-      const saved = capturePose(gltf.scene);
-      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
-      const center = new THREE.Vector3();
-      try {
-        camPairs.byModel.forEach((pair, modelName) => {
-          const camClip = pair.clip, node = pair.node;
-          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
-          if (!modelClip) return;
-          const dur = Math.min(camClip.duration, modelClip.duration);
-          const ds = [];
-          for (let i = 1; i <= 12; i++) {
-            restorePose(poseFor(modelName));
-            const probe = new THREE.AnimationMixer(gltf.scene);
-            probe.clipAction(modelClip).play();
-            probe.clipAction(camClip).play();
-            probe.setTime(dur * (i / 13));
-            gltf.scene.updateMatrixWorld(true);
-            if (rigCenter(focusMesh, center, focusBone)) {
-              node.matrixWorld.decompose(pos, quat, scl);
-              ds.push(center.distanceTo(pos));
-            }
-            probe.stopAllAction();
-            probe.uncacheRoot(gltf.scene);
-          }
-          if (ds.length < 4) return;
-          ds.sort((a, b) => a - b);
-          const mid = ds[Math.floor(ds.length / 2)];
-          if (mid > 1e-4 && ds[0] < mid * 0.85) camNear.set(modelName, mid * 0.85);
-        });
-      } finally {
-        restorePose(saved);
-        gltf.scene.updateMatrixWorld(true);
-      }
-    }
-
-    function measureCameraAim() {
-      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      const fix = cameraFixFor(bossKey);
-      if (!fix.aim && !fix.aimX) return;
-      const saved = capturePose(gltf.scene);
-      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
-      const center = new THREE.Vector3(), dir = new THREE.Vector3();
-      const FWD = new THREE.Vector3(0, 0, -1);
-      try {
-        camPairs.byModel.forEach((pair, modelName) => {
-          const camClip = pair.clip, node = pair.node;
-          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
-          if (!modelClip) return;
-          const dur = Math.min(camClip.duration, modelClip.duration);
-          const acc = new THREE.Vector3();
-          let n = 0;
-          for (const frac of [0.1, 0.25, 0.4, 0.55, 0.7, 0.85]) {
-            restorePose(poseFor(modelName));
-            const probe = new THREE.AnimationMixer(gltf.scene);
-            probe.clipAction(modelClip).play();
-            probe.clipAction(camClip).play();
-            probe.setTime(dur * frac);
-            gltf.scene.updateMatrixWorld(true);
-            if (rigCenter(focusMesh, center, focusBone)) {
-              node.matrixWorld.decompose(pos, quat, scl);
-              dir.copy(center).sub(pos);
-              if (dir.lengthSq() > 1e-8) {
-                // 카메라 기준 좌표로 옮겨서 방향만 모은다
-                dir.normalize().applyQuaternion(quat.clone().invert());
-                if (camNeedsFlip(modelName)) dir.applyQuaternion(CAM_FLIP.clone().invert());
-                acc.add(dir); n++;
-              }
-            }
-            probe.stopAllAction();
-            probe.uncacheRoot(gltf.scene);
-          }
-          if (!n) return;
-          acc.divideScalar(n);
-          if (acc.lengthSq() < 1e-8) return;
-          acc.normalize();
-          // aimX 는 좌우만 돌린다 — 위아래 성분을 지우고 다시 정규화한다
-          if (fix.aimX) {
-            acc.y = 0;
-            if (acc.lengthSq() < 1e-8) return;
-            acc.normalize();
-          }
-          const off = Math.acos(Math.max(-1, Math.min(1, acc.dot(FWD)))) * 180 / Math.PI;
-          // 이미 잘 맞으면 건드리지 않는다
-          if (off < 3) return;
-          camAim.set(modelName, new THREE.Quaternion().setFromUnitVectors(FWD, acc));
-        });
-      } finally {
-        restorePose(saved);
-        gltf.scene.updateMatrixWorld(true);
-      }
-    }
-
-    // 이 클립이 실제로 움직이는 본의 한가운데. 한 파일에 페이즈가 둘 다 든 보스는
-    // focusMesh(본이 가장 많은 메쉬 하나)가 다른 페이즈 것일 수 있어서, 그걸
-    // 기준으로 재면 엉뚱한 답이 나온다 - 애니힐리오를 합친 뒤 1페이즈 카메라가
-    // 2페이즈 몸체를 기준으로 판정돼 시선이 통째로 뒤집혔다.
-    const clipBoneCenter = (clip, out) => {
-      const names = new Set();
-      (clip.tracks || []).forEach(t => {
-        const i = (t.name || '').indexOf('.');
-        if (i > 0) names.add(t.name.slice(0, i));
-      });
-      if (!names.size) return null;
-      const v = new THREE.Vector3();
-      let n = 0;
-      out.set(0, 0, 0);
-      gltf.scene.traverse(o => {
-        if (!names.has(o.name)) return;
-        if (DEBRIS_BONE_RE.test(o.name || '') || ANCHOR_BONE_RE.test(o.name || '')) return;
-        o.getWorldPosition(v);
-        if (!isFinite(v.x) || !isFinite(v.y) || !isFinite(v.z)) return;
-        out.add(v); n++;
-      });
-      if (!n) return null;
-      out.multiplyScalar(1 / n);
-      return out;
-    };
-
-    function measureCameraFlip() {
-      if (!camNodes.length || !focusMesh || !camPairs.byModel.size) return;
-      const saved = capturePose(gltf.scene);
-      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
-      const center = new THREE.Vector3(), toModel = new THREE.Vector3();
-      const fwd = new THREE.Vector3();
-      let plain = 0, flipped = 0, n = 0;
-      try {
-        camPairs.byModel.forEach((pair, modelName) => {
-          const camClip = pair.clip, node = pair.node;
-          const modelClip = (gltf.animations || []).find(c => c.name === modelName);
-          if (!modelClip) return;
-          // 연출별로 따로 센다. 전체 표만 보면 축이 다른 한 대가 묻힌다.
-          let cPlain = 0, cFlip = 0, cN = 0;
-          const dur = Math.min(camClip.duration, modelClip.duration);
-          for (const frac of [0.2, 0.4, 0.6, 0.8]) {
-            restorePose(poseFor(modelName));
-            const probe = new THREE.AnimationMixer(gltf.scene);
-            probe.clipAction(modelClip).play();
-            probe.clipAction(camClip).play();
-            probe.setTime(dur * frac);
-            gltf.scene.updateMatrixWorld(true);
-            // 그 클립이 움직이는 본을 먼저 본다. 없으면 예전처럼 focusMesh 로.
-            if (clipBoneCenter(modelClip, center) || rigCenter(focusMesh, center, focusBone)) {
-              node.matrixWorld.decompose(pos, quat, scl);
-              toModel.copy(center).sub(pos);
-              if (toModel.lengthSq() > 1e-8) {
-                toModel.normalize();
-                fwd.set(0, 0, -1).applyQuaternion(quat);
-                const dPlain = fwd.dot(toModel);
-                fwd.set(0, 0, -1).applyQuaternion(quat.clone().multiply(CAM_FLIP));
-                const dFlip = fwd.dot(toModel);
-                plain += dPlain; flipped += dFlip; n++;
-                cPlain += dPlain; cFlip += dFlip; cN++;
-              }
-            }
-            probe.stopAllAction();
-            probe.uncacheRoot(gltf.scene);
-          }
-          if (cN) camFlipByClip.set(modelName, cFlip > cPlain);
-        });
-      } finally {
-        restorePose(saved);
-        gltf.scene.updateMatrixWorld(true);
-      }
-      // 내적이 클수록 본체를 정면으로 본다는 뜻
-      if (n) cameraFlip = flipped > plain;
-    }
 
     // 파일에 없는 스킬을 원본 클립을 잘라 만들어 목록에 끼워 넣는다.
     function buildSyntheticSequences(seqs) {
@@ -3102,29 +2397,75 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       clipGlowKey = key;
     }
 
-    // meshActivation 이 지금 켜 두라고 한 메쉬 이름. null 이면 규칙이 없다.
+    // 메쉬 활성 구간(게임 타임라인의 켜고 끄기). 항목마다 { key, name, path, start, end }.
+    let meshActItems = [];
+    // 지금 켜져 있는 항목 key. null 이면 규칙이 없다.
     let clipMeshOn = null;
     let clipMeshKey = null;
-    // 이 연출의 활성 구간 표에 이름이 오른 메쉬 전부. 여기 없는 메쉬는 손대지 않는다.
-    let meshActNames = new Set();
+    // 카메라가 없는 동작의 활성 구간 { list, start }
+    let clipMeshAct = null;
 
-    // 파일이 적어 준 이름과 three.js 가 붙인 이름이 다를 수 있다. 같은 이름의
-    // 뼈가 있으면 메쉬 쪽에 _1 이 붙고(온리 원은 ziz/behamoth/leviathan/
-    // 2phase_wings 넷이 다 그렇다 - 뼈와 메쉬가 같은 이름이다), 프리미티브가
-    // 여럿인 메쉬는 _2 _3 으로 갈린다. 그래서 <이름> 과 <이름>_숫자 를 한
-    // 항목으로 본다 - 안 그러면 activationTrack 이 아무것도 못 걸고 조용히
-    // 넘어간다(온리 원 등장이 그랬다).
-    function meshActKey(names, meshName) {
-      if (names.has(meshName)) return meshName;
-      const base = String(meshName || '').replace(/_\d+$/, '');
-      return names.has(base) ? base : null;
+    // 파일이 메쉬 노드마다 프리팹 경로를 적어 준다(extras.path). 프리미티브가 여럿인
+    // 메쉬는 노드가 그룹이 되고 경로는 그룹에 붙으므로 위로 올라가며 찾는다.
+    function meshPathOf(m) {
+      for (let o = m; o; o = o.parent) {
+        if (o.userData && typeof o.userData.path === 'string') return o.userData.path;
+      }
+      return null;
+    }
+
+    // 항목이 이 메쉬를 가리키는가.
+    //  - 경로: 항목 경로 아래에 있으면(검은 뱀 heads 는 머리 둘을 담은 묶음이다 —
+    //    메쉬 이름이 본체와 같아서 이름으로는 못 가른다)
+    //  - 이름: 파일이 적어 준 이름과 three.js 가 붙인 이름이 다를 수 있다. 같은 이름의
+    //    뼈가 있으면 메쉬 쪽에 _1 이 붙고(온리 원 ziz/behamoth/leviathan/2phase_wings),
+    //    프리미티브가 여럿인 메쉬는 _2 _3 으로 갈린다. <이름> 과 <이름>_숫자 를 같이 본다.
+    function meshActHits(o, m) {
+      if (o.path) {
+        const p = meshPathOf(m);
+        if (p) return p === o.path || p.startsWith(o.path + '/');
+      }
+      const base = String(m.name || '').replace(/_\d+$/, '');
+      return m.name === o.name || base === o.name;
+    }
+
+    // 걸리는 항목이 없으면 null. 여러 항목이 덮으면 모두 켜진 구간에만 보인다.
+    function meshActState(m) {
+      let hit = false;
+      for (const o of meshActItems) {
+        if (!meshActHits(o, m)) continue;
+        hit = true;
+        if (!clipMeshOn.has(o.key)) return false;
+      }
+      return hit ? true : null;
+    }
+
+    function startMeshAct(list) {
+      meshActItems = list.map((o, i) => ({ key: i + ':' + o.name, name: String(o.name),
+        path: typeof o.path === 'string' ? o.path : null, start: o.start, end: o.end }));
+      clipMeshOn = null;
+      clipMeshKey = null;
+      return meshActItems.length ? meshActItems : null;
+    }
+
+    // tl - 타임라인 시각(초). 켜진 항목이 바뀔 때만 다시 칠한다.
+    function updateMeshAct(tl) {
+      let key = '';
+      for (const o of meshActItems) {
+        if (tl >= o.start - 1e-6 && tl < o.end - 1e-6) key += o.key + '|';
+      }
+      if (key === clipMeshKey) return;
+      clipMeshKey = key;
+      clipMeshOn = new Set(key ? key.slice(0, -1).split('|') : []);
+      applyVisibility();
     }
 
     function clearClipMeshAct() {
-      if (!clipMeshOn && !meshActNames.size) return;
+      clipMeshAct = null;
+      if (!clipMeshOn && !meshActItems.length) return;
       clipMeshOn = null;
       clipMeshKey = null;
-      meshActNames = new Set();
+      meshActItems = [];
       applyVisibility();
     }
 
@@ -3144,9 +2485,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
         if (!on && clipGlow && clipGlow.parts.some(re => re.test(m.name))) on = true;
         // 게임 타임라인의 메쉬 활성 구간. 여기 이름이 오르는 메쉬는 그 구간에만
         // 보인다 — 온리 원 등장은 소환수와 2페 날개를 2.5 초까지만 켠다.
-        if (clipMeshOn && meshActNames.size) {
-          const k = meshActKey(meshActNames, m.name);
-          if (k) on = clipMeshOn.has(k);
+        if (clipMeshOn && meshActItems.length) {
+          const st = meshActState(m);
+          if (st !== null) on = st;
         }
         m.visible = on;
       });
@@ -3530,197 +2871,14 @@ function noFollowClip(bossKey, name) {
     // 인게임 카메라가 도는 동안에는 시점 계산을 하지 않는다 — 카메라 노드의 월드
     // 트랜스폼을 그대로 옮겨 쓴다. 그 노드가 모델과 같은 그룹(yaw/pitch/norm) 안에
     // 있어서 방향 보정과 정규화 배율이 저절로 함께 걸린다.
-    const camIdleDir = new THREE.Vector3();
-    const camAimTmp = new THREE.Vector3();
-    const camStageTmp = new THREE.Vector3();
-    // 본 뭉치의 한가운데. 여러 개가 걸리면 흔들림이 상쇄된다.
-    function boneMid(bones, out) {
-      out.set(0, 0, 0);
-      bones.forEach(b => out.add(b.getWorldPosition(camAimTmp)));
-      return out.divideScalar(bones.length || 1);
-    }
     const camWorldPos = new THREE.Vector3();
     const camWorldQuat = new THREE.Quaternion();
     const camWorldScl = new THREE.Vector3();
-    const camAnchorMat = new THREE.Matrix4();
-    const camAnchorOut = new THREE.Matrix4();
     const camFwd = new THREE.Vector3();
-    const camPull = new THREE.Vector3();
-    const AXIS_Y = new THREE.Vector3(0, 1, 0);
-    const camSpinQ = new THREE.Quaternion();
-    // 컷 단위 겨냥 보정이 컷 사이에 들고 가는 값
-    const aimCutOff = new THREE.Quaternion();
-    const aimCutFile = new THREE.Quaternion();
-    const aimCutWant = new THREE.Quaternion();
-    const aimCutPrev = { pos: new THREE.Vector3(), span: 1, time: 0, clip: null, valid: false };
     let savedFov = null;
 
-    // 연출 카메라가 보스를 못 담는 프레임만 되돌린다.
-    // 잘 잡히는 프레임에서는 보정량이 0 이라 게임 값 그대로다.
-    const RESCUE_GOOD = 0.5;   // 이 이상 담기면 손대지 않는다
-    const RESCUE_BAD = 0.15;   // 이 아래로 떨어지면 최대한 되돌린다
-    const RESCUE_EASE = 0.15;  // 보정이 들어가고 빠지는 데 걸리는 시간(초)
-    let rescueW = 0;
-    const rsCenter = new THREE.Vector3();
-    const rsV = new THREE.Vector3();
-    const rsFwd = new THREE.Vector3();
-    const rsUp = new THREE.Vector3(0, 1, 0);
-    const rsMat = new THREE.Matrix4();
-    const rsQuat = new THREE.Quaternion();
-
-    // 화면에 들어오는 기준 본의 비율
-    function framedRatio() {
-      if (!focusMesh) return 1;
-      const bones = focusBonesOf(focusMesh);
-      const step = Math.max(1, Math.floor(bones.length / 40));
-      let seen = 0, inside = 0;
-      for (let i = 0; i < bones.length; i += step) {
-        const b = bones[i];
-        if (!isBoneVisible(b)) continue;
-        b.getWorldPosition(rsV);
-        if (!isFinite(rsV.x)) continue;
-        seen++;
-        rsV.project(camera);
-        if (rsV.z > -1 && rsV.z < 1 && Math.abs(rsV.x) <= 1 && Math.abs(rsV.y) <= 1) inside++;
-      }
-      return seen ? inside / seen : 1;
-    }
-
-    function applyShotRescue(dt) {
-      if (!focusMesh || !rigCenter(focusMesh, rsCenter, focusBone)) return;
-      const ratio = framedRatio();
-      // 화면에 얼마나 안 담기는가
-      let want = 0;
-      if (ratio < RESCUE_GOOD) {
-        want = Math.min(1, (RESCUE_GOOD - ratio) / (RESCUE_GOOD - RESCUE_BAD));
-      }
-      // 얼마나 파고들었는가. 기준 본만 보면 몸통이 화면축 근처에 남아 있어서
-      // 실제보다 멀쩡해 보인다 — 카메라가 모델 안에 있으면 그쪽을 따른다.
-      const spread = rigSpread(focusMesh, rsCenter, focusBone);
-      const half = THREE.MathUtils.degToRad(camera.fov) / 2;
-      const wantDist = spread > 1e-5 ? spread / Math.tan(half * 0.9) : 0;
-      const dist = camera.position.distanceTo(rsCenter);
-      if (wantDist > 1e-5 && dist < wantDist) {
-        want = Math.max(want, Math.min(1, 1 - dist / wantDist));
-      }
-      // 툭 튀지 않게 서서히 들어가고 빠진다
-      const k = 1 - Math.pow(0.01, Math.min(dt, 0.1) / RESCUE_EASE);
-      rescueW += (want - rescueW) * k;
-      // 검증용 — 바깥에서 보정이 얼마나 걸렸는지 들여다본다
-      state.rescue = { ratio, want, w: rescueW };
-      if (rescueW < 0.002) { rescueW = 0; return; }
-
-      // 시선을 보스 쪽으로
-      rsMat.lookAt(camera.position, rsCenter, rsUp);
-      rsQuat.setFromRotationMatrix(rsMat);
-      camera.quaternion.slerp(rsQuat, rescueW);
-
-      // 모델 안으로 파고들었으면 시선축을 따라 뒤로만 물린다
-      if (wantDist > 1e-5) {
-        const d = camera.position.distanceTo(rsCenter);
-        if (d < wantDist) {
-          rsFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
-          camera.position.addScaledVector(rsFwd, -(wantDist - d) * rescueW);
-        }
-      }
-    }
-
-    function applyCinematicCamera(dt) {
-      if (!cinematic || !cinematic.node || !followEnabled) {
-        if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
-        return false;
-      }
-      const node = cinematic.node;
-      node.updateWorldMatrix(true, false);
-      // 홀더를 쓰는 연출은 카메라의 지역 변환 앞에 홀더(평행이동)를 끼운다.
-      // 월드 행렬 앞에 곱하면 안 된다 — 홀더 값은 파일 원시 단위인데 뷰어는
-      // 모델을 정규화(균일 축소)해서 얹어 놓기 때문에 축척이 어긋난다.
-      // 부모(정규화 그룹) 아래, 카메라 지역 변환 위에 넣어야 같은 단위가 된다.
-      const rawCam = cinematic.raw;
-      // 파일 값 그대로 쓰는 연출(RAW_CAM_BOSS)은 홀더도 같이 끈다 - 홀더는
-      // 뷰어가 얹는 보정이기 때문이다. 다만 holder 를 적어 둔 줄은 예외다.
-      // 홀더가 있어야 카메라 워크가 성립하는 연출이 있다 - 온리 원 등장은
-      // 홀더 없이는 거리가 190 -> 136 으로 1.39 배밖에 안 당겨지는데,
-      // 홀더를 끼우면 57 -> 3.9 로 인게임처럼 확 파고든다. 홀더의 z(+133.4)가
-      // 거리를 재는 원점을 옮겨서 당겨지는 비율 자체를 바꾸기 때문이다.
-      // back 은 거리에 곱하는 값이라 이 비율을 못 바꾼다 - 홀더로만 된다.
-      const anchorArr = (rawCam && !rawCam.holder)
-        ? null : cutsceneAnchorOf(node, rawCam ? rawCam.holder : 1);
-      if (anchorArr) {
-        camAnchorMat.fromArray(anchorArr);
-        camAnchorOut.multiplyMatrices(camAnchorMat, node.matrix);
-        if (node.parent) camAnchorOut.premultiply(node.parent.matrixWorld);
-        camAnchorOut.decompose(camWorldPos, camWorldQuat, camWorldScl);
-      } else {
-        node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
-      }
-      camera.position.copy(camWorldPos);
-      camera.quaternion.copy(camWorldQuat);
-      // 연출별 카메라 밀기. 원본 갈래로 빠지는 연출에도 걸리도록 여기서 한다.
-      const mv = clipCamMoveAt(cinematic.move,
-        cinematic.action ? cinematic.action.time : 0);
-      if (mv) {
-        // spin - 모델을 지나는 세로축(월드 Y) 기준으로 카메라 리그를 통째로 돌린다.
-        // 위치와 방향을 같이 돌리므로 보스를 보는 것은 그대로고 보는 쪽만 바뀐다.
-        //
-        // 추출본에 카메라 "위치" 가 반대편으로 들어온 연출이 있다. 뒤집기는 제자리
-        // 회전이라 보스를 향하게는 해 주지만 여전히 뒤에서 보게 된다.
-        // 사치스러운 거미 사망이 그렇다 - 정면 대비 카메라 각이 165~178도였다
-        // (등장·대기는 0~4도로 정상이다).
-        if (mv.spin) {
-          camSpinQ.setFromAxisAngle(AXIS_Y, THREE.MathUtils.degToRad(mv.spin));
-          camera.position.applyQuaternion(camSpinQ);
-          camera.quaternion.premultiply(camSpinQ);
-        }
-        // 뒤집기(CAM_FLIP)는 카메라 로컬 Y 축 180도라 그 뒤로 x·z 축이 반대가 된다.
-        // 이 밀기는 뒤집기보다 먼저 걸리므로, 뒤집히는 연출에서는 부호를 미리
-        // 뒤집어 둬야 표에 적은 대로 화면이 움직인다. y 축은 뒤집혀도 그대로다.
-        // (사치스러운 거미 사망이 그런 연출이다 - 안 뒤집으면 back 이 뒤가 아니라
-        //  앞으로 먹어서 카메라가 시체를 뚫고 지나간다)
-        const f = cinematic.flip ? -1 : 1;
-        if (mv.x) camera.translateX(mv.x * f);
-        if (mv.y) camera.translateY(mv.y);
-        if (mv.z) camera.translateZ(mv.z * f);
-        // 거리에 비례해 뒤로. 기준점은 양을 재는 데만 쓰고 방향은 시선축이다.
-        if (mv.back && mv.back !== 1
-            && rigCenter(focusMesh, camPull, mv.pivot || 'all')) {
-          camera.translateZ(camera.position.distanceTo(camPull) * (mv.back - 1) * f);
-        }
-        // 화면 기울기. 시선축(카메라 로컬 Z) 기준이라 위치·거리·겨냥은 그대로다.
-        // 평행이동 뒤에 건다 - 먼저 돌리면 x·y 가 기울어진 축을 따라간다.
-        // 부호는 CAMERA_FIX 의 rollDeg 와 같다. 양수 = 화면이 반시계로 돈다.
-        if (mv.roll) camera.rotateZ(-THREE.MathUtils.degToRad(mv.roll) * f);
-      }
-      // RAW_CAM_BOSS 에 든 연출은 파일 값(위치·회전·화각)만 쓰고 아래 보정을
-      // 전부 건너뛴다.
-      if (rawCam) {
-        if (node.isPerspectiveCamera) {
-          if (savedFov === null) savedFov = camera.fov;
-          if (Math.abs(camera.fov - node.fov) > 1e-4) {
-            camera.fov = node.fov;
-            camera.updateProjectionMatrix();
-          }
-        }
-        // 파일 값이 너무 가까운 보스는 여기서 뒤로만 물린다. 회전도 화각도
-        // 손대지 않으므로 카메라 워크는 그대로 남고 크기만 준다.
-        //
-        // 방향은 시선축(카메라 로컬 +Z)이다. 기준점에서 카메라로 뻗은 선을 쓰면
-        // 기준점이 엉뚱한 데 잡힌 보스에서 엉뚱한 쪽으로 밀린다 - 베히모스
-        // 1페이즈는 본 416개가 전부 exc_body_ 라 평균이 격자 아래(y -1.74)로
-        // 내려가고, 그쪽을 기준으로 밀면 뒤가 아니라 위로 올라간다.
-        // 시선축이면 기준점이 얼마나 어긋나든 "뒤로" 는 늘 맞고, 화면 한가운데에
-        // 있던 것이 그 자리에 그대로 남는다.
-        //
-        // 물리는 양만 기준점까지의 거리에 비례시킨다 - 가까이 붙는 컷은 그만큼
-        // 덜 물러난다. 여기는 대충 맞기만 하면 되므로 기준점이 조금 어긋나도 된다.
-        const back = (rawCam && rawCam.back) || 1;
-        if (back !== 1 && rigCenter(focusMesh, camPull, rawCam.pivot || 'all')) {
-          camera.translateZ(camera.position.distanceTo(camPull) * (back - 1));
-        }
-        camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
-        controls.target.copy(camera.position).addScaledVector(camFwd, 2);
-        return true;
-      }
+    // 타임라인 맞추기 — 모델 클립 시각과 메쉬 활성 구간.
+    function syncCinematicTimeline() {
       // 타임라인 배치가 어긋난 연출은 모델 클립 시각을 맞춰 준다.
       // 카메라가 시계인 경우 모델 액션은 스스로 진행하지 않게 세워 두고
       // (안 그러면 모델이 먼저 끝나서 다음 클립으로 넘어간다) 시간만 얹는다.
@@ -3731,137 +2889,32 @@ function noFollowClip(bossKey, name) {
         const t = Math.max(0, Math.min(dur, want));
         if (Math.abs(currentAction.time - t) > 1e-4) {
           currentAction.time = t;
+          syncSimulTime();
           if (mixer) mixer.update(0);
         }
       }
-      // 메쉬 활성 구간. 켜지고 꺼지는 항목이 바뀔 때만 다시 칠한다.
-      if (cinematic.meshAct) {
-        const tl = cinematic.camStart + cinematic.action.time;
-        let key = '';
-        for (const o of cinematic.meshAct) {
-          if (tl >= o.start - 1e-6 && tl < o.end - 1e-6) key += o.name + '|';
-        }
-        if (key !== clipMeshKey) {
-          clipMeshKey = key;
-          clipMeshOn = new Set(key ? key.slice(0, -1).split('|') : []);
-          applyVisibility();
-        }
+      if (cinematic.meshAct) updateMeshAct(cinematic.camStart + cinematic.action.time);
+    }
+
+    // 파일 카메라를 그대로 옮긴다. 위치·회전·화각 모두 파일 값이다.
+    function applyCinematicCamera() {
+      if (!cinematic || !cinematic.node || !followEnabled) {
+        if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
+        return false;
       }
-      if (cinematic.flip) camera.quaternion.multiply(CAM_FLIP);
-      // 겨냥·거리 보정의 기준점. 대상 본을 정해 뒀으면 그 본, 아니면 본체 중심.
-      let hasAim = false;
-      // 이 단계에서 쓸 고정 거리. 0 이면 클립 값을 따른다.
-      let stageDist = 0;
-      if (cinematic.lookAt) {
-        const st = cinematic.lookAt;
-        const now = currentAction ? currentAction.time : 0;
-        let i = 0;
-        while (i + 1 < st.length && now >= st[i + 1].from) i++;
-        boneMid(st[i].bones, camPull);
-        stageDist = st[i].fixDist;
-        // 넘어가는 동안은 앞 단계 겨냥점에서 이어 붙인다. 안 그러면 화면이 한 번 튄다.
-        if (i > 0 && st[i].blend > 0) {
-          const w = Math.min(1, Math.max(0, (now - st[i].from) / st[i].blend));
-          if (w < 1) {
-            boneMid(st[i - 1].bones, camStageTmp);
-            camPull.lerp(camStageTmp, 1 - w);
-            stageDist = st[i - 1].fixDist + (stageDist - st[i - 1].fixDist) * w;
-          }
-        }
-        hasAim = true;
-      } else if (cinematic.aimMode && cinematic.lookAtFocus) {
-        hasAim = !!visualCenter(meshes, camPull);
-      } else if ((cinematic.lookAtFocus || cinematic.idleAngle) && focusMesh) {
-        hasAim = rigCenter(focusMesh, camPull, focusBone);
-      }
-      // 겨냥 높이를 못 박아야 하는 연출이 있다(베히모스 take1 은 격자 높이).
-      if (hasAim && cinematic.aimY !== null) camPull.y = cinematic.aimY;
-      // 방향은 기본 시점과 같게, 거리만 게임 값을 따른다.
-      if (cinematic.idleAngle && hasAim && homeCamPos && homeTarget) {
-        camIdleDir.copy(homeCamPos).sub(homeTarget);
-        if (camIdleDir.lengthSq() > 1e-12) {
-          camIdleDir.normalize();
-          // fixDist - 게임 카메라의 거리를 아예 무시하고 고정한다. 리그가 부서지는
-          // 연출은 게임 거리가 프레임마다 크게 흔들려서 배율(dist)로는 못 잡는다.
-          const fixed = stageDist || cinematic.fixDist;
-          const d = fixed > 0
-            ? fixed
-            : camera.position.distanceTo(camPull) * cinematic.dist;
-          camera.position.copy(camPull).addScaledVector(camIdleDir, d);
-        }
-      } else if (cinematic.dist !== 1 && hasAim) {
-        // 방향은 게임 값 그대로 두고 거리만 조정한다.
-        camera.position.sub(camPull).multiplyScalar(cinematic.dist).add(camPull);
-      }
-      // 매 프레임 기준점을 향하게 다시 잡는다. 위치와 화각은 건드리지 않으므로
-      // 게임의 카메라 워크는 그대로 남는다.
-      if (hasAim) {
-        if (cinematic.aimMode !== 'cut') {
-          camera.lookAt(camPull);
-        } else {
-          // 컷이 바뀌었으면 이 프레임에서 오프셋을 다시 잰다.
-          // 클립이 바뀌거나 되감으면 앞 컷의 값을 들고 가면 안 된다.
-          const now = cinematic.action ? cinematic.action.time : 0;
-          const rewound = now + 1e-4 < aimCutPrev.time;
-          const jumped = !aimCutPrev.valid || rewound
-            || aimCutPrev.clip !== (cinematic.action && cinematic.action._clip)
-            || camera.position.distanceTo(aimCutPrev.pos) > aimCutPrev.span * 0.25;
-          // 이 프레임에서 "보스가 화면 중앙에 오는" 오프셋을 구한다.
-          aimCutFile.copy(camera.quaternion);
-          camera.lookAt(camPull);
-          aimCutWant.copy(aimCutFile).invert().premultiply(camera.quaternion);
-          if (jumped || AIM_DAMP <= 0 && !aimCutPrev.valid) {
-            // 컷 머리에서는 즉시 맞춘다.
-            aimCutOff.copy(aimCutWant);
-          } else if (AIM_DAMP > 0) {
-            // 컷 안에서는 천천히 따라간다. 모델이 움직여도 화면에서 밀려나지
-            // 않으면서, 카메라 워크(위치)는 파일 값 그대로 남는다.
-            const k = 1 - Math.exp(-Math.max(1e-4, dt || 1 / 60) / AIM_DAMP);
-            aimCutOff.slerp(aimCutWant, k);
-          }
-          camera.quaternion.copy(aimCutFile).multiply(aimCutOff);
-          aimCutPrev.pos.copy(camera.position);
-          aimCutPrev.span = Math.max(0.35, camera.position.distanceTo(camPull));
-          aimCutPrev.time = now;
-          aimCutPrev.clip = cinematic.action && cinematic.action._clip;
-          aimCutPrev.valid = true;
-        }
-      }
-      // 치우친 각을 상수로 돌린다. 위치는 그대로라 카메라 워크는 유지된다.
-      if (cinematic.aim) camera.quaternion.multiply(cinematic.aim);
-      // 화면 기울기 보정. rotateZ 는 카메라 로컬 Z(시선축) 기준이라 위치·거리·
-      // 겨냥은 그대로 두고 화면만 굴러간다. 화면이 도는 방향과 부호가
-      // 반대라 뒤집어 넣는다 — rollDeg 양수 = 화면이 반시계.
-      if (cinematic.rollDeg) {
-        const rt = cinematic.action ? cinematic.action.time : 0;
-        if (rt >= cinematic.rollFrom && rt < cinematic.rollTo) {
-          camera.rotateZ(-THREE.MathUtils.degToRad(cinematic.rollDeg));
-        }
-      }
-      if (cinematic.rescue) applyShotRescue(dt || 1 / 60);
-      // 너무 멀리서 잡는 클립은 같은 선 위에서 모델 쪽으로 당긴다.
-      // 시선 방향은 그대로라 화면 구도는 유지되고 크기만 커진다.
-      if (cinematic.zoom !== 1 && rigCenter(focusMesh, camPull, focusBone)) {
-        camera.position.sub(camPull).multiplyScalar(cinematic.zoom).add(camPull);
-      }
-      // 모델 안으로 파고드는 구간만 뒤로 물린다. 방향은 그대로.
-      if (cinematic.near > 0 && rigCenter(focusMesh, camPull, focusBone)) {
-        const d = camera.position.distanceTo(camPull);
-        if (d > 1e-5 && d < cinematic.near) {
-          camera.position.sub(camPull).multiplyScalar(cinematic.near / d).add(camPull);
-        }
-      }
-      // 게임 카메라의 화각을 따른다. 게이트핏이 가로라 화면비로 세로를 낸다.
-      // 클립이 끝나면 원래 값으로 돌려놓는다.
+      const node = cinematic.node;
+      node.updateWorldMatrix(true, false);
+      node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
+      camera.position.copy(camWorldPos);
+      camera.quaternion.copy(camWorldQuat);
       if (node.isPerspectiveCamera) {
         if (savedFov === null) savedFov = camera.fov;
-        const want = gateFitOffFor(bossKey)
-          ? node.fov : gateFitFov(node.fov, GAME_ASPECT);
-        if (Math.abs(camera.fov - want) > 1e-4) {
-          camera.fov = want;
+        if (Math.abs(camera.fov - node.fov) > 1e-4) {
+          camera.fov = node.fov;
           camera.updateProjectionMatrix();
         }
       }
+      syncCinematicTimeline();
       // 궤도 조작의 기준점도 시선 앞으로 옮겨 둔다 — 연출이 끝난 뒤 조작이 어색하지 않게.
       camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
       controls.target.copy(camera.position).addScaledVector(camFwd, 2);
@@ -3971,49 +3024,6 @@ function noFollowClip(bossKey, name) {
       });
     }
 
-    // 옆 머리(좌·우)를 그릴 복제본. 쓸 일이 있을 때 한 번만 만든다.
-    // 스킨드메쉬는 그냥 clone() 하면 뼈대가 원본을 가리켜서 같이 움직인다.
-    // SkeletonUtils.clone 이 뼈대까지 복제해 준다.
-    const sideRigs = [];
-
-    function ensureSideRigs() {
-      if (sideRigs.length) return sideRigs;
-      for (let i = 0; i < 2; i++) {
-        const root = cloneSkinned(gltf.scene);
-        root.visible = false;
-        normGroup.add(root);
-        sideRigs.push({ root, base: capturePose(root), mixer: null });
-      }
-      return sideRigs;
-    }
-
-    function hideSideRigs() {
-      sideRigs.forEach(r => {
-        r.root.visible = false;
-        if (r.mixer) { r.mixer.stopAllAction(); r.mixer = null; }
-        restorePose(r.base);
-      });
-    }
-
-    // 세 머리를 동시에 재생한다. 가운데는 본체가, 좌·우는 복제본이 맡는다.
-    function playTrio(trio) {
-      seqQueue = [];
-      const rigs = ensureSideRigs();
-      playClipObject(trio.center, { repeat: 1, keepQueue: true, keepSides: true });
-      [trio.left, trio.right].forEach((clip, i) => {
-        const r = rigs[i];
-        restorePose(r.base);
-        r.root.visible = true;
-        r.mixer = new THREE.AnimationMixer(r.root);
-        const act = r.mixer.clipAction(clip);
-        act.setLoop(THREE.LoopOnce, 1);
-        act.clampWhenFinished = true;
-        act.play();
-      });
-      markActiveClip(trio.center.name + '#trio');
-      markPlayingClip(trio.center.name);
-    }
-
     // 위쪽(연결 재생)은 지금 고른 항목을, 아래쪽(개별 클립)은 실제로 도는 클립을 켠다.
     // 묶음을 재생하면 start -> loop -> end 순서로 아래쪽에 차례로 불이 들어온다.
     // markActiveClip 이 호이스팅돼서 먼저 불리므로 선언은 여기 위쪽에 둔다.
@@ -4076,8 +3086,6 @@ function noFollowClip(bossKey, name) {
 
     function playClipObject(clip, opts) {
       opts = opts || {};
-      // 세 머리 재생이 아니면 옆 머리는 치운다
-      if (!opts.keepSides) hideSideRigs();
       // 등장·사망처럼 보스가 반대로 서 있는 연출은 모델을 돌려서 맞춘다.
       // 자세·카메라 측정보다 먼저 해야 담김 계산이 돌린 뒤 기준으로 나온다.
       setClipYaw(clip.name);
@@ -4123,22 +3131,6 @@ function noFollowClip(bossKey, name) {
         camAct.setLoop(THREE.LoopOnce, 1);
         camAct.clampWhenFinished = true;
         camAct.play();
-        // 겨냥 대상 본. 여러 개가 걸리면 그 뭉치의 한가운데를 본다 —
-        // 베히모스 크레인은 본이 139개로 쪼개져 있어서 하나만 집으면 흔들린다.
-        const stages = (cameraLookAtFor(bossKey, clip.name) || []).map(la => {
-          let bones = [];
-          if (la.mesh) {
-            // 메쉬로 지정하면 그 메쉬가 실제로 쓰는 본만 모은다(skinIndex 기준).
-            const target = meshes.find(m => la.mesh.test(m.name || ''));
-            if (target) bones = focusBonesOf(target).slice();
-          } else if (la.bone) {
-            gltf.scene.traverse(o => {
-              if (o.isBone && la.bone.test(o.name || '')) bones.push(o);
-            });
-          }
-          return { bones, from: la.from || 0, blend: la.blend || 0, fixDist: la.fixDist || 0 };
-        }).filter(o => o.bones.length);
-        const fix = cameraFixFor(bossKey, clip.name);
         // 타임라인 배치. 카메라와 모델 클립이 타임라인에서 서로 다른 시각에
         // 놓인 연출이 있다 - 애니힐리오 1페 등장은 모델이 3.033 초 늦게
         // 시작한다. glb 는 둘 다 로컬 0 부터 굽기 때문에 그 차이를 여기서 낸다.
@@ -4153,28 +3145,24 @@ function noFollowClip(bossKey, name) {
           ? cex.meshActivation.filter(o => o && o.name
               && !(o.start <= 1e-6 && o.end >= maDur - 1e-6))
           : [];
-        meshActNames = new Set(meshAct.map(o => String(o.name)));
-        clipMeshOn = null;
-        clipMeshKey = null;
         cinematic = { action: camAct, clip: camPair.clip, node: camPair.node,
-          timeOffset: tlOff, meshAct: meshAct.length ? meshAct : null,
+          timeOffset: tlOff,
           camStart: (typeof cex.timelineStart === 'number') ? cex.timelineStart : 0,
-          zoom: camZoom.get(clip.name) || 1, aim: camAim.get(clip.name) || null,
-          near: camNear.get(clip.name) || 0, rescue: !!fix.rescue,
-          rollDeg: fix.rollDeg || 0,
-          rollFrom: fix.rollFrom || 0,
-          rollTo: (typeof fix.rollTo === 'number') ? fix.rollTo : Infinity,
-          flip: camNeedsFlip(clip.name),
-          // 이 연출을 파일 값 그대로 쓸지. 클립 단위로 갈리므로 여기서 정해 둔다.
-          raw: rawCamFor(bossKey, clip.name),
-          move: clipCamMoveFor(bossKey, clip.name),
-          lookAtFocus: aimCutForBoss(bossKey) || !!fix.lookAtFocus,
-          // 'cut' 은 컷 머리에서 맞추고 그 뒤로 천천히 따라가기.
-          aimMode: aimCutForBoss(bossKey) ? 'cut' : null,
-          lookAt: stages.length ? stages : null, idleAngle: !!fix.idleAngle,
-          dist: fix.dist || 1, fixDist: fix.fixDist || 0,
-          aimY: (typeof fix.aimY === 'number') ? fix.aimY : null };
-        rescueW = 0;
+          meshAct: startMeshAct(meshAct) };
+      } else {
+        // 카메라가 없는 동작도 메쉬 활성 구간을 가질 수 있다(검은 뱀 스킬02 는 좌우
+        // 머리를 2.33~5.00초에만 켠다). 시각은 그 동작의 타임라인 시작 기준이다.
+        const aex = clipExtrasOf(clip.name);
+        const maDur = aex.timelineDuration || 0;
+        const list = Array.isArray(aex.meshActivation)
+          ? aex.meshActivation.filter(o => o && o.name
+              && !(o.start <= 1e-6 && o.end >= maDur - 1e-6))
+          : [];
+        if (list.length) {
+          clipMeshAct = { list: startMeshAct(list),
+            start: (typeof aex.timelineStart === 'number') ? aex.timelineStart : 0 };
+          updateMeshAct(clipMeshAct.start);
+        }
       }
       // start 구간은 뒤따라올 loop 의 첫 자리에 시점을 붙들어 둔다.
       // start 는 파츠를 펼치는 준비 동작이라 리그가 크게 흔들리는데, 그걸 따라가면
@@ -4336,10 +3324,6 @@ function noFollowClip(bossKey, name) {
     if (animEl) {
       const seqs = findSequences(gltf.animations || [], bossKey);
       buildSyntheticSequences(seqs);
-      measureCameraFlip();
-      measureCameraZoom();
-      measureCameraAim();
-      measureCameraNear();
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
       const clips = (gltf.animations || [])
         .filter(c => !cameraClipNames.has(c.name) && !isHiddenClip(bossKey, c.name));
@@ -4440,13 +3424,6 @@ function noFollowClip(bossKey, name) {
           return 0;
         };
 
-        // 좌우 머리가 함께 나오는 연출은 하나로 묶는다. 낱개 좌·우 클립은 목록에서 뺀다
-        // — 혼자 틀어봐야 옆 머리 하나만 허공에서 움직인다.
-        const trios = findTrios(clips, bossKey);
-        const trioSide = new Set();
-        trios.forEach(t => { trioSide.add(t.left.name); trioSide.add(t.right.name); });
-        const trioByCenter = new Map(trios.map(t => [t.center.name, t]));
-
         // 이름 끝의 번호. 같은 갈래 안에서 번호 순으로 세우는 데 쓴다 —
         // 묶음이 없는 낱개 클립(거대 질량체 skill_fire_09 는 start/loop 이 없다)이
         // 파일 순서대로 맨 뒤에 붙어서 10 번 뒤에 서 있었다.
@@ -4507,15 +3484,8 @@ function noFollowClip(bossKey, name) {
           });
           // 3) 나머지
           clips.forEach(c => {
-            if (inSeq.has(c.name) || isIdle(c) || trioSide.has(c.name)) return;
+            if (inSeq.has(c.name) || isIdle(c)) return;
             if (!inCurrentPhase(c.name)) return;
-            const trio = trioByCenter.get(c.name);
-            if (trio) {
-              // 머리 셋이 동시에 나오는 연출
-              push(c.name,
-                mkBtn(c.name + '#trio', label(c.name) + '  (머리 3개)', secs(playDur(c)), 'is-seq'));
-              return;
-            }
             push(c.name,
               mkBtn(c.name, labelOf(c.name, label(c.name)), secs(playDur(c)),
                 isSolo(c) ? '' : 'is-extra'),
@@ -4565,11 +3535,6 @@ function noFollowClip(bossKey, name) {
             btn.addEventListener('click', () => {
               if (container.__soloRaidModel3D !== state) return;
               const key = btn.dataset.key;
-              if (key.endsWith('#trio')) {
-                const t = trioByCenter.get(key.slice(0, -5));
-                if (t) playTrio(t);
-                return;
-              }
               const sq = seqs.find(x => x.key === key);
               if (sq) playSequence(sq);
               else {
@@ -4624,7 +3589,6 @@ function noFollowClip(bossKey, name) {
         cinematic.action.time = ct;
         cinematic.action.paused = false;
         cinematic.action.enabled = true;
-        aimCutPrev.valid = false;
         if (mixer) mixer.update(0);
         syncBar();
         return;
@@ -4645,8 +3609,6 @@ function noFollowClip(bossKey, name) {
         cinematic.action.time = Math.max(0, Math.min(cd, ct));
         cinematic.action.paused = false;
         cinematic.action.enabled = true;
-        // 컷 머리 겨냥은 앞 컷의 값을 들고 있으면 안 된다 — 다시 재게 한다.
-        aimCutPrev.valid = false;
       }
       if (mixer) mixer.update(0);
       syncBar();
@@ -4876,8 +3838,11 @@ function noFollowClip(bossKey, name) {
       // 예약된 클립 교체를 먼저 처리한다(옛 믹서가 이미 멈춘 뒤라 안전하다)
       runPendingNext();
       if (mixer && !state.paused) mixer.update(dt);
-      if (!state.paused) sideRigs.forEach(r => { if (r.mixer) r.mixer.update(dt); });
-      if (!applyCinematicCamera(dt)) {
+      // 카메라가 없는 동작의 메쉬 활성 구간(검은 뱀 스킬02 의 좌우 머리)
+      if (!cinematic && clipMeshAct && currentAction) {
+        updateMeshAct(clipMeshAct.start + currentAction.time);
+      }
+      if (!applyCinematicCamera()) {
         updateFollow();
         clampPan();
         controls.update();
