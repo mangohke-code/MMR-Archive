@@ -1309,6 +1309,11 @@ function gateFitFov(fovDeg, aspect) {
 // back 은 거리에 곱하는 값이라 이 비율을 못 바꾼다 - 여기서만 된다.
 function cutsceneAnchorOf(node, scale) {
   if (!node || !node.userData) return null;
+  // 2026-09-30 이후 추출 빌드는 카메라 곡선에 부모 체인(홀더 포함)을 이미 넣어 온다
+  // (cutsceneAnchorApplied: true). 여기서 또 끼우면 두 번 걸린다. 예전 추출본은
+  // false 라 아래 표대로 동작한다. 새 추출본과 예전 추출본의 카메라 값은 서로 달라서
+  // 섞어 쓰면 안 된다 — 새로 뽑은 보스는 아래 보정 표들도 다시 확인할 것.
+  if (node.userData.cutsceneAnchorApplied === true) return null;
   if (!CUTSCENE_ANCHOR_ON.some(re => re.test(node.name || ''))) return null;
   const a = node.userData.cutsceneAnchorNoMirror || node.userData.cutsceneAnchor;
   if (!Array.isArray(a) || a.length !== 16) return null;
