@@ -1039,6 +1039,14 @@ const MANUAL_SEQUENCES = [
     key: 'xbg003_appearance_all',
     steps: [/^xbg003_take01$/i, /^xbg003_appearance$/i],
   },
+  // 마더웨일 등장 - 게임 타임라인에서 세 컷이 빈틈없이 이어진다(각 카메라 extras).
+  //   appearance    0     ~ 2.667   (카메라 _camera_1)
+  //   appearance_2  2.667 ~ 4.567   (카메라 _camera_2, 클립은 1.867 이라 0.033 남는다)
+  //   appearance_3  4.567 ~ 7.800   (카메라 _camera_3)
+  {
+    key: 'bba001_appearance_all',
+    steps: [/^bba001_appearance$/i, /^bba001_appearance_2$/i, /^bba001_appearance_3$/i],
+  },
   // 베히모스 - 페이즈 전환 연출의 뒤 두 컷
   {
     key: 'mbg003_2phase_take',
