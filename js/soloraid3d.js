@@ -535,15 +535,26 @@ function bossKeyFrom(bossCode, url) {
   return stem.toLowerCase().startsWith(bossCode) ? stem : bossCode;
 }
 
-// 이름이 겹치는 클립. 사치스러운 거미는 파일에 dead_01 이 두 벌 들어 있는데,
-// 목록에서 이름으로 찾으면 뒤엣것은 영영 못 고른다. 뒤엣것에 번호를 붙여 가른다.
-function dedupeClipNames(clips) {
-  const seen = new Map();
-  clips.forEach(c => {
+// 이름이 겹치는 클립. 사치스러운 거미는 파일에 dead_01 이 두 벌 들어 있다 —
+// 애니메이터용과 사망 연출(타임라인)용으로 뼈 387개를 같이 움직이는데 위치가
+// 최대 22 만큼 다르다. 목록에서 이름으로 찾으면 둘째는 영영 못 고르므로 번호를 붙여
+// 가르되, 게임 타임라인이 쓰는 쪽(extras.timeline 이 있는 쪽)이 원래 이름을 갖게 한다.
+// 연출 카메라가 pairedClip 이름으로 짝을 찾기 때문이다 — 순서대로 가르면 카메라가
+// 애니메이터용에 붙어서 사망 연출이 게임과 다른 몸 동작으로 돌았다.
+// defs 는 파일의 animations(순서가 clips 와 같다).
+function dedupeClipNames(clips, defs) {
+  const onTimeline = i => !!(defs && defs[i] && defs[i].extras && defs[i].extras.timeline);
+  const groups = new Map();
+  clips.forEach((c, i) => {
     const n = c.name || '';
-    const hit = (seen.get(n) || 0) + 1;
-    seen.set(n, hit);
-    if (hit > 1) c.name = n + '_' + hit;
+    if (!groups.has(n)) groups.set(n, []);
+    groups.get(n).push(i);
+  });
+  groups.forEach((idx, n) => {
+    if (idx.length < 2) return;
+    const keep = idx.find(onTimeline);
+    const order = keep === undefined ? idx : [keep, ...idx.filter(i => i !== keep)];
+    order.forEach((i, k) => { if (k > 0) clips[i].name = n + '_' + (k + 1); });
   });
 }
 
@@ -1233,8 +1244,8 @@ const HIDDEN_CLIPS = [
   { boss: /^mbg002/i, re: /^mbg002_phase001_shot_/i },
   // 2.5페이즈 대기·전환은 목록에서 뺀다.
   { boss: /^mbg002/i, re: /^mbg002_phase0025_(idle|destroy)$/i },
-  // 사망이 파일에 두 벌 들어 있는데, 앞 5초가 같고 마지막 1초 남짓만 다르다.
-  // 눈으로는 구분이 안 돼서 뒤엣것은 목록에서 뺀다.
+  // 사망이 파일에 두 벌 들어 있다(애니메이터용 / 사망 연출용, dedupeClipNames 참고).
+  // 연출용이 원래 이름을 갖고, _2 가 붙는 애니메이터용은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
   { boss: /^bbg001_rich/i, re: /^bbg001_shot_/i },
   { boss: /^ebg001_island/i, re: /^ebg001_phase001_idle2$/i },
@@ -1258,17 +1269,17 @@ const CLIP_TRIM = [
   // 스톰브링어 등장 - 3.5초까지는 보스가 y 12.6 상공에 멈춰 있고
   // 카메라도 안 움직인다(거리 13.0 고정, 화면 높이의 10%).
   { boss: /^eba001/i, re: /^eba001_appearance$/i, from: 3.5 },
-  // 사치스러운 거미 사망 - 5.5초부터 카메라가 시체를 뚫고 지나가 딴 데를 본다.
-  // 겨냥이 100도를 넘고 화면 점유가 1.6% -> 0.3% 로 떨어져 끝까지 빈 화면이다.
-  // 볼 게 없는 1초를 잘라낸다(6.57초 -> 5.5초).
+  // 사치스러운 거미 사망 - 클립은 6.567초인데 게임 사망 타임라인은 5.917초에서
+  // 끝난다(카메라 extras.timelineDuration). 그 뒤는 게임에서 안 보이는 구간이다.
+  // (예전 파일은 이 구간에 카메라가 시체를 뚫고 지나가서 5.5초로 잘랐었다)
   //
   // 이 보스는 카메라를 두 줄로 따로 적어야 한다. applyClipTrim 은 짝인 카메라를
   // "모델클립이름_camera" 로 찾는데, 여기는 모델이 bbg001_dead_01 이고 카메라가
   // harvester_dead_scene_camera 라 이름이 안 이어진다. 게다가 이 연출은 카메라가
   // 시계라(timelineStart 0 / pairedClipTimelineStart 5.55e-16 로 timeOffset 이
   // 음수) 카메라를 안 자르면 길이가 그대로다.
-  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, to: 5.5 },
-  { boss: /^bbg001_rich/i, re: /^harvester_dead_scene$/i, to: 5.5 },
+  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, to: 5.917 },
+  { boss: /^bbg001_rich/i, re: /^harvester_dead_scene$/i, to: 5.917 },
 ];
 
 // gltf.animations 를 제자리에서 바꿄다. 이름은 그대로 두어서 이름으로 물린 표
@@ -1831,7 +1842,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     const meshNamesForBossCode = [];
     gltf.scene.traverse(o => { if (o.isMesh) meshNamesForBossCode.push(o.name); });
-    dedupeClipNames(gltf.animations || []);
+    dedupeClipNames(gltf.animations || [],
+      (gltf.parser && gltf.parser.json && gltf.parser.json.animations) || null);
     const bossCode = detectBossCode(meshNamesForBossCode, modelUrl);
     // 규칙 표는 파일 이름까지 본다(변종 보스 구분). 표 안 쓰는 쪽(파츠 이름 자르기,
     // 코드로 찾는 표)은 그대로 bossCode 를 쓴다.
