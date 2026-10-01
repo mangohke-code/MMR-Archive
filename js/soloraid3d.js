@@ -223,6 +223,13 @@ const MESH_RENAME = [
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
+  // 마더웨일 - 왼쪽 해치만 노드가 이름을 먼저 차지해서 _1 이 붙는다. 이름표가 안 걸려서 뗀다.
+  { boss: /^bba001/i, re: /^(bba001_left_cover_skin)(_\d+)?$/i, bySuffix: {} },
+  // 울트라 - 노드가 이름을 먼저 차지해서 메쉬에 _1 이 붙는다. 그 꼬리표 때문에 이름표가 안
+  // 걸렸다. 프리미티브가 하나뿐인 것만 뗀다(몸 둘은 프리미티브가 둘이라 그대로).
+  { boss: /^bbg006/i,
+    re: /^(bbg006_(?:[lr]poison_skin|1phase_head_0\d|1phase_[lr]wings_01_skin))(_\d+)?$/i,
+    bySuffix: {} },
 
   // 베히모스 2페이즈 - 여기도 노드가 이름을 먼저 차지해서 머신건에 _1 이 붙는다.
   // 그 꼬리표 때문에 이름표도, 3페이즈 기본 꺼짐 규칙도 안 걸렸다.
@@ -280,8 +287,44 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 마더웨일 - 게임 로케일 parts_name_motherwhale01~09. 2026-10-02 재추출본의 파츠 데이터
+  // (MonsterPartsPrefab.Skin)가 메쉬를 직접 가리킨다 — l/r_summon_01~03 -> left/right_boil_01~03,
+  // l/r_cover_01 -> left/right_cover, socket_summon_01 -> core_skin. 부위 번호(13~21)도
+  // 로케일 01~09 순서와 같다.
+  bba001: {
+    'left_boil_01_skin': '소환 포트 L Ⅰ',
+    'left_boil_02_skin': '소환 포트 L Ⅱ',
+    'left_boil_03_skin': '소환 포트 L Ⅲ',
+    'right_boil_01_skin': '소환 포트 R Ⅰ',
+    'right_boil_02_skin': '소환 포트 R Ⅱ',
+    'right_boil_03_skin': '소환 포트 R Ⅲ',
+    'left_cover_skin': '컨테이너 해치 L',
+    'right_cover_skin': '컨테이너 해치 R',
+    'core_skin': '코어',
+  },
+  // 프로비던스 - 게임 로케일 parts_name_providence01~06. 파츠 데이터가 부서지는 파츠로
+  // arm_l/r · legs_l/r_skin001 · shoulder_l/r 를 가리킨다(arm2 가 아니다). 로케일 영어
+  // Vambrace(완갑) · Pauldron(견갑) · Greave(각갑)와 부위가 그대로 맞는다.
+  // 07 확장 파츠는 가리키는 메쉬가 없다(충돌체 parts_col_01~06 뿐).
+  xbg002: {
+    'arm_l_skin': '완갑 L',
+    'arm_r_skin': '완갑 R',
+    'shoulder_l_skin': '견갑 L',
+    'shoulder_r_skin': '견갑 R',
+    'legs_l_skin001': '각갑 L',
+    'legs_r_skin001': '각갑 R',
+  },
   bbg001: {
     'egg_skin': '알집',
+  },
+  // 울트라 - 게임 로케일 parts_name_ultra01~05(날개 L·R, 독주머니 L·R, 코어).
+  // 독주머니는 파츠 데이터(MonsterPartsPrefab)가 l/rpoison_skin 을 직접 가리킨다.
+  // 날개는 메쉬 이름 그대로 잇는다. 코어(core_col_01)는 머리 뼈에 붙은 충돌체라 메쉬가 없다.
+  bbg006: {
+    'lpoison_skin': '독주머니 L',
+    'rpoison_skin': '독주머니 R',
+    '1phase_lwings_01_skin': '날개 L',
+    '1phase_rwings_01_skin': '날개 R',
   },
   eba001: {
     'left_sr_01_skin': '터렛 Ⅰ',
@@ -1156,10 +1199,11 @@ function findSequences(clips, bossKey) {
   groups.forEach((g, key) => {
     if (!g.start || !(g.loop || g.end || g.fire)) return;
     const steps = [{ clip: g.start.clip, repeat: 1 }];
-    // 기본값. 게임 타임라인에 든 동작은 뒤에 applyTimelineLoops 가 파일 값으로 바꾼다.
-    // 타임라인 없이 애니메이터로만 쓰는 동작은 횟수가 게임 코드에 있어서 이 값이 남는다 —
-    // 그로기만 두 번, 나머지는 한 번(점프처럼 한 번에 끝나는 동작이 두 번 뛰면 이상하다).
-    if (g.loop) steps.push({ clip: g.loop.clip, repeat: /groggy/i.test(key) ? 2 : 1 });
+    // 기본값 한 번. 게임 타임라인에 든 동작은 뒤에 applyTimelineLoops 가 파일 값으로 바꾼다.
+    // 타임라인 없이 애니메이터로만 쓰는 동작은 횟수가 게임 코드에 있어서 이 값이 남는다.
+    // (예전에는 그로기만 두 번 돌렸다. 타임라인이 있는 그로기는 전부 슬롯 = 동작 한 번이라
+    //  맞춰서 한 번으로 바꿨다 — 남아 있던 건 마더웨일 그로기뿐이었는데 너무 길었다.)
+    if (g.loop) steps.push({ clip: g.loop.clip, repeat: 1 });
     if (g.fire) steps.push({ clip: g.fire.clip, repeat: 1 });
     if (g.end) steps.push({ clip: g.end.clip, repeat: 1 });
     out.push({ key, steps });
