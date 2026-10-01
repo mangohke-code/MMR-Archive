@@ -48,6 +48,15 @@ const PHASE_MODE_OVERRIDES = {
   // 자리수 채운 이름이라 2.5 가 "25" 로 읽힐테고, 그러면 25페이즈 칩이
   // 없어서 그 클립들이 어느 목록에도 안 나온다. 2페이즈로 접어 둔다.
   mbg002: { merge: { 25: 2 } },
+  // 지즈 - 1·2페이즈 몸이 따로다. 변신하면 1페이즈 몸·코어는 사라지고 2페이즈 몸·코어만
+  // 남는다(2페이즈 동작 15개가 2페 코어 뼈만 움직이고 1페 코어 뼈는 안 건드린다).
+  // 2페 코어는 프리팹에서 꺼져 있고 타임라인도 켜지 않는다 - 게임 코드가 켠다.
+  eba005: { mode: 'exclusive' },
+  // 울트라 - 1페이즈는 1·2페이즈 몸이 다 켜져 있다(프리팹에서 둘 다 켜짐, 2페 몸이 1페
+  // 껍데기 안에 있다). 1페이즈가 끝나면 게임이 1페 몸·머리 셋·날개를 끈다
+  // (MonsterPhaseData phase 1 EndDeActiveObjects). 2페이즈에는 2페 몸과 독주머니만 남는다.
+  // 변종(bbg006_hsta)도 코드로 찾아서 같이 걸린다.
+  bbg006: { mode: 'phase1-all' },
 };
 
 function getPhaseConfig(bossKey, bossCode) {
@@ -962,6 +971,9 @@ function pairCameraClips(clips, camNodes) {
   const cams = clips.filter(c => nodeOf.has(c.name));
   const models = clips.filter(c => !nodeOf.has(c.name));
   const byModel = new Map();
+  // 한 동작에 카메라가 여럿 붙은 연출. 타임라인에서 컷마다 카메라가 갈린다 —
+  // 지즈 1->2 변신은 모델 동작 하나(8.2초)에 Camera(0~3.317) · Camera (1)(3.317~8.183).
+  const cutsByModel = new Map();
   // 내보내기가 짝을 적어 준 카메라부터 처리한다. 이름 규칙보다 이쪽이 정확하다 —
   // 베히모스 dead_camera2 는 이름만 보면 dead_2 와 붙지만 실제 짝은 dead 다.
   cams.forEach(cam => {
@@ -969,8 +981,18 @@ function pairCameraClips(clips, camNodes) {
     const paired = node && node.userData && node.userData.pairedClip;
     if (!paired) return;
     const target = models.find(c => c.name === paired);
-    // 한 클립에 카메라가 둘 붙어 있으면 먼저 나온 것을 쓴다
-    if (target && !byModel.has(target.name)) byModel.set(target.name, { clip: cam, node });
+    if (!target) return;
+    if (!cutsByModel.has(target.name)) cutsByModel.set(target.name, []);
+    cutsByModel.get(target.name).push({ clip: cam, node });
+    // byModel 에는 먼저 나온 것을 둔다
+    if (!byModel.has(target.name)) byModel.set(target.name, { clip: cam, node });
+  });
+  // 컷이 하나뿐인 동작은 지우고, 여럿이면 타임라인 시작 순으로 세운다
+  const tlStartOf = p => (p.node.userData && typeof p.node.userData.timelineStart === 'number')
+    ? p.node.userData.timelineStart : 0;
+  cutsByModel.forEach((list, k) => {
+    if (list.length < 2) cutsByModel.delete(k);
+    else list.sort((a, b) => tlStartOf(a) - tlStartOf(b));
   });
   // 짝이 안 적힌 카메라만 이름으로 찾는다
   cams.forEach(cam => {
@@ -1009,7 +1031,7 @@ function pairCameraClips(clips, camNodes) {
       byModel.set(best.name, { clip: cam, node: nodeOf.get(cam.name) });
     }
   });
-  return { cams, byModel };
+  return { cams, byModel, cutsByModel };
 }
 
 // 파일에는 따로 들어 있지만 실제로는 이어서 도는 연출. 한 묶음으로 낸다.
@@ -1085,6 +1107,31 @@ const MANUAL_SEQUENCES = [
     key: 'bbg001_cc',
     steps: [/^bbg001_cc_start_01$/i, /^bbg001_cc_idle$/i, /^bbg001_cc_end_01$/i],
   },
+  // 울트라 - 스킬 묶음을 게임 타임라인(bbg006_skill_NN_model) 그대로 잇는다.
+  // 시즌 37(H.S.T.A.)과 시즌 7(Z.E.U.S.)은 모델·동작이 같은데 묶음만 다르다.
+  //   스킬 03  S7  start_03 -> loop_03 -> fire_03
+  //            S37 start_03 -> loop_03            (fire_03 은 스킬 06 으로 갔다)
+  //   스킬 06  S7  start_06 -> (2.0~4.333 빈 슬롯) -> 2phase_idle
+  //            S37 start_06 -> fire_03 -> 2phase_idle
+  //   스킬 07  loop_07 은 1초짜리를 5초 슬롯에 깔아 다섯 번 돈다.
+  // S7 의 스킬 03 은 이름 규칙대로 자동으로 묶인다.
+  {
+    key: 'bbg006_skill_03', boss: /^bbg006_hsta/i,
+    steps: [/^bbg006_skill_start_03$/i, /^bbg006_skill_loop_03$/i],
+  },
+  {
+    key: 'bbg006_skill_06', boss: /^bbg006_hsta/i,
+    steps: [/^bbg006_skill_start_06$/i, /^bbg006_skill_fire_03$/i, /^bbg006_2phase_idle$/i],
+  },
+  {
+    key: 'bbg006_skill_06', boss: /^bbg006$/i,
+    steps: [/^bbg006_skill_start_06$/i, /^bbg006_2phase_idle$/i],
+  },
+  {
+    key: 'bbg006_skill_07', boss: /^bbg006/i,
+    steps: [/^bbg006_skill_start_07$/i, { re: /^bbg006_skill_loop_07$/i, repeat: 5 },
+      /^bbg006_skill_fire_07$/i],
+  },
 ];
 
 // 자동으로 묶지 않는 클립. 사치스러운 거미의 cc(그로기)는 사이에 낀 대기 동작
@@ -1092,6 +1139,9 @@ const MANUAL_SEQUENCES = [
 // 막아 두고 MANUAL_SEQUENCES 에서 start -> idle -> end 로 손수 잇는다.
 const NO_SEQUENCE = [
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_/i },
+  // 울트라 - 위 MANUAL_SEQUENCES 가 게임 타임라인대로 손수 잇는다
+  { boss: /^bbg006_hsta/i, re: /^bbg006_skill_(start|loop|fire)_03$/i },
+  { boss: /^bbg006/i, re: /^bbg006_skill_(start|loop|fire)_07$/i },
 ];
 
 function isNoSequence(bossKey, name) {
@@ -1127,11 +1177,15 @@ function findSequences(clips, bossKey) {
     ? /^[a-z]{2,4}\d{3}_/i
     : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
   // 손으로 묶는 연출은 위 판정(phases)에 넣지 않는다 — 다른 보스의 라벨까지 흔든다.
+  // boss 를 적은 묶음은 그 보스에만 낸다(같은 클립 이름을 쓰는 변종끼리 묶음이 다를 때).
+  // 단계는 정규식 하나, 또는 { re, repeat } 로 반복 횟수를 같이 적는다.
   MANUAL_SEQUENCES.forEach(def => {
+    if (def.boss && !def.boss.test(bossKey || '')) return;
     if (out.some(o => o.key === def.key)) return;
-    const steps = def.steps.map(re => clips.find(c => re.test(c.name || '')));
+    const defs = def.steps.map(st => (st instanceof RegExp ? { re: st, repeat: 1 } : st));
+    const steps = defs.map(st => clips.find(c => st.re.test(c.name || '')));
     if (steps.some(c => !c)) return;
-    out.push({ key: def.key, steps: steps.map(c => ({ clip: c, repeat: 1 })) });
+    out.push({ key: def.key, steps: steps.map((c, i) => ({ clip: c, repeat: defs[i].repeat || 1 })) });
   });
   out.forEach(o => { o.label = o.key.replace(strip, ''); });
   return out;
@@ -1178,6 +1232,12 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /_move_/i, boss: /^ebg001_island/i, phase: '2' },
   { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001_island/i, phase: '2' },
   { re: /_dead$/i, boss: /^ebg001_island/i, phase: '2' },
+  // 지즈 - 이름은 2페 등장이지만 1 -> 2 변신 연출이다(게임 데이터 sceneType 2 / trigger 32
+  // = 2페 진입). 켜짐 구간도 1페 몸 0~5.53초, 2페 몸 4.67~8.2초다.
+  { re: /^eba005_2phase_appearance_take1$/i, boss: /^eba005/i, phase: '1' },
+  // 울트라 - 1페이즈로 등장해서 2페이즈에서 죽는다
+  { re: /^bbg006_intro_take3$/i, boss: /^bbg006/i, phase: '1' },
+  { re: /^bbg006_outro_take1$/i, boss: /^bbg006/i, phase: '2' },
 ];
 
 // 원래 페이즈 말고 다른 페이즈 목록에도 같이 내는 클립.
@@ -1268,6 +1328,9 @@ const HIDDEN_CLIPS = [
   { boss: /^eba002/i, re: /^eba002_2phase_intro_02$/i },
   { boss: /^eba002/i, re: /^eba002_2phase_intro_03jelly$/i },
   { boss: /^eba002/i, re: /^eba002_2phase_death_jelly$/i },
+  // 울트라 - intro_take2 는 게임이 안 쓴다(inGameUse []). 같이 나온 전투기·양산형 니케
+  // 부속 파일도 그 긴 등장용이라 넣지 않았다. 게임 등장은 intro_take3(appearance_short)다.
+  { boss: /^bbg006/i, re: /^bbg006_intro_take2$/i },
 ];
 
 // 앞부분을 잘라내고 쓰는 연출. 게임에서는 그 구간을 이펙트가 채우는데
@@ -1375,6 +1438,11 @@ const CLIP_LABEL_FIX = [
   { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
   { boss: /^mbg003/i, re: /_1phase_take$/i, label: '1phase_take1+2' },
   { boss: /^xbg003/i, re: /_appearance_all$/i, label: 'take01+appearance' },
+  // 지즈 변신 - 모델 동작은 take1 하나뿐이고 take2 는 카메라만 있다. 꼬리표를 뗀다.
+  { boss: /^eba005/i, re: /^eba005_2phase_appearance_take1$/i, label: '2phase_appearance' },
+  // 울트라 - 게임이 쓰는 등장·사망 컷이 하나씩이라(take2 는 안 쓴다) 꼬리표를 떼고 이름을 맞춘다
+  { boss: /^bbg006/i, re: /^bbg006_intro_take3$/i, label: 'appearance' },
+  { boss: /^bbg006/i, re: /^bbg006_outro_take1$/i, label: 'dead' },
   // 사치스러운 거미 - 짝이던 idle_02 / dead_01_2 를 뺐고 cc 는 start·end 가
   // 하나씩뿐이라, 뒤에 붙은 번호가 더는 아무것도 안 가른다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_01$/i, label: 'idle' },
@@ -1451,6 +1519,9 @@ const CLIP_SOLO_PARTS = [
     show: /_jellyfish_[lr]$/i },
   { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
+  // 지즈 변신 - 1·2페이즈 몸을 다 켜 두고, 언제 보이는지는 파일의 meshActivation 에 맡긴다
+  // (1페 몸 0~5.53초, 2페 몸 4.67~8.2초, 2페 코어는 첫 프레임만).
+  { boss: /^eba005/i, clip: /^eba005_2phase_appearance_take1$/i, show: /./ },
   // 애니힐리오도 같다. 앞 컷(12phase_appeanrance)은 1페이즈 본만 움직이는데
   // 2페이즈 목록에 두었더니 1페이즈 몸이 통째로 숨어 화면이 비었다.
   // 마녀의 까마귀 다섯은 전환 연출 내내 꺼져 있다.
@@ -1571,6 +1642,10 @@ const PHASE_SWITCH_CLIPS = [
   // 리버렐리오 바디 - 이름은 intro 지만 1 -> 2페이즈 전환이다.
   // 진짜 등장은 1phase_intro 쪽이다(아래 APPEARANCE_CLIPS).
   /^eba002_2phase_intro_01$/i,
+  // 지즈 - 이름은 2페 등장이지만 1 -> 2 변신이다.
+  /^eba005_2phase_appearance_take1$/i,
+  // 울트라 1 -> 2페이즈(게임 타임라인 bbg006_phase02, sceneType 2 / trigger 32)
+  /^bbg006_1phase_destroy$/i,
 ];
 
 // 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
@@ -1579,6 +1654,8 @@ const APPEARANCE_CLIPS = [
   /^mbg003_1phase_take[12]?$/i,
   // 리버렐리오 바디 - 이름에 appearance 가 안 들어간 등장 연출.
   /^eba002_1phase_intro$/i,
+  // 울트라 - 게임 등장(appearance_short)
+  /^bbg006_intro_take3$/i,
 ];
 
 function isAppearanceClip(name) {
@@ -1603,6 +1680,10 @@ const AUTO_PHASE_CHAIN = [
   // 리버렐리오 바디: 1페이즈 2phase_intro_01 -> 2페이즈.
   // 한 모델 안에 두 페이즈가 다 들어 있어 페이즈 칩을 넘긴다.
   { boss: /^eba002/i, from: '1', by: 'phase' },
+  // 지즈: 1페이즈 2phase_appearance_take1(변신) -> 2페이즈. 한 모델 안이라 페이즈 칩.
+  { boss: /^eba005/i, from: '1', by: 'phase' },
+  // 울트라: 1페이즈 1phase_destroy -> 2페이즈
+  { boss: /^bbg006/i, from: '1', by: 'phase' },
 ];
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
@@ -2203,7 +2284,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     const camPairs = camNodes.length
       ? pairCameraClips(gltf.animations || [], camNodes)
-      : { cams: [], byModel: new Map() };
+      : { cams: [], byModel: new Map(), cutsByModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
     let cinematic = null;
@@ -2913,7 +2994,26 @@ function noFollowClip(bossKey, name) {
           if (mixer) mixer.update(0);
         }
       }
-      if (cinematic.meshAct) updateMeshAct(cinematic.camStart + cinematic.action.time);
+      if (cinematic.meshAct) {
+        updateMeshAct(cinematic.cuts ? cinematic.tlNow
+          : cinematic.camStart + cinematic.action.time);
+      }
+    }
+
+    // 카메라가 여럿인 연출 — 지금 타임라인 시각(모델 동작 기준)에 걸린 컷의 카메라로
+    // 갈아타고, 컷마다 카메라 클립 시각을 맞춘다. 슬롯보다 짧은 클립은 끝 프레임에 멈춘다.
+    function syncCinematicCuts() {
+      if (!cinematic.cuts || !currentAction) return;
+      const tl = cinematic.modelStart + currentAction.time;
+      cinematic.tlNow = tl;
+      let active = cinematic.cuts[0];
+      for (const c of cinematic.cuts) {
+        const d = c.action.getClip().duration || 0;
+        c.action.time = Math.max(0, Math.min(d, tl - c.start));
+        if (tl >= c.start - 1e-6) active = c;
+      }
+      cinematic.node = active.node;
+      if (mixer) mixer.update(0);
     }
 
     // 파일 카메라를 그대로 옮긴다. 위치·회전·화각 모두 파일 값이다.
@@ -2922,6 +3022,7 @@ function noFollowClip(bossKey, name) {
         if (savedFov !== null) { camera.fov = savedFov; savedFov = null; camera.updateProjectionMatrix(); }
         return false;
       }
+      syncCinematicCuts();
       const node = cinematic.node;
       node.updateWorldMatrix(true, false);
       node.matrixWorld.decompose(camWorldPos, camWorldQuat, camWorldScl);
@@ -3160,7 +3261,10 @@ function noFollowClip(bossKey, name) {
           && typeof cex.pairedClipTimelineStart === 'number')
           ? cex.timelineStart - cex.pairedClipTimelineStart : 0;
         // 메쉬별 활성 구간(타임라인 기준). 연출 내내 켜져 있는 항목은 버린다.
-        const maDur = cex.timelineDuration || 0;
+        // 카메라가 여럿인 연출은 카메라 하나의 슬롯이 아니라 모델 동작 전체가 연출이다 —
+        // 지즈 변신의 1페 몸(0~5.53초)이 첫 카메라 슬롯(3.317초)을 덮는다고 버려지면 안 된다.
+        const maDur = (camPairs.cutsByModel.has(clip.name) && cex.pairedClipTimelineDuration)
+          || cex.timelineDuration || 0;
         const meshAct = Array.isArray(cex.meshActivation)
           ? cex.meshActivation.filter(o => o && o.name
               && !(o.start <= 1e-6 && o.end >= maDur - 1e-6))
@@ -3169,6 +3273,25 @@ function noFollowClip(bossKey, name) {
           timeOffset: tlOff,
           camStart: (typeof cex.timelineStart === 'number') ? cex.timelineStart : 0,
           meshAct: startMeshAct(meshAct) };
+        // 카메라가 여럿인 연출은 모델 동작이 시계고, 카메라는 타임라인 시각에 맞춰
+        // 갈아탄다. 각 카메라 클립은 반복 없이 끝 프레임에 멈춘다(유니티 Hold) —
+        // 지즈 take1 카메라는 클립 2.10초인데 슬롯이 3.317초까지라 그 사이는 끝 프레임이다.
+        const cutList = camPairs.cutsByModel.get(clip.name);
+        if (cutList) {
+          cinematic.timeOffset = 0;
+          cinematic.modelStart = (typeof cex.pairedClipTimelineStart === 'number')
+            ? cex.pairedClipTimelineStart : 0;
+          cinematic.cuts = cutList.map(p => {
+            const a = p.clip === camPair.clip ? camAct : mixer.clipAction(p.clip);
+            a.setLoop(THREE.LoopOnce, 1);
+            a.clampWhenFinished = true;
+            a.play();
+            a.paused = true;   // 시각은 syncCinematicTimeline 이 모델에 맞춰 넣는다
+            const u = p.node.userData || {};
+            return { action: a, node: p.node,
+              start: (typeof u.timelineStart === 'number') ? u.timelineStart : 0 };
+          });
+        }
       } else {
         // 카메라가 없는 동작도 메쉬 활성 구간을 가질 수 있다(검은 뱀 스킬02 는 좌우
         // 머리를 2.33~5.00초에만 켠다). 시각은 그 동작의 타임라인 시작 기준이다.
@@ -3420,7 +3543,8 @@ function noFollowClip(bossKey, name) {
         const isBaseDespiteName = (n) => BASE_DESPITE_NAME.some(
           o => o.boss.test(bossKey || '') && o.re.test(n));
         const isAppearName = n => /(^|_)appea/i.test(n);           // appearance / appeanrance
-        const isDeadName = n => /(^|_)(dead|death)/i.test(n);
+        // 울트라 사망은 outro_take1 이다(다른 보스에는 outro 가 붙은 클립이 없다)
+        const isDeadName = n => /(^|_)(dead|death|outro)/i.test(n);
         const isAirName = n => /(^|_)air/i.test(n);
         const groupOf = (name) => {
           const n = String(name);
