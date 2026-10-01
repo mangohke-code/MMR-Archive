@@ -225,6 +225,15 @@ const MESH_RENAME = [
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
+  // 크리스탈 체임버 - 노드가 이름을 먼저 차지해서 메쉬마다 _1 · _2 가 붙는다. 방어막·큰 뿔은
+  // 본체와 발광 층(fx_ 재질, 시즌 10 만 있다)이 같은 이름이라 재질로 가른다 — 본체는 꼬리표 없이,
+  // 발광 층은 _1. 프리미티브가 하나뿐인 나머지는 꼬리표만 뗀다(몸통·파편·무기01 은 둘이라 그대로).
+  { boss: /^xbg001/i, re: /^(xbg001_(?:left|right)_barrier)(_\d+)?$/i,
+    bySuffix: { 'xbg001_psid_body': '', 'xbg001_anmi_body': '', 'fx_xbg001_barrier_uv': '_1' } },
+  { boss: /^xbg001/i, re: /^(xbg001_(?:left|right)_bighorn)(_\d+)?$/i,
+    bySuffix: { 'xbg001_psid_head': '', 'xbg001_anmi_head': '', 'fx_xbg001_bighorn_uv': '_1' } },
+  { boss: /^xbg001/i,
+    re: /^(xbg001_(?:horn|[LR]_legs|2phase_weapon|weapon_crystal01))(_\d+)?$/i, bySuffix: {} },
   // 마더웨일 - 왼쪽 해치만 노드가 이름을 먼저 차지해서 _1 이 붙는다. 이름표가 안 걸려서 뗀다.
   { boss: /^bba001/i, re: /^(bba001_left_cover_skin)(_\d+)?$/i, bySuffix: {} },
   // 울트라 - 노드가 이름을 먼저 차지해서 메쉬에 _1 이 붙는다. 그 꼬리표 때문에 이름표가 안
@@ -488,6 +497,9 @@ const DEFAULT_OFF_MESHES = [
   // take2(3.23~10.67초)와 2페 스킬02(2.33~5.00초)에만 켠다. 그 구간은 파일의
   // meshActivation 이 켠다(경로 …/heads 로 매칭).
   { boss: /^bbg008/i, re: /_skin_(left|right)(_\d+)?$/i },
+  // 크리스탈 체임버(시즌 10) 방어막·큰 뿔 발광 층 - 프리팹에서 꺼진 채 시작하고(selfActive false)
+  // 어느 타임라인도 켜지 않는다.
+  { boss: /^xbg001/i, re: /_(left|right)_(barrier|bighorn)_1$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -1120,6 +1132,16 @@ const MANUAL_SEQUENCES = [
     key: 'bba001_appearance_all',
     steps: [/^bba001_appearance$/i, /^bba001_appearance_2$/i, /^bba001_appearance_3$/i],
   },
+  // 크리스탈 체임버 등장 - 게임 타임라인(xbg001_appearance)은 카메라 세 컷이다.
+  //   take1  0     ~ 6.0     카메라만 있다(보스 쪽 동작 없음, 맵 번들 개체 xcg001 의 연출)
+  //   take2  6.0   ~ 10.533  (카메라 take2)
+  //   take3  10.533 ~ 18.767 (카메라 take3)
+  // take1 은 맵에 놓인 xcg001 을 비추는 컷이라 뷰어에서는 멀리(340유닛) 점처럼 선 보스만
+  // 남는다. 보스가 나오는 take2 부터 잇는다.
+  {
+    key: 'xbg001_appearance', boss: /^xbg001/i,
+    steps: [/^xbg001_1phase_intro_take2$/i, /^xbg001_1phase_intro_take3$/i],
+  },
   // 베히모스 - 페이즈 전환 연출의 뒤 두 컷
   {
     key: 'mbg003_2phase_take',
@@ -1281,6 +1303,12 @@ const CLIP_PHASE_OVERRIDES = [
   // 지즈 - 이름은 2페 등장이지만 1 -> 2 변신 연출이다(게임 데이터 sceneType 2 / trigger 32
   // = 2페 진입). 켜짐 구간도 1페 몸 0~5.53초, 2페 몸 4.67~8.2초다.
   { re: /^eba005_2phase_appearance_take1$/i, boss: /^eba005/i, phase: '1' },
+  // 크리스탈 체임버 - 2phase_intro 는 1 -> 2 전환(타임라인 phase02, sceneType 2 / trigger 32)이라
+  // 넘어가기 전 페이즈에 둔다. 사망은 2페이즈.
+  { re: /^xbg001_2phase_intro$/i, boss: /^xbg001/i, phase: '1' },
+  { re: /^xbg001_death$/i, boss: /^xbg001/i, phase: '2' },
+  // 1페이즈 스킬·그로기는 이름에 페이즈 표시가 없다(2페이즈 것은 phase02_ 가 붙는다)
+  { re: /^xbg001_(skill|groggy)_/i, boss: /^xbg001/i, phase: '1' },
   // 울트라 - 1페이즈로 등장해서 2페이즈에서 죽는다
   { re: /^bbg006_intro_take3$/i, boss: /^bbg006/i, phase: '1' },
   { re: /^bbg006_outro_take1$/i, boss: /^bbg006/i, phase: '2' },
@@ -1327,7 +1355,8 @@ function clipPhase(name) {
 // 포즈를 초기화한 상태에서 2페이즈 클립만 틀면 1페이즈 깃털이 그대로 남는다.
 // 그래서 다른 페이즈로 넘어갈 때는 이 클립을 먼저 한 번 재생한다.
 function findPhaseChangeClip(clips) {
-  return clips.find(c => /phase_?change/i.test(c.name || ''))
+  return clips.find(c => /^xbg001_2phase_intro$/i.test(c.name || ''))   // 크리스탈 체임버(아래 NOT_PHASE_SWITCH 참고)
+    || clips.find(c => /phase_?change/i.test(c.name || '') && !NOT_PHASE_SWITCH.some(re => re.test(c.name || '')))
     // 프로비던스처럼 클립 이름이 그냥 "xbg002_2phase" 인 보스도 있다.
     // 뒤에 아무것도 안 붙은 페이즈 이름은 그 페이즈로 넘어가는 연출로 본다.
     || clips.find(c => /^[a-z]{2,4}\d{3}_\d+phase$/i.test(c.name || ''))
@@ -1374,6 +1403,13 @@ const HIDDEN_CLIPS = [
   { boss: /^eba002/i, re: /^eba002_2phase_intro_02$/i },
   { boss: /^eba002/i, re: /^eba002_2phase_intro_03jelly$/i },
   { boss: /^eba002/i, re: /^eba002_2phase_death_jelly$/i },
+  // 크리스탈 체임버 - 게임이 안 쓰는 동작(extras.inGameUse []). 시즌마다 다르다.
+  //   시즌 10(xbg001, P.S.I.D.)  2페 대기 02·03, 2phase_phase_change, 2페 스킬 04stone·08
+  //   시즌 35(xbg001_anmi, A.N.M.I.)  1페 스킬 01·06·07, 2페 스킬 01~07
+  { boss: /^xbg001$/i, re: /^xbg001_2phase_(idle_0[23]|phase_change)$/i },
+  { boss: /^xbg001$/i, re: /^xbg001_phase02_skill_(start|loop|fire)_(04stone|08)$/i },
+  { boss: /^xbg001_anmi/i, re: /^xbg001_skill_(start|loop|fire)_0[167]$/i },
+  { boss: /^xbg001_anmi/i, re: /^xbg001_phase02_skill_(start|loop|fire)_0[1-7]$/i },
   // 울트라 - intro_take2 는 게임이 안 쓴다(inGameUse []). 같이 나온 전투기·양산형 니케
   // 부속 파일도 그 긴 등장용이라 넣지 않았다. 게임 등장은 intro_take3(appearance_short)다.
   { boss: /^bbg006/i, re: /^bbg006_intro_take2$/i },
@@ -1690,6 +1726,8 @@ const PHASE_SWITCH_CLIPS = [
   /^eba002_2phase_intro_01$/i,
   // 지즈 - 이름은 2페 등장이지만 1 -> 2 변신이다.
   /^eba005_2phase_appearance_take1$/i,
+  // 크리스탈 체임버 1 -> 2페이즈(게임 타임라인 xbg001_phase02, sceneType 2 / trigger 32)
+  /^xbg001_2phase_intro$/i,
   // 울트라 1 -> 2페이즈(게임 타임라인 bbg006_phase02, sceneType 2 / trigger 32)
   /^bbg006_1phase_destroy$/i,
 ];
@@ -1728,6 +1766,8 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^eba002/i, from: '1', by: 'phase' },
   // 지즈: 1페이즈 2phase_appearance_take1(변신) -> 2페이즈. 한 모델 안이라 페이즈 칩.
   { boss: /^eba005/i, from: '1', by: 'phase' },
+  // 크리스탈 체임버: 1페이즈 2phase_intro -> 2페이즈
+  { boss: /^xbg001/i, from: '1', by: 'phase' },
   // 울트라: 1페이즈 1phase_destroy -> 2페이즈
   { boss: /^bbg006/i, from: '1', by: 'phase' },
 ];
@@ -1736,7 +1776,13 @@ let autoPhaseChain = false;
 // 다음 모델을 불러오면 그쪽 전환 연출을 바로 틀라는 표시.
 let autoPhasePending = false;
 
+// 이름에 phase_change 가 들어가지만 페이즈 전환이 아닌 동작.
+//   크리스탈 체임버 2phase_phase_change - 2페이즈 대기 바꾸기(타임라인 phase02_idle_change,
+//   sceneType 1). 전환은 2phase_intro 다.
+const NOT_PHASE_SWITCH = [/^xbg001_2phase_phase_change$/i];
+
 function isPhaseSwitchClip(name) {
+  if (NOT_PHASE_SWITCH.some(re => re.test(name || ''))) return false;
   return PHASE_SWITCH_CLIPS.some(re => re.test(name || ''));
 }
 
@@ -2312,6 +2358,10 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       // 재질별로 갈린 메쉬는 뒤에 _1 _2 가 붙는다. 그것까지 받아야 한다.
       { boss: /^xba003/i, re: /^xba003_1phase_magiccarpet_skin(_\d+)?$/i, phase: '2' },
       { boss: /^xba003/i, re: /^xba003_turret\d+(_\d+)?$/i, phase: '2' },
+      // 크리스탈 체임버 - 페이즈 태그가 붙은 메쉬는 2phase_weapon 하나뿐인데, 뼈 크기로 보면 1·2페이즈
+      // 대기 모두에서 보인다(페이즈로 숨는 파츠가 없다). 태그를 무시해야 페이즈 칩도 대기 동작
+      // (1phase_idle_01 / 2phase_idle_01)으로 1·2 가 다 잡힌다 — 그대로면 "2" 하나뿐이라 칩이 안 나온다.
+      { boss: /^xbg001/i, re: /^xbg001_2phase_weapon(_\d+)?$/i, phase: null },
     ];
     const meshPhase = (name) => {
       const fix = MESH_PHASE_FIX.find(
@@ -3712,6 +3762,9 @@ function noFollowClip(bossKey, name) {
           // 2) 묶음 + 소속 클립
           seqs.forEach(sq => {
             if (!inCurrentPhase(sq.steps[0].clip.name)) return;
+            // 단계가 전부 목록에서 빼는 동작이면 묶음도 뺀다(크리스탈 체임버 - 시즌마다 게임이
+            // 안 쓰는 스킬 세트를 HIDDEN_CLIPS 로 적는다)
+            if (sq.steps.every(st => isHiddenClip(bossKey, st.clip.name))) return;
             const total = sq.steps.reduce((a, st) => a + st.clip.duration * (st.repeat || 1), 0);
             let html = mkBtn(sq.key, labelOf(sq.key, label(sq.label)), secs(total), 'is-seq');
             // 합성 묶음(파일에 없는 스킬을 원본 클립을 잘라 만든 것)은 하위 버튼을 내지
