@@ -1113,8 +1113,8 @@ const MANUAL_SEQUENCES = [
   //            S37 start_03 -> loop_03            (fire_03 은 스킬 06 으로 갔다)
   //   스킬 06  S7  start_06 -> (2.0~4.333 빈 슬롯) -> 2phase_idle
   //            S37 start_06 -> fire_03 -> 2phase_idle
-  //   스킬 07  loop_07 은 1초짜리를 5초 슬롯에 깔아 다섯 번 돈다.
-  // S7 의 스킬 03 은 이름 규칙대로 자동으로 묶인다.
+  // S7 의 스킬 03 은 이름 규칙대로 자동으로 묶인다. 스킬 07(loop 다섯 번)처럼 반복
+  // 횟수만 다른 것은 applyTimelineLoops 가 파일 값으로 맞춘다.
   {
     key: 'bbg006_skill_03', boss: /^bbg006_hsta/i,
     steps: [/^bbg006_skill_start_03$/i, /^bbg006_skill_loop_03$/i],
@@ -1127,11 +1127,6 @@ const MANUAL_SEQUENCES = [
     key: 'bbg006_skill_06', boss: /^bbg006$/i,
     steps: [/^bbg006_skill_start_06$/i, /^bbg006_2phase_idle$/i],
   },
-  {
-    key: 'bbg006_skill_07', boss: /^bbg006/i,
-    steps: [/^bbg006_skill_start_07$/i, { re: /^bbg006_skill_loop_07$/i, repeat: 5 },
-      /^bbg006_skill_fire_07$/i],
-  },
 ];
 
 // 자동으로 묶지 않는 클립. 사치스러운 거미의 cc(그로기)는 사이에 낀 대기 동작
@@ -1141,7 +1136,6 @@ const NO_SEQUENCE = [
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_/i },
   // 울트라 - 위 MANUAL_SEQUENCES 가 게임 타임라인대로 손수 잇는다
   { boss: /^bbg006_hsta/i, re: /^bbg006_skill_(start|loop|fire)_03$/i },
-  { boss: /^bbg006/i, re: /^bbg006_skill_(start|loop|fire)_07$/i },
 ];
 
 function isNoSequence(bossKey, name) {
@@ -1162,8 +1156,9 @@ function findSequences(clips, bossKey) {
   groups.forEach((g, key) => {
     if (!g.start || !(g.loop || g.end || g.fire)) return;
     const steps = [{ clip: g.start.clip, repeat: 1 }];
-    // 루프를 몇 번 도는지는 파일에 없다(행동트리 영역). 그로기만 두 번 돌리고
-    // 나머지는 한 번만 — 점프처럼 한 번에 끝나는 동작이 두 번 뛰면 이상하다.
+    // 기본값. 게임 타임라인에 든 동작은 뒤에 applyTimelineLoops 가 파일 값으로 바꾼다.
+    // 타임라인 없이 애니메이터로만 쓰는 동작은 횟수가 게임 코드에 있어서 이 값이 남는다 —
+    // 그로기만 두 번, 나머지는 한 번(점프처럼 한 번에 끝나는 동작이 두 번 뛰면 이상하다).
     if (g.loop) steps.push({ clip: g.loop.clip, repeat: /groggy/i.test(key) ? 2 : 1 });
     if (g.fire) steps.push({ clip: g.fire.clip, repeat: 1 });
     if (g.end) steps.push({ clip: g.end.clip, repeat: 1 });
@@ -1178,14 +1173,13 @@ function findSequences(clips, bossKey) {
     : /^[a-z]{2,4}\d{3}_(\d?\d?phase_)?/i;
   // 손으로 묶는 연출은 위 판정(phases)에 넣지 않는다 — 다른 보스의 라벨까지 흔든다.
   // boss 를 적은 묶음은 그 보스에만 낸다(같은 클립 이름을 쓰는 변종끼리 묶음이 다를 때).
-  // 단계는 정규식 하나, 또는 { re, repeat } 로 반복 횟수를 같이 적는다.
+  // 반복 횟수는 여기서 정하지 않는다 — applyTimelineLoops 가 게임 타임라인 값으로 맞춘다.
   MANUAL_SEQUENCES.forEach(def => {
     if (def.boss && !def.boss.test(bossKey || '')) return;
     if (out.some(o => o.key === def.key)) return;
-    const defs = def.steps.map(st => (st instanceof RegExp ? { re: st, repeat: 1 } : st));
-    const steps = defs.map(st => clips.find(c => st.re.test(c.name || '')));
+    const steps = def.steps.map(re => clips.find(c => re.test(c.name || '')));
     if (steps.some(c => !c)) return;
-    out.push({ key: def.key, steps: steps.map((c, i) => ({ clip: c, repeat: defs[i].repeat || 1 })) });
+    out.push({ key: def.key, steps: steps.map(c => ({ clip: c, repeat: 1 })) });
   });
   out.forEach(o => { o.label = o.key.replace(strip, ''); });
   return out;
@@ -2366,6 +2360,52 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     trimmedClips.forEach(t => syntheticPoses.set(t.name, poseAtClipTime(t.src, t.from)));
 
 
+    // 묶음 안 반복 동작의 횟수를 게임 타임라인 값으로 정한다.
+    //
+    // 2026-10-02 재추출부터 동작마다 게임 타임라인 정보가 붙어 온다 — 속한 타임라인
+    // (extras.timeline), 그 안의 슬롯 길이(timelineDuration), 반복용 동작인지
+    // (unity.animationClip.m_LoopTime). 타임라인 쪽 반복 설정(playableAsset.m_Loop)은
+    // 전부 0(동작 설정을 따름)이라, 반복용 동작은 슬롯을 채울 만큼 돈다.
+    //   횟수 = 슬롯 길이 / 동작 길이
+    // 울트라 skill_loop_07 은 1초짜리가 5초 슬롯이라 다섯 번, 사치스러운 거미 cc_idle 은
+    // 1.5초짜리가 5.233초 슬롯이라 3.49번이다. 소수는 정수만큼 돈 뒤 남은 길이만큼 잘라 한 번 더.
+    // 슬롯이 동작보다 짧으면 그만큼만 돈다(울트라 스킬 06 끝의 2phase_idle 3.0초 -> 1.533초).
+    //
+    // 동작마다 타임라인이 하나만 적혀 와서, 묶음의 첫 동작과 같은 타임라인일 때만 쓴다 —
+    // 여러 곳에 쓰이는 동작은 다른 타임라인 값이 붙어 있을 수 있다(거대 질량체Q
+    // skill_loop_04 에는 skill_05 타임라인 값 0.59 가 붙어 있다).
+    // 타임라인 없이 애니메이터로만 쓰는 동작(점프·대시 등)은 횟수가 게임 코드에 있어서
+    // 파일에 없다 — 그때는 기존 규칙(그로기 두 번, 나머지 한 번)을 둔다.
+    function applyTimelineLoops(seqs) {
+      seqs.forEach(sq => {
+        if (sq.synthetic) return;
+        const first = clipExtrasOf(sq.steps[0].clip.name);
+        if (!first.timeline) return;
+        const out = [];
+        sq.steps.forEach(st => {
+          const ex = clipExtrasOf(st.clip.name);
+          const ac = (ex.unity && ex.unity.animationClip) || {};
+          const dur = st.clip.duration || 0;
+          const slot = ex.timelineDuration;
+          if (!ac.m_LoopTime || ex.timeline !== first.timeline || !(slot > 0) || !(dur > 0)) {
+            out.push(st);
+            return;
+          }
+          const ratio = slot / dur;
+          const whole = Math.floor(ratio + 1e-3);
+          const rest = ratio - whole;
+          if (whole >= 1) out.push({ clip: st.clip, repeat: whole });
+          if (rest * dur > 1 / 60) {
+            // 남은 길이만큼 자른 같은 이름의 클립. 이름이 같아야 목록·짝짓기가 그대로 간다.
+            const cut = THREE.AnimationUtils.subclip(
+              st.clip, st.clip.name, 0, Math.round(rest * dur * 1000), 1000);
+            if (cut.tracks.length) out.push({ clip: cut, repeat: 1 });
+          }
+        });
+        sq.steps = out.length ? out : sq.steps;
+      });
+    }
+
     // 파일에 없는 스킬을 원본 클립을 잘라 만들어 목록에 끼워 넣는다.
     function buildSyntheticSequences(seqs) {
       const list = gltf.animations || [];
@@ -3467,6 +3507,7 @@ function noFollowClip(bossKey, name) {
     if (animEl) {
       const seqs = findSequences(gltf.animations || [], bossKey);
       buildSyntheticSequences(seqs);
+      applyTimelineLoops(seqs);
       // 카메라 클립은 목록에 내지 않는다 — 짝이 되는 모델 클립을 재생할 때 같이 돈다.
       const clips = (gltf.animations || [])
         .filter(c => !cameraClipNames.has(c.name) && !isHiddenClip(bossKey, c.name));
