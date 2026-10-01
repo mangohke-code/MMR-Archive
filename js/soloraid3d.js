@@ -299,6 +299,13 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 크리스탈 체임버 - 게임 로케일 parts_name_barrier_left/right(보스 표시 없는 항목). 파츠 데이터의
+  // 부서지는 파츠 13·14 가 left/right_barrier 를 가리키고, 인게임 이름이 크리스탈 혼 L·R 인 것을
+  // 사용자가 확인했다(2026-10-02). 발광 층(_1, 시즌 10)은 " (발광)" 이 붙는다.
+  xbg001: {
+    'left_barrier': '크리스탈 혼 L',
+    'right_barrier': '크리스탈 혼 R',
+  },
   // 마더웨일 - 게임 로케일 parts_name_motherwhale01~09. 2026-10-02 재추출본의 파츠 데이터
   // (MonsterPartsPrefab.Skin)가 메쉬를 직접 가리킨다 — l/r_summon_01~03 -> left/right_boil_01~03,
   // l/r_cover_01 -> left/right_cover, socket_summon_01 -> core_skin. 부위 번호(13~21)도
