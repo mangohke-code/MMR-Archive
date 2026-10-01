@@ -208,10 +208,12 @@ const MESH_RENAME = [
   // 애니힐리오 2페이즈 동체 - 원본은 서브메쉬 둘짜리 한 메쉬인데(재질
   // xba003_phase02_body · _body2) 머티리얼별로 갈려 나와서 _2 · _3 으로 보였다.
   // 둘을 같은 이름으로 보내 한 파츠로 묶는다.
+  // merge - 일부러 한 파츠로 묶는다는 표시. 이름이 겹쳐도 번호를 붙여 가르지 않고
+  // 목록에도 한 줄로 낸다(아래 "이름이 겹치는 보스" 처리 참고).
   { boss: /^xba003/i, re: /^xba003_2phase_body_skin(_\d+)?$/i,
-    mat: 'xba003_phase02_body', to: 'xba003_2phase_body_skin' },
+    mat: 'xba003_phase02_body', to: 'xba003_2phase_body_skin', merge: true },
   { boss: /^xba003/i, re: /^xba003_2phase_body_skin(_\d+)?$/i,
-    mat: 'xba003_phase02_body2', to: 'xba003_2phase_body_skin' },
+    mat: 'xba003_phase02_body2', to: 'xba003_2phase_body_skin', merge: true },
   // 애니힐리오 2페이즈 - 노드와 메쉬가 이름을 나눠 가져 붙는 꼬리표를 뗀다.
   { boss: /^xba003/i, re: /^(xba003_1phase_magiccarpet_skin)(_\d+)?$/i, bySuffix: {} },
   // 온리 원 - 소환수 셋과 2페 날개는 뼈와 메쉬가 같은 이름이라 메쉬 쪽에 _1 이
@@ -273,6 +275,7 @@ function renameMeshes(bossKey, meshes) {
         if (hit) return (o.base || hit[1]) + (o.bySuffix[mat] || '');
       } else if (o.re.test(m.name || '') && o.mat === mat
                  && (o.nth === undefined || o.nth === occ.get(m))) {
+        if (o.merge) m.userData.__mergePart = true;
         return o.to;
       }
     }
@@ -2263,9 +2266,12 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     // 파츠 토글은 이름을 키로 쓰는데, 이름이 겹치는 보스가 있다 — 앨트루이아는 메쉬 31개
     // 중 이름이 20종뿐이라 helm_01~09 와 눈이 각각 두 개씩 같은 이름을 쓴다. 그대로 두면
     // 하나를 끄면 짝까지 같이 꺼진다. 겹치는 것만 뒤에 번호를 붙여 구분한다.
+    // MESH_RENAME 에서 merge 로 일부러 합친 메쉬(애니힐리오 2페이즈 몸통 두 조각)는 같은 키를
+    // 나눠 쓰게 두고 번호를 붙이지 않는다 — 원본은 한 메쉬라 인게임에서도 한 파츠다.
     {
       const seen = new Map();
       meshes.forEach(m => {
+        if (m.userData.__mergePart) { m.partKey = m.name || 'mesh'; return; }
         const base = m.name || 'mesh';
         const n = (seen.get(base) || 0) + 1;
         seen.set(base, n);
@@ -2275,7 +2281,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       const dup = new Set([...seen].filter(([, n]) => n > 1).map(([k]) => k));
       const idx = new Map();
       meshes.forEach(m => {
-        if (!dup.has(m.name)) return;
+        if (!dup.has(m.name) || m.userData.__mergePart) return;
         const n = (idx.get(m.name) || 0) + 1;
         idx.set(m.name, n);
         m.partKey = m.name + '#' + n;
@@ -2693,8 +2699,11 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       };
       // 지금 페이즈에 안 쓰는 파츠는 목록에서 뺀다. 한 파일에 페이즈가 둘 다
       // 들어 있으면(애니힐리오) 쓰지도 않는 파츠가 절반씩 섞여 보인다.
+      // 같은 키를 나눠 쓰는 메쉬(merge 로 합친 조각)는 한 줄만 낸다
+      const listedKeys = new Set();
       meshes
         .filter(m => isPhaseVisible(phaseOf(m.name), currentPhase))
+        .filter(m => !listedKeys.has(m.partKey) && listedKeys.add(m.partKey))
         .forEach(m => findGroup(partGroupLabel(bossKey, m.name)).items.push(m));
       // 그룹 안에서 부위 -> 좌우 -> 번호 순으로 세운다
       groups.forEach(g => {
@@ -2714,7 +2723,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       // 하나씩 누르지 않고 한 번에 비우고 필요한 것만 켤 수 있게 한다.
       // 목록에 보이는 것만 센다 - 다른 페이즈 파츠까지 세면 "전체" 개수가
       // 화면과 안 맞는다.
-      const shown = meshes.filter(m => isPhaseVisible(phaseOf(m.name), currentPhase));
+      const shownSeen = new Set();
+      const shown = meshes.filter(m => isPhaseVisible(phaseOf(m.name), currentPhase))
+        .filter(m => !shownSeen.has(m.partKey) && shownSeen.add(m.partKey));
       const totalOn = shown.filter(m => enabledMeshes.has(m.partKey)).length;
       const allState = totalOn === shown.length ? ' active' : (totalOn ? ' partial' : '');
       // 기본 상태와 다를 때만 초기화가 의미가 있다. 같으면 눌러도 변화가 없으니 죽여 둔다.
