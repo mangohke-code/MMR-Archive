@@ -1558,6 +1558,30 @@ const CLIP_TRIM = [
   { boss: /^bbg001_rich/i, re: /^harvester_dead_scene$/i, to: 5.917 },
 ];
 
+// 첫 키에 쓰레기 자세가 박힌 동작. 0프레임에 부위 뿌리 크기가 0(안 보임)이고 그 아래 뼈의
+// 위치 · 회전이 엉뚱한 값인데, 둘째 키(1프레임 뒤)에서야 정상이 된다. 게임은 그 한 프레임을
+// 그냥 넘기지만 뷰어는 두 키 사이를 보간하면서 크기가 0 -> 1 로 커지는 동안 뼈가 수천 단위로
+// 튀어 메쉬가 길게 찢어져 보인다. 위치 · 회전 트랙의 첫 키를 둘째 키 값으로 덮는다(크기는 그대로).
+//   크라켄 촉수 rebirth 넷 - 0프레임 Helper_Chain_Root_* 크기 0, 사슬 뼈 위치 -5232 ~ 9171
+//   (정상 2 ~ 16), 0.033초부터 정상.
+const CLIP_FIRST_KEY_FIX = [
+  { boss: /^bbg004/i, re: /^bbg004_(left|right)_(big|small)_rebirth_\d+$/i },
+];
+
+function applyFirstKeyFix(clips, bossKey) {
+  CLIP_FIRST_KEY_FIX.forEach(rule => {
+    if (!rule.boss.test(bossKey || '')) return;
+    clips.forEach(c => {
+      if (!rule.re.test(c.name || '')) return;
+      c.tracks.forEach(t => {
+        if (!/\.(position|quaternion)$/.test(t.name) || t.times.length < 2) return;
+        const n = t.getValueSize();
+        for (let k = 0; k < n; k++) t.values[k] = t.values[n + k];
+      });
+    });
+  });
+}
+
 // gltf.animations 를 제자리에서 바꿄다. 이름은 그대로 두어서 이름으로 물린 표
 // (구역 나누기·카메라 짝짓기·카메라 보정)가 그대로 동작하게 한다.
 // 짝인 카메라 클립도 같은 만큼 잘라야 카메라가 그만큼 앞서 가지 않는다.
@@ -2195,6 +2219,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     const bossKey = bossKeyFrom(bossCode, modelUrl);
     // 이름으로 물린 표가 전부 이 뒤에 오므로 여기서 잘라 둔다.
     const trimmedClips = applyClipTrim(gltf.animations || [], bossKey);
+    applyFirstKeyFix(gltf.animations || [], bossKey);
 
     // 신형(카탈로그에서 직접 뽑은) 추출본은 기존 FBX 변환본과 규칙이 다르다.
     //  - 루트 노드에 방향 회전이 이미 들어 있다 (공통 225도 보정을 주면 안 된다)
