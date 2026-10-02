@@ -77,7 +77,11 @@ JOBS = [
     #   ..._eba002_hsta_singleraid   -> ..._eba002_2phase_var
     (['추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid.glb',
       '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_2phase_var.glb',
-      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb'],
+      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb',
+      # 2026-10-02 19:53 추출기부터 해파리가 맵 연출 셋(등장 · 2페 전환 · 사망)에 하나씩, 세 벌로
+      # 나온다. 셋 다 맵 부모 배치(placement, 크기 1.333 · 사망 쪽은 z +75.6)가 붙는다.
+      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_boss_2phase_appearance _eba002_jellyfish_obj_var.glb',
+      '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_boss_dead_eba002_jellyfish_obj_var.glb'],
      'eba002'),
     # 시즌 42 앨트루이아. 시즌 34 것(Z.E.U.S.)과 메쉬·카메라·공유 클립 20개가
     # 전부 같고, 스킬 3 한 벌(start/loop/fire)이 더 있고 재질 이름이 psid 로 갈렸다.
@@ -148,6 +152,14 @@ SUFFIXES = {
         ('_left', {'bbg008_left_var'}, {'bbg008_recall_enter_01', 'bbg008_destroy_01'}),
     '추출프로그램 업데이트 이후/bbg008_검은 뱀 H.S.T.A_bbg008_right_var.glb':
         ('_right', {'bbg008_right_var'}, {'bbg008_recall_enter_01', 'bbg008_destroy_01'}),
+    # 리버렐리오 해파리 세 벌은 뼈·메쉬 이름이 전부 같다(동작 이름은 셋이 다르다).
+    # 연출마다 자기 해파리만 켜야 해서 이름을 가른다 - _intro(1페 등장) · _change(2페 전환) · _dead(사망).
+    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb':
+        ('_intro', set(), set()),
+    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_boss_2phase_appearance _eba002_jellyfish_obj_var.glb':
+        ('_change', set(), set()),
+    '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_boss_dead_eba002_jellyfish_obj_var.glb':
+        ('_dead', set(), set()),
 }
 
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
@@ -293,6 +305,7 @@ def place_in_glb(src, dst):
     그 아래에 붙으므로 최종 = placement x 루트 변환. 보스·맵 프리팹을 같은 원점에 둔다는
     가정으로 낸 값이다(placementAssumption).
       크리스탈 체임버 xcg001 · 검은 벽 - X축 +7도(본체 부모가 프리팹 안에서 -7도 기울어 있다)
+      리버렐리오 해파리 세 벌 - 크기 1.333, 사망 쪽은 z +75.6
     """
     chunks, doc = _read_glb(src)
     for i in doc['scenes'][doc.get('scene', 0)]['nodes']:

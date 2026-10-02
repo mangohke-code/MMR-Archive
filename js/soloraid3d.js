@@ -495,7 +495,7 @@ const DEFAULT_OFF_MESHES = [
   // 리버렐리오 바디 해파리 - 연출에만 나오는 개체다. 평소에는 보스 뒤쪽 멀찍이
   // 떨어진 자리에 가만히 떠 있어서 화면만 어지럽힌다.
   // 아래 CLIP_SOLO_PARTS 가 등장·전환·사망에서만 켠다.
-  { boss: /^eba002/i, re: /_jellyfish_[lr]$/i },
+  { boss: /^eba002/i, re: /_jellyfish_[lr](_(intro|change|dead))?$/i },
   // 베히모스 머신건 좌우 - 3페이즈에서는 떨어져 나가서 달려 있지 않다.
   // 2페이즈 파일에 3페이즈가 같이 들어 있고 이 파츠에는 페이즈 꼬리표가 없어서,
   // 페이즈를 조건으로 단 줄이 필요하다.
@@ -1606,10 +1606,12 @@ const CLIP_SOLO_PARTS = [
   { boss: /^bbg001_rich/i, clip: /_rich_skill01_/i, show: /_egg_skin$/i },
   // 크리스탈 체임버 등장 맵 리그(위 DEFAULT_OFF_MESHES 참고)
   { boss: /^xbg001/i, clip: /^xbg001_1phase_intro_take1$/i, show: /^(xcg001_|crys_long)/i },
-  // 검은 벽(black_wall_du, take2)은 아직 켜지 않는다. 파일 배치(루트 180도 + X축 +7도)대로 놓으면
-  // 카메라와 보스 사이(z 519~525, 보스 536)에 서서 화면을 가린다. 벽 리그의 origin_cam 은 루트
-  // 180도를 빼야 실제 take2 카메라 경로와 겹친다 - 어느 쪽이 맞는지 인게임 확인 전이다.
+  // 검은 벽(black_wall_du)은 take2 내내 켠다(게임 타임라인 6.0~10.52초 = take2 슬롯).
+  // 파일 배치(루트 180도 + X축 +7도) 그대로 두면 보스 몸을 가리고 크리스탈 조각만 검은 바탕에
+  // 떠 보인다. 인게임에도 검은 벽이 나온다(사용자 확인, 2026-10-02). 루트 180도를 빼면 벽이
+  // 카메라 뒤로 가서 아예 안 보이므로 그쪽은 아니다.
   // 재질 glow_m 은 아틀라스의 "가운데 검은 원 + 가장자리 투명" 조각을 쓴다.
+  { boss: /^xbg001/i, clip: /^xbg001_1phase_intro_take2$/i, show: /^black_wall_du$/i },
   // 페이즈 전환 연출은 그동안 양쪽 페이즈 파츠가 다 켜져 있어야 한다. 파츠가
   // 중간에 생기거나 사라지는 게 아니라, 처음부터 켜진 채로 안 보이는 곳에
   // 숨어 있다 나오거나 화면 밖으로 빠지는 연출이기 때문이다.
@@ -1618,10 +1620,13 @@ const CLIP_SOLO_PARTS = [
   // 리버렐리오 바디 - 페이즈 전환은 1·2페이즈 몸이 같이 나온다. 페이즈 방식이
   // exclusive 라 그냥 두면 2페이즈 목록에서 1페이즈 몸이 숨겨진다.
   // 해파리도 여기서 같이 켜진다(show 가 전부라서).
-  { boss: /^eba002/i, clip: /^eba002_2phase_intro_01$/i, show: /./ },
+  // 2026-10-02 19:53 추출본부터 해파리가 연출마다 한 벌씩(_intro · _change · _dead) 들어온다.
+  // 연출마다 자기 해파리만 켠다. 꼬리 없는 예전 파일(해파리 한 벌)에도 그대로 맞는다.
+  { boss: /^eba002/i, clip: /^eba002_2phase_intro_01$/i, show: /./,
+    hide: /_jellyfish_[lr]_(intro|dead)$/i },
   // 등장과 사망은 해파리만 되살린다.
-  { boss: /^eba002/i, clip: /^eba002_(1phase_intro|2phase_death)$/i,
-    show: /_jellyfish_[lr]$/i },
+  { boss: /^eba002/i, clip: /^eba002_1phase_intro$/i, show: /_jellyfish_[lr](_intro)?$/i },
+  { boss: /^eba002/i, clip: /^eba002_2phase_death$/i, show: /_jellyfish_[lr](_dead)?$/i },
   { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
   { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
   // 지즈 변신 - 1·2페이즈 몸을 다 켜 두고, 언제 보이는지는 파일의 meshActivation 에 맡긴다
