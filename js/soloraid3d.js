@@ -1689,9 +1689,6 @@ function applyClipTrim(clips, bossKey) {
 // 대표 클립은 연출 카메라가 붙은 쪽으로 고른다 - 카메라·자동 넘김·목록 표시가
 // 전부 대표 클립 이름을 기준으로 돌아간다.
 const SIMUL_CLIPS = [
-  // 니힐리스타 · 백빙룡 머리 파괴 · 재생 - 머리 뼈만 움직이는 동작이라 2페 대기를 밑에 깐다(base)
-  { boss: /^mba002/i, main: /^mba002_phase02_(left|right)_head_(Destruction_0\d(_idle)?|generate)$/i,
-    base: [/^mba002_phase02_idle_01$/i] },
   { boss: /^eba002/i, main: /^eba002_1phase_intro$/i,
     with: [/^eba002_1phase_jelly$/i] },
   { boss: /^eba002/i, main: /^eba002_2phase_intro_01$/i,
@@ -1720,6 +1717,10 @@ const SIMUL_CLIPS = [
   { boss: /^bbg008/i, main: /^bbg008_2phase_skill_fire_02$/i,
     with: [/^bbg008_2phase_skill_leftfire_02$/i, /^bbg008_2phase_skill_rightfire_02$/i] },
 ];
+
+// 게임이 대기 위에 덧입혀 트는 동작 — 부위 파괴 · 재생과 샷. 재생할 때 지금 페이즈의 대기를 밑에 깐다
+// (playClipObject). 보스마다 적지 않는다 — 모든 보스가 같은 방식이다(사용자 확인, 2026-10-03).
+const OVERLAY_CLIP_RE = /(destruction|rebirth|generate|(^|_)shot(_|\d|$))/i;
 
 // base - 밑에 까는 동작. 대표 클립이 일부 뼈만 움직일 때(머리 파괴처럼 게임이 대기 위에 덧입혀
 // 트는 동작) 나머지 몸을 대기 자세로 채운다. 대표 클립이 건드리는 뼈의 트랙은 빼고 깔아서
@@ -3563,7 +3564,7 @@ function noFollowClip(bossKey, name) {
     // 그 안의 대기 동작이 이름 순으로 idle_01 보다 앞이라, 걸러내지 않으면 보스를
     // 열자마자 경직 자세로 서 있게 된다.
     const isPlainIdle = n => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(n))
-      && !/air|skill|(^|_)cc(_|$)/i.test(n || '');
+      && !/air|skill|(^|_)cc(_|$)|_Destruction_\d+_idle$/i.test(n || '');
 
     function findIdleClipForPhase(phase) {
       // 목록에서 뻔 클립은 여기서도 고르면 안 된다 — 그레이브 디거의 숨긴
@@ -3684,7 +3685,17 @@ function noFollowClip(bossKey, name) {
       // 밑에 까는 대기(base)는 묶음의 다음 단계로 넘어가도 이어서 돈다 — 단계마다 0초로 돌아가면
       // 머리 동작이 바뀌는 순간 몸이 대기 첫 자세로 튄다.
       const prevBase = simulActions.find(a => a.__baseSrc);
-      simulActions = (simulClipsFor(bossKey, clip.name, gltf.animations) || []).map(s => {
+      const simulList = simulClipsFor(bossKey, clip.name, gltf.animations) || [];
+      // 파괴 · 재생 · 샷은 게임이 대기 위에 덧입혀 트는 동작이다 — 부위 뼈만 움직인다(크라켄 촉수 파괴는
+      // 대기가 움직이는 뼈의 12%, 미러 컨테이너 포신 사격은 1%). 지금 페이즈의 대기를 밑에 깐다.
+      // 그 동작이 움직이는 뼈는 대기 쪽에서 빼므로 몸 전체를 움직이는 샷이어도 결과가 같다.
+      if (OVERLAY_CLIP_RE.test(clip.name || '') && !simulList.some(s => s.base)) {
+        const idle = findIdleClipForPhase(currentPhase);
+        if (idle && idle !== clip) {
+          simulList.push({ clip: simulBaseClip(clip, idle), base: true, src: idle.name });
+        }
+      }
+      simulActions = simulList.map(s => {
         const a = mixer.clipAction(s.clip);
         if (s.base) {
           a.setLoop(THREE.LoopRepeat, Infinity);
