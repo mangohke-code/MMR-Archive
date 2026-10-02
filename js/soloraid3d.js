@@ -1721,6 +1721,44 @@ const SIMUL_CLIPS = [
 // (playClipObject). 보스마다 적지 않는다 — 모든 보스가 같은 방식이다(사용자 확인, 2026-10-03).
 const OVERLAY_CLIP_RE = /(destruction|rebirth|generate|(^|_)shot(_|\d|$))/i;
 
+// 덧입히는 동작에서 고정값 트랙을 걸러 낸다(클립을 제자리에서 고친다, 한 번만).
+// 샷 · 파괴 동작 파일에는 실제로 안 움직이고 값만 박힌 뼈 트랙이 많다 — 미러 컨테이너 shot_03 은
+// 2293 개 중 2259 개, 니힐리스타 2페 샷은 551 개 중 307 개. 그대로 두면 그 뼈가 대기 대신 고정값에
+// 묶여 몸이 굳고, 몸 뿌리(root)가 대기와 다른 값(미러 컨테이너 위치 1.96)에 박혀 몸통 각도가 틀어지고,
+// 머리 사슬 일부만 고정돼 머리가 몸과 어긋났다. 게임 레이어는 움직이는 뼈만 덮는 것으로 본다.
+//   움직이는 트랙            -> 동작 것
+//   몸 뿌리 쪽 뼈(rootLike)   -> 대기 것(고정값이어도)
+//   대기 첫 값과 같은 고정값    -> 자리만 채운 키다, 대기 것
+//   대기와 다른 고정값        -> 동작 것(포신 묶음 크기 0.535 처럼 일부러 잡은 자세)
+function prepareOverlayClip(clip, idle, rootLike) {
+  if (clip.__overlayPrepared) return;
+  clip.__overlayPrepared = true;
+  const nodeOf = t => t.name.slice(0, t.name.lastIndexOf('.'));
+  const idleBy = new Map((idle ? idle.tracks : []).map(t => [t.name, t]));
+  clip.tracks = clip.tracks.filter(t => {
+    const n = t.getValueSize();
+    const v = t.values;
+    let moving = false;
+    for (let i = n; i < v.length; i++) {
+      if (Math.abs(v[i] - v[i % n]) > 1e-4) { moving = true; break; }
+    }
+    if (moving) return true;
+    if (rootLike.has(nodeOf(t))) return false;
+    const it = idleBy.get(t.name);
+    if (!it) return true;
+    const w = it.values;
+    if (/\.quaternion$/.test(t.name)) {
+      let dot = 0;
+      for (let k = 0; k < 4; k++) dot += v[k] * w[k];
+      return Math.abs(dot) < 0.9995;
+    }
+    for (let k = 0; k < n; k++) {
+      if (Math.abs(v[k] - w[k]) > 1e-3 * Math.max(1, Math.abs(w[k]))) return true;
+    }
+    return false;
+  });
+}
+
 // base - 밑에 까는 동작. 대표 클립이 일부 뼈만 움직일 때(머리 파괴처럼 게임이 대기 위에 덧입혀
 // 트는 동작) 나머지 몸을 대기 자세로 채운다. 대표 클립이 건드리는 뼈의 트랙은 빼고 깔아서
 // 두 동작이 같은 뼈를 반씩 나눠 갖지 않게 하고, 반복해서 돌린다.
@@ -2664,6 +2702,18 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       return fix ? fix.phase : foldPhase(phaseTag(name));
     };
     const basePose = capturePose(gltf.scene);
+    // 몸 뿌리 쪽 뼈 - 자식 뼈가 전체의 30% 를 넘는 뼈(root · Pelvis 등). 덧입히는 동작에서 고정값이면
+    // 늘 대기를 따른다(prepareOverlayClip).
+    const rootLikeBones = new Set();
+    {
+      const bones = [];
+      gltf.scene.traverse(o => { if (o.isBone) bones.push(o); });
+      const cnt = new Map();
+      bones.forEach(b => {
+        for (let p = b.parent; p; p = p.parent) if (p.isBone) cnt.set(p, (cnt.get(p) || 0) + 1);
+      });
+      cnt.forEach((c, b) => { if (c > bones.length * 0.3) rootLikeBones.add(b.name); });
+    }
 
     // 인게임 카메라. 있으면 등장·사망 연출에서 이걸 그대로 쓴다.
     const camNodes = findCameraNodes(gltf.scene);
@@ -3669,6 +3719,10 @@ function noFollowClip(bossKey, name) {
       // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
       // 눈에 보이는 변화는 없이 내부 바인딩 상태만 꼬이는 경우가 있어 — 믹서를 아예
       // 새로 만들어서 확실하게 교체한다.
+      // 덧입히는 동작(파괴 · 재생 · 샷)은 고정값 트랙을 먼저 걸러 둔다 — 믹서가 트랙을 묶기 전에.
+      if (OVERLAY_CLIP_RE.test(clip.name || '')) {
+        prepareOverlayClip(clip, findIdleClipForPhase(currentPhase), rootLikeBones);
+      }
       mixer = new THREE.AnimationMixer(gltf.scene);
       mixer.addEventListener('finished', onClipFinished);
       const action = mixer.clipAction(clip);
