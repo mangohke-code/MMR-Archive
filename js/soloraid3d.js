@@ -313,13 +313,15 @@ function renameMeshes(bossKey, meshes) {
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
   // 인디빌리아 - 게임 로케일 parts_name_Indivila01~05(집게 L · 집게 R · 꼬리 · 블레이드 · 코어).
-  // 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접 가리키고 이름으로도 부위가 맞는 셋만 넣는다 —
-  // l/r_tongs_02 -> l/r_arms_claw_skin(집게), core_col_03 -> body_eye_skin(코어).
-  // 꼬리 · 블레이드는 Control_ChainKnot_7 -> 1phase_scorpiontail_wp_skin 과
-  // 2phase_head_lcanine_01 -> 2phase_Jormungandr_teeath_skin 중 어느 쪽인지 파일로 못 가린다(인게임 확인 전).
+  // 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접 가리킨다 — l/r_tongs_02 -> l/r_arms_claw_skin(집게),
+  // core_col_03 -> body_eye_skin(코어), Control_ChainKnot_7 -> 1phase_scorpiontail_wp_skin(꼬리 끝),
+  // 2phase_head_lcanine_01 -> 2phase_Jormungandr_teeath_skin(요르문간드 수염).
+  // 꼬리 끝이 꼬리, 요르문간드 수염이 블레이드인 것은 사용자가 인게임으로 확인했다(2026-10-02).
   ebg003: {
     '1phase_l_arms_claw_skin': '집게 L',
     '1phase_r_arms_claw_skin': '집게 R',
+    '1phase_scorpiontail_wp_skin': '꼬리',
+    '2phase_Jormungandr_teeath_skin': '블레이드',
     '1phase_body_eye_skin': '코어',
   },
   // 크리스탈 체임버 - 게임 로케일 parts_name_barrier_left/right(보스 표시 없는 항목). 파츠 데이터의
