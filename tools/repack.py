@@ -126,6 +126,12 @@ JOBS = [
     (['추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I.glb',
       '추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I_xbg001_1phase_xcg001_var.glb',
       '추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I_xbg001_1phase_black_t2_var.glb'], 'xbg001_anmi'),
+    # 인디빌리아(시즌 13). 2026-10-02 추출본. 1페 등장 맵 연출(boss_appearance, 타임라인
+    # ebg003_1phase_intro_01_parts 7.467초 = intro_01 슬롯)의 리그 둘 — parts_01(ecg007 몸·다리 + Object001),
+    # parts_02(arms_parts) — 을 합친다.
+    (['추출프로그램 업데이트 이후/ebg003_인디빌리아.glb',
+      '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_01_md_var.glb',
+      '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_02_md_var.glb'], 'ebg003'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
@@ -176,6 +182,8 @@ SUFFIXES = {
     '추출프로그램 업데이트 이후/eba004_거대 질량체Q_eba004_model_acc_var.glb': ('_accapp', set(), set()),
     '추출프로그램 업데이트 이후/eba004_거대 질량체Q_eba004_death_acc_md_var.glb': ('_accdead', set(), set()),
     '추출프로그램 업데이트 이후/xba001_미러 컨테이너_xba001_appearance_bg_var.glb': ('_bgvar', set(), set()),
+    '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_01_md_var.glb': ('_mapa', set(), set()),
+    '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_02_md_var.glb': ('_mapb', set(), set()),
     # 리버렐리오 해파리 세 벌은 뼈·메쉬 이름이 전부 같다(동작 이름은 셋이 다르다).
     # 연출마다 자기 해파리만 켜야 해서 이름을 가른다 - _intro(1페 등장) · _change(2페 전환) · _dead(사망).
     '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb':

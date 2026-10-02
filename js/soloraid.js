@@ -650,7 +650,14 @@
     clearTimeout(prefetchTimer);
 
     const wrap = document.getElementById('soloraid-spine-player');
-    const models = sortBossModels(parseBossModels(item['model']));
+    // [로컬 확인용] ?glb=new 인데 DB 에 아직 모델이 없는 새 보스는 보스 이미지 이름(full_ebg003.png)에서
+    // 보스 코드를 뽑아 _local/new/<코드>.glb 를 부른다. 업로드·DB 입력 전에 보려는 것이다.
+    let rawModel = item['model'];
+    if (!rawModel && LOCAL_GLB) {
+      const hit = String(item['보스 이미지'] || '').match(/full_([a-z]{3}\d{3})/i);
+      if (hit) rawModel = hit[1].toLowerCase() + '.glb';
+    }
+    const models = sortBossModels(parseBossModels(rawModel));
     const modelUrl = models.length ? models[0].url : null;
 
     // 3D 모델이 없거나 못 불러왔을 때 보여 줄 것. 이미지가 있으면 이미지, 없으면 이름.

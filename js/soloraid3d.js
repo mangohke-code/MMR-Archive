@@ -42,6 +42,9 @@ const PHASE_MODE_OVERRIDES = {
   // 통째로 사라진다. 해파리는 페이즈 태그가 없어서 양쪽에 다 남는다(맞다 -
   // 1페 등장·전환·사망 세 연출에 다 나온다).
   eba002: { mode: 'exclusive' },
+  // 인디빌리아 - 1페이즈 몸(전갈)은 1페이즈가 끝날 때 통째로 꺼지고(MonsterPhaseData
+  // EndDeActiveObjects), 2페이즈는 요르문간드 몸만 남는다.
+  ebg003: { mode: 'exclusive' },
   // 아일랜드 이터 - 1페이즈는 전체 파츠, 2페이즈는 phase002·003 파츠 10개.
   ebg001_island: { mode: 'phase1-all', merge: { 3: 2 } },
   // 그레이브 디거 - phase001/002/003 사이에 phase0025 가 끼어 있다.
@@ -70,6 +73,8 @@ function getPhaseConfig(bossKey, bossCode) {
 // 위에서부터 먼저 맞는 것을 쓴다 — 발광 껍데기는 부위보다 먼저 걸러야
 // head_skin_fx 가 "머리" 로 새지 않는다.
 const PART_GROUPS = [
+  // 인디빌리아 1페 등장 맵 연출 리그(ecg007 · arms_parts) - 이름이 body · legs · arms 라 몸 파츠에 섞인다
+  ['연출', /_map[ab](_\d+)?$/i],
   ['발광', /_fx(_\d+)?$/i],
   ['머리', /(^|_)(head|face|neck|eye|sdf)/i],
   ['몸통', /(^|_)(body|torso|chest|core|spine|bust)/i],
@@ -234,6 +239,11 @@ const MESH_RENAME = [
     bySuffix: { 'xbg001_psid_head': '', 'xbg001_anmi_head': '', 'fx_xbg001_bighorn_uv': '_1' } },
   { boss: /^xbg001/i,
     re: /^(xbg001_(?:horn|[LR]_legs|2phase_weapon|weapon_crystal01))(_\d+)?$/i, bySuffix: {} },
+  // 인디빌리아 - 노드가 이름을 먼저 차지해서 꼬리표가 붙고, 메쉬 여럿이 재질별 프리미티브(2~5개)로
+  // 갈려 몸통 _2~_5 처럼 여러 줄로 나왔다. 한 메쉬의 프리미티브는 한 파츠로 묶는다(merge).
+  { boss: /^ebg003/i,
+    re: /^(ebg003_(?:1phase_(?:scorpiontail|scorpiontail_wp|body|body_eye|legs_01|[lr]_arms|[lr]_arms_claw|vulcan)_skin|2phase_Jormungandr_(?:tail|head|teeath|vulcan)_skin))(_\d+)?$/i,
+    bySuffix: {}, merge: true },
   // 마더웨일 - 왼쪽 해치만 노드가 이름을 먼저 차지해서 _1 이 붙는다. 이름표가 안 걸려서 뗀다.
   { boss: /^bba001/i, re: /^(bba001_left_cover_skin)(_\d+)?$/i, bySuffix: {} },
   // 울트라 - 노드가 이름을 먼저 차지해서 메쉬에 _1 이 붙는다. 그 꼬리표 때문에 이름표가 안
@@ -281,7 +291,10 @@ function renameMeshes(bossKey, meshes) {
     for (const o of rules) {
       if (o.bySuffix) {
         const hit = String(m.name || '').match(o.re);
-        if (hit) return (o.base || hit[1]) + (o.bySuffix[mat] || '');
+        if (hit) {
+          if (o.merge) m.userData.__mergePart = true;
+          return (o.base || hit[1]) + (o.bySuffix[mat] || '');
+        }
       } else if (o.re.test(m.name || '') && o.mat === mat
                  && (o.nth === undefined || o.nth === occ.get(m))) {
         if (o.merge) m.userData.__mergePart = true;
@@ -299,6 +312,16 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 인디빌리아 - 게임 로케일 parts_name_Indivila01~05(집게 L · 집게 R · 꼬리 · 블레이드 · 코어).
+  // 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접 가리키고 이름으로도 부위가 맞는 셋만 넣는다 —
+  // l/r_tongs_02 -> l/r_arms_claw_skin(집게), core_col_03 -> body_eye_skin(코어).
+  // 꼬리 · 블레이드는 Control_ChainKnot_7 -> 1phase_scorpiontail_wp_skin 과
+  // 2phase_head_lcanine_01 -> 2phase_Jormungandr_teeath_skin 중 어느 쪽인지 파일로 못 가린다(인게임 확인 전).
+  ebg003: {
+    '1phase_l_arms_claw_skin': '집게 L',
+    '1phase_r_arms_claw_skin': '집게 R',
+    '1phase_body_eye_skin': '코어',
+  },
   // 크리스탈 체임버 - 게임 로케일 parts_name_barrier_left/right(보스 표시 없는 항목). 파츠 데이터의
   // 부서지는 파츠 13·14 가 left/right_barrier 를 가리키고, 인게임 이름이 크리스탈 혼 L·R 인 것을
   // 사용자가 확인했다(2026-10-02). 발광 층(_1, 시즌 10)은 " (발광)" 이 붙는다.
@@ -513,6 +536,7 @@ const DEFAULT_OFF_MESHES = [
   // 거대 질량체 · 미러 컨테이너 맵 연출 부속 리그 - 등장(·사망)에서만 켠다(CLIP_SOLO_PARTS)
   { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
   { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
+  { boss: /^ebg003/i, re: /_map[ab](_\d+)?$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -540,15 +564,16 @@ function isPhasePartOff(bossKey, phase, name) {
   return !!o && o.re.some(re => re.test(name || ''));
 }
 
-// phase 를 적은 줄은 그 페이즈에서만 꺼진다. 안 적은 줄은 예전처럼 늘 꺼진다.
 // 화면 맞춤(정규화 상자)에서 빼는 메쉬 - 보스 몸이 아니라 맵 연출에서 온 리그다.
 const FIT_SKIP_MESHES = [
   { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
   { boss: /^eba002/i, re: /_jellyfish_[lr]/i },
   { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
   { boss: /^xbg001/i, re: /^(xcg001_|crys_long|black_wall_du)/i },
+  { boss: /^ebg003/i, re: /_map[ab](_\d+)?$/i },
 ];
 
+// phase 를 적은 줄은 그 페이즈에서만 꺼진다. 안 적은 줄은 예전처럼 늘 꺼진다.
 function isDefaultOffMesh(bossKey, name, phase) {
   return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(name || '')
     && (!o.phase || o.phase === String(phase)));
@@ -1160,6 +1185,16 @@ const MANUAL_SEQUENCES = [
   //   take3  10.533 ~ 18.767
   // 맵 리그는 repack 이 placement(X축 +7도)대로 본체 공간에 놓아 합친다. take1 카메라는
   // 짝(pairedClip)이 비어 있지만 이름이 같은 take1 동작에 붙는다.
+  // 인디빌리아 등장(게임 타임라인 ebg003_1phase_intro_model, sceneType 0 / trigger 31)과
+  // 1 -> 2페이즈 전환(ebg003_2phase_intro_model, sceneType 2 / trigger 32). 둘 다 카메라 두 컷이다.
+  {
+    key: 'ebg003_appearance', boss: /^ebg003/i,
+    steps: [/^ebg003_1phase_intro_01$/i, /^ebg003_1phase_intro_02$/i],
+  },
+  {
+    key: 'ebg003_2phase_intro', boss: /^ebg003/i,
+    steps: [/^ebg003_2phase_intro_01$/i, /^ebg003_2phase_intro_02$/i],
+  },
   // 미러 컨테이너 등장 - take1(하모니 큐브가 열리는 3.17초) 다음 take2. 맵 리그는 SIMUL_CLIPS 가 같이 돌린다.
   {
     key: 'xba001_appearance', boss: /^xba001/i,
@@ -1334,6 +1369,8 @@ const CLIP_PHASE_OVERRIDES = [
   // 크리스탈 체임버 - 2phase_intro 는 1 -> 2 전환(타임라인 phase02, sceneType 2 / trigger 32)이라
   // 넘어가기 전 페이즈에 둔다. 사망은 2페이즈.
   { re: /^xbg001_2phase_intro$/i, boss: /^xbg001/i, phase: '1' },
+  // 인디빌리아 1 -> 2페이즈 전환은 1페이즈 목록에 둔다(끝나면 2페이즈로 넘어간다)
+  { re: /^ebg003_2phase_intro(_0[12])?$/i, boss: /^ebg003/i, phase: '1' },
   { re: /^xbg001_death$/i, boss: /^xbg001/i, phase: '2' },
   // 1페이즈 스킬·그로기는 이름에 페이즈 표시가 없다(2페이즈 것은 phase02_ 가 붙는다)
   { re: /^xbg001_(skill|groggy)_/i, boss: /^xbg001/i, phase: '1' },
@@ -1398,6 +1435,7 @@ const HIDDEN_CLIPS = [
   // 맵 연출 부속 리그 동작 - 보스 동작에 딸려 같이 돈다(SIMUL_CLIPS)
   { boss: /^eba004/i, re: /^eba004_(appearance|death)_acc$/i },
   { boss: /^xba001/i, re: /^xba001_appearance_bg_\d$/i },
+  { boss: /^ebg003/i, re: /^ebg003_1phase_intro_01_parts_0[12]$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
   // 검은 뱀 좌우 머리 클립 - 본체 클립에 딸려서 같이 돈다(SIMUL_CLIPS). 혼자 틀면
@@ -1524,6 +1562,9 @@ const SIMUL_CLIPS = [
   // 미러 컨테이너 등장 - 맵 연출의 하모니 큐브 리그(appearance_bg_var)
   { boss: /^xba001/i, main: /^xba001_appearance_take1$/i, with: [/^xba001_appearance_bg_1$/i] },
   { boss: /^xba001/i, main: /^xba001_appearance_take2$/i, with: [/^xba001_appearance_bg_2$/i] },
+  // 인디빌리아 1페 등장 앞 컷 - 맵 연출 리그 둘(ecg007 · arms_parts, 타임라인 0~7.467초 = intro_01 슬롯)
+  { boss: /^ebg003/i, main: /^ebg003_1phase_intro_01$/i,
+    with: [/^ebg003_1phase_intro_01_parts_01$/i, /^ebg003_1phase_intro_01_parts_02$/i] },
   // 검은 뱀 - 가운데 본체와 좌우 머리가 리그 셋이다(2026-09-30 재추출부터 머리가 따로
   // 나온다. tools/repack.py 가 머리 쪽 이름에 _left / _right 를 붙여 합친다).
   // 등장 take2 는 셋이 타임라인 3.23~10.67초에 같이 돈다(7.433초, 길이 같음).
@@ -1631,6 +1672,10 @@ const CLIP_SOLO_PARTS = [
   { boss: /^eba004/i, clip: /^eba004_appearance_f$/i, show: /_accapp(_\d+)?$/i },
   { boss: /^eba004/i, clip: /^eba004_death$/i, show: /_accdead(_\d+)?$/i },
   { boss: /^xba001/i, clip: /^xba001_appearance_take[12]$/i, show: /_bgvar(_\d+)?$/i },
+  { boss: /^ebg003/i, clip: /^ebg003_1phase_intro_01$/i, show: /_map[ab](_\d+)?$/i },
+  // 인디빌리아 1 -> 2페이즈 전환 - 1페 몸(전갈)이 연출 내내 움직이고(1페 뼈 채널 785개),
+  // 요르문간드 몸은 게임 타임라인 2.833초(intro_02 시작)부터 켜진다(meshActivation).
+  { boss: /^ebg003/i, clip: /^ebg003_2phase_intro_0[12]$/i, show: /./, hide: /_map[ab](_\d+)?$/i },
   // 검은 벽(black_wall_du)은 take2 내내 켠다(게임 타임라인 6.0~10.52초 = take2 슬롯).
   // 파일 배치(루트 180도 + X축 +7도) 그대로 두면 보스 몸을 가리고 크리스탈 조각만 검은 바탕에
   // 떠 보인다. 인게임에도 검은 벽이 나온다(사용자 확인, 2026-10-02). 루트 180도를 빼면 벽이
@@ -1783,6 +1828,8 @@ const PHASE_SWITCH_CLIPS = [
   /^xbg001_2phase_intro$/i,
   // 울트라 1 -> 2페이즈(게임 타임라인 bbg006_phase02, sceneType 2 / trigger 32)
   /^bbg006_1phase_destroy$/i,
+  // 인디빌리아 1 -> 2페이즈 - 낱개 두 컷과 그 둘을 묶은 키까지
+  /^ebg003_2phase_intro(_0[12])?$/i,
 ];
 
 // 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
@@ -1823,6 +1870,8 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^xbg001/i, from: '1', by: 'phase' },
   // 울트라: 1페이즈 1phase_destroy -> 2페이즈
   { boss: /^bbg006/i, from: '1', by: 'phase' },
+  // 인디빌리아: 1페이즈 2phase_intro -> 2페이즈
+  { boss: /^ebg003/i, from: '1', by: 'phase' },
 ];
 // 켬/끔은 모델을 바꿔 다시 불러도 유지돼야 한다 — 모듈 스코프에 둔다.
 let autoPhaseChain = false;
