@@ -42,6 +42,12 @@ const PHASE_MODE_OVERRIDES = {
   // 통째로 사라진다. 해파리는 페이즈 태그가 없어서 양쪽에 다 남는다(맞다 -
   // 1페 등장·전환·사망 세 연출에 다 나온다).
   eba002: { mode: 'exclusive' },
+  // 니힐리스타 - 1페이즈가 끝나면 팔 · 무기 · 발칸 · 프로텍터가 꺼지고(MonsterPhaseDataV2, 전환 연출
+  // 활성 트랙 0~0.017초), 2페이즈는 2phase 머리 · 날개가 켜진다. 1phase_head_01(오른쪽 머리)은 양쪽에 남는다.
+  mba002: { mode: 'exclusive' },
+  // 백빙룡 - 니힐리스타 변종. 게임이 쓰는 동작이 전부 phase02 쪽(첫 등장도 phase02_appearance_03)이라
+  // 페이즈가 하나다. 1페이즈 태그를 2 로 접어 칩을 없앤다.
+  mba002_whiteice: { merge: { 1: 2 } },
   // 크라켄(황금 bbg004_golden · 환영 bbg004_hologram) - 1페이즈는 껍데기(1phase_pinna)까지 전부,
   // 2페이즈는 껍데기가 부서져(1phase_destroy) 몸통 · 머리 · 촉수만 남는다.
   bbg004: { mode: 'phase1-all' },
@@ -76,8 +82,9 @@ function getPhaseConfig(bossKey, bossCode) {
 // 위에서부터 먼저 맞는 것을 쓴다 — 발광 껍데기는 부위보다 먼저 걸러야
 // head_skin_fx 가 "머리" 로 새지 않는다.
 const PART_GROUPS = [
-  // 인디빌리아 1페 등장 맵 연출 리그(ecg007 · arms_parts) - 이름이 body · legs · arms 라 몸 파츠에 섞인다
-  ['연출', /_map[ab](_\d+)?$/i],
+  // 인디빌리아 1페 등장 맵 연출 리그(ecg007 · arms_parts) - 이름이 body · legs · arms 라 몸 파츠에 섞인다.
+  // 니힐리스타 2페 전환 눈 리그(_eye)도 '머리' 로 새지 않게 여기서 거른다.
+  ['연출', /_(map[ab]|eye)(_\d+)?$/i],
   ['발광', /_fx(_\d+)?$/i],
   ['머리', /(^|_)(head|face|neck|eye|sdf)/i],
   ['몸통', /(^|_)(body|torso|chest|core|spine|bust)/i],
@@ -247,6 +254,11 @@ const MESH_RENAME = [
   { boss: /^ebg003/i,
     re: /^(ebg003_(?:1phase_(?:scorpiontail|scorpiontail_wp|body|body_eye|legs_01|[lr]_arms|[lr]_arms_claw|vulcan)_skin|2phase_Jormungandr_(?:tail|head|teeath|vulcan)_skin))(_\d+)?$/i,
     bySuffix: {}, merge: true },
+  // 니힐리스타 · 백빙룡 - 노드가 이름을 먼저 차지해서 꼬리표가 붙고, 머리 · 몸통은 재질별 프리미티브로
+  // 갈려 여러 줄로 나왔다. 한 메쉬의 프리미티브는 한 파츠로 묶는다.
+  { boss: /^mba002/i,
+    re: /^(mba002_(?:1phase_head_01|2phase_head_003|body_0[12]|2phase_wings|phase1_(?:arms|arms_weapon|[lr]_armor|[lr]_ar)|[lr]_rl))(_\d+)?$/i,
+    bySuffix: {}, merge: true },
   // 크라켄 - 노드가 이름을 먼저 차지해서 꼬리표가 붙고, 몸통 · 머리 · 껍데기는 재질별 프리미티브 둘로
   // 갈려 _2 · _3 두 줄로 나왔다. 한 메쉬의 프리미티브는 한 파츠로 묶는다.
   { boss: /^bbg004/i,
@@ -320,6 +332,23 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 니힐리스타 - 게임 로케일 parts_name_Nihilister01~06. 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접
+  // 가리킨다 — l/r_ar_01 -> phase1_l/r_ar(발칸), l_arms_21 · r_arms_24 -> phase1_l/r_armor(프로텍터),
+  // S2B_SplineIK_012 -> 2phase_head_003, S2B_SplineIK_001 -> 1phase_head_01. 머리 좌우는 동작으로 정했다 —
+  // phase02_left_head_Destruction · generate 는 2phase_head_003 뼈만, right_head 쪽은 1phase_head_01 뼈만 움직인다.
+  mba002: {
+    'phase1_l_ar': '발칸 L',
+    'phase1_r_ar': '발칸 R',
+    'phase1_l_armor': '프로텍터 L',
+    'phase1_r_armor': '프로텍터 R',
+    '2phase_head_003': '왼쪽 머리',
+    '1phase_head_01': '오른쪽 머리',
+  },
+  // 백빙룡 - 로케일 parts_name_WhiteIceDragon01~02. 파츠 데이터가 l/r_laser_09 -> 2phase_wings_l/r_parts 를 가리킨다.
+  mba002_whiteice: {
+    '2phase_wings_l_parts': '냉기의 원천(좌)',
+    '2phase_wings_r_parts': '냉기의 원천(우)',
+  },
   // 크라켄 - 게임 로케일 parts_name_kraken01~04(촉수 L · 거대 촉수 L · 촉수 R · 거대 촉수 R).
   // 파츠 데이터(MonsterPartsPrefab.Skin)가 촉수 메쉬를 직접 가리키고, 뼈 이름의 big/small 이
   // 거대 촉수/촉수와 맞는다 — Helper_Chain_Root_lb(9) -> l_u_tentacle, _ls(11) -> l_d_tentacle,
@@ -475,8 +504,9 @@ function isGlowLayer(m) {
   return /(^|_)fx_|_glow$|fresnel/i.test(meshMatName(m));
 }
 
-function partLabelOf(bossCode, m, fallback) {
-  const table = PART_LABELS[bossCode];
+function partLabelOf(bossCode, m, fallback, bossKey) {
+  // 변종은 파일 이름(bossKey)으로 먼저 찾는다 — 백빙룡은 니힐리스타와 보스 코드가 같은데 부서지는 파츠가 다르다.
+  const table = (bossKey && PART_LABELS[bossKey]) || PART_LABELS[bossCode];
   if (!table) return fallback;
   const key = String(m.name || '').replace(new RegExp('^' + bossCode + '_?', 'i'), '');
   // 발광 층은 본체 이름을 물려받는다. 짝이 되는 본체 이름은 뒤 번호를 뗀 것.
@@ -557,6 +587,8 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
   { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
   { boss: /^ebg003/i, re: /_map[ab](_\d+)?$/i },
+  // 니힐리스타 2페 전환 가운데 컷의 눈 리그 - 그 컷(2phase_eye)에서만 켠다
+  { boss: /^mba002$/i, re: /_eye(_\d+)?$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -591,6 +623,7 @@ const FIT_SKIP_MESHES = [
   { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
   { boss: /^xbg001/i, re: /^(xcg001_|crys_long|black_wall_du)/i },
   { boss: /^ebg003/i, re: /_map[ab](_\d+)?$/i },
+  { boss: /^mba002$/i, re: /_eye(_\d+)?$/i },
 ];
 
 // phase 를 적은 줄은 그 페이즈에서만 꺼진다. 안 적은 줄은 예전처럼 늘 꺼진다.
@@ -765,6 +798,11 @@ const PHASE_CAM_DIST = [
   { boss: /^bbg006/i, phase: '2', scale: 0.75 },
   // 지즈 - 2페이즈는 날개가 얇은 깃털뿐이라 몸이 작아 보인다(같은 거리에서 가로 50%, 1페이즈 57%).
   { boss: /^eba005/i, phase: '2', scale: 0.75 },
+  // 니힐리스타 · 백빙룡 - 날개 뼈(깃털 · 미사일)가 좌우 ±55 까지 뻗어 있어 정규화 상자가 몸(±19)의
+  // 세 배로 잡힌다. 1페이즈는 날개가 꺼져 있어도 뼈는 남아서 가로 12% 로 보였다.
+  { boss: /^mba002$/i, phase: '1', scale: 0.35 },
+  { boss: /^mba002$/i, phase: '2', scale: 0.85 },
+  { boss: /^mba002_whiteice/i, phase: '2', scale: 0.6 },
 ];
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -1109,7 +1147,12 @@ function pairCameraClips(clips, camNodes) {
   // 베히모스 dead_camera2 는 이름만 보면 dead_2 와 붙지만 실제 짝은 dead 다.
   cams.forEach(cam => {
     const node = nodeOf.get(cam.name);
-    const paired = node && node.userData && node.userData.pairedClip;
+    const ud = (node && node.userData) || {};
+    // 짝이 비어 있어도 후보(pairedClipCandidates)가 하나뿐이면 그것이 짝이다 — 니힐리스타 2페 전환
+    // 가운데 컷 Camera (2)는 보스 동작이 없고 부속 눈 리그의 2phase_eye 를 비춘다.
+    const cand = Array.isArray(ud.pairedClipCandidates) && ud.pairedClipCandidates.length === 1
+      ? ud.pairedClipCandidates[0] : null;
+    const paired = ud.pairedClip || cand;
     if (!paired) return;
     const target = models.find(c => c.name === paired);
     if (!target) return;
@@ -1129,6 +1172,8 @@ function pairCameraClips(clips, camNodes) {
   cams.forEach(cam => {
     const node0 = nodeOf.get(cam.name);
     if (node0 && node0.userData && node0.userData.pairedClip) return;
+    if (node0 && node0.userData && Array.isArray(node0.userData.pairedClipCandidates)
+        && node0.userData.pairedClipCandidates.length === 1) return;
     // _camera / _camera1 / _camera_01 / _camera_take1 을 모두 받는다.
     const m = squash(cam.name).match(/^(.*?)_camera(?:_?(\d+))?(_take\d+)?$/i);
     if (!m) return;
@@ -1209,6 +1254,12 @@ const MANUAL_SEQUENCES = [
   // 짝(pairedClip)이 비어 있지만 이름이 같은 take1 동작에 붙는다.
   // 인디빌리아 등장(게임 타임라인 ebg003_1phase_intro_model, sceneType 0 / trigger 31)과
   // 1 -> 2페이즈 전환(ebg003_2phase_intro_model, sceneType 2 / trigger 32). 둘 다 카메라 두 컷이다.
+  // 니힐리스타 1 -> 2페이즈(게임 타임라인 phase002_appearance_model, sceneType 2 / trigger 32) - 카메라 세 컷.
+  // 가운데 컷(Camera (2), 2.967~4.767초)은 보스 동작 없이 부속 눈 리그(2phase_eye)를 비춘다.
+  {
+    key: 'mba002_phase02_appearance', boss: /^mba002$/i,
+    steps: [/^mba002_phase02_appearance_01$/i, /^2phase_eye$/i, /^mba002_phase02_appearance_03$/i],
+  },
   // 크라켄 등장(게임 타임라인 bbg004_phase001_appearance_model, 카메라 네 컷 0 / 2.6 / 6.1 / 9.5초)과
   // 사망(bbg004_dead_model, 카메라 두 컷 0 / 6.133초). 그로기는 start -> loop -> wake 로 끝난다.
   {
@@ -1417,6 +1468,8 @@ const CLIP_PHASE_OVERRIDES = [
   // 크리스탈 체임버 - 2phase_intro 는 1 -> 2 전환(타임라인 phase02, sceneType 2 / trigger 32)이라
   // 넘어가기 전 페이즈에 둔다. 사망은 2페이즈.
   { re: /^xbg001_2phase_intro$/i, boss: /^xbg001/i, phase: '1' },
+  // 니힐리스타 전환은 1페이즈 목록(끝나면 2페이즈로 넘어간다). 백빙룡은 페이즈가 하나라 안 건다.
+  { re: /^(mba002_phase02_appearance(_0[13])?|2phase_eye)$/i, boss: /^mba002$/i, phase: '1' },
   // 크라켄 - 등장은 1페이즈, 사망은 2페이즈
   { re: /^bbg004_(intro_take\d|appearance)$/i, boss: /^bbg004/i, phase: '1' },
   { re: /^bbg004_(outro_take\d|dead)$/i, boss: /^bbg004/i, phase: '2' },
@@ -1487,6 +1540,10 @@ const HIDDEN_CLIPS = [
   { boss: /^eba004/i, re: /^eba004_(appearance|death)_acc$/i },
   { boss: /^xba001/i, re: /^xba001_appearance_bg_\d$/i },
   { boss: /^ebg003/i, re: /^ebg003_1phase_intro_01_parts_0[12]$/i },
+  // 니힐리스타 · 백빙룡 - 0.07초짜리 빈 동작(empty)
+  { boss: /^mba002/i, re: /^mba002_phase0[12]_empty$/i },
+  // 백빙룡 - 게임이 안 쓰는 동작(inGameUse []): 1페이즈 동작 전부 · jump · 니힐리스타 전환 앞 컷
+  { boss: /^mba002_whiteice/i, re: /^mba002_(phase01_|jump_|phase02_appearance_01$)/i },
   // 크라켄 - 게임이 안 쓰는 동작(inGameUse [])
   { boss: /^bbg004/i, re: /^bbg004_legs_Field_spwan_(start|loop)$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
@@ -1677,6 +1734,8 @@ const CLIP_LABEL_FIX = [
   { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
   { boss: /^mbg003/i, re: /_1phase_take$/i, label: '1phase_take1+2' },
   { boss: /^xbg003/i, re: /_appearance_all$/i, label: 'take01+appearance' },
+  // 백빙룡 첫 등장(sceneType 0 / trigger 31)은 니힐리스타 전환 끝 컷과 같은 동작이다
+  { boss: /^mba002_whiteice/i, re: /^mba002_phase02_appearance_03$/i, label: 'appearance' },
   // 지즈 변신 - 모델 동작은 take1 하나뿐이고 take2 는 카메라만 있다. 꼬리표를 뗀다.
   { boss: /^eba005/i, re: /^eba005_2phase_appearance_take1$/i, label: '2phase_appearance' },
   // 울트라 - 게임이 쓰는 등장·사망 컷이 하나씩이라(take2 는 안 쓴다) 꼬리표를 떼고 이름을 맞춘다
@@ -1755,6 +1814,9 @@ const CLIP_SOLO_PARTS = [
   { boss: /^eba004/i, clip: /^eba004_death$/i, show: /_accdead(_\d+)?$/i },
   { boss: /^xba001/i, clip: /^xba001_appearance_take[12]$/i, show: /_bgvar(_\d+)?$/i },
   { boss: /^ebg003/i, clip: /^ebg003_1phase_intro_01$/i, show: /_map[ab](_\d+)?$/i },
+  // 니힐리스타 2페 전환 - 양쪽 페이즈 파츠를 다 켜 두고 1페 팔은 활성 트랙(0~0.017초)이 끈다. 눈은 가운데 컷만.
+  { boss: /^mba002$/i, clip: /^mba002_phase02_appearance_0[13]$/i, show: /./, hide: /_eye(_\d+)?$/i },
+  { boss: /^mba002$/i, clip: /^2phase_eye$/i, show: /./ },
   // 인디빌리아 1 -> 2페이즈 전환 - 1페 몸(전갈)이 연출 내내 움직이고(1페 뼈 채널 785개),
   // 요르문간드 몸은 게임 타임라인 2.833초(intro_02 시작)부터 켜진다(meshActivation).
   { boss: /^ebg003/i, clip: /^ebg003_2phase_intro_0[12]$/i, show: /./, hide: /_map[ab](_\d+)?$/i },
@@ -1910,6 +1972,9 @@ const PHASE_SWITCH_CLIPS = [
   /^xbg001_2phase_intro$/i,
   // 울트라 1 -> 2페이즈(게임 타임라인 bbg006_phase02, sceneType 2 / trigger 32)
   /^bbg006_1phase_destroy$/i,
+  // 니힐리스타 1 -> 2페이즈 - 낱개 세 컷과 묶은 키까지
+  /^mba002_phase02_appearance(_0[13])?$/i,
+  /^2phase_eye$/i,
   // 크라켄 1 -> 2페이즈(게임 타임라인 bbg004_phase002_appearance_model) - 껍데기가 부서진다
   /^bbg004_1phase_destroy$/i,
   // 인디빌리아 1 -> 2페이즈 - 낱개 두 컷과 그 둘을 묶은 키까지
@@ -1954,6 +2019,8 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^xbg001/i, from: '1', by: 'phase' },
   // 울트라: 1페이즈 1phase_destroy -> 2페이즈
   { boss: /^bbg006/i, from: '1', by: 'phase' },
+  // 니힐리스타: 1페이즈 phase02_appearance -> 2페이즈
+  { boss: /^mba002$/i, from: '1', by: 'phase' },
   // 크라켄: 1페이즈 1phase_destroy -> 2페이즈
   { boss: /^bbg004/i, from: '1', by: 'phase' },
   // 인디빌리아: 1페이즈 2phase_intro -> 2페이즈
@@ -1967,10 +2034,17 @@ let autoPhasePending = false;
 // 이름에 phase_change 가 들어가지만 페이즈 전환이 아닌 동작.
 //   크리스탈 체임버 2phase_phase_change - 2페이즈 대기 바꾸기(타임라인 phase02_idle_change,
 //   sceneType 1). 전환은 2phase_intro 다.
-const NOT_PHASE_SWITCH = [/^xbg001_2phase_phase_change$/i];
+//   백빙룡 phase02_appearance_03 - 니힐리스타에서는 전환 끝 컷이지만 백빙룡에서는 첫 등장이다
+//   (sceneType 0 / trigger 31). 보스를 적은 줄은 그 보스에서만 뺀다.
+const NOT_PHASE_SWITCH = [
+  /^xbg001_2phase_phase_change$/i,
+  { boss: /^mba002_whiteice/i, re: /^mba002_phase02_appearance_03$/i },
+];
 
-function isPhaseSwitchClip(name) {
-  if (NOT_PHASE_SWITCH.some(re => re.test(name || ''))) return false;
+function isPhaseSwitchClip(name, bossKey) {
+  if (NOT_PHASE_SWITCH.some(o => (o instanceof RegExp)
+    ? o.test(name || '')
+    : (o.boss.test(bossKey || '') && o.re.test(name || '')))) return false;
   return PHASE_SWITCH_CLIPS.some(re => re.test(name || ''));
 }
 
@@ -2499,7 +2573,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       const stripCode = new RegExp(bossCode + '_?', 'ig');
       meshes.forEach(m => {
         const raw = (m.name || '').replace(stripCode, '');
-        m.label = partLabelOf(bossCode, m, raw);
+        m.label = partLabelOf(bossCode, m, raw, bossKey);
       });
     }
 
@@ -2551,6 +2625,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       // 대기 모두에서 보인다(페이즈로 숨는 파츠가 없다). 태그를 무시해야 페이즈 칩도 대기 동작
       // (1phase_idle_01 / 2phase_idle_01)으로 1·2 가 다 잡힌다 — 그대로면 "2" 하나뿐이라 칩이 안 나온다.
       { boss: /^xbg001/i, re: /^xbg001_2phase_weapon(_\d+)?$/i, phase: null },
+      // 니힐리스타 1phase_head_01(오른쪽 머리)은 2페이즈에도 남는다(전환 활성 트랙 0~10.87초 Active,
+      // 페이즈 데이터에서도 꺼지는 건 3페이즈 끝 = 사망).
+      { boss: /^mba002$/i, re: /^mba002_1phase_head_01(_\d+)?$/i, phase: null },
     ];
     const meshPhase = (name) => {
       const fix = MESH_PHASE_FIX.find(
@@ -2758,7 +2835,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       : [...new Set((gltf.animations || [])
           .filter(c => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(c.name))
             && !/air|skill/i.test(c.name || ''))
-          .map(c => clipPhase(c.name))
+          // 접기(merge)도 여기서 건다 — 백빙룡은 phase01_idle 을 2 로 접어야 칩이 하나다
+          .map(c => foldPhase(clipPhase(c.name)))
           .filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     // 모델 고르는 칩의 이름이 페이즈를 가리키면(예: "3페이즈") 그 페이즈로 고정한다.
     // 같은 파일을 페이즈별 항목으로 두 번 등록해 쓰는 보스가 있다 — 베히모스 2페이즈
@@ -3207,7 +3285,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     // 페이즈마다 기본 거리가 다른 보스. 시선은 그대로 두고 거리만 늘였다 줄인다.
     let phaseCamScale = 1;
-    function applyPhaseCamDist(phase) {
+    function applyPhaseCamDist(phase, initial) {
       if (!homeCamPos || !homeTarget) return;
       const rule = PHASE_CAM_DIST.find(
         o => o.boss.test(bossKey || '') && o.phase === String(phase));
@@ -3217,12 +3295,15 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       phaseCamScale = want;
       homeCamPos.sub(homeTarget).multiplyScalar(k).add(homeTarget);
       // 사용자가 직접 돌려 둔 시점은 건드리지 않는다(추적을 끈 상태다).
-      if (followEnabled) {
+      // 처음 불러올 때는 아직 아무도 시점을 안 건드렸으니 늘 옮긴다 — 추적이 켜지기 전이라
+      // 예전에는 기준점만 바뀌고 카메라는 그대로였다(1페이즈 거리 보정이 처음에 안 먹었다).
+      // initial 을 먼저 본다 — 처음 불러올 때는 followEnabled 가 아직 선언 전(let)이라 읽으면 오류가 난다.
+      if (initial || followEnabled) {
         camera.position.sub(controls.target).multiplyScalar(k).add(controls.target);
         controls.update();
       }
     }
-    applyPhaseCamDist(currentPhase);
+    applyPhaseCamDist(currentPhase, true);
 
     // 클립 하나만 눈높이가 다른 경우(온리 원 take01). 기준점까지 같이 올려서
     // 추적도, 시점 초기화도 올라간 자리를 기준으로 돌게 한다.
@@ -3695,7 +3776,7 @@ function noFollowClip(bossKey, name) {
         return;
       }
       // 전환 연출이 끝났고 자동 넘김이 켜져 있으면 다음 페이즈 모델로 간다.
-      if (autoPhaseChain && autoPhaseAvailable() && isPhaseSwitchClip(state.currentClip)) {
+      if (autoPhaseChain && autoPhaseAvailable() && isPhaseSwitchClip(state.currentClip, bossKey)) {
         // 같은 모델 안에서 페이즈만 바꾸는 쪽은 여기서 바로 부르면 mixer.update()
         // 안에서 믹서를 갈아 끼우게 된다 — 다음 프레임으로 미룬다.
         if (autoPhaseRule.by === 'phase') { pendingNext = goToNextPhase; return; }
@@ -3894,7 +3975,7 @@ function noFollowClip(bossKey, name) {
         const groupOf = (name) => {
           const n = String(name);
           if (isBaseDespiteName(n)) return '기본';
-          if (isPhaseSwitchClip(n)) return '페이즈 전환';
+          if (isPhaseSwitchClip(n, bossKey)) return '페이즈 전환';
           if (isAppearName(n) || isDeadName(n) || isAppearanceClip(n)) return '등장·사망';
           if (/(^|_)(groggy|cc)(_|\d|$)/i.test(n)) return '그로기';
           if (/(^|_)shot(_|\d|$)/i.test(n)) return '샷';
@@ -4045,7 +4126,7 @@ function noFollowClip(bossKey, name) {
           autoPhasePending = false;
           // 규칙에 이어서 틀 클립을 적어 뒀으면 그쪽을 먼저 본다.
           const nextRe = autoPhaseRule && autoPhaseRule.next;
-          const hit = c => (nextRe ? nextRe.test(c.name || '') : isPhaseSwitchClip(c.name))
+          const hit = c => (nextRe ? nextRe.test(c.name || '') : isPhaseSwitchClip(c.name, bossKey))
             && inCurrentPhase(c.name);
           const sw = seqs.find(sq => hit(sq.steps[0].clip)) || null;
           const swClip = sw ? null : clips.find(hit);

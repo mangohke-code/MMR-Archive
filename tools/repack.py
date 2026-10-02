@@ -141,6 +141,16 @@ JOBS = [
     # _bbg004_squid 는 보스 프리팹 밖 리그(outsidePrefab)에 게임이 안 쓴다(inGameUse []).
     ('추출프로그램 업데이트 이후/bbg004_황금 크라켄.glb', 'bbg004_golden'),
     ('추출프로그램 업데이트 이후/bbg004_환영 크라켄.glb', 'bbg004_hologram'),
+    # 니힐리스타(시즌 12). 2페이즈 전환 가운데 컷(카메라 Camera (2), 1.8초)이 비추는 눈 리그
+    # _2phase_eye_mesh(동작 2phase_eye, placement = Camera (2) 자리)를 합친다.
+    (['추출프로그램 업데이트 이후/mba002_니힐리스타.glb',
+      '추출프로그램 업데이트 이후/mba002_니힐리스타_2phase_eye_mesh.glb'], 'mba002'),
+    # 백빙룡(시즌 20). 니힐리스타(mba002)의 변종이라 출력 이름에 변종을 적는다.
+    # 원본이 두 벌 나왔는데(_백빙룡 = 프리팹 mba002_whiteice_psid, _mba002_psid_var = …_psid_over)
+    # 텍스처 · 메쉬 · 동작 값이 전부 같고 프리팹 이름과 내부 ID 만 다르다. 기본 쪽을 쓴다.
+    # 눈 리그 부속(_phase002_appearance_model · _mba002_whiteice_psid_over)은 동작이 없고 비추는 카메라도
+    # 없어서 넣지 않는다.
+    ('추출프로그램 업데이트 이후/mba002_백빙룡.glb', 'mba002_whiteice'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
@@ -193,6 +203,7 @@ SUFFIXES = {
     '추출프로그램 업데이트 이후/xba001_미러 컨테이너_xba001_appearance_bg_var.glb': ('_bgvar', set(), set()),
     '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_01_md_var.glb': ('_mapa', set(), set()),
     '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_02_md_var.glb': ('_mapb', set(), set()),
+    '추출프로그램 업데이트 이후/mba002_니힐리스타_2phase_eye_mesh.glb': ('_eye', set(), set()),
     # 리버렐리오 해파리 세 벌은 뼈·메쉬 이름이 전부 같다(동작 이름은 셋이 다르다).
     # 연출마다 자기 해파리만 켜야 해서 이름을 가른다 - _intro(1페 등장) · _change(2페 전환) · _dead(사망).
     '추출프로그램 업데이트 이후/eba002_리버렐리오 바디 H.S.T.A. · singleraid_eba002_jellyfish_obj_var.glb':
