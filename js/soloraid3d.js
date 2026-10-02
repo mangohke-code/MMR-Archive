@@ -42,6 +42,9 @@ const PHASE_MODE_OVERRIDES = {
   // 통째로 사라진다. 해파리는 페이즈 태그가 없어서 양쪽에 다 남는다(맞다 -
   // 1페 등장·전환·사망 세 연출에 다 나온다).
   eba002: { mode: 'exclusive' },
+  // 크라켄(황금 bbg004_golden · 환영 bbg004_hologram) - 1페이즈는 껍데기(1phase_pinna)까지 전부,
+  // 2페이즈는 껍데기가 부서져(1phase_destroy) 몸통 · 머리 · 촉수만 남는다.
+  bbg004: { mode: 'phase1-all' },
   // 인디빌리아 - 1페이즈 몸(전갈)은 1페이즈가 끝날 때 통째로 꺼지고(MonsterPhaseData
   // EndDeActiveObjects), 2페이즈는 요르문간드 몸만 남는다.
   ebg003: { mode: 'exclusive' },
@@ -244,6 +247,11 @@ const MESH_RENAME = [
   { boss: /^ebg003/i,
     re: /^(ebg003_(?:1phase_(?:scorpiontail|scorpiontail_wp|body|body_eye|legs_01|[lr]_arms|[lr]_arms_claw|vulcan)_skin|2phase_Jormungandr_(?:tail|head|teeath|vulcan)_skin))(_\d+)?$/i,
     bySuffix: {}, merge: true },
+  // 크라켄 - 노드가 이름을 먼저 차지해서 꼬리표가 붙고, 몸통 · 머리 · 껍데기는 재질별 프리미티브 둘로
+  // 갈려 _2 · _3 두 줄로 나왔다. 한 메쉬의 프리미티브는 한 파츠로 묶는다.
+  { boss: /^bbg004/i,
+    re: /^(bbg004_(?:[lr]_[ud]_tentacle|2phase_body|2phase_head|1phase_pinna)_skin)(_\d+)?$/i,
+    bySuffix: {}, merge: true },
   // 마더웨일 - 왼쪽 해치만 노드가 이름을 먼저 차지해서 _1 이 붙는다. 이름표가 안 걸려서 뗀다.
   { boss: /^bba001/i, re: /^(bba001_left_cover_skin)(_\d+)?$/i, bySuffix: {} },
   // 울트라 - 노드가 이름을 먼저 차지해서 메쉬에 _1 이 붙는다. 그 꼬리표 때문에 이름표가 안
@@ -312,6 +320,16 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 크라켄 - 게임 로케일 parts_name_kraken01~04(촉수 L · 거대 촉수 L · 촉수 R · 거대 촉수 R).
+  // 파츠 데이터(MonsterPartsPrefab.Skin)가 촉수 메쉬를 직접 가리키고, 뼈 이름의 big/small 이
+  // 거대 촉수/촉수와 맞는다 — Helper_Chain_Root_lb(9) -> l_u_tentacle, _ls(11) -> l_d_tentacle,
+  // _rb(10) -> r_u_tentacle, _rs(12) -> r_d_tentacle. 동작 이름도 left_big / left_small 이다.
+  bbg004: {
+    'l_u_tentacle_skin': '거대 촉수 L',
+    'l_d_tentacle_skin': '촉수 L',
+    'r_u_tentacle_skin': '거대 촉수 R',
+    'r_d_tentacle_skin': '촉수 R',
+  },
   // 인디빌리아 - 게임 로케일 parts_name_Indivila01~05(집게 L · 집게 R · 꼬리 · 블레이드 · 코어).
   // 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접 가리킨다 — l/r_tongs_02 -> l/r_arms_claw_skin(집게),
   // core_col_03 -> body_eye_skin(코어), Control_ChainKnot_7 -> 1phase_scorpiontail_wp_skin(꼬리 끝),
@@ -1191,6 +1209,20 @@ const MANUAL_SEQUENCES = [
   // 짝(pairedClip)이 비어 있지만 이름이 같은 take1 동작에 붙는다.
   // 인디빌리아 등장(게임 타임라인 ebg003_1phase_intro_model, sceneType 0 / trigger 31)과
   // 1 -> 2페이즈 전환(ebg003_2phase_intro_model, sceneType 2 / trigger 32). 둘 다 카메라 두 컷이다.
+  // 크라켄 등장(게임 타임라인 bbg004_phase001_appearance_model, 카메라 네 컷 0 / 2.6 / 6.1 / 9.5초)과
+  // 사망(bbg004_dead_model, 카메라 두 컷 0 / 6.133초). 그로기는 start -> loop -> wake 로 끝난다.
+  {
+    key: 'bbg004_appearance', boss: /^bbg004/i,
+    steps: [/^bbg004_intro_take1$/i, /^bbg004_intro_take2$/i, /^bbg004_intro_take3$/i, /^bbg004_intro_take4$/i],
+  },
+  {
+    key: 'bbg004_dead', boss: /^bbg004/i,
+    steps: [/^bbg004_outro_take1$/i, /^bbg004_outro_take2$/i],
+  },
+  {
+    key: 'bbg004_groggy_01', boss: /^bbg004/i,
+    steps: [/^bbg004_groggy_start_01$/i, /^bbg004_groggy_loop_01$/i, /^bbg004_groggy_wake_01$/i],
+  },
   {
     key: 'ebg003_appearance', boss: /^ebg003/i,
     steps: [/^ebg003_1phase_intro_01$/i, /^ebg003_1phase_intro_02$/i],
@@ -1273,6 +1305,8 @@ const MANUAL_SEQUENCES = [
 // 이름이 cc_idle 이라 start/loop/end 규칙에 안 걸린다. 자동 묶음(start+end)을
 // 막아 두고 MANUAL_SEQUENCES 에서 start -> idle -> end 로 손수 잇는다.
 const NO_SEQUENCE = [
+  // 크라켄 그로기 - 위 MANUAL_SEQUENCES 가 wake 까지 잇는다
+  { boss: /^bbg004/i, re: /^bbg004_groggy_(start|loop)_01$/i },
   { boss: /^bbg001_rich/i, re: /^bbg001_cc_/i },
   // 울트라 - 위 MANUAL_SEQUENCES 가 게임 타임라인대로 손수 잇는다
   { boss: /^bbg006_hsta/i, re: /^bbg006_skill_(start|loop|fire)_03$/i },
@@ -1373,6 +1407,9 @@ const CLIP_PHASE_OVERRIDES = [
   // 크리스탈 체임버 - 2phase_intro 는 1 -> 2 전환(타임라인 phase02, sceneType 2 / trigger 32)이라
   // 넘어가기 전 페이즈에 둔다. 사망은 2페이즈.
   { re: /^xbg001_2phase_intro$/i, boss: /^xbg001/i, phase: '1' },
+  // 크라켄 - 등장은 1페이즈, 사망은 2페이즈
+  { re: /^bbg004_(intro_take\d|appearance)$/i, boss: /^bbg004/i, phase: '1' },
+  { re: /^bbg004_(outro_take\d|dead)$/i, boss: /^bbg004/i, phase: '2' },
   // 인디빌리아 1 -> 2페이즈 전환은 1페이즈 목록에 둔다(끝나면 2페이즈로 넘어간다)
   { re: /^ebg003_2phase_intro(_0[12])?$/i, boss: /^ebg003/i, phase: '1' },
   { re: /^xbg001_death$/i, boss: /^xbg001/i, phase: '2' },
@@ -1440,6 +1477,8 @@ const HIDDEN_CLIPS = [
   { boss: /^eba004/i, re: /^eba004_(appearance|death)_acc$/i },
   { boss: /^xba001/i, re: /^xba001_appearance_bg_\d$/i },
   { boss: /^ebg003/i, re: /^ebg003_1phase_intro_01_parts_0[12]$/i },
+  // 크라켄 - 게임이 안 쓰는 동작(inGameUse [])
+  { boss: /^bbg004/i, re: /^bbg004_legs_Field_spwan_(start|loop)$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
   // 검은 뱀 좌우 머리 클립 - 본체 클립에 딸려서 같이 돈다(SIMUL_CLIPS). 혼자 틀면
@@ -1832,6 +1871,8 @@ const PHASE_SWITCH_CLIPS = [
   /^xbg001_2phase_intro$/i,
   // 울트라 1 -> 2페이즈(게임 타임라인 bbg006_phase02, sceneType 2 / trigger 32)
   /^bbg006_1phase_destroy$/i,
+  // 크라켄 1 -> 2페이즈(게임 타임라인 bbg004_phase002_appearance_model) - 껍데기가 부서진다
+  /^bbg004_1phase_destroy$/i,
   // 인디빌리아 1 -> 2페이즈 - 낱개 두 컷과 그 둘을 묶은 키까지
   /^ebg003_2phase_intro(_0[12])?$/i,
 ];
@@ -1874,6 +1915,8 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^xbg001/i, from: '1', by: 'phase' },
   // 울트라: 1페이즈 1phase_destroy -> 2페이즈
   { boss: /^bbg006/i, from: '1', by: 'phase' },
+  // 크라켄: 1페이즈 1phase_destroy -> 2페이즈
+  { boss: /^bbg004/i, from: '1', by: 'phase' },
   // 인디빌리아: 1페이즈 2phase_intro -> 2페이즈
   { boss: /^ebg003/i, from: '1', by: 'phase' },
 ];

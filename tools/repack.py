@@ -134,6 +134,13 @@ JOBS = [
     (['추출프로그램 업데이트 이후/ebg003_인디빌리아.glb',
       '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_01_md_var.glb',
       '추출프로그램 업데이트 이후/ebg003_인디빌리아_ebg003_1phase_intro_01_parts_02_md_var.glb'], 'ebg003'),
+    # 크라켄 변종 둘(시즌 15 황금 · 시즌 27 환영). 메쉬·동작 구성이 같고 재질(golden / hologram)과
+    # 게임이 쓰는 스킬(환영만 skill_06 이 타임라인)이 다르다. 뷰어 규칙은 /^bbg004/ 로 둘 다 잡는다.
+    # 부속 파일은 넣지 않는다 — _bbg004_bg_var · _intro_bg_model_var · _outro_bg_model_var ·
+    # _boss_dead_bbg004_bg_var 는 맵 배경(바다 수면 · 깊은 바다 판 · 물고기 떼 · 소품)이고,
+    # _bbg004_squid 는 보스 프리팹 밖 리그(outsidePrefab)에 게임이 안 쓴다(inGameUse []).
+    ('추출프로그램 업데이트 이후/bbg004_황금 크라켄.glb', 'bbg004_golden'),
+    ('추출프로그램 업데이트 이후/bbg004_환영 크라켄.glb', 'bbg004_hologram'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
