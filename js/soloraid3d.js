@@ -510,6 +510,9 @@ const DEFAULT_OFF_MESHES = [
   // 크리스탈 체임버 등장 맵 리그 - 맵 프리팹에서 꺼진 채 시작하고 게임 타임라인이
   // xcg001 은 0~6초, 검은 벽은 6~10.52초에만 켠다. 그 컷에서만 CLIP_SOLO_PARTS 가 켠다.
   { boss: /^xbg001/i, re: /^(xcg001_|crys_long|black_wall_du)/i },
+  // 거대 질량체 · 미러 컨테이너 맵 연출 부속 리그 - 등장(·사망)에서만 켠다(CLIP_SOLO_PARTS)
+  { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
+  { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -1149,6 +1152,11 @@ const MANUAL_SEQUENCES = [
   //   take3  10.533 ~ 18.767
   // 맵 리그는 repack 이 placement(X축 +7도)대로 본체 공간에 놓아 합친다. take1 카메라는
   // 짝(pairedClip)이 비어 있지만 이름이 같은 take1 동작에 붙는다.
+  // 미러 컨테이너 등장 - take1(하모니 큐브가 열리는 3.17초) 다음 take2. 맵 리그는 SIMUL_CLIPS 가 같이 돌린다.
+  {
+    key: 'xba001_appearance', boss: /^xba001/i,
+    steps: [/^xba001_appearance_take1$/i, /^xba001_appearance_take2$/i],
+  },
   {
     key: 'xbg001_appearance', boss: /^xbg001/i,
     steps: [/^xbg001_1phase_intro_take1$/i, /^xbg001_1phase_intro_take2$/i,
@@ -1376,10 +1384,12 @@ function findPhaseChangeClip(clips) {
 }
 
 // 목록에 내지 않는 클립. 파일에는 있지만 보여 줄 게 없는 연출이다.
-//   미러 컨테이너 appearance_take1 은 3.17초 내내 보스가 폭 0.11 로 접혀 있어
-//   화면에 점으로만 찍힌다. 게임에서는 이펙트가 그 자리를 채우는데 그건 내보내기에 없다.
+//   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
+//   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
-  { boss: /^xba001/i, re: /_appearance_take1$/i },
+  // 맵 연출 부속 리그 동작 - 보스 동작에 딸려 같이 돈다(SIMUL_CLIPS)
+  { boss: /^eba004/i, re: /^eba004_(appearance|death)_acc$/i },
+  { boss: /^xba001/i, re: /^xba001_appearance_bg_\d$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
   // 검은 뱀 좌우 머리 클립 - 본체 클립에 딸려서 같이 돈다(SIMUL_CLIPS). 혼자 틀면
@@ -1500,6 +1510,12 @@ const SIMUL_CLIPS = [
   // 크리스탈 체임버 등장 take2 - 맵의 검은 벽(black_t2)이 같은 슬롯(6.0~10.533)에서 돈다
   { boss: /^xbg001/i, main: /^xbg001_1phase_intro_take2$/i,
     with: [/^xbg001_1phase_black_take2$/i] },
+  // 거대 질량체 등장·사망 - 맵 연출의 부속 리그(model_acc · death_acc_md)가 같은 길이로 같이 돈다
+  { boss: /^eba004/i, main: /^eba004_appearance_f$/i, with: [/^eba004_appearance_acc$/i] },
+  { boss: /^eba004/i, main: /^eba004_death$/i, with: [/^eba004_death_acc$/i] },
+  // 미러 컨테이너 등장 - 맵 연출의 하모니 큐브 리그(appearance_bg_var)
+  { boss: /^xba001/i, main: /^xba001_appearance_take1$/i, with: [/^xba001_appearance_bg_1$/i] },
+  { boss: /^xba001/i, main: /^xba001_appearance_take2$/i, with: [/^xba001_appearance_bg_2$/i] },
   // 검은 뱀 - 가운데 본체와 좌우 머리가 리그 셋이다(2026-09-30 재추출부터 머리가 따로
   // 나온다. tools/repack.py 가 머리 쪽 이름에 _left / _right 를 붙여 합친다).
   // 등장 take2 는 셋이 타임라인 3.23~10.67초에 같이 돈다(7.433초, 길이 같음).
@@ -1526,8 +1542,6 @@ function isHiddenClip(bossKey, name) {
 
 // 목록 이름을 손으로 바꾸는 자리. 규칙으로 풀면 다른 보스까지 딸려 바뀌는 경우에만 쓴다.
 const CLIP_LABEL_FIX = [
-  // 짝인 take1 을 목록에서 뺐으니 꼬리표도 뗀다
-  { boss: /^xba001/i, re: /_appearance_take2$/i, label: 'appearance' },
   // 짝인 ebg001_dead 를 목록에서 뺐으니 꼬리표도 뗀다
   { boss: /^ebg001_island/i, re: /_island_dead$/i, label: 'dead' },
   // 나머지 스킬은 묶음이라 페이즈 태그가 떨어진다. 낱개인 03 만 남아서 맞춰 준다.
@@ -1606,6 +1620,9 @@ const CLIP_SOLO_PARTS = [
   { boss: /^bbg001_rich/i, clip: /_rich_skill01_/i, show: /_egg_skin$/i },
   // 크리스탈 체임버 등장 맵 리그(위 DEFAULT_OFF_MESHES 참고)
   { boss: /^xbg001/i, clip: /^xbg001_1phase_intro_take1$/i, show: /^(xcg001_|crys_long)/i },
+  { boss: /^eba004/i, clip: /^eba004_appearance_f$/i, show: /_accapp(_\d+)?$/i },
+  { boss: /^eba004/i, clip: /^eba004_death$/i, show: /_accdead(_\d+)?$/i },
+  { boss: /^xba001/i, clip: /^xba001_appearance_take[12]$/i, show: /_bgvar(_\d+)?$/i },
   // 검은 벽(black_wall_du)은 take2 내내 켠다(게임 타임라인 6.0~10.52초 = take2 슬롯).
   // 파일 배치(루트 180도 + X축 +7도) 그대로 두면 보스 몸을 가리고 크리스탈 조각만 검은 바탕에
   // 떠 보인다. 인게임에도 검은 벽이 나온다(사용자 확인, 2026-10-02). 루트 180도를 빼면 벽이

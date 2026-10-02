@@ -558,7 +558,7 @@
   // 모델 파일 판. 파일을 같은 이름으로 갈아 끼우면 브라우저가 예전 파일을 캐시에서
   // 꺼내 쓴다. 뷰어 코드는 새 파일 기준이라(연출 카메라를 파일 값 그대로 쓴다) 둘이
   // 섞이면 카메라가 엉뚱하게 돈다. 파일을 새로 올릴 때 이 값을 바꾼다.
-  const GLB_VERSION = '20261002b';
+  const GLB_VERSION = '20261002c';
   // [로컬 확인용] ?glb=new 면 Supabase 대신 _local/new/ 의 파일을 부른다(깃에 안 올라가는
   // 폴더라 올라간 사이트에서는 없다). 다시 묶어도 바로 보이게 캐시를 매번 비킨다.
   const LOCAL_GLB = new URLSearchParams(location.search).get('glb') === 'new';
