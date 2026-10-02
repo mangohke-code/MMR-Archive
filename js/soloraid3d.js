@@ -1219,6 +1219,16 @@ const MANUAL_SEQUENCES = [
     key: 'bbg004_dead', boss: /^bbg004/i,
     steps: [/^bbg004_outro_take1$/i, /^bbg004_outro_take2$/i],
   },
+  // 크라켄 촉수 넷 - 부서지고(Destruction) 다시 자라는(rebirth) 동작을 촉수마다 하나로 잇는다.
+  // 원본 번호가 제각각이라(Destruction_01~04, rebirth_01) 아래 CLIP_SORT_FIX 로 순서를 세운다.
+  { key: 'bbg004_left_big', boss: /^bbg004/i,
+    steps: [/^bbg004_left_big_Destruction_01$/i, /^bbg004_left_big_rebirth_01$/i] },
+  { key: 'bbg004_left_small', boss: /^bbg004/i,
+    steps: [/^bbg004_left_small_Destruction_03$/i, /^bbg004_left_small_rebirth_01$/i] },
+  { key: 'bbg004_right_big', boss: /^bbg004/i,
+    steps: [/^bbg004_right_big_Destruction_02$/i, /^bbg004_right_big_rebirth_01$/i] },
+  { key: 'bbg004_right_small', boss: /^bbg004/i,
+    steps: [/^bbg004_right_small_Destruction_04$/i, /^bbg004_right_small_rebirth_01$/i] },
   {
     key: 'bbg004_groggy_01', boss: /^bbg004/i,
     steps: [/^bbg004_groggy_start_01$/i, /^bbg004_groggy_loop_01$/i, /^bbg004_groggy_wake_01$/i],
@@ -1682,6 +1692,11 @@ const CLIP_LABEL_FIX = [
 // 목록 차례는 이름 끝 번호로 매긴다. 위처럼 이름의 번호가 실제와 다른 클립은
 // 그대로 두면 엉뚱한 자리에 선다(스킬 5 가 3 과 4 사이에 낀다). 여기서 바로잡는다.
 const CLIP_SORT_FIX = [
+  // 크라켄 촉수 묶음 - 거대 촉수 L · 촉수 L · 거대 촉수 R · 촉수 R 순
+  { boss: /^bbg004/i, re: /^bbg004_left_big(_(Destruction|rebirth)_\d+)?$/i, no: 1 },
+  { boss: /^bbg004/i, re: /^bbg004_left_small(_(Destruction|rebirth)_\d+)?$/i, no: 2 },
+  { boss: /^bbg004/i, re: /^bbg004_right_big(_(Destruction|rebirth)_\d+)?$/i, no: 3 },
+  { boss: /^bbg004/i, re: /^bbg004_right_small(_(Destruction|rebirth)_\d+)?$/i, no: 4 },
   { boss: /^xbg004_psid/i, re: /^xbg004 _skill(_(?:start|loop|fire))?_03$/, no: 5 },
 ];
 
