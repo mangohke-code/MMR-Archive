@@ -1544,6 +1544,8 @@ function findPhaseChangeClip(clips) {
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
+  // (스톰브링어 · 그레이브 디거 · 사치스러운 거미 shot 은 예전에 여기서 감췄다 - 혼자 틀면 몸이 굳었다.
+  //  2026-10-03 부터 샷은 대기를 밑에 깔고 틀어서(OVERLAY_CLIP_RE) 다시 보인다.)
   // 맵 연출 부속 리그 동작 - 보스 동작에 딸려 같이 돈다(SIMUL_CLIPS)
   { boss: /^eba004/i, re: /^eba004_(appearance|death)_acc$/i },
   { boss: /^xba001/i, re: /^xba001_appearance_bg_\d$/i },
@@ -1567,16 +1569,13 @@ const HIDDEN_CLIPS = [
   { boss: /^eba002/i, re: /^eba002_1phase_intro_2pvar$/i },
   // 스톰브링어 idle_2 도 0.03초짜리다.
   { boss: /^eba001/i, re: /^eba001_idle_2$/i },
-  { boss: /^eba001/i, re: /^eba001_shot_/i },
   // 그레이브 디거 phase003_idle_empty 는 0.17초짜리다.
   { boss: /^mbg002/i, re: /^mbg002_phase003_idle_empty$/i },
-  { boss: /^mbg002/i, re: /^mbg002_phase001_shot_/i },
   // 2.5페이즈 대기·전환은 목록에서 뺀다.
   { boss: /^mbg002/i, re: /^mbg002_phase0025_(idle|destroy)$/i },
   // 사망이 파일에 두 벌 들어 있다(애니메이터용 / 사망 연출용, dedupeClipNames 참고).
   // 연출용이 원래 이름을 갖고, _2 가 붙는 애니메이터용은 목록에서 뺀다.
   { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
-  { boss: /^bbg001_rich/i, re: /^bbg001_shot_/i },
   { boss: /^ebg001_island/i, re: /^ebg001_phase001_idle2$/i },
   { boss: /^ebg001_island/i, re: /^ebg001_phase003_appearance$/i },
   // 사망이 두 벌 들어 있다(ebg001_dead / ebg001_island_dead, 둘 다 6.67초).
