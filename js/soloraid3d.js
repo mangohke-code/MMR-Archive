@@ -541,6 +541,14 @@ function isPhasePartOff(bossKey, phase, name) {
 }
 
 // phase 를 적은 줄은 그 페이즈에서만 꺼진다. 안 적은 줄은 예전처럼 늘 꺼진다.
+// 화면 맞춤(정규화 상자)에서 빼는 메쉬 - 보스 몸이 아니라 맵 연출에서 온 리그다.
+const FIT_SKIP_MESHES = [
+  { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
+  { boss: /^eba002/i, re: /_jellyfish_[lr]/i },
+  { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
+  { boss: /^xbg001/i, re: /^(xcg001_|crys_long|black_wall_du)/i },
+];
+
 function isDefaultOffMesh(bossKey, name, phase) {
   return DEFAULT_OFF_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(name || '')
     && (!o.phase || o.phase === String(phase)));
@@ -2998,10 +3006,15 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     // 배포된 16종으로 대조해 보니 리버렐리오 말고는 값이 소수점까지 그대로다.
     // 대부분 리그가 하나뿐이라 아무 일도 안 하고, 둘인 애니힐리오는 두 뭉치가
     // 맞닿아 있어 둘 다 남는다.
+    //
+    // 맵 연출에서 온 리그(FIT_SKIP_MESHES)는 아예 재지 않는다. 거대 질량체 등장 부속은 뼈가
+    // 529 유닛까지 뻗어 가장 큰 뭉치가 되고, 리버렐리오 해파리는 1.333배 배치가 붙은 뒤로
+    // 49.1 이라 1페 몸(48.3)보다 커져서 기준 뭉치를 빼앗았다 - 보스가 작게 잡혔다.
     const fitGroups = new Map();
     const nv = new THREE.Vector3();
     meshes.forEach(m => {
       if (!m.isSkinnedMesh || !m.skeleton) return;
+      if (FIT_SKIP_MESHES.some(o => o.boss.test(bossKey || '') && o.re.test(m.name || ''))) return;
       m.skeleton.bones.forEach(b => {
         if (DEBRIS_BONE_RE.test(b.name || '')) return;
         let root = b;
