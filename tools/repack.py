@@ -96,9 +96,15 @@ JOBS = [
     ('추출프로그램 업데이트 이후/bbg006_울트라 H.S.T.A.glb', 'bbg006_hsta'),
     # 크리스탈 체임버. 시즌 10(P.S.I.D.)과 시즌 35(A.N.M.I.)는 메쉬·동작·카메라 값이 같은데
     # 텍스처(psid / anmi)와 게임이 쓰는 동작이 달라서 둘로 낸다. 시즌 10 만 방어막·큰 뿔
-    # 발광 층(fx_ 재질)이 있다. 부속 _xbg001_1phase_xcg001_var 는 맵 번들의 등장용 개체라 뺀다.
-    ('추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 P.S.I.D.glb', 'xbg001'),
-    ('추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I.glb', 'xbg001_anmi'),
+    # 발광 층(fx_ 재질)이 있다.
+    # 2026-10-02 19:53 추출기부터 등장 맵 연출(boss_appearance)의 리그가 배치(placement)와 함께
+    # 나온다. take1 의 xcg001(크리스탈에 휩싸이는 작은 랩처)과 take2 의 검은 벽을 합친다.
+    (['추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 P.S.I.D.glb',
+      '추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 P.S.I.D_xbg001_1phase_xcg001_var.glb',
+      '추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 P.S.I.D_xbg001_1phase_black_t2_var.glb'], 'xbg001'),
+    (['추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I.glb',
+      '추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I_xbg001_1phase_xcg001_var.glb',
+      '추출프로그램 업데이트 이후/xbg001_크리스탈 체임버 A.N.M.I_xbg001_1phase_black_t2_var.glb'], 'xbg001_anmi'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
@@ -227,6 +233,79 @@ def suffix_in_glb(src, dst, suffix, keep_nodes, clip_names):
         f.write(struct.pack('<III', 0x46546C67, 2, 12 + len(body)) + body)
 
 
+def _read_glb(path):
+    with open(path, 'rb') as f:
+        struct.unpack('<III', f.read(12))
+        chunks = []
+        while True:
+            hdr = f.read(8)
+            if len(hdr) < 8:
+                break
+            ln, ty = struct.unpack('<II', hdr)
+            chunks.append([ty, f.read(ln)])
+    return chunks, json.loads(chunks[0][1].decode('utf-8'))
+
+
+def _write_glb(path, chunks, doc):
+    raw = json.dumps(doc, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    raw += b' ' * ((4 - len(raw) % 4) % 4)
+    chunks[0][1] = raw
+    body = b''
+    for ty, data in chunks:
+        pad = b'\x00' if ty == 0x004E4942 else b' '
+        data = data + pad * ((4 - len(data) % 4) % 4)
+        body += struct.pack('<II', len(data), ty) + data
+    with open(path, 'wb') as f:
+        f.write(struct.pack('<III', 0x46546C67, 2, 12 + len(body)) + body)
+
+
+def _mat_mul(a, b):
+    # glTF 열 우선 4x4
+    return [sum(a[k * 4 + r] * b[c * 4 + k] for k in range(4)) for c in range(4) for r in range(4)]
+
+
+def _trs_matrix(node):
+    if 'matrix' in node:
+        return list(node['matrix'])
+    tx, ty, tz = node.get('translation', [0, 0, 0])
+    x, y, z, w = node.get('rotation', [0, 0, 0, 1])
+    sx, sy, sz = node.get('scale', [1, 1, 1])
+    r = [1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w),
+         2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w),
+         2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y)]
+    return [r[0] * sx, r[1] * sx, r[2] * sx, 0,
+            r[3] * sy, r[4] * sy, r[5] * sy, 0,
+            r[6] * sz, r[7] * sz, r[8] * sz, 0,
+            tx, ty, tz, 1]
+
+
+def has_placement(path):
+    _, doc = _read_glb(path)
+    return any((doc['nodes'][i].get('extras') or {}).get('placement')
+               for i in doc['scenes'][doc.get('scene', 0)]['nodes'])
+
+
+def place_in_glb(src, dst):
+    """맵 번들에서 온 리그를 본체 파일 공간에 놓는다.
+
+    2026-10-02 19:53 추출기부터 맵 리그 루트 extras.placement 에 "그 리그가 매달린 맵 부모가
+    본체 루트의 부모 공간에서 어디인가" 가 들어온다(glTF 4x4, 열 우선). 루트 자체의 변환은
+    그 아래에 붙으므로 최종 = placement x 루트 변환. 보스·맵 프리팹을 같은 원점에 둔다는
+    가정으로 낸 값이다(placementAssumption).
+      크리스탈 체임버 xcg001 · 검은 벽 - X축 +7도(본체 부모가 프리팹 안에서 -7도 기울어 있다)
+    """
+    chunks, doc = _read_glb(src)
+    for i in doc['scenes'][doc.get('scene', 0)]['nodes']:
+        node = doc['nodes'][i]
+        pl = (node.get('extras') or {}).get('placement')
+        if not pl or len(pl) != 16:
+            continue
+        node['matrix'] = _mat_mul(pl, _trs_matrix(node))
+        for k in ('translation', 'rotation', 'scale'):
+            node.pop(k, None)
+    _write_glb(dst, chunks, doc)
+
+
 def merge_scenes(path):
     """gltf-transform merge 는 씬을 파일 수만큼 남긴다. 로더는 기본 씬 하나만
     보기 때문에 뒤쪽 파일이 통째로 안 보인다. 루트를 한 씬으로 모은다."""
@@ -293,6 +372,11 @@ def main():
                 if table:
                     fixed = os.path.join(tmp, 'ren%d.glb' % i)
                     rename_in_glb(srcs[i], fixed, table)
+                    srcs[i] = fixed
+                # 맵 번들 리그(합칠 때 둘째부터)는 placement 대로 본체 공간에 놓는다
+                if i > 0 and has_placement(srcs[i]):
+                    fixed = os.path.join(tmp, 'pl%d.glb' % i)
+                    place_in_glb(srcs[i], fixed)
                     srcs[i] = fixed
                 if r in SUFFIXES:
                     fixed = os.path.join(tmp, 'suf%d.glb' % i)

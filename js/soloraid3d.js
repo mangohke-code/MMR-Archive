@@ -507,6 +507,9 @@ const DEFAULT_OFF_MESHES = [
   // 크리스탈 체임버(시즌 10) 방어막·큰 뿔 발광 층 - 프리팹에서 꺼진 채 시작하고(selfActive false)
   // 어느 타임라인도 켜지 않는다.
   { boss: /^xbg001/i, re: /_(left|right)_(barrier|bighorn)_1$/i },
+  // 크리스탈 체임버 등장 맵 리그 - 맵 프리팹에서 꺼진 채 시작하고 게임 타임라인이
+  // xcg001 은 0~6초, 검은 벽은 6~10.52초에만 켠다. 그 컷에서만 CLIP_SOLO_PARTS 가 켠다.
+  { boss: /^xbg001/i, re: /^(xcg001_|crys_long|black_wall_du)/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -1140,14 +1143,16 @@ const MANUAL_SEQUENCES = [
     steps: [/^bba001_appearance$/i, /^bba001_appearance_2$/i, /^bba001_appearance_3$/i],
   },
   // 크리스탈 체임버 등장 - 게임 타임라인(xbg001_appearance)은 카메라 세 컷이다.
-  //   take1  0     ~ 6.0     카메라만 있다(보스 쪽 동작 없음, 맵 번들 개체 xcg001 의 연출)
-  //   take2  6.0   ~ 10.533  (카메라 take2)
-  //   take3  10.533 ~ 18.767 (카메라 take3)
-  // take1 은 맵에 놓인 xcg001 을 비추는 컷이라 뷰어에서는 멀리(340유닛) 점처럼 선 보스만
-  // 남는다. 보스가 나오는 take2 부터 잇는다.
+  //   take1  0     ~ 6.0     작은 랩처(xcg001)가 크리스탈에 휩싸인다. 맵 연출(boss_appearance)이
+  //                          맵 리그 xcg001 에 take1 동작을 튼다(본체에는 동작이 없다)
+  //   take2  6.0   ~ 10.533  보스 + 검은 벽(맵 리그 black_t2) — 아래 SIMUL_CLIPS
+  //   take3  10.533 ~ 18.767
+  // 맵 리그는 repack 이 placement(X축 +7도)대로 본체 공간에 놓아 합친다. take1 카메라는
+  // 짝(pairedClip)이 비어 있지만 이름이 같은 take1 동작에 붙는다.
   {
     key: 'xbg001_appearance', boss: /^xbg001/i,
-    steps: [/^xbg001_1phase_intro_take2$/i, /^xbg001_1phase_intro_take3$/i],
+    steps: [/^xbg001_1phase_intro_take1$/i, /^xbg001_1phase_intro_take2$/i,
+      /^xbg001_1phase_intro_take3$/i],
   },
   // 베히모스 - 페이즈 전환 연출의 뒤 두 컷
   {
@@ -1417,6 +1422,8 @@ const HIDDEN_CLIPS = [
   { boss: /^xbg001$/i, re: /^xbg001_phase02_skill_(start|loop|fire)_(04stone|08)$/i },
   { boss: /^xbg001_anmi/i, re: /^xbg001_skill_(start|loop|fire)_0[167]$/i },
   { boss: /^xbg001_anmi/i, re: /^xbg001_phase02_skill_(start|loop|fire)_0[1-7]$/i },
+  // 등장 take2 에 딸려 도는 검은 벽 동작(SIMUL_CLIPS)
+  { boss: /^xbg001/i, re: /^xbg001_1phase_black_take2$/i },
   // 울트라 - intro_take2 는 게임이 안 쓴다(inGameUse []). 같이 나온 전투기·양산형 니케
   // 부속 파일도 그 긴 등장용이라 넣지 않았다. 게임 등장은 intro_take3(appearance_short)다.
   { boss: /^bbg006/i, re: /^bbg006_intro_take2$/i },
@@ -1490,6 +1497,9 @@ const SIMUL_CLIPS = [
     with: [/^eba002_2phase_intro_02$/i, /^eba002_2phase_intro_03jelly$/i] },
   { boss: /^eba002/i, main: /^eba002_2phase_death$/i,
     with: [/^eba002_2phase_death_jelly$/i] },
+  // 크리스탈 체임버 등장 take2 - 맵의 검은 벽(black_t2)이 같은 슬롯(6.0~10.533)에서 돈다
+  { boss: /^xbg001/i, main: /^xbg001_1phase_intro_take2$/i,
+    with: [/^xbg001_1phase_black_take2$/i] },
   // 검은 뱀 - 가운데 본체와 좌우 머리가 리그 셋이다(2026-09-30 재추출부터 머리가 따로
   // 나온다. tools/repack.py 가 머리 쪽 이름에 _left / _right 를 붙여 합친다).
   // 등장 take2 는 셋이 타임라인 3.23~10.67초에 같이 돈다(7.433초, 길이 같음).
@@ -1594,6 +1604,12 @@ const CLIP_SOLO_PARTS = [
   // 은 배 주위에 불규칙하게 흩어져 있다. 무엇이 맞는지는 파일이 말해주지 않으니
   // 지어내지 않고 skill02 에서는 감춘다.
   { boss: /^bbg001_rich/i, clip: /_rich_skill01_/i, show: /_egg_skin$/i },
+  // 크리스탈 체임버 등장 맵 리그(위 DEFAULT_OFF_MESHES 참고)
+  { boss: /^xbg001/i, clip: /^xbg001_1phase_intro_take1$/i, show: /^(xcg001_|crys_long)/i },
+  // 검은 벽(black_wall_du, take2)은 아직 켜지 않는다. 파일 배치(루트 180도 + X축 +7도)대로 놓으면
+  // 카메라와 보스 사이(z 519~525, 보스 536)에 서서 화면을 가린다. 벽 리그의 origin_cam 은 루트
+  // 180도를 빼야 실제 take2 카메라 경로와 겹친다 - 어느 쪽이 맞는지 인게임 확인 전이다.
+  // 재질 glow_m 은 아틀라스의 "가운데 검은 원 + 가장자리 투명" 조각을 쓴다.
   // 페이즈 전환 연출은 그동안 양쪽 페이즈 파츠가 다 켜져 있어야 한다. 파츠가
   // 중간에 생기거나 사라지는 게 아니라, 처음부터 켜진 채로 안 보이는 곳에
   // 숨어 있다 나오거나 화면 밖으로 빠지는 연출이기 때문이다.
