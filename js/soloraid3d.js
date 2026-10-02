@@ -1270,6 +1270,14 @@ const MANUAL_SEQUENCES = [
     key: 'bbg004_dead', boss: /^bbg004/i,
     steps: [/^bbg004_outro_take1$/i, /^bbg004_outro_take2$/i],
   },
+  // 니힐리스타 · 백빙룡 머리 둘 - 부서지고(Destruction) -> 부서진 채 대기(Destruction_idle) -> 다시 돋는다(generate).
+  // 세 동작 다 그 머리 뼈만 움직인다(왼쪽 551 · 541 채널) - 나머지 몸은 SIMUL_CLIPS 의 base 가 대기로 채운다.
+  { key: 'mba002_phase02_left_head', boss: /^mba002/i,
+    steps: [/^mba002_phase02_left_head_Destruction_02$/i, /^mba002_phase02_left_head_Destruction_02_idle$/i,
+      /^mba002_phase02_left_head_generate$/i] },
+  { key: 'mba002_phase02_right_head', boss: /^mba002/i,
+    steps: [/^mba002_phase02_right_head_Destruction_01$/i, /^mba002_phase02_right_head_Destruction_01_idle$/i,
+      /^mba002_phase02_right_head_generate$/i] },
   // 크라켄 촉수 넷 - 부서지고(Destruction) 다시 자라는(rebirth) 동작을 촉수마다 하나로 잇는다.
   // 원본 번호가 제각각이라(Destruction_01~04, rebirth_01) 아래 CLIP_SORT_FIX 로 순서를 세운다.
   { key: 'bbg004_left_big', boss: /^bbg004/i,
@@ -1681,6 +1689,9 @@ function applyClipTrim(clips, bossKey) {
 // 대표 클립은 연출 카메라가 붙은 쪽으로 고른다 - 카메라·자동 넘김·목록 표시가
 // 전부 대표 클립 이름을 기준으로 돌아간다.
 const SIMUL_CLIPS = [
+  // 니힐리스타 · 백빙룡 머리 파괴 · 재생 - 머리 뼈만 움직이는 동작이라 2페 대기를 밑에 깐다(base)
+  { boss: /^mba002/i, main: /^mba002_phase02_(left|right)_head_(Destruction_0\d(_idle)?|generate)$/i,
+    base: [/^mba002_phase02_idle_01$/i] },
   { boss: /^eba002/i, main: /^eba002_1phase_intro$/i,
     with: [/^eba002_1phase_jelly$/i] },
   { boss: /^eba002/i, main: /^eba002_2phase_intro_01$/i,
@@ -1710,12 +1721,30 @@ const SIMUL_CLIPS = [
     with: [/^bbg008_2phase_skill_leftfire_02$/i, /^bbg008_2phase_skill_rightfire_02$/i] },
 ];
 
+// base - 밑에 까는 동작. 대표 클립이 일부 뼈만 움직일 때(머리 파괴처럼 게임이 대기 위에 덧입혀
+// 트는 동작) 나머지 몸을 대기 자세로 채운다. 대표 클립이 건드리는 뼈의 트랙은 빼고 깔아서
+// 두 동작이 같은 뼈를 반씩 나눠 갖지 않게 하고, 반복해서 돌린다.
+const simulBaseCache = new Map();
+function simulBaseClip(main, base) {
+  const key = main.uuid + '|' + base.uuid;
+  if (simulBaseCache.has(key)) return simulBaseCache.get(key);
+  const nodeOf = t => t.name.slice(0, t.name.lastIndexOf('.'));
+  const taken = new Set(main.tracks.map(nodeOf));
+  const c = new THREE.AnimationClip(base.name + '__under_' + main.name, base.duration,
+    base.tracks.filter(t => !taken.has(nodeOf(t))));
+  simulBaseCache.set(key, c);
+  return c;
+}
+
 function simulClipsFor(bossKey, name, clips) {
   const o = SIMUL_CLIPS.find(
     x => x.boss.test(bossKey || '') && x.main.test(name || ''));
   if (!o) return null;
-  const out = o.with.map(re => (clips || []).find(c => re.test(c.name || '')))
-    .filter(Boolean);
+  const find = re => (clips || []).find(c => re.test(c.name || ''));
+  const main = (clips || []).find(c => c.name === name);
+  const out = (o.with || []).map(find).filter(Boolean).map(c => ({ clip: c }));
+  if (main) (o.base || []).map(find).filter(Boolean)
+    .forEach(c => out.push({ clip: simulBaseClip(main, c), base: true, src: c.name }));
   return out.length ? out : null;
 }
 
@@ -3564,7 +3593,7 @@ function noFollowClip(bossKey, name) {
       const t = currentAction.time;
       simulActions.forEach(a => {
         const d = a.getClip().duration || 0;
-        a.time = Math.max(0, Math.min(d, t));
+        a.time = a.__baseSrc ? ((a.__baseOffset || 0) + t) % (d || 1) : Math.max(0, Math.min(d, t));
         a.paused = false;
         a.enabled = true;
       });
@@ -3652,13 +3681,21 @@ function noFollowClip(bossKey, name) {
       // 같은 연출을 나눠 맡는 다른 몸들. 대표 클립과 길이가 같고 건드리는 뼈가
       // 안 겹치므로 같은 믹서에 그대로 얹으면 된다. finished 는 대표 클립 것만
       // 받으므로(onClipFinished 가 클립으로 가른다) 다음 클립 넘김도 안 꼬인다.
-      simulActions = (simulClipsFor(bossKey, clip.name, gltf.animations) || []).map(c => {
-        const a = mixer.clipAction(c);
-        if (opts.repeat) {
+      // 밑에 까는 대기(base)는 묶음의 다음 단계로 넘어가도 이어서 돈다 — 단계마다 0초로 돌아가면
+      // 머리 동작이 바뀌는 순간 몸이 대기 첫 자세로 튄다.
+      const prevBase = simulActions.find(a => a.__baseSrc);
+      simulActions = (simulClipsFor(bossKey, clip.name, gltf.animations) || []).map(s => {
+        const a = mixer.clipAction(s.clip);
+        if (s.base) {
+          a.setLoop(THREE.LoopRepeat, Infinity);
+          a.__baseSrc = s.src;
+          a.__baseOffset = (opts.keepQueue && prevBase && prevBase.__baseSrc === s.src) ? prevBase.time : 0;
+        } else if (opts.repeat) {
           a.setLoop(opts.repeat === 1 ? THREE.LoopOnce : THREE.LoopRepeat, opts.repeat);
           a.clampWhenFinished = true;
         }
         a.play();
+        if (a.__baseSrc) a.time = a.__baseOffset;
         return a;
       });
       // 새 클립을 시작할 때는 시점을 홈으로 되돌린다.
@@ -3929,8 +3966,10 @@ function noFollowClip(bossKey, name) {
         // skill_idle 처럼 앞에 다른 말이 붙은 것은 대기 동작이 아니라 단독 클립이다.
         // cc_idle 은 그로기 묶음 안에 들어가는 대기 동작이다. 여기서 걸러내지 않으면
         // 대기 동작 줄에 한 번, 묶음 밑에 한 번 해서 두 번 나온다.
+        // 머리가 부서진 채 멈춘 자세(니힐리스타 Destruction_0N_idle)는 이름만 idle 이다 — 대기로 보면
+        // 머리 파괴 묶음 밖에 따로 한 줄씩 더 나온다.
         const isIdle = c => /(^|_)idle(_\d+)?$/i.test(stripPhaseTail(c.name))
-          && !/skill|(^|_)cc(_|$)/i.test(c.name || '');
+          && !/skill|(^|_)cc(_|$)|_Destruction_\d+_idle$/i.test(c.name || '');
         // dead / death 표기가 보스마다 다르다
         const isSolo = c => /(^|_)(dead|death|appearance|appeanrance|phase_?change)/i.test(c.name || '');
 
