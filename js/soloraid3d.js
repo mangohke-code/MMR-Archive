@@ -1717,8 +1717,9 @@ const SIMUL_CLIPS = [
     with: [/^bbg008_2phase_skill_leftfire_02$/i, /^bbg008_2phase_skill_rightfire_02$/i] },
 ];
 
-// 게임이 대기 위에 덧입혀 트는 동작 — 부위 파괴 · 재생과 샷. 재생할 때 지금 페이즈의 대기를 밑에 깐다
-// (playClipObject). 보스마다 적지 않는다 — 모든 보스가 같은 방식이다(사용자 확인, 2026-10-03).
+// 게임이 대기 위에 덧입혀 트는 동작 — 레이어 정보가 없는 예전 파일에서만 이 이름으로 짐작한다.
+// 레이어 정보가 있으면 동작의 animatorStates(레이어 1 이상)로 정한다 — 마더웨일 샷처럼 이름은 shot 인데
+// 기본 레이어(0)에 있는 몸 전체 동작도 있다.
 const OVERLAY_CLIP_RE = /(destruction|rebirth|generate|(^|_)shot(_|\d|$))/i;
 
 // 덧입히는 동작에서 고정값 트랙을 걸러 낸다(클립을 제자리에서 고친다, 한 번만).
@@ -1757,6 +1758,13 @@ function prepareOverlayClip(clip, idle, rootLike) {
     }
     return false;
   });
+}
+
+// 레이어 마스크 안 뼈의 트랙만 남긴다(클립을 제자리에서 고친다, 한 번만).
+function prepareMaskedClip(clip, mask) {
+  if (clip.__overlayPrepared) return;
+  clip.__overlayPrepared = true;
+  clip.tracks = clip.tracks.filter(t => mask.has(t.name.slice(0, t.name.lastIndexOf('.'))));
 }
 
 // base - 밑에 까는 동작. 대표 클립이 일부 뼈만 움직일 때(머리 파괴처럼 게임이 대기 위에 덧입혀
@@ -2725,6 +2733,41 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       if (c && !clipExtrasByName.has(c.name)) clipExtrasByName.set(c.name, a.extras || {});
     });
     const clipExtrasOf = name => clipExtrasByName.get(name) || {};
+
+    // 애니메이터 레이어(2026-10-03 19:53 추출기부터 리그 루트 extras.animatorController, 동작 extras.animatorStates).
+    // 파괴 · 재생 · 샷 같은 동작은 레이어 1 이상(전부 Override)에 있어 대기(레이어 0) 위에 덧입혀 돈다.
+    // 유니티 합성 규칙(추출 세션이 엔진으로 확인): 레이어 마스크 가중치 > 0 인 뼈는 클립 곡선으로 덮고(고정값도),
+    // 마스크 밖 곡선은 무시하고, 마스크 안이라도 곡선이 없으면 대기를 유지한다.
+    const animatorCtrls = [];
+    ((gltf.parser && gltf.parser.json && gltf.parser.json.nodes) || []).forEach(n => {
+      const ac = n && n.extras && n.extras.animatorController;
+      if (ac && Array.isArray(ac.layers)) animatorCtrls.push(ac);
+    });
+    const layerMaskCache = new Map();
+    const layerMaskOf = (ac, L) => {
+      const key = ac.name + '|' + L.index;
+      if (layerMaskCache.has(key)) return layerMaskCache.get(key);
+      const set = new Set();
+      (L.skeletonMask || []).forEach(m => {
+        if (!m || !(m.weight > 0) || typeof m.path !== 'string') return;
+        const seg = m.path === '' ? (ac.animator || '') : m.path.split('/').pop();
+        if (seg) set.add(THREE.PropertyBinding.sanitizeNodeName(seg));
+      });
+      layerMaskCache.set(key, set);
+      return set;
+    };
+    // 이 동작이 덧입히는 동작이면 그 레이어 마스크(뼈 이름 Set), 아니면 null.
+    // 레이어 정보가 아예 없는 예전 파일은 undefined 를 돌려준다(이름으로 짐작하는 옛 처리로 간다).
+    function overlayMaskOf(clipName) {
+      const states = clipExtrasOf(clipName).animatorStates;
+      if (!Array.isArray(states) || !states.length) return animatorCtrls.length ? null : undefined;
+      if (states.some(st => !(st.layer > 0))) return null;
+      const li = states[0].layer;
+      const hasClip = L => (L.states || []).some(st => (st.clips || []).some(c => c && c.name === clipName));
+      let ac = animatorCtrls.find(a => a.layers[li] && hasClip(a.layers[li]));
+      if (!ac) ac = animatorCtrls.find(a => a.layers[li] && a.layers[li].name === states[0].layerName);
+      return ac ? layerMaskOf(ac, ac.layers[li]) : null;
+    }
 
     const camPairs = camNodes.length
       ? pairCameraClips(gltf.animations || [], camNodes)
@@ -3719,10 +3762,14 @@ function noFollowClip(bossKey, name) {
       // mixer.stopAllAction() + 캐시된 action을 reset/play로 재사용하면 3D 렌더링에
       // 눈에 보이는 변화는 없이 내부 바인딩 상태만 꼬이는 경우가 있어 — 믹서를 아예
       // 새로 만들어서 확실하게 교체한다.
-      // 덧입히는 동작(파괴 · 재생 · 샷)은 고정값 트랙을 먼저 걸러 둔다 — 믹서가 트랙을 묶기 전에.
-      if (OVERLAY_CLIP_RE.test(clip.name || '')) {
-        prepareOverlayClip(clip, findIdleClipForPhase(currentPhase), rootLikeBones);
-      }
+      // 덧입히는 동작은 믹서가 트랙을 묶기 전에 덮을 트랙만 남긴다.
+      //   레이어 정보가 있으면 - 그 레이어 마스크 안 뼈의 트랙만(고정값 포함)
+      //   예전 파일(레이어 정보 없음) - 이름(파괴 · 재생 · 샷)으로 짐작하고 고정값 트랙을 거른다
+      const overlayMask = overlayMaskOf(clip.name);
+      const isOverlay = overlayMask instanceof Set
+        || (overlayMask === undefined && OVERLAY_CLIP_RE.test(clip.name || ''));
+      if (overlayMask instanceof Set) prepareMaskedClip(clip, overlayMask);
+      else if (isOverlay) prepareOverlayClip(clip, findIdleClipForPhase(currentPhase), rootLikeBones);
       mixer = new THREE.AnimationMixer(gltf.scene);
       mixer.addEventListener('finished', onClipFinished);
       const action = mixer.clipAction(clip);
@@ -3742,7 +3789,7 @@ function noFollowClip(bossKey, name) {
       // 파괴 · 재생 · 샷은 게임이 대기 위에 덧입혀 트는 동작이다 — 부위 뼈만 움직인다(크라켄 촉수 파괴는
       // 대기가 움직이는 뼈의 12%, 미러 컨테이너 포신 사격은 1%). 지금 페이즈의 대기를 밑에 깐다.
       // 그 동작이 움직이는 뼈는 대기 쪽에서 빼므로 몸 전체를 움직이는 샷이어도 결과가 같다.
-      if (OVERLAY_CLIP_RE.test(clip.name || '') && !simulList.some(s => s.base)) {
+      if (isOverlay && !simulList.some(s => s.base)) {
         const idle = findIdleClipForPhase(currentPhase);
         if (idle && idle !== clip) {
           simulList.push({ clip: simulBaseClip(clip, idle), base: true, src: idle.name });
