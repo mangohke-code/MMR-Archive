@@ -127,6 +127,9 @@ const PART_GROUPS = [
 //   본체 xbg002_arm / xbg002_shoulder / xbg002_head
 //   발광 fx_xbg002_part_fresnel_purple
 const MESH_RENAME = [
+  // 블랙스미스 - 다리(재질별 프리미티브 넷), S2 날개(뼈 이름과 겹쳐 _1 이 붙음)와 촉수(Object002 오른쪽 · Object004 왼쪽, 두 벌 x 프리미티브 둘)를
+  // 한 파츠로 묶는다. 촉수 두 벌은 대기에서 같은 자리에 겹쳐 있고 둘 다 기본 꺼짐이다.
+  { boss: /^bbg003/i, re: /^(bbg003_legs_skin|bbg003_Wing_Red|Object00[24])(_\d+)?$/i, bySuffix: {}, merge: true },
   // 퀸 001 — 보스 전체가 메쉬 하나에 프리미티브 넷이다. 파일 이름은 face 지만
   // 실제로는 몸통·가시·부속이 다 들어 있어서, 그대로 두면 face_skin_2~5 네 개가
   // 전부 “머리” 구역으로 묶인다. 재질 이름으로 나눈다.
@@ -339,6 +342,14 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 블랙스미스(S2 · S5 콜라보) - 로케일 parts_name_blacksmith01 · 02 = 컨테이너 L · R. 파츠 데이터 부위 1 · 2 가
+  // Spider_L/R_Arm_02(Skin left/right_Arms_skin)라 번호 순서가 맞는다. 촉수는 파괴 파츠가 아니라 모양대로 적는다.
+  bbg003: {
+    'left_Arms_skin': '컨테이너 L',
+    'right_Arms_skin': '컨테이너 R',
+    'Object002': '촉수 R',
+    'Object004': '촉수 L',
+  },
   // 니힐리스타 - 게임 로케일 parts_name_Nihilister01~06. 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접
   // 가리킨다 — l/r_ar_01 -> phase1_l/r_ar(발칸), l_arms_21 · r_arms_24 -> phase1_l/r_armor(프로텍터),
   // S2B_SplineIK_012 -> 2phase_head_003, S2B_SplineIK_001 -> 1phase_head_01. 머리 좌우는 동작으로 정했다 —
@@ -584,6 +595,10 @@ const DEFAULT_OFF_MESHES = [
   // take2(3.23~10.67초)와 2페 스킬02(2.33~5.00초)에만 켠다. 그 구간은 파일의
   // meshActivation 이 켠다(경로 …/heads 로 매칭).
   { boss: /^bbg008/i, re: /_skin_(left|right)(_\d+)?$/i },
+  // 블랙스미스 촉수(Object002 오른쪽 · Object004 왼쪽) - 두 벌 다 프리팹에서 꺼진 채 시작한다(activeAtStart false).
+  //   몸 뒤 소켓(socket_tail_new) 쪽 - S2 등장 타임라인 0~5.88초에만 켜진다(meshActivation 이 켠다)
+  //   bbg003_l/r_tentacle 뼈 아래 쪽 - 켜는 타임라인이 파일에 없다
+  { boss: /^bbg003/i, re: /^Object00[24](_\d+)?$/i },
   // 크리스탈 체임버(시즌 10) 방어막·큰 뿔 발광 층 - 프리팹에서 꺼진 채 시작하고(selfActive false)
   // 어느 타임라인도 켜지 않는다.
   { boss: /^xbg001/i, re: /_(left|right)_(barrier|bighorn)_1$/i },
@@ -625,6 +640,8 @@ function isPhasePartOff(bossKey, phase, name) {
 
 // 화면 맞춤(정규화 상자)에서 빼는 메쉬 - 보스 몸이 아니라 맵 연출에서 온 리그다.
 const FIT_SKIP_MESHES = [
+  // 블랙스미스 촉수 - 대기 자세에서 몸(폭 0.3) 뒤로 0.91 까지 가늘게 뻗어 있어 맞춤이 작게 잡힌다
+  { boss: /^bbg003/i, re: /^Object00[24](_\d+)?$/i },
   { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
   { boss: /^eba002/i, re: /_jellyfish_[lr]/i },
   { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
@@ -1241,6 +1258,10 @@ function pairCameraClips(clips, camNodes) {
 // 파일에는 따로 들어 있지만 실제로는 이어서 도는 연출. 한 묶음으로 낸다.
 //   미러 컨테이너 2페이즈 파츠는 되살아난 뒤(rebirth) 곧바로 부서진다(Destruction).
 const MANUAL_SEQUENCES = [
+  // 블랙스미스 - 스킬 03 뒤에 이어지는 별도 연출(타임라인 bbg003_shot_06_blowbreak_model, trigger 24).
+  // fire_loop_03(0~2.67) -> fire_end_03(2.67~5.67). 앞쪽 blow(start · loop · fire_03)는 자동 묶음이 잡는다.
+  { key: 'bbg003_skill_03_break', boss: /^bbg003/i,
+    steps: [/^bbg003_skill_fire_loop_03$/i, /^bbg003_skill_fire_end_03$/i] },
   {
     key: 'xba001_2phase_parts',
     steps: [/^xba001_2phase_parts_rebirth$/i, /^xba001_2phase_parts_Destruction_01$/i],
@@ -1580,6 +1601,8 @@ function findPhaseChangeClip(clips) {
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
+  // 블랙스미스 empty - 애니메이터 빈 상태(0.03초 한 프레임)
+  { boss: /^bbg003/i, re: /^bbg003_empty$/i },
   // (스톰브링어 · 그레이브 디거 · 사치스러운 거미 shot 은 예전에 여기서 감췄다 - 혼자 틀면 몸이 굳었다.
   //  2026-10-03 부터 샷은 대기를 밑에 깔고 틀어서(OVERLAY_CLIP_RE) 다시 보인다.)
   // 맵 연출 부속 리그 동작 - 보스 동작에 딸려 같이 돈다(SIMUL_CLIPS)
