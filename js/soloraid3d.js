@@ -59,6 +59,7 @@ const PHASE_MODE_OVERRIDES = {
   ebg003: { mode: 'exclusive' },
   // 아일랜드 이터 - 1페이즈는 전체 파츠, 2페이즈는 phase002·003 파츠 10개.
   ebg001_island: { mode: 'phase1-all', merge: { 3: 2 } },
+  ebg001_hsta: { mode: 'phase1-all', merge: { 3: 2 } },   // 랜드 이터 - 아일랜드 이터의 원종, 구성이 같다
   // 그레이브 디거 - phase001/002/003 사이에 phase0025 가 끼어 있다.
   // 자리수 채운 이름이라 2.5 가 "25" 로 읽힐테고, 그러면 25페이즈 칩이
   // 없어서 그 클립들이 어느 목록에도 안 나온다. 2페이즈로 접어 둔다.
@@ -85,6 +86,8 @@ function getPhaseConfig(bossKey, bossCode) {
 // 위에서부터 먼저 맞는 것을 쓴다 — 발광 껍데기는 부위보다 먼저 걸러야
 // head_skin_fx 가 "머리" 로 새지 않는다.
 const PART_GROUPS = [
+  // 토커티브 로켓 발사기 - socket_rocket_left 가 아래 '날개'(rocket) 규칙에 걸리고 오른쪽은 철자가 rocke 라 안 걸린다
+  ['무기', /^bbg002_socket_rocke?t?_(left|right)$/i],
   // 마테리얼H(ebg002) - 메쉬 이름이 main1_dmtr_skin · frame_skin00N_dmtr_wpl0N 꼴이라 아래 공용 규칙에 안 걸린다
   // (H.S.T.A. 도 메쉬 이름은 _dmtr 그대로다).
   ['본체', /^ebg002_main[12]_dmtr_skin$/i],
@@ -133,6 +136,10 @@ const PART_GROUPS = [
 //   본체 xbg002_arm / xbg002_shoulder / xbg002_head
 //   발광 fx_xbg002_part_fresnel_purple
 const MESH_RENAME = [
+  // 토커티브 - 몸통(재질별 프리미티브 셋)을 묶고, 노드와 이름이 겹쳐 붙은 _1 꼬리표를 뗀다.
+  { boss: /^bbg002/i, re: /^(bbg002_(?:body|laser_01|left_parts_01|right_parts_01))(_\d+)?$/i, bySuffix: {}, merge: true },
+  // 랜드 이터 - 2 · 3페이즈 몸과 탑(재질별 프리미티브)을 한 파츠로 묶는다. (아일랜드 이터는 손대지 않았다)
+  { boss: /^ebg001_hsta/i, re: /^(ebg001_(?:phase00[23]_skin|phase001_parts_top_skin))(_\d+)?$/i, bySuffix: {}, merge: true },
   // 블랙스미스 - 다리(재질별 프리미티브 넷), S2 날개(뼈 이름과 겹쳐 _1 이 붙음)와 촉수(Object002 오른쪽 · Object004 왼쪽, 두 벌 x 프리미티브 둘)를
   // 한 파츠로 묶는다. 촉수 두 벌은 대기에서 같은 자리에 겹쳐 있고 둘 다 기본 꺼짐이다.
   { boss: /^bbg003/i, re: /^(bbg003_legs_skin|bbg003_Wing_Red|Object00[24])(_\d+)?$/i, bySuffix: {}, merge: true },
@@ -348,6 +355,15 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 랜드 이터 - 로케일 parts_name_LandEater03~06(탑 · 활주로 · 외부 장갑 R · L). 파츠 데이터(MonsterPartsPrefab.Skin)가
+  // 부위 3 -> parts_top, 2 -> parts_right, 1 -> parts_left, 15 -> parts_center 를 가리킨다. 이름으로 셋이 이어지고
+  // 남는 활주로가 center 다. 코어 R · L(01 · 02)은 core_R/L_bone001(부위 13 · 14)로 메쉬가 없다.
+  ebg001_hsta: {
+    'phase001_parts_top_skin': '탑',
+    'phase001_parts_center_skin': '활주로',
+    'phase001_parts_right_skin': '외부 장갑 R',
+    'phase001_parts_left_skin': '외부 장갑 L',
+  },
   // 블랙스미스(S2 · S5 콜라보) - 로케일 parts_name_blacksmith01 · 02 = 컨테이너 L · R. 파츠 데이터 부위 1 · 2 가
   // Spider_L/R_Arm_02(Skin left/right_Arms_skin)라 번호 순서가 맞는다. 촉수는 파괴 파츠가 아니라 모양대로 적는다.
   bbg003: {
@@ -805,6 +821,7 @@ const CATALOG_FIT_BASE = {
   // 베히모스 1페이즈는 화면에서 작게 잡힌다. 항목별로 줘야 해서 "@1" 로 적는다.
   'mbg003@1': { scale: 1.3, y: 0 },
   ebg001_island: { pitch: 10 }, // 아일랜드 이터 - 기준 상하 각도
+  ebg001_hsta: { pitch: 10 },   // 랜드 이터 - 아일랜드 이터와 같은 모델
   eba001: { y: 0.2 },           // 스톰브링어 - 기준 높이
   bba001: { y: 0.1 },           // 마더웨일 - 기준 높이
   // 백빙룡 - 바닥에 붙어 보여서 띄운다(사용자 요청, 2026-10-04). 니힐리스타(mba002)에는 안 걸린다.
@@ -1268,6 +1285,9 @@ function pairCameraClips(clips, camNodes) {
 // 파일에는 따로 들어 있지만 실제로는 이어서 도는 연출. 한 묶음으로 낸다.
 //   미러 컨테이너 2페이즈 파츠는 되살아난 뒤(rebirth) 곧바로 부서진다(Destruction).
 const MANUAL_SEQUENCES = [
+  // 토커티브 대시 공격 - 타임라인 bbg002_shot_09_dashattack_model: start(0) -> loop(1.0) -> attack(1.933~5.9)
+  { key: 'bbg002_front_dash_attack', boss: /^bbg002/i,
+    steps: [/^bbg002_front_dash_start_01$/i, /^bbg002_front_dash_loop_01$/i, /^bbg002_front_dash_attack_01$/i] },
   // 블랙스미스 - 스킬 03 뒤에 이어지는 별도 연출(타임라인 bbg003_shot_06_blowbreak_model, trigger 24).
   // fire_loop_03(0~2.67) -> fire_end_03(2.67~5.67). 앞쪽 blow(start · loop · fire_03)는 자동 묶음이 잡는다.
   { key: 'bbg003_skill_03_break', boss: /^bbg003/i,
@@ -1436,9 +1456,11 @@ const MANUAL_SEQUENCES = [
 // 이름이 cc_idle 이라 start/loop/end 규칙에 안 걸린다. 자동 묶음(start+end)을
 // 막아 두고 MANUAL_SEQUENCES 에서 start -> idle -> end 로 손수 잇는다.
 const NO_SEQUENCE = [
+  // 토커티브 - 위 MANUAL_SEQUENCES 가 attack 까지 잇는다
+  { boss: /^bbg002/i, re: /^bbg002_front_dash_(start|loop)_01$/i },
   // 크라켄 그로기 - 위 MANUAL_SEQUENCES 가 wake 까지 잇는다
   { boss: /^bbg004/i, re: /^bbg004_groggy_(start|loop)_01$/i },
-  { boss: /^bbg001_rich/i, re: /^bbg001_cc_/i },
+  { boss: /^bbg001/i, re: /^bbg001_cc_/i },
   // 울트라 - 위 MANUAL_SEQUENCES 가 게임 타임라인대로 손수 잇는다
   { boss: /^bbg006_hsta/i, re: /^bbg006_skill_(start|loop|fire)_03$/i },
 ];
@@ -1527,11 +1549,11 @@ const CLIP_PHASE_OVERRIDES = [
   // 리버렐리오 바디 - 전환 연출도 넘어가기 전 페이즈에 둔다.
   { re: /^eba002_2phase_intro_01$/i, boss: /^eba002/i, phase: '1' },
   // 아일랜드 이터 - 2페이즈 등장은 1->2 전환 연출이라 넘어가기 전 페이즈에 둔다.
-  { re: /_phase002_appearance$/i, boss: /^ebg001_island/i, phase: '1' },
+  { re: /_phase002_appearance$/i, boss: /^ebg001/i, phase: '1' },
   // 이름에 페이즈가 안 붙은 이동·스킬은 2페이즈 것이다.
-  { re: /_move_/i, boss: /^ebg001_island/i, phase: '2' },
-  { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001_island/i, phase: '2' },
-  { re: /_dead$/i, boss: /^ebg001_island/i, phase: '2' },
+  { re: /_move_/i, boss: /^ebg001/i, phase: '2' },
+  { re: /_skill_(?:start|loop|fire)_0[1235]$/i, boss: /^ebg001/i, phase: '2' },
+  { re: /_dead$/i, boss: /^ebg001/i, phase: '2' },
   // 지즈 - 이름은 2페 등장이지만 1 -> 2 변신 연출이다(게임 데이터 sceneType 2 / trigger 32
   // = 2페 진입). 켜짐 구간도 1페 몸 0~5.53초, 2페 몸 4.67~8.2초다.
   { re: /^eba005_2phase_appearance_take1$/i, boss: /^eba005/i, phase: '1' },
@@ -1627,7 +1649,7 @@ const HIDDEN_CLIPS = [
   // 크라켄 - 게임이 안 쓰는 동작(inGameUse [])
   { boss: /^bbg004/i, re: /^bbg004_legs_Field_spwan_(start|loop)$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
-  { boss: /^bbg001_rich/i, re: /^bbg001_idle_02$/i },
+  { boss: /^bbg001/i, re: /^bbg001_idle_02$/i },
   // 검은 뱀 좌우 머리 클립 - 본체 클립에 딸려서 같이 돈다(SIMUL_CLIPS). 혼자 틀면
   // 꺼져 있는 머리만 움직여서 볼 게 없다. destroy 는 게임이 쓰지 않는다(inGameUse []).
   { boss: /^bbg008/i, re: /_(left|right)(_take2|fire_02)$/i },
@@ -1645,13 +1667,13 @@ const HIDDEN_CLIPS = [
   { boss: /^mbg002/i, re: /^mbg002_phase0025_(idle|destroy)$/i },
   // 사망이 파일에 두 벌 들어 있다(애니메이터용 / 사망 연출용, dedupeClipNames 참고).
   // 연출용이 원래 이름을 갖고, _2 가 붙는 애니메이터용은 목록에서 뺀다.
-  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01_2$/i },
-  { boss: /^ebg001_island/i, re: /^ebg001_phase001_idle2$/i },
-  { boss: /^ebg001_island/i, re: /^ebg001_phase003_appearance$/i },
+  { boss: /^bbg001/i, re: /^bbg001_dead_01_2$/i },
+  { boss: /^ebg001/i, re: /^ebg001_phase001_idle2$/i },
+  { boss: /^ebg001/i, re: /^ebg001_phase003_appearance$/i },
   // 사망이 두 벌 들어 있다(ebg001_dead / ebg001_island_dead, 둘 다 6.67초).
   // 연출 카메라(ebg001_dead_scene_camera)가 짝으로 가리키는 쪽이 island_dead 라
   // 그쪽만 남긴다. 예전에는 반대로 감춰서, 보이는 dead 에는 카메라가 안 붙었다.
-  { boss: /^ebg001_island/i, re: /^ebg001_dead$/i },
+  { boss: /^ebg001/i, re: /^ebg001_dead$/i },
   // 리버렐리오 바디 - 위 SIMUL_CLIPS 가 대표 클립과 같이 돌리는 딸림 클립들.
   // 혼자 재생하면 나머지 몸이 가만히 있어서 연출이 반쪽이 된다.
   { boss: /^eba002/i, re: /^eba002_1phase_jelly$/i },
@@ -1688,8 +1710,8 @@ const CLIP_TRIM = [
   // harvester_dead_scene_camera 라 이름이 안 이어진다. 게다가 이 연출은 카메라가
   // 시계라(timelineStart 0 / pairedClipTimelineStart 5.55e-16 로 timeOffset 이
   // 음수) 카메라를 안 자르면 길이가 그대로다.
-  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, to: 5.917 },
-  { boss: /^bbg001_rich/i, re: /^harvester_dead_scene$/i, to: 5.917 },
+  { boss: /^bbg001/i, re: /^bbg001_dead_01$/i, to: 5.917 },
+  { boss: /^bbg001/i, re: /^harvester_dead_scene$/i, to: 5.917 },
 ];
 
 // 첫 키에 쓰레기 자세가 박힌 동작. 0프레임에 부위 뿌리 크기가 0(안 보임)이고 그 아래 뼈의
@@ -1874,7 +1896,7 @@ const CLIP_LABEL_FIX = [
   // 차가운 심판자 - 동작이 전부 bbg009_bh_* 라 목록에 bh_ 가 줄줄이 붙는다(글러트니와 같은 리그의 변종 표시).
   { boss: /^bbg009_bh/i, re: /^bbg009_bh_/i, strip: /^bh_/i },
   // 짝인 ebg001_dead 를 목록에서 뺐으니 꼬리표도 뗀다
-  { boss: /^ebg001_island/i, re: /_island_dead$/i, label: 'dead' },
+  { boss: /^ebg001/i, re: /_island_dead$/i, label: 'dead' },
   // 나머지 스킬은 묶음이라 페이즈 태그가 떨어진다. 낱개인 03 만 남아서 맞춰 준다.
   { boss: /^xba001/i, re: /_1phase_skill_03$/i, label: 'skill_03' },
   { boss: /^xba001/i, re: /_2phase_parts$/i, label: '2phase_parts' },
@@ -1892,10 +1914,10 @@ const CLIP_LABEL_FIX = [
   { boss: /^bbg006/i, re: /^bbg006_outro_take1$/i, label: 'dead' },
   // 사치스러운 거미 - 짝이던 idle_02 / dead_01_2 를 뺐고 cc 는 start·end 가
   // 하나씩뿐이라, 뒤에 붙은 번호가 더는 아무것도 안 가른다.
-  { boss: /^bbg001_rich/i, re: /^bbg001_idle_01$/i, label: 'idle' },
-  { boss: /^bbg001_rich/i, re: /^bbg001_dead_01$/i, label: 'dead' },
-  { boss: /^bbg001_rich/i, re: /^bbg001_cc_start_01$/i, label: 'cc_start' },
-  { boss: /^bbg001_rich/i, re: /^bbg001_cc_end_01$/i, label: 'cc_end' },
+  { boss: /^bbg001/i, re: /^bbg001_idle_01$/i, label: 'idle' },
+  { boss: /^bbg001/i, re: /^bbg001_dead_01$/i, label: 'dead' },
+  { boss: /^bbg001/i, re: /^bbg001_cc_start_01$/i, label: 'cc_start' },
+  { boss: /^bbg001/i, re: /^bbg001_cc_end_01$/i, label: 'cc_end' },
   // 앨트루이아 P.S.I.D.(시즌 42) — 클립 이름의 _03 이 스킬 번호가 아니다.
   //
   // 공백이 든 세 벌은 이름만 _03 이고 실제로는 스킬 5 다. 게임 타임라인을
@@ -1991,7 +2013,7 @@ const CLIP_SOLO_PARTS = [
   { boss: /^eba002/i, clip: /^eba002_1phase_intro$/i, show: /_jellyfish_[lr](_intro)?$/i },
   { boss: /^eba002/i, clip: /^eba002_2phase_death$/i, show: /_jellyfish_[lr](_dead)?$/i },
   { boss: /^xbg005/i, clip: /_phase_change$/i, show: /./ },
-  { boss: /^ebg001_island/i, clip: /_phase002_appearance$/i, show: /./ },
+  { boss: /^ebg001/i, clip: /_phase002_appearance$/i, show: /./ },
   // 지즈 변신 - 1·2페이즈 몸을 다 켜 두고, 언제 보이는지는 파일의 meshActivation 에 맡긴다
   // (1페 몸 0~5.53초, 2페 몸 4.67~8.2초, 2페 코어는 첫 프레임만).
   { boss: /^eba005/i, clip: /^eba005_2phase_appearance_take1$/i, show: /./ },
@@ -2161,7 +2183,7 @@ function isAppearanceClip(name) {
 const AUTO_PHASE_CHAIN = [
   { boss: /^mbg003/i, from: '1', by: 'model' },
   { boss: /^xbg005/i, from: '1', by: 'phase' },
-  { boss: /^ebg001_island/i, from: '1', by: 'phase' },
+  { boss: /^ebg001/i, from: '1', by: 'phase' },
   { boss: /^mbg002/i, from: ['1', '2'], by: 'phase' },
   // 리버렐리오 바디: 1페이즈 2phase_intro_01 -> 2페이즈.
   // 한 모델 안에 두 페이즈가 다 들어 있어 페이즈 칩을 넘긴다.

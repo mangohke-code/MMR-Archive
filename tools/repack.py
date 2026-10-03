@@ -168,6 +168,14 @@ JOBS = [
     # 재질만 다르다. 부속 파일 없음.
     ('추출프로그램 업데이트 이후/ebg002_마테리얼H D.M.T.R.glb', 'ebg002_dmtr'),
     ('추출프로그램 업데이트 이후/ebg002_마테리얼H H.S.T.A.glb', 'ebg002_hsta'),
+    # 하베스터(시즌 3, full_bbg001). 다리 부품(_bbg001_legs_parts_var)은 사치스러운 거미와 같은 이유로 넣지 않는다
+    # (움직임 데이터가 없고 controlActivation 만 있다). 거미 전용 동작 rich_skill* 은 DROP_CLIPS 로 뺀다.
+    ('추출프로그램 업데이트 이후/bbg001_하베스터.glb', 'bbg001'),
+    # 토커티브(시즌 8, full_bbg002_1). 부속 파일 없음.
+    ('추출프로그램 업데이트 이후/bbg002_토커티브.glb', 'bbg002'),
+    # 랜드 이터(시즌 18, full_ebg001_hsta_1). 아일랜드 이터(ebg001_island)의 원종 - 메쉬 · 동작이 같고
+    # 나무 메쉬 둘(1phase/2phase_tree)이 없다. 부속 파일 없음.
+    ('추출프로그램 업데이트 이후/ebg001_랜드 이터 H.S.T.A.glb', 'ebg001_hsta'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
@@ -239,6 +247,8 @@ SUFFIXES = {
 DROP_CLIPS = {
     '추출프로그램 업데이트 이후/bbg009_글러트니 A.N.M.I.glb': r'^bbg009_bh_',
     '추출프로그램 업데이트 이후/bbg009_차가운 심판자.glb': r'^bbg009_(?!bh_)(?!.*_camera$)',
+    # 하베스터 파일에 실린 사치스러운 거미 전용 동작(inGameUse [], 애니메이터 상태에도 없음)
+    '추출프로그램 업데이트 이후/bbg001_하베스터.glb': r'^bbg001_rich_',
 }
 
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
