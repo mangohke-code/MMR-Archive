@@ -822,9 +822,21 @@ const CATALOG_FIT_OVERRIDES = {
   bba001: { camDrop: 0.2 },
   // 울트라 - 옆으로 넓고 낮은 거미형이라 공용 거리 2.3 에서는 화면 가로 32% · 세로 19% 로
   // 작게 잡혔다(사치스러운 거미 48%, 마더웨일 47%). 두 시즌(bbg006 / bbg006_hsta)에 같이 걸린다.
-  bbg006: { camDist: 1.6 },
+  //   2026-10-04 - 크라켄(화면 73~75%) · 프로비던스(63%) 크기에 맞춰 달라는 요청으로 1.6 -> 1.08(46% -> 약 68%).
+  bbg006: { camDist: 1.08, camY: -0.07 },   // 가까이 가니 화면 아래로 -0.15 쏠려서 눈높이를 내린다
   // 모더니아 - 바닥 위로 띄운 만큼(CATALOG_FIT_BASE y) 눈높이도 올린다. 두 시즌 공통.
-  mbg004: { camY: 0.22 },
+  //   거리 2.3 -> 1.79(53% -> 약 68%, 위와 같은 요청).
+  mbg004: { camY: 0.07, camDist: 1.79 },        // 시즌 6 - 0.66배로 줄여서 띄운 높이 · 화면 중심이 달라 따로 맞췄다
+  mbg004_anmi: { camY: 0.22, camDist: 1.79 },
+  // 아래는 같은 요청(크라켄 · 프로비던스 크기, 화면 세로 · 가로 중 큰 쪽을 약 68% 로)으로 넣었다. 괄호는 공용 거리 2.3 에서 잰 값.
+  eba004: { camDist: 0.85 },       // 거대 질량체 (30%)
+  bbg002: { camDist: 0.95, camY: 0.05 },   // 토커티브 (28%)
+  ebg001_hsta: { camDist: 1.45 },  // 랜드 이터 (43%). 아일랜드 이터(ebg001_island)는 그대로
+  xbg001: { camDist: 1.39 },       // 크리스탈 체임버 (41%)
+  // 스톰브링어 (45%) - 화면 중심보다 위(+0.29)에 있어 눈높이도 그만큼 올린다
+  eba001: { camDist: 1.52, camY: 0.28 },
+  // 인디빌리아 - PHASE_LIFT 로 1페이즈를 0.21 내린 만큼 처음 눈높이도 내린다(위 PHASE_LIFT 설명 참고)
+  ebg003: { camY: -0.21 },
   // 마테리얼H - 공용 거리 2.3 에서는 멀어 보인다(사용자 요청, 2026-10-04). 두 시즌(ebg002_dmtr / _hsta)에 같이 걸린다.
   ebg002: { camDist: 1.3 },
 };
@@ -851,7 +863,7 @@ const CATALOG_FIT_BASE = {
   // 모더니아 - 떠 있는 기체인데 대기 자세에서 몸 아래(-0.23)와 아래로 뻗은 날(mbg005, -0.32)이 바닥 밑에 묻혔다.
   // 시즌 6 은 같은 거리에서 화면 세로 79% 로 A.N.M.I.(53%)보다 크게 잡혀 위가 잘려서 줄인다.
   // 키를 둘로 적는다 - mbg004_anmi 가 없으면 보스 코드(mbg004) 줄을 같이 쓴다.
-  mbg004: { y: 0.32, scale: 0.8 },
+  mbg004: { y: 0.27, scale: 0.66 },   // 0.8 -> 0.66: A.N.M.I. 와 같은 화면 크기(53%)로 맞춘 뒤 거리를 둘에 같이 줬다
   mbg004_anmi: { y: 0.32 },
   // 그레이브 디거 - 땅을 파는 모양이라 앞뒤로 길다(보이는 범위 x 0.32,
   // y 0.32, z 1.01). 정규화가 긴 쪽인 깊이로 잡아서 화면에서 매우 작아진다.
@@ -900,6 +912,11 @@ const UNDERGROUND_HIDE = [
 //   니힐리스타 - 2페이즈(날개 달린 모습)는 바닥에서 띄운다. 백빙룡(같은 모습)의 y 0.15 와 맞춘다(사용자 요청, 2026-10-04).
 const PHASE_LIFT = [
   { boss: /^mba002$/i, phase: '2', y: 0.15 },
+  // 인디빌리아 - 대기 자세에서 공중에 떠 있다(사용자 지적, 2026-10-04). 1페이즈 다리 최저 0.213, 2페이즈 0.041.
+  // 시선은 처음 불러올 때만 같은 만큼 내린다(CATALOG_FIT_OVERRIDES camY). 페이즈를 바꿀 때 생기는 차이(+0.17)는
+  // 추적 카메라가 리그를 따라가며 맞춘다 - 여기에 시선 이동까지 얹으면 두 번 움직여 2페이즈가 화면 아래로 쏠렸다.
+  { boss: /^ebg003/i, phase: '1', y: -0.21 },
+  { boss: /^ebg003/i, phase: '2', y: -0.04 },
 ];
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -3529,7 +3546,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     }
 
     // 카메라와 시선을 같은 값만큼 올린다 — 각도는 그대로 두고 눈높이만 바꾼다.
-    const fitOv = CATALOG_FIT_OVERRIDES[bossCode] || {};
+    // 파일 이름(bossKey)을 먼저 본다 - 랜드 이터(ebg001_hsta)처럼 변종과 코드가 같은데 시점만 따로 줘야 할 때.
+    const fitOv = CATALOG_FIT_OVERRIDES[bossKey] || CATALOG_FIT_OVERRIDES[bossCode] || {};
     const camLift = fitOv.camY || 0;
     camera.position.set(0, normHeight * 0.55 + camLift - (fitOv.camDrop || 0), fitOv.camDist || 2.3);
     controls.target.set(0, normHeight * 0.5 + camLift, 0);
