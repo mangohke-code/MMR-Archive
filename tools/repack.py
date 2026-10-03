@@ -176,6 +176,10 @@ JOBS = [
     # 랜드 이터(시즌 18, full_ebg001_hsta_1). 아일랜드 이터(ebg001_island)의 원종 - 메쉬 · 동작이 같고
     # 나무 메쉬 둘(1phase/2phase_tree)이 없다. 부속 파일 없음.
     ('추출프로그램 업데이트 이후/ebg001_랜드 이터 H.S.T.A.glb', 'ebg001_hsta'),
+    # 모더니아 - 시즌 6(full_mbg004) · 시즌 21 A.N.M.I.(full_mbg004_anmi). A.N.M.I. 만 스커트 메쉬 둘이 더 있다.
+    # 부속 _mbg004_rifle_var 는 보스 프리팹 밖 리그(outsidePrefab)이고 동작 둘 다 inGameUse [] 라 넣지 않는다.
+    ('추출프로그램 업데이트 이후/mbg004_모더니아.glb', 'mbg004'),
+    ('추출프로그램 업데이트 이후/mbg004_모더니아 A.N.M.I.glb', 'mbg004_anmi'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }

@@ -136,6 +136,10 @@ const PART_GROUPS = [
 //   본체 xbg002_arm / xbg002_shoulder / xbg002_head
 //   발광 fx_xbg002_part_fresnel_purple
 const MESH_RENAME = [
+  // 모더니아 - 본체 메쉬 이름이 보스 코드와 같은 mbg004 라 코드를 떼면 프리미티브 꼬리표(2 · 3)만 남는다.
+  // body 로 이름 짓고 한 파츠로 묶는다. 미사일은 노드와 이름이 겹쳐 붙은 _1 을 뗀다.
+  { boss: /^mbg004/i, re: /^mbg004(_\d+)?$/i, base: 'mbg004_body', bySuffix: {}, merge: true },
+  { boss: /^mbg004/i, re: /^(mbg004_missile_(?:left|right)_skin)(_\d+)?$/i, bySuffix: {} },
   // 토커티브 - 몸통(재질별 프리미티브 셋)을 묶고, 노드와 이름이 겹쳐 붙은 _1 꼬리표를 뗀다.
   { boss: /^bbg002/i, re: /^(bbg002_(?:body|laser_01|left_parts_01|right_parts_01))(_\d+)?$/i, bySuffix: {}, merge: true },
   // 랜드 이터 - 2 · 3페이즈 몸과 탑(재질별 프리미티브)을 한 파츠로 묶는다. (아일랜드 이터는 손대지 않았다)
@@ -355,6 +359,20 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 모더니아 - 로케일 parts_name_Mordernia01~05. 파츠 데이터(MonsterPartsPrefab.Skin): 부위 13 L_socket_launcher04 ->
+  // left_rifle, 14 R_socket_launcher04 -> right_rifle(미사일 포트 I · II, 번호 순서), 15 core_col -> head(시즌 6 만,
+  // A.N.M.I. 는 Skin 없음), 16 · 17 L/R_skirt -> mbg007_l/r_skirt(A.N.M.I. 만).
+  mbg004: {
+    'left_rifle': '미사일 포트 I',
+    'right_rifle': '미사일 포트 II',
+    'head': '코어',
+  },
+  mbg004_anmi: {
+    'left_rifle': '미사일 포트 I',
+    'right_rifle': '미사일 포트 II',
+    'mbg007_l_skirt': '스커트(좌)',
+    'mbg007_r_skirt': '스커트(우)',
+  },
   // 랜드 이터 - 로케일 parts_name_LandEater03~06(탑 · 활주로 · 외부 장갑 R · L). 파츠 데이터(MonsterPartsPrefab.Skin)가
   // 부위 3 -> parts_top, 2 -> parts_right, 1 -> parts_left, 15 -> parts_center 를 가리킨다. 이름으로 셋이 이어지고
   // 남는 활주로가 center 다. 코어 R · L(01 · 02)은 core_R/L_bone001(부위 13 · 14)로 메쉬가 없다.
@@ -805,6 +823,8 @@ const CATALOG_FIT_OVERRIDES = {
   // 울트라 - 옆으로 넓고 낮은 거미형이라 공용 거리 2.3 에서는 화면 가로 32% · 세로 19% 로
   // 작게 잡혔다(사치스러운 거미 48%, 마더웨일 47%). 두 시즌(bbg006 / bbg006_hsta)에 같이 걸린다.
   bbg006: { camDist: 1.6 },
+  // 모더니아 - 바닥 위로 띄운 만큼(CATALOG_FIT_BASE y) 눈높이도 올린다. 두 시즌 공통.
+  mbg004: { camY: 0.22 },
   // 마테리얼H - 공용 거리 2.3 에서는 멀어 보인다(사용자 요청, 2026-10-04). 두 시즌(ebg002_dmtr / _hsta)에 같이 걸린다.
   ebg002: { camDist: 1.3 },
 };
@@ -828,6 +848,11 @@ const CATALOG_FIT_BASE = {
   mba002_whiteice: { y: 0.15 },
   // 글러트니 · 차가운 심판자 - 기준 상하 각도(사용자 요청, 2026-10-04). bbg009_bh 는 보스 코드(bbg009)로 잡힌다.
   bbg009: { pitch: 20 },
+  // 모더니아 - 떠 있는 기체인데 대기 자세에서 몸 아래(-0.23)와 아래로 뻗은 날(mbg005, -0.32)이 바닥 밑에 묻혔다.
+  // 시즌 6 은 같은 거리에서 화면 세로 79% 로 A.N.M.I.(53%)보다 크게 잡혀 위가 잘려서 줄인다.
+  // 키를 둘로 적는다 - mbg004_anmi 가 없으면 보스 코드(mbg004) 줄을 같이 쓴다.
+  mbg004: { y: 0.32, scale: 0.8 },
+  mbg004_anmi: { y: 0.32 },
   // 그레이브 디거 - 땅을 파는 모양이라 앞뒤로 길다(보이는 범위 x 0.32,
   // y 0.32, z 1.01). 정규화가 긴 쪽인 깊이로 잡아서 화면에서 매우 작아진다.
   mbg002: { scale: 2.2, y: -1.45 },
@@ -1892,6 +1917,8 @@ function isHiddenClip(bossKey, name) {
 
 // 목록 이름을 손으로 바꾸는 자리. 규칙으로 풀면 다른 보스까지 딸려 바뀌는 경우에만 쓴다.
 const CLIP_LABEL_FIX = [
+  // 모더니아 등장 - 모델 동작 이름이 empty 다(카메라 mbg004_appearance_sign)
+  { boss: /^mbg004/i, re: /^mbg004_empty$/i, label: 'appearance' },
   // strip - 정한 이름 대신 자동 이름에서 앞머리를 뗀다.
   // 차가운 심판자 - 동작이 전부 bbg009_bh_* 라 목록에 bh_ 가 줄줄이 붙는다(글러트니와 같은 리그의 변종 표시).
   { boss: /^bbg009_bh/i, re: /^bbg009_bh_/i, strip: /^bh_/i },
@@ -2156,7 +2183,18 @@ const PHASE_SWITCH_CLIPS = [
 
 // 이름에 appearance 가 안 들어가는 등장 연출. "등장·사망" 구역으로 보낸다.
 //   베히모스 1페이즈는 take1(부품이 날아옴) + take2(조립 완료)가 이어진 등장이다.
+// 카메라를 시계로 쓰는 연출. 모델 동작이 카메라보다 훨씬 짧고 타임라인 시작이 같아서(시차 0) 그대로 두면
+// 모델 동작이 끝나는 순간 연출도 끝난다.
+//   모더니아 등장 - 모델 mbg004_empty 0.03초(한 자세) + 카메라 mbg004_appearance_sign 6.1초
+const CAMERA_CLOCK_CLIPS = [
+  { boss: /^mbg004/i, re: /^mbg004_empty$/i },
+];
+const isCameraClockClip = (bossKey, name) =>
+  CAMERA_CLOCK_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
+
 const APPEARANCE_CLIPS = [
+  // 모더니아 등장 - 위 CAMERA_CLOCK_CLIPS 참고
+  /^mbg004_empty$/i,
   /^mbg003_1phase_take[12]?$/i,
   // 리버렐리오 바디 - 이름에 appearance 가 안 들어간 등장 연출.
   /^eba002_1phase_intro$/i,
@@ -3965,9 +4003,11 @@ function noFollowClip(bossKey, name) {
         // 시작한다. glb 는 둘 다 로컬 0 부터 굽기 때문에 그 차이를 여기서 낸다.
         //   모델 로컬 = 카메라 로컬 + (timelineStart - pairedClipTimelineStart)
         const cex = (camPair.node && camPair.node.userData) || {};
-        const tlOff = (typeof cex.timelineStart === 'number'
+        let tlOff = (typeof cex.timelineStart === 'number'
           && typeof cex.pairedClipTimelineStart === 'number')
           ? cex.timelineStart - cex.pairedClipTimelineStart : 0;
+        // 카메라를 시계로 쓸 연출(CAMERA_CLOCK_CLIPS) - 시차를 아주 작은 음수로 두면 camIsClock 이 선다
+        if (tlOff >= 0 && isCameraClockClip(bossKey, clip.name)) tlOff = -1e-6;
         // 메쉬별 활성 구간(타임라인 기준). 연출 내내 켜져 있는 항목은 버린다.
         // 카메라가 여럿인 연출은 카메라 하나의 슬롯이 아니라 모델 동작 전체가 연출이다 —
         // 지즈 변신의 1페 몸(0~5.53초)이 첫 카메라 슬롯(3.317초)을 덮는다고 버려지면 안 된다.
@@ -4226,6 +4266,7 @@ function noFollowClip(bossKey, name) {
         const playDur = c => {
           const pair = camPairs.byModel.get(c.name);
           if (!pair || !pair.node || !pair.node.userData) return c.duration;
+          if (isCameraClockClip(bossKey, c.name)) return (pair.clip && pair.clip.duration) || c.duration;
           const u = pair.node.userData;
           if (typeof u.timelineStart !== 'number'
             || typeof u.pairedClipTimelineStart !== 'number') return c.duration;
