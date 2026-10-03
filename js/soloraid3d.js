@@ -1533,7 +1533,10 @@ function clipPhase(name) {
 // 그래서 다른 페이즈로 넘어갈 때는 이 클립을 먼저 한 번 재생한다.
 function findPhaseChangeClip(clips) {
   return clips.find(c => /^xbg001_2phase_intro$/i.test(c.name || ''))   // 크리스탈 체임버(아래 NOT_PHASE_SWITCH 참고)
-    || clips.find(c => /phase_?change/i.test(c.name || '') && !NOT_PHASE_SWITCH.some(re => re.test(c.name || '')))
+    // NOT_PHASE_SWITCH 에는 보스를 적은 줄(객체)도 섞여 있다 — 정규식만 본다(보스를 적은 줄은 phase_change 이름이 아니다).
+    // 예전에 re.test 를 객체에도 불러 온리 원 · 에고비스타 로드가 통째로 실패했다(2a67617 ~ ).
+    || clips.find(c => /phase_?change/i.test(c.name || '')
+      && !NOT_PHASE_SWITCH.some(o => o instanceof RegExp && o.test(c.name || '')))
     // 프로비던스처럼 클립 이름이 그냥 "xbg002_2phase" 인 보스도 있다.
     // 뒤에 아무것도 안 붙은 페이즈 이름은 그 페이즈로 넘어가는 연출로 본다.
     || clips.find(c => /^[a-z]{2,4}\d{3}_\d+phase$/i.test(c.name || ''))
