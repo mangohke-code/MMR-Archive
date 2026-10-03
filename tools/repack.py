@@ -5,6 +5,7 @@
 그래서 목록을 여기 적고 파이썬에서 직접 호출한다.
 """
 import json
+import re
 import os
 import struct
 import shutil
@@ -155,6 +156,10 @@ JOBS = [
     # 메쉬 · 동작 구성이 같고 재질(psid_*)과 게임이 쓰는 스킬(A.N.M.I. 만 skill_04 · 05 가 타임라인)이 다르다.
     ('추출프로그램 업데이트 이후/mbg001_알트아이젠 P.S.I.D.glb', 'mbg001_psid'),
     ('추출프로그램 업데이트 이후/mbg001_알트아이젠 A.N.M.I. · singleraid.glb', 'mbg001'),
+    # 글러트니(시즌 25, 보스 이미지 full_bbg009_anmi)와 차가운 심판자(시즌 30, full_bbg009_bh_psid_1).
+    # 같은 리그(bbg009)에 서로의 동작이 실려 있어 DROP_CLIPS 로 상대 쪽 동작을 뺀다. 부속 파일 없음.
+    ('추출프로그램 업데이트 이후/bbg009_글러트니 A.N.M.I.glb', 'bbg009'),
+    ('추출프로그램 업데이트 이후/bbg009_차가운 심판자.glb', 'bbg009_bh'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
@@ -218,7 +223,24 @@ SUFFIXES = {
         ('_dead', set(), set()),
 }
 
+# 파일에서 아예 뺄 동작. { 원본 상대경로: 이름 정규식 } - 빼고 나면 prune 이 딸린 데이터도 지운다.
+#
+# 글러트니 파일에는 차가운 심판자(같은 bbg009 리그) 동작 bh_* 21개가, 차가운 심판자 파일에는 글러트니 동작
+# 22개가 같이 실려 있다. 상대 쪽 동작은 inGameUse [] 이고 애니메이터 상태에도 없다. 전부 3000 채널 안팎이라
+# 크기의 절반 가까이를 차지한다(글러트니 80.4 -> 41.9 MB).
+DROP_CLIPS = {
+    '추출프로그램 업데이트 이후/bbg009_글러트니 A.N.M.I.glb': r'^bbg009_bh_',
+    '추출프로그램 업데이트 이후/bbg009_차가운 심판자.glb': r'^bbg009_(?!bh_)(?!.*_camera$)',
+}
+
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
+
+
+def drop_clips_in_glb(src, dst, pattern):
+    chunks, doc = _read_glb(src)
+    rx = re.compile(pattern)
+    doc['animations'] = [a for a in doc.get('animations') or [] if not rx.search(a.get('name') or '')]
+    _write_glb(dst, chunks, doc)
 
 
 def rename_in_glb(src, dst, table):
@@ -437,6 +459,10 @@ def main():
                 continue
             # 합치기 전에 겹치는 이름을 갈아 둔다
             for i, r in enumerate(rels):
+                if r in DROP_CLIPS:
+                    fixed = os.path.join(tmp, 'drop%d.glb' % i)
+                    drop_clips_in_glb(srcs[i], fixed, DROP_CLIPS[r])
+                    srcs[i] = fixed
                 table = RENAMES.get(r)
                 if table:
                     fixed = os.path.join(tmp, 'ren%d.glb' % i)

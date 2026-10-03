@@ -813,6 +813,7 @@ const PHASE_CAM_DIST = [
   { boss: /^mba002$/i, phase: '2', scale: 0.6 },   // 백빙룡(같은 모습)과 같은 거리(사용자 요청, 2026-10-04)
   { boss: /^mba002_whiteice/i, phase: '2', scale: 0.6 },
   // 알트아이젠 - 2페이즈는 1페이즈 몸의 왼쪽 아래 일부(전차)만 남아 같은 거리에서 작고 왼쪽으로 쏠린다. 당기고 시선을 옮긴다.
+  { boss: /^mbg001/i, phase: '1', scale: 0.85 },   // 1페이즈도 조금 당긴다(사용자 요청, 2026-10-04)
   { boss: /^mbg001/i, phase: '2', scale: 0.55, x: -0.26 },
 ];
 
@@ -1833,6 +1834,9 @@ function isHiddenClip(bossKey, name) {
 
 // 목록 이름을 손으로 바꾸는 자리. 규칙으로 풀면 다른 보스까지 딸려 바뀌는 경우에만 쓴다.
 const CLIP_LABEL_FIX = [
+  // strip - 정한 이름 대신 자동 이름에서 앞머리를 뗀다.
+  // 차가운 심판자 - 동작이 전부 bbg009_bh_* 라 목록에 bh_ 가 줄줄이 붙는다(글러트니와 같은 리그의 변종 표시).
+  { boss: /^bbg009_bh/i, re: /^bbg009_bh_/i, strip: /^bh_/i },
   // 짝인 ebg001_dead 를 목록에서 뺐으니 꼬리표도 뗀다
   { boss: /^ebg001_island/i, re: /_island_dead$/i, label: 'dead' },
   // 나머지 스킬은 묶음이라 페이즈 태그가 떨어진다. 낱개인 03 만 남아서 맞춰 준다.
@@ -4128,7 +4132,8 @@ function noFollowClip(bossKey, name) {
       const labelOf = (raw, fallback) => {
         const fix = CLIP_LABEL_FIX.find(
           o => o.boss.test(bossKey || '') && o.re.test(raw || ''));
-        return fix ? fix.label : fallback;
+        if (!fix) return fallback;
+        return fix.strip ? String(fallback).replace(fix.strip, '') : fix.label;
       };
 
       if (clips.length > 1) {
