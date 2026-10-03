@@ -829,8 +829,10 @@ const PHASE_CAM_DIST = [
   // 니힐리스타 · 백빙룡 - 날개 뼈(깃털 · 미사일)가 좌우 ±55 까지 뻗어 있어 정규화 상자가 몸(±19)의
   // 세 배로 잡힌다. 1페이즈는 날개가 꺼져 있어도 뼈는 남아서 가로 12% 로 보였다.
   { boss: /^mba002$/i, phase: '1', scale: 0.35 },
-  { boss: /^mba002$/i, phase: '2', scale: 0.6 },   // 백빙룡(같은 모습)과 같은 거리(사용자 요청, 2026-10-04)
-  { boss: /^mba002_whiteice/i, phase: '2', scale: 0.6 },
+  // 2페이즈는 백빙룡(같은 모습)과 같은 거리(사용자 요청, 2026-10-04). x · y 로 화면 가운데에 맞춘다(같은 날 요청).
+  // 날갯짓으로 위끝이 크게 오르내려서 대기 4초 동안 10번 잰 화면 상자 중심의 평균으로 맞췄다.
+  { boss: /^mba002$/i, phase: '2', scale: 0.6, x: 0.037, y: -0.017 },
+  { boss: /^mba002_whiteice/i, phase: '2', scale: 0.6, x: 0.045, y: 0.149 },
   // 알트아이젠 - 2페이즈는 1페이즈 몸의 왼쪽 아래 일부(전차)만 남아 같은 거리에서 작고 왼쪽으로 쏠린다. 당기고 시선을 옮긴다.
   { boss: /^mbg001/i, phase: '1', scale: 0.85 },   // 1페이즈도 조금 당긴다(사용자 요청, 2026-10-04)
   { boss: /^mbg001/i, phase: '2', scale: 0.55, x: -0.26 },
@@ -3479,20 +3481,26 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     // 페이즈마다 기본 거리가 다른 보스. 시선은 그대로 두고 거리만 늘였다 줄인다.
     let phaseCamScale = 1;
-    let phaseCamShift = 0;
+    const phaseCamShift = { x: 0, y: 0 };
     function applyPhaseCamDist(phase, initial) {
       if (!homeCamPos || !homeTarget) return;
       const rule = PHASE_CAM_DIST.find(
         o => o.boss.test(bossKey || '') && o.phase === String(phase));
-      // x: 시선을 옆으로 옮긴다. 추적은 리그 중심을 따라가므로 모델을 옮겨도 소용없고
+      // x · y: 시선을 옆 · 위아래로 옮긴다. 추적은 리그 중심을 따라가므로 모델을 옮겨도 소용없고
       // 기준점(initialTarget)을 옮겨야 한다.
       const wantX = (rule && rule.x) || 0;
-      if (wantX !== phaseCamShift) {
-        const dx = wantX - phaseCamShift;
-        phaseCamShift = wantX;
+      const wantY = (rule && rule.y) || 0;
+      if (wantX !== phaseCamShift.x || wantY !== phaseCamShift.y) {
+        const dx = wantX - phaseCamShift.x;
+        const dy = wantY - phaseCamShift.y;
+        phaseCamShift.x = wantX;
+        phaseCamShift.y = wantY;
         initialTarget.x += dx; homeTarget.x += dx; homeCamPos.x += dx;
+        initialTarget.y += dy; homeTarget.y += dy; homeCamPos.y += dy;
         if (initial || followEnabled) {
-          controls.target.x += dx; camera.position.x += dx; controls.update();
+          controls.target.x += dx; camera.position.x += dx;
+          controls.target.y += dy; camera.position.y += dy;
+          controls.update();
         }
       }
       const want = (rule && rule.scale) || 1;
