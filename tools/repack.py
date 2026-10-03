@@ -151,6 +151,10 @@ JOBS = [
     # 눈 리그 부속(_phase002_appearance_model · _mba002_whiteice_psid_over)은 동작이 없고 비추는 카메라도
     # 없어서 넣지 않는다.
     ('추출프로그램 업데이트 이후/mba002_백빙룡.glb', 'mba002_whiteice'),
+    # 알트아이젠. 시즌 4 = P.S.I.D.(보스 이미지 full_mbg001_psid_1), 시즌 32 = A.N.M.I. · singleraid(full_mbg001).
+    # 메쉬 · 동작 구성이 같고 재질(psid_*)과 게임이 쓰는 스킬(A.N.M.I. 만 skill_04 · 05 가 타임라인)이 다르다.
+    ('추출프로그램 업데이트 이후/mbg001_알트아이젠 P.S.I.D.glb', 'mbg001_psid'),
+    ('추출프로그램 업데이트 이후/mbg001_알트아이젠 A.N.M.I. · singleraid.glb', 'mbg001'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }

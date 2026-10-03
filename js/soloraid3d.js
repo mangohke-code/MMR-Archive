@@ -32,7 +32,10 @@ dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5
 // 실제로는 둘인 보스가 있다(아일랜드 이터: 3페이즈는 존재하지 않는다).
 // 변종은 파일 이름(bossKey)으로도 찾는다 — 원종과 코드가 같기 때문이다.
 const PHASE_MODE_OVERRIDES = {
-  mbg001: { mode: 'phase1-all' }, // 알트아이젠 - 1페이즈는 전체 파츠, 2페이즈는 phase002 파츠만
+  // 알트아이젠 - 1페이즈는 전체 파츠(프리팹에서 전부 켜짐), 2페이즈는 phase002 파츠만. 1페이즈 끝에 1페 파츠와
+  // 2페 라이플 02 a · b 가 꺼진다(A.N.M.I. MonsterPhaseDataV2 - 아래 MESH_PHASE_FIX). P.S.I.D. 의 구형 페이즈
+  // 데이터는 1페이즈 끝에 2페 몸까지 전부 끄도록 적혀 있어 맞지 않는다 - 같은 보스라 A.N.M.I. 쪽을 따른다.
+  mbg001: { mode: 'phase1-all' },
   xba001: { mode: 'exclusive' },  // 미러 컨테이너 - 2페이즈에서 1phase 파츠는 전부 사라진다
   xbg005: { mode: 'exclusive' },  // 에고비스타 - 페이즈마다 깃털이 통째로 갈린다
   // 애니힐리오 - 1·2페이즈 파일을 합쳐 두었다. 변신하면 1페이즈 몸체는
@@ -258,6 +261,10 @@ const MESH_RENAME = [
   // 갈려 여러 줄로 나왔다. 한 메쉬의 프리미티브는 한 파츠로 묶는다.
   { boss: /^mba002/i,
     re: /^(mba002_(?:1phase_head_01|2phase_head_003|body_0[12]|2phase_wings|phase1_(?:arms|arms_weapon|[lr]_armor|[lr]_ar)|[lr]_rl))(_\d+)?$/i,
+    bySuffix: {}, merge: true },
+  // 알트아이젠 - 꼬리표를 떼고, 몸통(4 · 5) · 레이저(3) · 캐논(2)의 재질별 프리미티브를 한 파츠로 묶는다.
+  { boss: /^mbg001/i,
+    re: /^(mbg001_phase00[12]_[a-z]+_\d+(?:_[ab])?_skin)(_\d+)?$/i,
     bySuffix: {}, merge: true },
   // 크라켄 - 노드가 이름을 먼저 차지해서 꼬리표가 붙고, 몸통 · 머리 · 껍데기는 재질별 프리미티브 둘로
   // 갈려 _2 · _3 두 줄로 나왔다. 한 메쉬의 프리미티브는 한 파츠로 묶는다.
@@ -805,6 +812,15 @@ const PHASE_CAM_DIST = [
   { boss: /^mba002$/i, phase: '1', scale: 0.35 },
   { boss: /^mba002$/i, phase: '2', scale: 0.6 },   // 백빙룡(같은 모습)과 같은 거리(사용자 요청, 2026-10-04)
   { boss: /^mba002_whiteice/i, phase: '2', scale: 0.6 },
+  // 알트아이젠 - 2페이즈는 1페이즈 몸의 왼쪽 아래 일부(전차)만 남아 같은 거리에서 작고 왼쪽으로 쏠린다. 당기고 시선을 옮긴다.
+  { boss: /^mbg001/i, phase: '2', scale: 0.55, x: -0.26 },
+];
+
+// 땅속에 묻어 두는 파편. 게임은 지형이 가려서 안 보이는데 뷰어 바닥은 비쳐서 드러난다. 이 뼈가 바닥(월드 y 0)
+// 아래로 내려가 있으면 그 프레임만 크기를 0 으로 접는다(다음 프레임 첫머리에 되돌린다).
+//   알트아이젠 2페이즈 - 대기가 부서진 1페 껍데기 조각(2phase_broken_*)과 런처 뚜껑(launcher_cap_*)을 y -0.59 에 둔다.
+const UNDERGROUND_HIDE = [
+  { boss: /^mbg001/i, re: /^(2phase_broken_\d+|launcher_cap_\d+)$/i },
 ];
 
 // 페이즈마다 모델 높이를 따로 주는 보스. 정규화 그룹(normGroup)을 이만큼 올린다(정규화 단위).
@@ -1269,6 +1285,9 @@ const MANUAL_SEQUENCES = [
     key: 'mba002_phase02_appearance', boss: /^mba002$/i,
     steps: [/^mba002_phase02_appearance_01$/i, /^2phase_eye$/i, /^mba002_phase02_appearance_03$/i],
   },
+  // 알트아이젠 2페 스킬 02(타임라인 mbg001_shot_10_cannon_model) - start 없이 loop(0~1.2) -> fire(1.2~4.6)
+  { key: 'mbg001_phase002_skill_02', boss: /^mbg001/i,
+    steps: [/^mbg001_phase002_skill_loop_02$/i, /^mbg001_phase002_skill_fire_02$/i] },
   // 크라켄 등장(게임 타임라인 bbg004_phase001_appearance_model, 카메라 네 컷 0 / 2.6 / 6.1 / 9.5초)과
   // 사망(bbg004_dead_model, 카메라 두 컷 0 / 6.133초). 그로기는 start -> loop -> wake 로 끝난다.
   {
@@ -1487,6 +1506,8 @@ const CLIP_PHASE_OVERRIDES = [
   { re: /^xbg001_2phase_intro$/i, boss: /^xbg001/i, phase: '1' },
   // 니힐리스타 전환은 1페이즈 목록(끝나면 2페이즈로 넘어간다). 백빙룡은 페이즈가 하나라 안 건다.
   { re: /^(mba002_phase02_appearance(_0[13])?|2phase_eye)$/i, boss: /^mba002$/i, phase: '1' },
+  // 알트아이젠 전환은 1페이즈 목록(끝나면 2페이즈로 넘어간다)
+  { re: /^mbg001_phase002_appearance$/i, boss: /^mbg001/i, phase: '1' },
   // 크라켄 - 등장은 1페이즈, 사망은 2페이즈
   { re: /^bbg004_(intro_take\d|appearance)$/i, boss: /^bbg004/i, phase: '1' },
   { re: /^bbg004_(outro_take\d|dead)$/i, boss: /^bbg004/i, phase: '2' },
@@ -1821,6 +1842,7 @@ const CLIP_LABEL_FIX = [
   { boss: /^mbg003/i, re: /_2phase_take$/i, label: '2phase_take2+3' },
   { boss: /^mbg003/i, re: /_1phase_take$/i, label: '1phase_take1+2' },
   { boss: /^xbg003/i, re: /_appearance_all$/i, label: 'take01+appearance' },
+  { boss: /^mbg001/i, re: /^mbg001_phase002_destroy$/i, label: 'dead' },
   // 백빙룡 첫 등장(sceneType 0 / trigger 31)은 니힐리스타 전환 끝 컷과 같은 동작이다
   { boss: /^mba002_whiteice/i, re: /^mba002_phase02_appearance_03$/i, label: 'appearance' },
   // 지즈 변신 - 모델 동작은 take1 하나뿐이고 take2 는 카메라만 있다. 꼬리표를 뗀다.
@@ -2062,6 +2084,8 @@ const PHASE_SWITCH_CLIPS = [
   // 니힐리스타 1 -> 2페이즈 - 낱개 세 컷과 묶은 키까지
   /^mba002_phase02_appearance(_0[13])?$/i,
   /^2phase_eye$/i,
+  // 알트아이젠 1 -> 2페이즈(게임 타임라인 mbg001_phase002_appearance_model, sceneType 2 / trigger 32)
+  /^mbg001_phase002_appearance$/i,
   // 크라켄 1 -> 2페이즈(게임 타임라인 bbg004_phase002_appearance_model) - 껍데기가 부서진다
   /^bbg004_1phase_destroy$/i,
   // 인디빌리아 1 -> 2페이즈 - 낱개 두 컷과 그 둘을 묶은 키까지
@@ -2076,6 +2100,8 @@ const APPEARANCE_CLIPS = [
   /^eba002_1phase_intro$/i,
   // 울트라 - 게임 등장(appearance_short)
   /^bbg006_intro_take3$/i,
+  // 알트아이젠 사망(타임라인 mbg001_dead_model, sceneType 4 / trigger 2) - 이름이 destroy 다
+  /^mbg001_phase002_destroy$/i,
 ];
 
 function isAppearanceClip(name) {
@@ -2108,6 +2134,8 @@ const AUTO_PHASE_CHAIN = [
   { boss: /^bbg006/i, from: '1', by: 'phase' },
   // 니힐리스타: 1페이즈 phase02_appearance -> 2페이즈
   { boss: /^mba002$/i, from: '1', by: 'phase' },
+  // 알트아이젠: 1페이즈 phase002_appearance -> 2페이즈
+  { boss: /^mbg001/i, from: '1', by: 'phase' },
   // 크라켄: 1페이즈 1phase_destroy -> 2페이즈
   { boss: /^bbg004/i, from: '1', by: 'phase' },
   // 인디빌리아: 1페이즈 2phase_intro -> 2페이즈
@@ -2715,6 +2743,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       // 니힐리스타 1phase_head_01(오른쪽 머리)은 2페이즈에도 남는다(전환 활성 트랙 0~10.87초 Active,
       // 페이즈 데이터에서도 꺼지는 건 3페이즈 끝 = 사망).
       { boss: /^mba002$/i, re: /^mba002_1phase_head_01(_\d+)?$/i, phase: null },
+      // 알트아이젠 2페 라이플 02 a · b 는 1페이즈 끝에 꺼진다(이름만 phase002)
+      { boss: /^mbg001/i, re: /^mbg001_phase002_rifle_02_[ab]_skin(_\d+)?$/i, phase: '1' },
     ];
     const meshPhase = (name) => {
       const fix = MESH_PHASE_FIX.find(
@@ -3420,10 +3450,22 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     // 페이즈마다 기본 거리가 다른 보스. 시선은 그대로 두고 거리만 늘였다 줄인다.
     let phaseCamScale = 1;
+    let phaseCamShift = 0;
     function applyPhaseCamDist(phase, initial) {
       if (!homeCamPos || !homeTarget) return;
       const rule = PHASE_CAM_DIST.find(
         o => o.boss.test(bossKey || '') && o.phase === String(phase));
+      // x: 시선을 옆으로 옮긴다. 추적은 리그 중심을 따라가므로 모델을 옮겨도 소용없고
+      // 기준점(initialTarget)을 옮겨야 한다.
+      const wantX = (rule && rule.x) || 0;
+      if (wantX !== phaseCamShift) {
+        const dx = wantX - phaseCamShift;
+        phaseCamShift = wantX;
+        initialTarget.x += dx; homeTarget.x += dx; homeCamPos.x += dx;
+        if (initial || followEnabled) {
+          controls.target.x += dx; camera.position.x += dx; controls.update();
+        }
+      }
       const want = (rule && rule.scale) || 1;
       if (want === phaseCamScale) return;
       const k = want / phaseCamScale;
@@ -4581,11 +4623,38 @@ function noFollowClip(bossKey, name) {
       if (pb) pb.style.setProperty('--anim-progress', pct.toFixed(1) + '%');
     }
 
+    // 땅속 파편(UNDERGROUND_HIDE). 접어 둔 크기를 기억했다가 다음 프레임에 되돌린다 — 그 뼈에 크기 트랙이
+    // 없는 동작이면 믹서가 안 덮어써서 접힌 채 남는다.
+    const ugRules = UNDERGROUND_HIDE.filter(o => o.boss.test(bossKey || ''));
+    const ugBones = [];
+    if (ugRules.length) {
+      gltf.scene.traverse(o => {
+        if (o.isBone && ugRules.some(r => r.re.test(o.name || ''))) ugBones.push({ bone: o, saved: null });
+      });
+    }
+    const ugV = new THREE.Vector3();
+    function restoreUnderground() {
+      ugBones.forEach(u => { if (u.saved) { u.bone.scale.copy(u.saved); u.saved = null; } });
+    }
+    function hideUnderground() {
+      if (!ugBones.length) return;
+      ugBones.forEach(u => {
+        u.bone.updateWorldMatrix(true, false);
+        ugV.setFromMatrixPosition(u.bone.matrixWorld);
+        if (ugV.y < -0.05) {
+          u.saved = u.bone.scale.clone();
+          u.bone.scale.setScalar(1e-4);
+        }
+      });
+    }
+
     // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
     state.step = (dt) => {
       // 예약된 클립 교체를 먼저 처리한다(옛 믹서가 이미 멈춘 뒤라 안전하다)
       runPendingNext();
+      restoreUnderground();
       if (mixer && !state.paused) mixer.update(dt);
+      hideUnderground();
       // 카메라가 없는 동작의 메쉬 활성 구간(검은 뱀 스킬02 의 좌우 머리)
       if (!cinematic && clipMeshAct && currentAction) {
         updateMeshAct(clipMeshAct.start + currentAction.time);
