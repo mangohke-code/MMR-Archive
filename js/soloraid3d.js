@@ -85,6 +85,12 @@ function getPhaseConfig(bossKey, bossCode) {
 // 위에서부터 먼저 맞는 것을 쓴다 — 발광 껍데기는 부위보다 먼저 걸러야
 // head_skin_fx 가 "머리" 로 새지 않는다.
 const PART_GROUPS = [
+  // 마테리얼H(ebg002) - 메쉬 이름이 main1_dmtr_skin · frame_skin00N_dmtr_wpl0N 꼴이라 아래 공용 규칙에 안 걸린다
+  // (H.S.T.A. 도 메쉬 이름은 _dmtr 그대로다).
+  ['본체', /^ebg002_main[12]_dmtr_skin$/i],
+  ['팔',   /^ebg002_[bs][lr]arms_dmtr_skin$/i],
+  ['무기', /^ebg002_frame_skin\d+_dmtr_wp[lrc]\d+$/i],
+  ['프레임', /^ebg002_frame(\d_dmtr_skin|_dmtr_skin\d+)$/i],
   // 인디빌리아 1페 등장 맵 연출 리그(ecg007 · arms_parts) - 이름이 body · legs · arms 라 몸 파츠에 섞인다.
   // 니힐리스타 2페 전환 눈 리그(_eye)도 '머리' 로 새지 않게 여기서 거른다.
   ['연출', /_(map[ab]|eye)(_\d+)?$/i],
@@ -1603,8 +1609,9 @@ function findPhaseChangeClip(clips) {
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
-  // 블랙스미스 empty - 애니메이터 빈 상태(0.03초 한 프레임)
+  // 블랙스미스 · 마테리얼H empty - 애니메이터 빈 상태(0.03초 · 0.13초)
   { boss: /^bbg003/i, re: /^bbg003_empty$/i },
+  { boss: /^ebg002/i, re: /^ebg002_empty$/i },
   // (스톰브링어 · 그레이브 디거 · 사치스러운 거미 shot 은 예전에 여기서 감췄다 - 혼자 틀면 몸이 굳었다.
   //  2026-10-03 부터 샷은 대기를 밑에 깔고 틀어서(OVERLAY_CLIP_RE) 다시 보인다.)
   // 맵 연출 부속 리그 동작 - 보스 동작에 딸려 같이 돈다(SIMUL_CLIPS)
