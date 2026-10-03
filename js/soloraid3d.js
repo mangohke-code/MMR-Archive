@@ -807,6 +807,13 @@ const PHASE_CAM_DIST = [
   { boss: /^mba002_whiteice/i, phase: '2', scale: 0.6 },
 ];
 
+// 페이즈마다 모델 높이를 따로 주는 보스. 정규화 그룹(normGroup)을 이만큼 올린다(정규화 단위).
+// 모델 항목이 하나인데 페이즈 버튼으로 모습이 바뀌는 보스라 CATALOG_FIT_BASE(모델 항목 단위)로는 못 준다.
+//   니힐리스타 - 2페이즈(날개 달린 모습)는 바닥에서 띄운다. 백빙룡(같은 모습)의 y 0.15 와 맞춘다(사용자 요청, 2026-10-04).
+const PHASE_LIFT = [
+  { boss: /^mba002$/i, phase: '2', y: 0.15 },
+];
+
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
 const CLIP_CAM_LIFT = [
@@ -3284,6 +3291,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
             currentPhase = btn.dataset.phase;
             refreshFocusMesh();
             applyPhaseCamDist(currentPhase);
+            applyPhaseLift(currentPhase);
             phaseToggleEl.querySelectorAll('.soloraid-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
@@ -3431,6 +3439,18 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       }
     }
     applyPhaseCamDist(currentPhase, true);
+
+    // 페이즈마다 모델 높이가 다른 보스(PHASE_LIFT). 시점은 그대로 두고 모델만 올린다.
+    let phaseLift = 0;
+    function applyPhaseLift(phase) {
+      const rule = PHASE_LIFT.find(
+        o => o.boss.test(bossKey || '') && o.phase === String(phase));
+      const want = (rule && rule.y) || 0;
+      if (want === phaseLift) return;
+      normGroup.position.y += want - phaseLift;
+      phaseLift = want;
+    }
+    applyPhaseLift(currentPhase);
 
     // 클립 하나만 눈높이가 다른 경우(온리 원 take01). 기준점까지 같이 올려서
     // 추적도, 시점 초기화도 올라간 자리를 기준으로 돌게 한다.
