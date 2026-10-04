@@ -2441,10 +2441,22 @@ function isOneShot(name) {
 // 색만 갈아 끼운다.
 const liveStates = new Set();
 
+// 일시정지 중 다시 그리기(state.step 의 lazy). 페이지에서 무엇이든 조작하면 그 뒤 잠깐은 무조건 그린다 -
+// 재생바 · 파츠 · 슬라이더 · 클립 버튼 등 화면을 바꾸는 경로를 하나하나 챙기지 않아도 따라오게.
+const REDRAW_AFTER_INPUT_MS = 500;
+let lastRedrawRequest = 0;
+function requestRedraw() { lastRedrawRequest = performance.now(); }
+['pointerdown', 'pointerup', 'click', 'wheel', 'keydown', 'keyup', 'input', 'change', 'focus'].forEach(type => {
+  window.addEventListener(type, requestRedraw, { capture: true, passive: true });
+});
+// 끌기 중일 때만(버튼을 누른 채 움직일 때). 그냥 마우스를 올려 두는 건 화면을 안 바꾼다.
+window.addEventListener('pointermove', e => { if (e.buttons) requestRedraw(); }, { capture: true, passive: true });
+
 // 솔로 레이드 탭을 벗어나면 뷰어를 재우고, 돌아오면 깨운다.
 document.addEventListener('mmr:tab-change', ev => {
   const on = !!(ev.detail && ev.detail.tab === 'soloraid');
   liveStates.forEach(st => { st.offscreen = !on; });
+  requestRedraw();
 });
 
 function panelColor() {
@@ -2463,7 +2475,7 @@ let themeWatcher = null;
 
 function watchTheme() {
   if (themeWatcher) return;
-  themeWatcher = new MutationObserver(() => liveStates.forEach(applyThemeBackground));
+  themeWatcher = new MutationObserver(() => { liveStates.forEach(applyThemeBackground); requestRedraw(); });
   themeWatcher.observe(document.documentElement,
     { attributes: true, attributeFilter: ['data-theme'] });
 }
@@ -2588,6 +2600,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     if (bloomPass) bloomPass.setSize(w, h);
     st.camera.aspect = w / h;
     st.camera.updateProjectionMatrix();
+    // 캔버스 크기가 바뀌면 그려 둔 그림이 지워진다 - 일시정지 중이어도 다시 그린다
+    requestRedraw();
   });
   resizeObserver.observe(container);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -5041,7 +5055,24 @@ function noFollowClip(bossKey, name) {
     }
 
     // 한 프레임 진행. rAF 와 분리해 둬서 밖에서도 결정적으로 돌려볼 수 있다.
-    state.step = (dt) => {
+    // lazy(rAF 에서 부를 때만 true) - 일시정지 중이고 바뀐 게 없으면 그리기를 건너뛴다.
+    // 일시정지해도 같은 장면을 매 프레임 블룸까지 태워 다시 그려서 GPU 를 재생 중만큼 썼다(사용자 확인, 2026-10-05).
+    // 버튼마다 다시 그리기를 거는 대신, 페이지 조작 직후(REDRAW_AFTER_INPUT_MS) · 카메라가 움직인 프레임 ·
+    // 창 크기 · 테마가 바뀐 뒤에는 무조건 그린다 - 빠뜨린 경로가 있어도 화면이 옛 장면으로 남지 않게.
+    const lastCam = new Float64Array(32);
+    function cameraMoved() {
+      const a = camera.matrixWorld.elements, b = camera.projectionMatrix.elements;
+      // 감속(damping) · 추적은 0 에 한없이 다가가며 아주 작게 계속 움직인다 - 눈에 안 보이는 차이는 무시한다
+      let moved = false;
+      for (let i = 0; i < 16; i++) {
+        if (Math.abs(lastCam[i] - a[i]) > 1e-6) moved = true;
+        if (Math.abs(lastCam[16 + i] - b[i]) > 1e-6) moved = true;
+        lastCam[i] = a[i];
+        lastCam[16 + i] = b[i];
+      }
+      return moved;
+    }
+    state.step = (dt, lazy) => {
       // 예약된 클립 교체를 먼저 처리한다(옛 믹서가 이미 멈춘 뒤라 안전하다)
       runPendingNext();
       restoreUnderground();
@@ -5055,6 +5086,11 @@ function noFollowClip(bossKey, name) {
         updateFollow();
         clampPan();
         controls.update();
+      }
+      camera.updateMatrixWorld();
+      const moved = cameraMoved();
+      if (lazy && state.paused && !moved && performance.now() - lastRedrawRequest > REDRAW_AFTER_INPUT_MS) {
+        return;
       }
       if (composer) composer.render();
       else renderer.render(scene, camera);
@@ -5071,7 +5107,7 @@ function noFollowClip(bossKey, name) {
       // 다른 창의 유튜브가 버퍼링에 걸리고 다른 프로그램이 버벅였다(사용자 지적, 2026-10-04).
       // hasFocus 는 페이지 안 iframe(전용 BGM 유튜브)에 포커스가 있어도 true 라 BGM 을 눌러도 안 멈춘다.
       if (state.offscreen || !document.hasFocus()) { clock.getDelta(); return; }
-      state.step(clock.getDelta());
+      state.step(clock.getDelta(), true);
     }
     animate();
     hideLoadingBar(mySeq);
