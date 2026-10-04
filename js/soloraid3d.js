@@ -742,7 +742,13 @@ const PART_GROUP_OVERRIDES = [
   // 에고비스타 - 이름은 feather 라 날개로 걸리지만 2페이즈 것은 등에 달린 깃이
   // 아니라 무기에 붙는 파츠다(인게임 확인). 1페이즈 것은 날개가 맞다.
   { boss: /^xbg005/i, re: /_phase2_feather(_|\d|$)/i, group: '무기' },
+  // 블랙스미스 촉수 - 메쉬 이름이 Object002 · Object004 라 공용 규칙에 안 걸려 '기타' 로 갔다
+  { boss: /^bbg003/i, re: /^Object00[24]$/i, group: '촉수' },
 ];
+
+// 파츠 패널의 묶음 순서. 여기 없는 묶음은 '기타' 바로 앞에 선다.
+const PART_GROUP_ORDER = ['몸통', '본체', '머리', '어깨', '팔', '다리', '날개', '무기', '촉수', '가시',
+  '부속', '프레임', '인간형', '소환수', '해파리', '발광', '연출', '기타'];
 
 function partGroupLabel(bossKey, name) {
   const o = PART_GROUP_OVERRIDES.find(
@@ -830,9 +836,9 @@ const CATALOG_FIT_OVERRIDES = {
   mbg004: { camY: 0.07, camDist: 2.05 },        // 시즌 6 - 0.66배로 줄여서 띄운 높이 · 화면 중심이 달라 따로 맞췄다
   mbg004_anmi: { camY: 0.22, camDist: 2.05 },
   // 아래는 같은 요청(크라켄 · 프로비던스 크기, 화면 세로 · 가로 중 큰 쪽을 약 68% 로)으로 넣었다. 괄호는 공용 거리 2.3 에서 잰 값.
-  // 거대 질량체 (30%). 0.85 -> 1.0('좀 멀게') -> 1.6('너무 가까워 스킬이 안 보인다'). 1.0 에서 스킬 01 · 02 · 06 · 07 · 10 은
+  // 거대 질량체 (30%). 0.85 -> 1.0('좀 멀게') -> 1.6('너무 가까워 스킬이 안 보인다') -> 1.8(요청). 1.0 에서 스킬 01 · 02 · 06 · 07 · 10 은
   // 화면 높이 0.8~1.0 배였고, 03 · 04 · 08 은 몸에서 멀리 뻗어 3~5 배라 공용 2.3 에서도 다 안 들어온다.
-  eba004: { camDist: 1.6 },
+  eba004: { camDist: 1.8 },
   bbg002: { camDist: 0.95, camY: 0.05 },   // 토커티브 (28%)
   ebg001_hsta: { camDist: 1.45 },  // 랜드 이터 (43%)
   ebg001_island: { camDist: 1.45 },  // 아일랜드 이터 - 랜드 이터와 같은 모델이라 같은 거리(요청)
@@ -2822,6 +2828,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       meshes.forEach(m => {
         const raw = (m.name || '').replace(stripCode, '');
         m.label = partLabelOf(bossCode, m, raw, bossKey);
+        // PART_LABELS 의 인게임 이름이 붙었는지 - 파츠 패널이 이름표 붙은 파츠를 먼저 세운다
+        m.userData.__namedPart = m.label !== raw;
       });
     }
 
@@ -3324,12 +3332,32 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
         .filter(m => isPhaseVisible(phaseOf(m.name), currentPhase))
         .filter(m => !listedKeys.has(m.partKey) && listedKeys.add(m.partKey))
         .forEach(m => findGroup(partGroupLabel(bossKey, m.name)).items.push(m));
-      // 그룹 안에서 부위 -> 좌우 -> 번호 순으로 세운다
+      // 묶음은 정해 둔 순서로(PART_GROUP_ORDER). 예전에는 메쉬가 파일에 든 순서라 보스마다
+      // '기타' 가 맨 앞에 오기도 했다(사용자 요청으로 정리, 2026-10-04).
+      const groupRank = label => {
+        const i = PART_GROUP_ORDER.indexOf(label);
+        return i < 0 ? PART_GROUP_ORDER.length - 1 : i;
+      };
+      groups.forEach((g, i) => { g.__order = i; });
+      groups.sort((a, b) => (groupRank(a.label) - groupRank(b.label)) || (a.__order - b.__order));
+      // 묶음 안: 인게임 이름표(PART_LABELS)가 붙은 파츠를 먼저 이름 순(L -> R, Ⅰ -> Ⅱ, 숫자 순)으로,
+      // 이름표 없는 파츠는 그 뒤에 내부 이름의 부위 -> 좌우 -> 번호 순으로 세운다.
+      // (예전에는 전부 내부 이름으로 세워서 이름표 붙은 파츠가 영문 이름 사이에 섞였다)
+      // 한글 가나다순으로는 우(右)가 좌(左)보다, 뒤가 앞보다 앞선다. 좌 -> 우, 앞 -> 뒤 로 서게 바꿔 비교한다.
+      const labelOf = m => (m.userData.__namedPart && m.label) ? m.label
+        .replace(/\(좌\)/g, '(L)').replace(/\(우\)/g, '(R)')
+        .replace(/왼/g, 'L').replace(/오른/g, 'R')
+        .replace(/\(앞\)/g, '(1)').replace(/\(뒤\)/g, '(2)') : null;
       groups.forEach(g => {
         g.items.forEach((m, i) => { m.__order = i; });
         g.items.sort((a, b) => {
-          // 정렬은 늘 내부 이름으로. 표시 이름(인게임 표기)으로 세우면 이름을 적어 둔
-          // 파츠만 엉뚱한 자리로 튄다.
+          const la = labelOf(a), lb = labelOf(b);
+          if (la && lb) {
+            const c = la.localeCompare(lb, 'ko', { numeric: true });
+            if (c) return c;
+          } else if (la || lb) {
+            return la ? -1 : 1;
+          }
           const c = comparePartKeys(partSortKey(a.name), partSortKey(b.name));
           return c || (a.__order - b.__order);
         });
