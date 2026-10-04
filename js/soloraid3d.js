@@ -950,6 +950,10 @@ const CLIP_CAM_LIFT = [
 // (눈높이 · 각도는 그대로). 다른 클립으로 넘어가면 기본 거리로 돌아온다.
 //   거대 질량체 - 몸통은 화면 안인데 연출 덩어리(F_skin)가 펼쳐져 화면 밖으로 나간다(사용자 지적, 2026-10-04).
 //   기본 거리 1.8 에서 전 구간 화면 범위: 스킬 08 묶음 y -1.16 ~ 1.26, 스킬 fire_09 y -1.71 ~ 1.14.
+// 연출을 원점으로 옮기지 않을 동작(applyCineShift). 문제가 생긴 연출만 여기 적는다.
+const CINE_NO_RECENTER = [
+];
+
 const CLIP_CAM_DIST = [
   { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_08$/i, scale: 1.4 },
   { boss: /^eba004/i, re: /^eba004_skill_fire_09$/i, scale: 2.0 },
@@ -3996,6 +4000,68 @@ function noFollowClip(bossKey, name) {
       return result;
     }
 
+    // 연출을 원점에서 — 게임 타임라인은 연출을 맵의 정해진 자리에서 돌려서 모델과 연출 카메라가 원점에서
+    // 2 ~ 15 떨어진 곳에서 나왔다(대기 크기 약 1). 바닥 격자 · 조명은 원점에 있어서 보스가 빈 허공에 떴다.
+    // 연출 카메라가 붙은 동작을 틀 때만 모델 중심(추적 기준 리그)의 가로 위치를 동작 전체에서 9번 재 중간값을 잡고,
+    // 그만큼 gltf.scene 을 옮긴다. 연출 카메라도 gltf.scene 안에 있어서 같이 옮겨진다 — 화면 구도는 그대로다.
+    // 높이는 건드리지 않는다. 다른 동작으로 넘어가면(playClipObject 의 cinematic = null) 되돌린다.
+    // (사용자 요청, 2026-10-04)
+    const cineCenterCache = new Map();
+    let cineShifted = false;
+    function cineCenterOf(clip) {
+      if (!focusMesh) return null;
+      if (cineCenterCache.has(clip.name)) return cineCenterCache.get(clip.name);
+      const saved = capturePose(gltf.scene);
+      let result = null;
+      try {
+        const probeMixer = new THREE.AnimationMixer(gltf.scene);
+        restorePose(poseFor(clip.name));
+        probeMixer.clipAction(clip).play();
+        const xs = [], zs = [];
+        const v = new THREE.Vector3();
+        const d = clip.duration || 0;
+        for (let i = 0; i <= 8; i++) {
+          probeMixer.setTime(d * i / 8);
+          gltf.scene.updateMatrixWorld(true);
+          if (rigCenter(focusMesh, v, focusBone) && isFinite(v.x) && isFinite(v.z)) {
+            xs.push(v.x); zs.push(v.z);
+          }
+        }
+        probeMixer.stopAllAction();
+        probeMixer.uncacheRoot(gltf.scene);
+        if (xs.length) {
+          const mid = a => a.slice().sort((p, q) => p - q)[a.length >> 1];
+          result = { x: mid(xs), z: mid(zs) };
+        }
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+      cineCenterCache.set(clip.name, result);
+      return result;
+    }
+    function resetCineShift() {
+      if (!cineShifted) return;
+      gltf.scene.position.set(0, 0, 0);
+      gltf.scene.updateMatrixWorld(true);
+      cineShifted = false;
+    }
+    function applyCineShift(clip) {
+      if (!cinematic || !followReady) return;
+      if (CINE_NO_RECENTER.some(o => o.boss.test(bossKey || '') && o.re.test(clip.name || ''))) return;
+      const c = cineCenterOf(clip);
+      if (!c) return;
+      const dx = followBase.x - c.x, dz = followBase.z - c.z;
+      if (Math.hypot(dx, dz) < 0.05) return;
+      // 월드 가로 이동을 gltf.scene 의 부모(normGroup) 공간으로 바꾼다 — 상하 각도(pitch)가 걸린 보스도 높이는 그대로
+      normGroup.updateMatrixWorld(true);
+      const a = normGroup.worldToLocal(new THREE.Vector3(0, 0, 0));
+      const b = normGroup.worldToLocal(new THREE.Vector3(dx, 0, dz));
+      gltf.scene.position.copy(b.sub(a));
+      gltf.scene.updateMatrixWorld(true);
+      cineShifted = true;
+    }
+
     // start 클립에 이어서 재생될 loop(없으면 fire/end) 클립.
     function nextStepClip(clip) {
       const m = (clip.name || '').match(SEQ_RE);
@@ -4080,6 +4146,7 @@ function noFollowClip(bossKey, name) {
       // 이 클립에 인게임 카메라가 붙어 있으면 같이 재생하고, 그동안 시점을 그쪽에 맡긴다.
       const camPair = camPairs.byModel.get(clip.name);
       cinematic = null;
+      resetCineShift();
       clearClipMeshAct();
       if (camPair) {
         const camAct = mixer.clipAction(camPair.clip);
@@ -4159,6 +4226,7 @@ function noFollowClip(bossKey, name) {
       if (glowReady) applyGlow();
       applyClipCamLift(clip.name);
       applyClipCamDist(clip.name);
+      applyCineShift(clip);
       markActiveClip(opts.keepQueue ? undefined : clip.name);
       markPlayingClip(clip.name);
     }
