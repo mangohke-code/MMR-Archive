@@ -7592,3 +7592,104 @@
       border-radius: 2px;
     }
   }
+
+  /* ===== 솔로 레이드 3D 뷰어 — 남은 곳 각진 모양 =====
+     재생 막대, 방향 · 위치 슬라이더(브라우저 기본 모양이었다), 값 출력 칸, 자동 전환 스위치,
+     BGM 표지 · 유튜브 칸이 둥근 모양으로 남아 있었다(사용자 지적, 2026-10-05). */
+
+  /* 재생 막대 — L2D 재생 막대와 같은 각진 띠. 채움은 막대가 잘라 준다. */
+  #soloraid-timeline {
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+    overflow: hidden;
+  }
+  #soloraid-timeline-fill { border-radius: 0; }
+
+  /* 방향 · 위치 슬라이더 — 얇은 각진 홈에 각진 라벤더 손잡이(금색 밑단) */
+  .sr3d-sl input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 16px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .sr3d-sl input[type=range]::-webkit-slider-runnable-track {
+    height: 4px;
+    border: 1px solid var(--border-card);
+    border-radius: 2px 0 2px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel-active);
+  }
+  .sr3d-sl input[type=range]::-moz-range-track {
+    height: 4px;
+    border: 1px solid var(--border-card);
+    border-radius: 2px;
+    background: var(--bg-panel-active);
+  }
+  .sr3d-sl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 14px;
+    margin-top: -6px;
+    border: 1px solid var(--accent-strong);
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+    background: var(--btn-on-bg);
+    box-shadow: var(--btn-on-shadow);
+  }
+  .sr3d-sl input[type=range]::-moz-range-thumb {
+    width: 10px;
+    height: 12px;
+    border: 1px solid var(--accent-strong);
+    border-radius: 2px;
+    background: var(--btn-on-bg);
+    box-shadow: var(--btn-on-shadow);
+  }
+  @media (hover: hover) {
+    .sr3d-sl input[type=range]:hover::-webkit-slider-thumb { box-shadow: var(--btn-on-shadow), 0 2px 8px var(--accent-glow); }
+  }
+  .sr3d-sl input[type=range]:focus-visible { outline: none; }
+  .sr3d-sl input[type=range]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* 값 출력 칸 — 문의 입력칸과 같은 각진 칸 */
+  #sr3d-out {
+    border-color: var(--border-card);
+    border-radius: 7px 0 7px 0;
+    corner-shape: bevel;
+    background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
+    box-shadow: inset 0 1px 2px rgba(40, 30, 80, 0.06);
+  }
+
+  /* 자동 전환 스위치(페이즈 목록 머리) — L2D 파츠 스위치와 같은 각진 스위치 */
+  .sr3d-col .anim-auto-phase .toggle-switch {
+    border-color: var(--border-card);
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+    background: var(--btn-bg);
+    box-shadow: var(--btn-shadow);
+  }
+  .sr3d-col .anim-auto-phase .toggle-switch::after {
+    border-radius: 2px 0 2px 0;
+    corner-shape: bevel;
+  }
+  .sr3d-col .anim-auto-phase.active .toggle-switch {
+    border-color: var(--accent-strong);
+    background: var(--btn-on-bg);
+    box-shadow: var(--btn-on-shadow);
+  }
+  .sr3d-col .anim-auto-phase.active .toggle-switch::after { background: var(--text-on-accent); }
+
+  /* BGM 표지 · 유튜브 칸 */
+  .soloraid-bgm-yt, .soloraid-bgm-frame {
+    border-radius: 8px 0 8px 0;
+    corner-shape: bevel;
+  }
+
+  @supports not (corner-shape: bevel) {
+    #soloraid-timeline, #sr3d-out, .sr3d-col .anim-auto-phase .toggle-switch,
+    .sr3d-col .anim-auto-phase .toggle-switch::after, .soloraid-bgm-yt, .soloraid-bgm-frame {
+      border-radius: 2px;
+    }
+    .sr3d-sl input[type=range]::-webkit-slider-runnable-track,
+    .sr3d-sl input[type=range]::-webkit-slider-thumb { border-radius: 2px; }
+  }
