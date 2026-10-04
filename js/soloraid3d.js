@@ -362,6 +362,15 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 알트아이젠(두 시즌) - 인게임 확인(사용자, 2026-10-04). 파츠 데이터 부위 13~18 이 이 메쉬들을 가리킨다.
+  mbg001: {
+    'phase002_rocket_01_skin': '미사일 포트 I',
+    'phase001_rocket_02_skin': '미사일 포트 II',
+    'phase002_rifle_02_a_skin': '터렛 I',
+    'phase002_rifle_02_b_skin': '터렛 II',
+    'phase001_rifle_04_a_skin': '터렛 III',
+    'phase001_rifle_04_b_skin': '터렛 IV',
+  },
   // 지즈 - 로케일 parts_name_ziz01~04 동그란 눈 I~IV. 순서는 인게임 확인(사용자, 2026-10-04):
   //   1페이즈 - 정면에서 좌상단부터 우하단까지 Z자(좌상 core_01 · 우상 core_04 · 좌하 core_02 · 우하 core_03,
   //            파츠 부위 번호 13~16 순서와도 같다)
@@ -416,11 +425,12 @@ const PART_LABELS = {
     'phase001_parts_right_skin': '외부 장갑 R',
     'phase001_parts_left_skin': '외부 장갑 L',
   },
-  // 블랙스미스(S2 · S5 콜라보) - 로케일 parts_name_blacksmith01 · 02 = 컨테이너 L · R. 파츠 데이터 부위 1 · 2 가
-  // Spider_L/R_Arm_02(Skin left/right_Arms_skin)라 번호 순서가 맞는다. 촉수는 파괴 파츠가 아니라 모양대로 적는다.
+  // 블랙스미스(S2 · S5 콜라보) - 팔 둘(파츠 데이터 부위 1 · 2, Skin left/right_Arms_skin)의 인게임 이름은
+  // 대구경 라이플 L · R 이다(사용자 확인, 2026-10-04 - 처음엔 로케일 blacksmith01 · 02 컨테이너 L · R 로 붙였었다).
+  // 촉수는 파괴 파츠가 아니라 모양대로 적는다.
   bbg003: {
-    'left_Arms_skin': '컨테이너 L',
-    'right_Arms_skin': '컨테이너 R',
+    'left_Arms_skin': '대구경 라이플 L',
+    'right_Arms_skin': '대구경 라이플 R',
     'Object002': '촉수 R',
     'Object004': '촉수 L',
   },
@@ -783,6 +793,8 @@ const PART_GROUP_OVERRIDES = [
   { boss: /^xbg005/i, re: /_phase2_feather(_|\d|$)/i, group: '무기' },
   // 블랙스미스 촉수 - 메쉬 이름이 Object002 · Object004 라 공용 규칙에 안 걸려 '기타' 로 갔다
   { boss: /^bbg003/i, re: /^Object00[24]$/i, group: '촉수' },
+  // 알트아이젠 미사일 포트(rocket) - 공용 '날개' 규칙(rocket)에 걸려서 무기로 옮긴다
+  { boss: /^mbg001/i, re: /_rocket_\d+_skin$/i, group: '무기' },
 ];
 
 // 파츠 패널의 묶음 순서. 여기 없는 묶음은 '기타' 바로 앞에 선다.
