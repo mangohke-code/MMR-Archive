@@ -1046,6 +1046,13 @@ const CINE_SHIFT_OFF = new URLSearchParams(location.search).get('cine') === 'off
 // 연출을 원점으로 옮기지 않을 동작(applyCineShift). 문제가 생긴 연출만 여기 적는다.
 const CINE_NO_RECENTER = [
 ];
+// 연출 동작 하나만 모델을 바닥 격자 아래로 내리는 경우, 그 동작 동안 모델과 연출 카메라를 같이 올린다(applyCineShift).
+// y 는 gltf.scene 단위(파일 단위)다. 화면 구도는 그대로고 바닥 격자만 모델 밑으로 간다.
+//   크리스탈 체임버 등장 take3 - 몸 기준 뼈(surface) 높이가 대기 -0.722 인데 이 동작만 -9.373 이다(root 배율 0.9).
+//   그만큼 (8.651 x 0.9) 격자 아래에 묻혀 있었다(사용자 지적, 2026-10-04).
+const CINE_LIFT = [
+  { boss: /^xbg001/i, re: /^xbg001_1phase_intro_take3$/i, y: 7.786 },
+];
 
 const CLIP_CAM_DIST = [
   { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_08$/i, scale: 1.4 },
@@ -2134,6 +2141,8 @@ const CLIP_SORT_FIX = [
   { boss: /^bbg004/i, re: /^bbg004_right_big(_(Destruction|rebirth)_\d+)?$/i, no: 3 },
   { boss: /^bbg004/i, re: /^bbg004_right_small(_(Destruction|rebirth)_\d+)?$/i, no: 4 },
   { boss: /^xbg004_psid/i, re: /^xbg004 _skill(_(?:start|loop|fire))?_03$/, no: 5 },
+  // 블랙스미스 skill_03_break(스킬 03 뒤 blowbreak) - 이름 끝이 번호가 아니라 맨 뒤로 갔다. 03 바로 뒤에 둔다(사용자 요청).
+  { boss: /^bbg003/i, re: /^bbg003_skill_03_break$/i, no: 3.5 },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
@@ -4156,16 +4165,22 @@ function noFollowClip(bossKey, name) {
       // ?cine=off 면 원점 맞추기를 끈다(켜고 끈 화면을 비교하려고 둔 스위치)
       if (CINE_SHIFT_OFF) return;
       if (!cinematic || !followReady) return;
-      if (CINE_NO_RECENTER.some(o => o.boss.test(bossKey || '') && o.re.test(clip.name || ''))) return;
-      const c = cineCenterOf(clip);
-      if (!c) return;
-      const dx = followBase.x - c.x, dz = followBase.z - c.z;
-      if (Math.hypot(dx, dz) < 0.05) return;
+      const name = clip.name || '';
+      const lift = CINE_LIFT.find(o => o.boss.test(bossKey || '') && o.re.test(name));
+      let dx = 0, dz = 0;
+      if (!CINE_NO_RECENTER.some(o => o.boss.test(bossKey || '') && o.re.test(name))) {
+        const c = cineCenterOf(clip);
+        if (c && Math.hypot(followBase.x - c.x, followBase.z - c.z) >= 0.05) {
+          dx = followBase.x - c.x; dz = followBase.z - c.z;
+        }
+      }
+      if (!dx && !dz && !lift) return;
       // 월드 가로 이동을 gltf.scene 의 부모(normGroup) 공간으로 바꾼다 — 상하 각도(pitch)가 걸린 보스도 높이는 그대로
       normGroup.updateMatrixWorld(true);
       const a = normGroup.worldToLocal(new THREE.Vector3(0, 0, 0));
       const b = normGroup.worldToLocal(new THREE.Vector3(dx, 0, dz));
       gltf.scene.position.copy(b.sub(a));
+      if (lift) gltf.scene.position.y += lift.y;
       gltf.scene.updateMatrixWorld(true);
       cineShifted = true;
     }
