@@ -136,6 +136,8 @@ const PART_GROUPS = [
 //   본체 xbg002_arm / xbg002_shoulder / xbg002_head
 //   발광 fx_xbg002_part_fresnel_purple
 const MESH_RENAME = [
+  // 미러 컨테이너 2페이즈 파츠 넷 - 재질별 프리미티브 셋(_2 · _3 · _4)으로 갈려 이름표가 안 붙었다. 한 파츠로 묶는다.
+  { boss: /^xba001/i, re: /^(xba001_2phase_parts_[ud][lr]01_skin)(_\d+)?$/i, bySuffix: {}, merge: true },
   // 모더니아 - 본체 메쉬 이름이 보스 코드와 같은 mbg004 라 코드를 떼면 프리미티브 꼬리표(2 · 3)만 남는다.
   // body 로 이름 짓고 한 파츠로 묶는다. 미사일은 노드와 이름이 겹쳐 붙은 _1 을 뗀다.
   { boss: /^mbg004/i, re: /^mbg004(_\d+)?$/i, base: 'mbg004_body', bySuffix: {}, merge: true },
@@ -309,6 +311,7 @@ const MESH_RENAME = [
   // 표의 cube_skin 과 안 맞는다). 프리미티브가 하나뿐인 메쉬만 꼬리표를 뗀다.
   // 2phase_parts 넷과 몸통(xba001_skin)은 프리미티브가 여럿이라 빼 둔다 -
   // 꼬리표를 떼면 셋이 같은 이름이 돼서 목록이 "... 1 / ... 2" 로 갈린다.
+  // (2phase_parts 넷은 2026-10-04 부터 맨 위 MESH_RENAME 의 merge 줄이 한 파츠로 묶는다)
   { boss: /^xba001/i,
     re: /^(xba001_(?:cube_skin|weapon_[lr]\d+_skin|1phase_parts_[lr]\d+_skin))(_\d+)?$/i,
     bySuffix: {} },
@@ -359,6 +362,37 @@ function renameMeshes(bossKey, meshes) {
 // 키는 보스 코드를 뗀 이름이다(위 MESH_RENAME 을 거친 뒤 기준).
 // 적어 두지 않은 파츠는 지금처럼 파일 이름 그대로 나온다.
 const PART_LABELS = {
+  // 지즈 - 로케일 parts_name_ziz01~04 동그란 눈 I~IV. 순서는 인게임 확인(사용자, 2026-10-04):
+  //   1페이즈 - 정면에서 좌상단부터 우하단까지 Z자(좌상 core_01 · 우상 core_04 · 좌하 core_02 · 우하 core_03,
+  //            파츠 부위 번호 13~16 순서와도 같다)
+  //   2페이즈 - 위쪽부터 시계방향(위 core_04 · 오른쪽 core_01 · 아래 core_02 · 왼쪽 core_03)
+  eba005: {
+    '1phase_core_01_skin': '동그란 눈 Ⅰ',
+    '1phase_core_04_skin': '동그란 눈 Ⅱ',
+    '1phase_core_02_skin': '동그란 눈 Ⅲ',
+    '1phase_core_03_skin': '동그란 눈 Ⅳ',
+    '2phase_core_04_skin': '동그란 눈 Ⅰ',
+    '2phase_core_01_skin': '동그란 눈 Ⅱ',
+    '2phase_core_02_skin': '동그란 눈 Ⅲ',
+    '2phase_core_03_skin': '동그란 눈 Ⅳ',
+  },
+  // 마테리얼H - 로케일 parts_name_MaterialH. 메쉬와 이름은 인게임 확인(사용자, 2026-10-04). 두 시즌 공통.
+  // (beamrail wpl03 · wpr03, metalbox wpl05 · wpr05, beambox frame1 · frame2 는 확인 전이라 비워 둔다)
+  ebg002: {
+    'frame_skin002_dmtr_wpr01': '전면 타워 R',
+    'frame_skin003_dmtr_wpl01': '전면 타워 L',
+    'frame_skin001_dmtr_wpc01': '전면 타워 C',
+    'frame_skin004_dmtr_wpr02': '전면 기둥 터렛 R',
+    'frame_skin007_dmtr_wpl02': '전면 기둥 터렛 L',
+    'frame_skin010_dmtr_wpr04': '후면 기둥 터렛 R',
+    'frame_skin009_dmtr_wpl04': '후면 기둥 터렛 L',
+  },
+  // 토커티브 - 인게임 확인(사용자, 2026-10-04). 파츠 데이터 부위 13 · 14 · 15 와 같은 순서다.
+  bbg002: {
+    'socket_rocket_left': '미사일 포트 I',
+    'socket_rocke_right': '미사일 포트 II',
+    'head': '코어',
+  },
   // 모더니아 - 로케일 parts_name_Mordernia01~05. 파츠 데이터(MonsterPartsPrefab.Skin): 부위 13 L_socket_launcher04 ->
   // left_rifle, 14 R_socket_launcher04 -> right_rifle(미사일 포트 I · II, 번호 순서), 15 core_col -> head(시즌 6 만,
   // A.N.M.I. 는 Skin 없음), 16 · 17 L/R_skirt -> mbg007_l/r_skirt(A.N.M.I. 만).
@@ -527,6 +561,11 @@ const PART_LABELS = {
     '1phase_parts_r01_skin': '레플리카 유리 구두 R Ⅰ',
     '1phase_parts_r02_skin': '레플리카 유리 구두 R Ⅱ',
     '1phase_parts_r03_skin': '레플리카 유리 구두 R Ⅲ',
+    // 2페이즈 파츠 넷 - 로케일 MirrorContainer07~10 유리 구두 I~IV. 순서는 인게임 확인(사용자, 2026-10-04)
+    '2phase_parts_ur01_skin': '유리 구두 Ⅰ',
+    '2phase_parts_dr01_skin': '유리 구두 Ⅱ',
+    '2phase_parts_ul01_skin': '유리 구두 Ⅲ',
+    '2phase_parts_dl01_skin': '유리 구두 Ⅳ',
   },
   // 베히모스 - 파일이 페이즈별로 갈려 있어도 PART_LABELS 는 보스 코드로 찾으므로
   // 한 표에 1·2페이즈 파츠를 같이 적는다.
