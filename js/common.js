@@ -673,6 +673,15 @@ function setupSpinePanZoom(container, wrapEl, getPlayers) {
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// 메인_링크 표: 순서 · 이름 · 주소 · 표시. 표시가 false 인 줄은 뺀다.
+// 주소는 http(s) 만 받는다 — 표에 javascript: 같은 값이 들어가도 누르면 실행되지 않게.
+function buildMainLinks(rows) {
+  return (rows || [])
+    .filter(r => r && r['표시'] !== false && r['이름'] && /^https?:\/\//i.test(String(r['주소'] || '').trim()))
+    .sort((a, b) => (a['순서'] ?? 0) - (b['순서'] ?? 0))
+    .map(r => ({ name: String(r['이름']).trim(), url: String(r['주소']).trim() }));
+}
+
 function buildMainData(configRows, eventRows, pickupData) {
   const updateLog = configRows
     .map(r => ({ date: r['날짜'], note: r['업데이트_내역'] }))
@@ -1090,6 +1099,12 @@ async function fetchAll(tableName, orderColumn) {
 }
 
 async function loadAllData() {
+  // 메인 페이지 아래 "더 많은 기능" 링크. 따로 받는다 — 이 표에 문제가 생겨도(아직 안 만듦 · 권한)
+  // 다른 탭까지 먹통이 되면 안 되므로 실패하면 빈 목록으로 넘어간다. 다른 표와 같이 기다리도록 먼저 출발만 시킨다.
+  const linkRowsP = fetchAll('메인_링크', '순서').catch(err => {
+    console.warn('[메인 링크] 메인_링크 읽기 실패:', err.message || err);
+    return [];
+  });
   const [
     pickupRows, costumeRows, souvenirRows, stageRows,
     codexRows, nikkeImgRows, iconRows, chapRows,
@@ -1114,6 +1129,7 @@ async function loadAllData() {
 
   const pickup = buildPickupData(pickupRows);
   APP_DATA.main = buildMainData(configRows, eventRows, pickup);
+  APP_DATA.main.links = buildMainLinks(await linkRowsP);
   APP_DATA.pickup = pickup;
   APP_DATA.costume = buildCostumeData(costumeRows);
   APP_DATA.souvenir = buildSouvenirData(souvenirRows);

@@ -8,6 +8,7 @@
 
   function renderMainData(data) {
     renderUpdateLog(data.updateLog || []);
+    renderLinks(data.links || []);
 
     const now = new Date();
     const activeEvents = data.events.filter(e => {
@@ -16,6 +17,18 @@
       return start <= now && now <= end;
     });
     renderEventList(activeEvents);
+  }
+
+  // "더 많은 기능" 링크 — 메인_링크 표에서 그린다. 하나도 없으면 구역째 감춘다.
+  function renderLinks(links) {
+    const box = document.getElementById('main-links');
+    const list = document.getElementById('link-list');
+    if (!box || !list) return;
+    const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    list.innerHTML = links.map(l =>
+      `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.name)}</a>`).join('');
+    box.classList.toggle('hidden', links.length === 0);
   }
 
   function renderUpdateLog(log) {
