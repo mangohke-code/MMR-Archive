@@ -7751,3 +7751,116 @@
       #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):active {
     transform: translateY(0);
   }
+
+  /* ===== 흐린 글자 진하게 — 기념품 시즌 고르기 · 공지 · 업데이트 내역 · 문의 =====
+     옅은 회색(--text-faint · --text-dim · --text-secondary)이라 잘 안 읽혔다(사용자 지적, 2026-10-05). */
+  .souvenir-season-tab:not(.active) { color: var(--text-body); }
+  @media (hover: hover) { .souvenir-season-tab:not(.active):hover { color: var(--accent-strong); } }
+
+  .notice-date { color: var(--text-muted); }
+  .notice-list li { color: var(--text-body); }
+
+  .update-log-date { color: var(--accent-strong); }
+  .update-log-note { color: var(--text-body); }
+  .update-log-more em { color: inherit; }
+
+  #contact-intro { color: var(--text-secondary); }
+  .contact-label { color: var(--text-body); font-weight: 600; }
+  .contact-optional { color: var(--text-muted); }
+  #contact-count { color: var(--text-muted); }
+  .contact-note { color: var(--text-secondary); }
+  #contact-status { color: var(--text-secondary); }
+  #contact-subject::placeholder, #contact-body::placeholder, #contact-email::placeholder { color: var(--text-muted); }
+
+  /* ===== 유니크 코스튬 정보창 — 다른 판과 같은 말투로 =====
+     머리에 라벤더→금색 세로 띠(구역 제목과 같다), 항목 이름은 라벤더 글자에 눈금선,
+     티켓 그림은 각진 비닐 틀, Free 표시는 각진 태그. 글자는 본문색으로(사용자 지적, 2026-10-05). */
+  #costume-info-header {
+    position: relative;
+    padding-left: 14px;
+  }
+  #costume-info-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: calc(1rem + 4px);
+    width: 4px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, var(--accent), var(--gold));
+  }
+  #costume-name { color: var(--text-heading); }
+  #costume-nikke-name { color: var(--accent-strong); }
+
+  .costume-info-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--accent);
+  }
+  .costume-info-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+  }
+  #costume-date, #costume-rerun-date, #costume-ticket-name { color: var(--text-body); }
+
+  #costume-ticket-imgs img {
+    border: 0;
+    border-radius: 8px 0 8px 0;
+    corner-shape: bevel;
+    background: var(--vinyl) linear-gradient(90deg, var(--gold), transparent) left bottom / 40% 2px no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card);
+  }
+  .ticket-free-badge {
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+    font-weight: 700;
+  }
+
+  /* ===== 마우스를 따라다니는 말풍선(툴팁) — 각진 판 =====
+     둥근 회색 상자였다. 각진 모서리, 라벤더 안쪽 선, 금색 밑단. 글이 비치면 안 읽혀서 바탕은 불투명. */
+  #hover-tooltip {
+    border-radius: 10px 0 10px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel) linear-gradient(90deg, var(--gold), transparent) left bottom / 40% 2px no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong), var(--shadow-card-hover);
+    color: var(--text-heading);
+  }
+
+  /* ===== 솔로 레이드 상세 정보 — 진행 기간 줄 · 글자 크기 =====
+     차수 · 중단 표시는 날짜 위 줄로(soloraid.js renderSoloRaidPeriod), 날짜는 "시작 ~" / "끝" 사이에서만 꺾인다.
+     서랍 글자가 13~14px 이라 작았다 — 한두 단계씩 키운다(사용자 지적, 2026-10-05). */
+  .soloraid-date-item { display: block; }
+  .soloraid-date-tags { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+  .soloraid-date-range span { white-space: nowrap; }
+  #sr3d-drawer .soloraid-date-item + .soloraid-date-item { margin-top: 8px; }
+
+  #sr3d-drawer #soloraid-boss-name { font-size: 27px; }
+  #sr3d-drawer #soloraid-season-label { font-size: 15px; color: var(--text-body); }
+  #sr3d-drawer .soloraid-info-label { font-size: 14px; color: var(--accent); }
+  #sr3d-drawer #soloraid-date,
+  #sr3d-drawer #soloraid-attr { font-size: 16px; color: var(--text-body); }
+  #sr3d-drawer .soloraid-date-order { font-size: 14px; color: var(--text-secondary); }
+  #sr3d-drawer .soloraid-date-pause { font-size: 13px; }
+  #sr3d-drawer #soloraid-attr .soloraid-attr-name { font-size: 16px; }
+  #sr3d-drawer #soloraid-attr .soloraid-attr-icon { height: 26px; }
+  #sr3d-drawer .soloraid-tier-name { font-size: 19px; color: var(--text-heading); }
+  #sr3d-drawer .soloraid-tier-desc { font-size: 15px; color: var(--text-body); }
+  .soloraid-bgm-title { font-size: 15px; }
+  .soloraid-bgm-empty { font-size: 14px; color: var(--text-secondary); }
+
+  /* ===== 픽업 기록 필터 — 아주 살짝 작게 =====
+     칸이 화면을 많이 차지했다(사용자 요청, 2026-10-05). 글자 1px · 여백 몇 px 씩만 줄인다. */
+  #pickup-filter-wrap { padding: 0.85rem 1.1rem; }
+  #pickup-filter-wrap .filter-row { gap: 7px; padding: 0.55rem 0; }
+  #pickup-filter-wrap .filter-label { font-size: 14px; min-width: 58px; color: var(--text-body); }
+  #pickup-filter-wrap .filter-chips { gap: 4px; }
+  #pickup-filter-wrap .filter-chip { font-size: 14px; padding: 4px 12px; gap: 5px; }
+  #pickup-filter-wrap .filter-chip img { width: 18px; height: 18px; }
+  #pickup-filter-reset { padding: 6px 16px; font-size: 13px; }
+
+  @supports not (corner-shape: bevel) {
+    #costume-ticket-imgs img, .ticket-free-badge, #hover-tooltip { border-radius: 2px; }
+  }

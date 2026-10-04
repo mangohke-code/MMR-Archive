@@ -351,11 +351,15 @@
     const withTime = hasTimePart(item['시작일']) || hasTimePart(item['종료일']);
     box.innerHTML = segments.map((seg, i) => {
       // 중단된 적이 없는 시즌은 한 줄뿐이라 차수도 중단 표시도 붙이지 않는다
+      // 차수 · 중단 표시는 날짜 위 줄에 따로 둔다. 한 줄에 같이 두면 서랍 폭을 넘어서 날짜가
+      // 아무 데서나 꺾였다(사용자 지적, 2026-10-05). 날짜는 "시작 ~" 과 "끝" 두 덩어리로 나눠서
+      // 줄이 넘치면 그 사이에서만 꺾이게 한다.
       const order = paused ? `<span class="soloraid-date-order">${i + 1}차</span>` : '';
       const mark = seg.paused ? `<span class="soloraid-date-pause">중단</span>` : '';
-      return `<div class="soloraid-date-item">${order}`
-        + `<span>${formatKst(seg.from, { withTime })} ~ ${formatKst(seg.to, { withTime })}</span>`
-        + `${mark}</div>`;
+      const tags = order || mark ? `<div class="soloraid-date-tags">${order}${mark}</div>` : '';
+      return `<div class="soloraid-date-item">${tags}`
+        + `<div class="soloraid-date-range"><span>${formatKst(seg.from, { withTime })} ~</span> `
+        + `<span>${formatKst(seg.to, { withTime })}</span></div></div>`;
     }).join('');
   }
 
