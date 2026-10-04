@@ -4,6 +4,7 @@
 파일 이름에 공백·중점(·)·한글이 섞여 있어서 셸로 돌리면 인용이 계속 깨진다.
 그래서 목록을 여기 적고 파이썬에서 직접 호출한다.
 """
+import gzip
 import json
 import re
 import os
@@ -511,10 +512,20 @@ def main():
                 src = srcs[0]
             run(GT + ['resample', src, a])
             run(GT + ['prune', a, b])
-            run(GT + ['draco', b, c])
+            # 2026-10-04 - Draco(메쉬만) 대신 meshopt(메쉬 + 동작)로 압축하고 파일을 통째로 gzip 한다.
+            # 용량의 대부분이 동작 데이터(키 값 59%, 채널 정의 JSON 36%)인데 Draco 는 동작을 안 줄이고,
+            # Supabase 는 glb 를 압축 없이 보낸다. 글러트니 41.9 -> 21.2(meshopt) -> 7.1 MB(+gzip).
+            # WebP 를 먼저 한다 - glb_webp.py 는 BIN 을 다시 써서 meshopt 버퍼 자리를 흐트러뜨릴 수 있다.
+            # 이름은 그대로 .glb 다. 뷰어(loadModelFile)가 gzip 머리(1f 8b)를 보고 풀어서 읽는다.
+            w = os.path.join(tmp, 'w.glb')
+            run([sys.executable, WEBP, b, w])
+            run(GT + ['meshopt', w, c])
             dst = os.path.join(UPLOAD, out + '.glb')
             os.makedirs(UPLOAD, exist_ok=True)
-            run([sys.executable, WEBP, c, dst])
+            with open(c, 'rb') as fi:
+                raw = fi.read()
+            with open(dst, 'wb') as fo:
+                fo.write(gzip.compress(raw, 9))
             print('%-16s %7.1f MB -> %5.1f MB' % (
                 out, sum(os.path.getsize(p) for p in srcs) / 1e6,
                 os.path.getsize(dst) / 1e6))

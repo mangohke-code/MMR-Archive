@@ -561,10 +561,12 @@
   const GLB_VERSION = '20261003';
   // [로컬 확인용] ?glb=new 면 Supabase 대신 _local/new/ 의 파일을 부른다(깃에 안 올라가는
   // 폴더라 올라간 사이트에서는 없다). 다시 묶어도 바로 보이게 캐시를 매번 비킨다.
-  const LOCAL_GLB = new URLSearchParams(location.search).get('glb') === 'new';
+  // ?glb=opt 는 _local/opt/ (압축 방식 바꿀 때 새 파일을 예전 파일과 나란히 비교하려고 둔 자리).
+  const LOCAL_DIR = { new: '_local/new/', opt: '_local/opt/' }[new URLSearchParams(location.search).get('glb')] || null;
+  const LOCAL_GLB = !!LOCAL_DIR;
   const withVersion = url => {
     if (LOCAL_GLB) {
-      return '_local/new/' + decodeURIComponent(String(url).split(/[?#]/)[0].split('/').pop())
+      return LOCAL_DIR + decodeURIComponent(String(url).split(/[?#]/)[0].split('/').pop())
         + '?t=' + Date.now();
     }
     return url + (url.includes('?') ? '&' : '?') + 'v=' + GLB_VERSION;

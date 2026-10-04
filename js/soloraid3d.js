@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -12,6 +13,43 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+
+// 모델 받기. 2026-10-04 부터 업로드 파일은 meshopt(동작 · 메쉬) 압축 + 파일 통째 gzip 이다 - Supabase 는 glb 를
+// 압축 없이 보내서(42 MB 면 42 MB) 미리 gzip 해서 올린다. 파일 이름 · DB 주소는 그대로 .glb 이고, 받은 바이트가
+// gzip(1f 8b)이면 브라우저 내장 DecompressionStream 으로 풀어서 읽는다. 예전 파일(그냥 glb)도 그대로 읽힌다.
+// 진행 막대가 받은 바이트를 보여 주도록 onProgress 를 loader.load 와 같은 꼴로 부른다.
+function loadModelFile(loader, url, onLoad, onProgress, onError) {
+  (async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
+    const total = +res.headers.get('content-length') || 0;
+    let bytes;
+    if (res.body && res.body.getReader) {
+      const reader = res.body.getReader();
+      const parts = [];
+      let loaded = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+        loaded += value.byteLength;
+        if (onProgress) onProgress({ loaded, total, lengthComputable: total > 0 });
+      }
+      bytes = new Uint8Array(loaded);
+      let off = 0;
+      for (const p of parts) { bytes.set(p, off); off += p.byteLength; }
+    } else {
+      bytes = new Uint8Array(await res.arrayBuffer());
+    }
+    let buf = bytes.buffer;
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      buf = await new Response(stream).arrayBuffer();
+    }
+    const base = url.split(/[?#]/)[0];
+    loader.parse(buf, base.slice(0, base.lastIndexOf('/') + 1), onLoad, onError);
+  })().catch(err => { if (onError) onError(err); });
+}
 
 // 보스별 페이즈 표시 방식 - 이름 패턴만으로는 "1페이즈 파츠를 2페이즈에서도 계속 쓰는지
 // (cumulative)" 아니면 "페이즈마다 파츠가 완전히 교체되는지(exclusive)"를 구분할 수 없어서
@@ -2586,6 +2624,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
   const loader = new GLTFLoader();
   loader.setDRACOLoader(dracoLoader);
+  loader.setMeshoptDecoder(MeshoptDecoder);
   const mySeq = ++loadSeq;
   setLoadingBar(mySeq, 0, '');
 
@@ -2598,7 +2637,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
   let homeTarget = null;
   let initialTarget = null;
 
-  loader.load(modelUrl, (gltf) => {
+  loadModelFile(loader, modelUrl, (gltf) => {
     if (container.__soloRaidModel3D !== state) return; // 그 사이 다른 보스로 전환됨
 
     const meshNamesForBossCode = [];
