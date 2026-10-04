@@ -2498,6 +2498,8 @@ function disposeState(container) {
 
   if (state.renderer) {
     state.renderer.dispose();
+    // WebGL 문맥은 캔버스가 쓰레기 수거될 때까지 GPU 에 남는다. 목록으로 돌아가거나 보스를 바꿀 때 바로 놓는다.
+    state.renderer.forceContextLoss();
     if (state.renderer.domElement && state.renderer.domElement.parentNode === container) {
       container.removeChild(state.renderer.domElement);
     }
@@ -5065,7 +5067,10 @@ function noFollowClip(bossKey, name) {
       // 다른 탭에 가 있는 동안은 한 프레임도 그리지 않는다. 안 보이는 곳에서
       // 계속 돌면 배터리와 GPU 만 먹는다. getDelta 는 버려서 돌아왔을 때
       // 그동안 흐른 시간이 한꺼번에 밀려들지 않게 한다.
-      if (state.offscreen) { clock.getDelta(); return; }
+      // 다른 창 · 다른 프로그램을 보고 있을 때도 멈춘다. 창이 화면에 보이면 브라우저가 계속 그리게 둬서
+      // 다른 창의 유튜브가 버퍼링에 걸리고 다른 프로그램이 버벅였다(사용자 지적, 2026-10-04).
+      // hasFocus 는 페이지 안 iframe(전용 BGM 유튜브)에 포커스가 있어도 true 라 BGM 을 눌러도 안 멈춘다.
+      if (state.offscreen || !document.hasFocus()) { clock.getDelta(); return; }
       state.step(clock.getDelta());
     }
     animate();
