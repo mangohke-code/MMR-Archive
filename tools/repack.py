@@ -272,6 +272,11 @@ GRAFT = {
 }
 
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
+# meshopt 압축 단계 - medium. high 는 동작 회전을 키마다 최대 약 0.85° 깎아서 연속 재생에서 몸이 미세하게 떨렸다
+# (크리스탈 체임버 등장이 '카메라가 뚝뚝 끊긴다' 고 보였다, 2026-10-04 사용자 지적). medium 은 회전 오차 최대 약 0.05° 로
+# 카메라 기준 몸 뼈의 프레임 간 가속도가 Draco 와 소수점까지 같았다. 크기는 high 의 약 2배(크리스탈 체임버 5.8 -> 12.0 MB,
+# Draco 33.1 MB). REPACK_MESHOPT=high 로 바꿔 시험할 수 있다.
+MESHOPT_LEVEL = os.environ.get('REPACK_MESHOPT') or 'medium'
 
 
 def graft_in_glb(path, roots):
@@ -581,14 +586,14 @@ def main():
                 src = srcs[0]
             run(GT + ['resample', src, a])
             run(GT + ['prune', a, b])
-            # 2026-10-04 - Draco(메쉬만) 대신 meshopt(메쉬 + 동작)로 압축하고 파일을 통째로 gzip 한다.
+            # 2026-10-04 - Draco(메쉬만) 대신 meshopt(메쉬 + 동작, 단계는 MESHOPT_LEVEL)로 압축하고 파일을 통째로 gzip 한다.
             # 용량의 대부분이 동작 데이터(키 값 59%, 채널 정의 JSON 36%)인데 Draco 는 동작을 안 줄이고,
             # Supabase 는 glb 를 압축 없이 보낸다. 글러트니 41.9 -> 21.2(meshopt) -> 7.1 MB(+gzip).
             # WebP 를 먼저 한다 - glb_webp.py 는 BIN 을 다시 써서 meshopt 버퍼 자리를 흐트러뜨릴 수 있다.
             # 이름은 그대로 .glb 다. 뷰어(loadModelFile)가 gzip 머리(1f 8b)를 보고 풀어서 읽는다.
             w = os.path.join(tmp, 'w.glb')
             run([sys.executable, WEBP, b, w])
-            run(GT + ['meshopt', w, c])
+            run(GT + ['meshopt', w, c, '--level', MESHOPT_LEVEL])
             dst = os.path.join(UPLOAD, out + '.glb')
             os.makedirs(UPLOAD, exist_ok=True)
             with open(c, 'rb') as fi:

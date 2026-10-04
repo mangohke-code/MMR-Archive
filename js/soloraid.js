@@ -562,7 +562,7 @@
   // [로컬 확인용] ?glb=new 면 Supabase 대신 _local/new/ 의 파일을 부른다(깃에 안 올라가는
   // 폴더라 올라간 사이트에서는 없다). 다시 묶어도 바로 보이게 캐시를 매번 비킨다.
   // ?glb=opt 는 _local/opt/ (압축 방식 바꿀 때 새 파일을 예전 파일과 나란히 비교하려고 둔 자리).
-  const LOCAL_DIR = { new: '_local/new/', opt: '_local/opt/' }[new URLSearchParams(location.search).get('glb')] || null;
+  const LOCAL_DIR = { new: '_local/new/', opt: '_local/opt/', draco: '_local/draco/', med: '_local/med/' }[new URLSearchParams(location.search).get('glb')] || null;
   const LOCAL_GLB = !!LOCAL_DIR;
   const withVersion = url => {
     if (LOCAL_GLB) {
