@@ -186,7 +186,7 @@ const MESH_RENAME = [
   { boss: /^ebg001_hsta/i, re: /^(ebg001_(?:phase00[23]_skin|phase001_parts_top_skin))(_\d+)?$/i, bySuffix: {}, merge: true },
   // 블랙스미스 - 다리(재질별 프리미티브 넷), S2 날개(뼈 이름과 겹쳐 _1 이 붙음)와 촉수(Object002 오른쪽 · Object004 왼쪽, 두 벌 x 프리미티브 둘)를
   // 한 파츠로 묶는다. 촉수 두 벌은 대기에서 같은 자리에 겹쳐 있고 둘 다 기본 꺼짐이다.
-  { boss: /^bbg003/i, re: /^(bbg003_legs_skin|bbg003_Wing_Red|Object00[24])(_\d+)?$/i, bySuffix: {}, merge: true },
+  { boss: /^bbg003/i, re: /^(bbg003_legs_skin|bbg003_Wing_Red|Object00[24](?:_grab)?)(_\d+)?$/i, bySuffix: {}, merge: true },
   // 퀸 001 — 보스 전체가 메쉬 하나에 프리미티브 넷이다. 파일 이름은 face 지만
   // 실제로는 몸통·가시·부속이 다 들어 있어서, 그대로 두면 face_skin_2~5 네 개가
   // 전부 “머리” 구역으로 묶인다. 재질 이름으로 나눈다.
@@ -471,6 +471,9 @@ const PART_LABELS = {
     'right_Arms_skin': '대구경 라이플 R',
     'Object002': '촉수 R',
     'Object004': '촉수 L',
+    // 붙잡는 촉수 - bbg003_l/r_tentacle 뼈 아래 리그(repack GRAFT 가 이름에 _grab 을 붙인다). 스킬 03 에서 니케를 붙잡는다.
+    'Object002_grab': '붙잡는 촉수 R',
+    'Object004_grab': '붙잡는 촉수 L',
   },
   // 니힐리스타 - 게임 로케일 parts_name_Nihilister01~06. 파츠 데이터(MonsterPartsPrefab.Skin)가 메쉬를 직접
   // 가리킨다 — l/r_ar_01 -> phase1_l/r_ar(발칸), l_arms_21 · r_arms_24 -> phase1_l/r_armor(프로텍터),
@@ -725,7 +728,7 @@ const DEFAULT_OFF_MESHES = [
   // 블랙스미스 촉수(Object002 오른쪽 · Object004 왼쪽) - 두 벌 다 프리팹에서 꺼진 채 시작한다(activeAtStart false).
   //   몸 뒤 소켓(socket_tail_new) 쪽 - S2 등장 타임라인 0~5.88초에만 켜진다(meshActivation 이 켠다)
   //   bbg003_l/r_tentacle 뼈 아래 쪽 - 켜는 타임라인이 파일에 없다
-  { boss: /^bbg003/i, re: /^Object00[24](_\d+)?$/i },
+  { boss: /^bbg003/i, re: /^Object00[24](_grab)?(_\d+)?$/i },
   // 크리스탈 체임버(시즌 10) 방어막·큰 뿔 발광 층 - 프리팹에서 꺼진 채 시작하고(selfActive false)
   // 어느 타임라인도 켜지 않는다.
   { boss: /^xbg001/i, re: /_(left|right)_(barrier|bighorn)_1$/i },
@@ -768,7 +771,7 @@ function isPhasePartOff(bossKey, phase, name) {
 // 화면 맞춤(정규화 상자)에서 빼는 메쉬 - 보스 몸이 아니라 맵 연출에서 온 리그다.
 const FIT_SKIP_MESHES = [
   // 블랙스미스 촉수 - 대기 자세에서 몸(폭 0.3) 뒤로 0.91 까지 가늘게 뻗어 있어 맞춤이 작게 잡힌다
-  { boss: /^bbg003/i, re: /^Object00[24](_\d+)?$/i },
+  { boss: /^bbg003/i, re: /^Object00[24](_grab)?(_\d+)?$/i },
   { boss: /^eba004/i, re: /_acc(app|dead)(_\d+)?$/i },
   { boss: /^eba002/i, re: /_jellyfish_[lr]/i },
   { boss: /^xba001/i, re: /_bgvar(_\d+)?$/i },
@@ -830,7 +833,7 @@ const PART_GROUP_OVERRIDES = [
   // 아니라 무기에 붙는 파츠다(인게임 확인). 1페이즈 것은 날개가 맞다.
   { boss: /^xbg005/i, re: /_phase2_feather(_|\d|$)/i, group: '무기' },
   // 블랙스미스 촉수 - 메쉬 이름이 Object002 · Object004 라 공용 규칙에 안 걸려 '기타' 로 갔다
-  { boss: /^bbg003/i, re: /^Object00[24]$/i, group: '촉수' },
+  { boss: /^bbg003/i, re: /^Object00[24](_grab)?$/i, group: '촉수' },
   // 알트아이젠 미사일 포트(rocket) - 공용 '날개' 규칙(rocket)에 걸려서 무기로 옮긴다
   { boss: /^mbg001/i, re: /_rocket_\d+_skin$/i, group: '무기' },
 ];
@@ -1799,6 +1802,8 @@ function findPhaseChangeClip(clips) {
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
+  // 블랙스미스 촉수 동작 - 본체 스킬 03 에 딸려 같이 돈다(SIMUL_CLIPS)
+  { boss: /^bbg003/i, re: /^bbg003_[lr]_tentacle_/i },
   // 블랙스미스 · 마테리얼H empty - 애니메이터 빈 상태(0.03초 · 0.13초)
   { boss: /^bbg003/i, re: /^bbg003_empty$/i },
   { boss: /^ebg002/i, re: /^ebg002_empty$/i },
@@ -1946,6 +1951,14 @@ function applyClipTrim(clips, bossKey) {
 // 대표 클립은 연출 카메라가 붙은 쪽으로 고른다 - 카메라·자동 넘김·목록 표시가
 // 전부 대표 클립 이름을 기준으로 돌아간다.
 const SIMUL_CLIPS = [
+  // 블랙스미스 - 촉수로 니케 하나를 붙잡는 패턴(사용자 확인, 2026-10-04). 촉수 부속의 동작(repack GRAFT 로 본체 촉수
+  // 리그에 옮겨 실음)을 이름이 같은 본체 스킬 03 동작과 같이 돌린다. 촉수 동작이 짧으면 끝 프레임에 멈춘다.
+  { boss: /^bbg003/i, main: /^bbg003_skill_fire_03$/i,
+    with: [/^bbg003_l_tentacle_skill_fire_03$/i, /^bbg003_r_tentacle_skill_fire_03$/i] },
+  { boss: /^bbg003/i, main: /^bbg003_skill_fire_loop_03$/i,
+    with: [/^bbg003_l_tentacle_skill_fire_loop_03$/i, /^bbg003_r_tentacle_skill_fire_loop_03$/i] },
+  { boss: /^bbg003/i, main: /^bbg003_skill_fire_end_03$/i,
+    with: [/^bbg003_l_tentacle_skill_fire_end_03$/i, /^bbg003_r_tentacle_skill_fire_end_03$/i] },
   { boss: /^eba002/i, main: /^eba002_1phase_intro$/i,
     with: [/^eba002_1phase_jelly$/i] },
   { boss: /^eba002/i, main: /^eba002_2phase_intro_01$/i,
@@ -2126,6 +2139,8 @@ const CLIP_SORT_FIX = [
 // 사용자가 켜 둔 목록은 건드리지 않는다 — 클립이 바뀌면 원래대로 돌아온다.
 //   미러 컨테이너 포신 사격은 좌우 3문 중 그 한 문만 나온다.
 const CLIP_SOLO_PARTS = [
+  // 블랙스미스 붙잡는 촉수 - 평소 꺼져 있다가(DEFAULT_OFF) 스킬 03 동작에서만 켠다
+  { boss: /^bbg003/i, clip: /^bbg003_skill_fire(_loop|_end)?_03$/i, show: /^Object00[24]_grab(_\d+)?$/i },
   {
     boss: /^xba001/i,
     clip: /_shot_(?:start|fire|end)_([lr])(\d)_\d+$/i,

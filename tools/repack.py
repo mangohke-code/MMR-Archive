@@ -163,8 +163,14 @@ JOBS = [
     ('추출프로그램 업데이트 이후/bbg009_차가운 심판자.glb', 'bbg009_bh'),
     # 블랙스미스(시즌 2, full_bbg003)와 콜라보 변종(시즌 5 9810811510911663, full_bbg003_ce002_1).
     # 좌우 촉수 부속(_bbg003_l/r_tentacle_var)은 본체에 같은 리그가 이미 들어 있다(bbg003_l/r_tentacle 뼈 아래).
-    ('추출프로그램 업데이트 이후/bbg003_블랙스미스.glb', 'bbg003'),
-    ('추출프로그램 업데이트 이후/bbg003_블랙스미스 ce002.glb', 'bbg003_ce002'),
+    # 2026-10-04 - 촉수 부속의 동작 3개를 본체 촉수 리그로 옮겨 싣는다(GRAFT). 인게임에서 촉수로 니케 하나를
+    # 붙잡는 패턴이 있다(사용자 확인). 부속 리그 자체는 본체에 같은 것이 있어서 버린다.
+    (['추출프로그램 업데이트 이후/bbg003_블랙스미스.glb',
+      '추출프로그램 업데이트 이후/bbg003_블랙스미스_bbg003_l_tentacle_var.glb',
+      '추출프로그램 업데이트 이후/bbg003_블랙스미스_bbg003_r_tentacle_var.glb'], 'bbg003'),
+    (['추출프로그램 업데이트 이후/bbg003_블랙스미스 ce002.glb',
+      '추출프로그램 업데이트 이후/bbg003_블랙스미스 ce002_bbg003_l_tentacle_var.glb',
+      '추출프로그램 업데이트 이후/bbg003_블랙스미스 ce002_bbg003_r_tentacle_var.glb'], 'bbg003_ce002'),
     # 마테리얼H - 시즌 9 D.M.T.R.(full_ebg002_dmtr_1) · 시즌 22 H.S.T.A.(full_ebg002_hsta_1). 메쉬 · 동작 구성이 같고
     # 재질만 다르다. 부속 파일 없음.
     ('추출프로그램 업데이트 이후/ebg002_마테리얼H D.M.T.R.glb', 'ebg002_dmtr'),
@@ -256,7 +262,68 @@ DROP_CLIPS = {
     '추출프로그램 업데이트 이후/bbg001_하베스터.glb': r'^bbg001_rich_',
 }
 
+# 부속 리그의 동작을 본체 안의 같은 리그로 옮겨 싣고 부속 리그는 버린다. { 출력 이름: (리그 루트 이름, …) }
+#   블랙스미스 - 촉수 부속(_bbg003_l/r_tentacle_var, extras.attachTo = 본체 bbg003_l/r_tentacle 뼈)은 본체에 같은
+#   리그(노드 이름 전부 같음)가 이미 들어 있고, 부속에만 동작(tentacle_skill_fire_03 / fire_loop_03 / fire_end_03)이 있다.
+#   본체 촉수 메쉬(이 리그를 쓰는 Object002 · Object004)는 이름에 _grab 을 붙여, 등장 때 켜지는 몸 뒤 촉수와 가른다.
+GRAFT = {
+    'bbg003': ('bbg003_l_tentacle_var', 'bbg003_r_tentacle_var'),
+    'bbg003_ce002': ('bbg003_l_tentacle_var', 'bbg003_r_tentacle_var'),
+}
+
 GT = ['npx', '--yes', '@gltf-transform/cli@latest']
+
+
+def graft_in_glb(path, roots):
+    chunks, doc = _read_glb(path)
+    nodes = doc['nodes']
+    parent = {}
+    for i, n in enumerate(nodes):
+        for c in n.get('children', []):
+            parent[c] = i
+    scene = doc['scenes'][doc.get('scene', 0)]
+    def subtree(i):
+        out, st = [], [i]
+        while st:
+            k = st.pop(); out.append(k); st.extend(nodes[k].get('children', []))
+        return out
+    drop_roots = set()
+    for rname in roots:
+        idx = [i for i, n in enumerate(nodes) if n.get('name') == rname]
+        main = [i for i in idx if i in parent]
+        var = [i for i in idx if i not in parent]
+        assert len(main) == 1 and len(var) == 1, (rname, idx)
+        main_sub = subtree(main[0]); var_sub = set(subtree(var[0]))
+        by_name = {}
+        for k in main_sub:
+            by_name.setdefault(nodes[k].get('name'), k)
+        moved = 0
+        for a in doc.get('animations', []):
+            for ch in a['channels']:
+                t = ch['target'].get('node')
+                if t in var_sub:
+                    nm = nodes[t].get('name')
+                    assert nm in by_name, (rname, nm)
+                    ch['target']['node'] = by_name[nm]; moved += 1
+        # 부속 파일에서 온 장면 루트(리그 루트 + 그 리그를 쓰는 메쉬)를 장면에서 뺀다 - prune 이 지운다
+        drop_roots.add(var[0])
+        for r in scene['nodes']:
+            sk = nodes[r].get('skin')
+            if sk is not None and set(doc['skins'][sk]['joints']) <= var_sub:
+                drop_roots.add(r)
+        # 본체 쪽 이 리그를 쓰는 메쉬에 _grab 을 붙인다
+        main_set = set(main_sub)
+        for n in nodes:
+            sk = n.get('skin')
+            if sk is not None and set(doc['skins'][sk]['joints']) <= main_set and 'mesh' in n:
+                if not n.get('name', '').endswith('_grab'):
+                    n['name'] = n.get('name', '') + '_grab'
+                    m = doc['meshes'][n['mesh']]
+                    if not m.get('name', '').endswith('_grab'):
+                        m['name'] = m.get('name', '') + '_grab'
+        print('  graft %s: 채널 %d 개 옮김' % (rname, moved))
+    scene['nodes'] = [r for r in scene['nodes'] if r not in drop_roots]
+    _write_glb(path, chunks, doc)
 
 
 def drop_clips_in_glb(src, dst, pattern):
@@ -507,6 +574,8 @@ def main():
                 m = os.path.join(tmp, 'm.glb')
                 run(GT + ['merge'] + srcs + [m])
                 merge_scenes(m)
+                if out in GRAFT:
+                    graft_in_glb(m, GRAFT[out])
                 src = m
             else:
                 src = srcs[0]
