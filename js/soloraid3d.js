@@ -1042,7 +1042,6 @@ const CLIP_CAM_LIFT = [
 // (눈높이 · 각도는 그대로). 다른 클립으로 넘어가면 기본 거리로 돌아온다.
 //   거대 질량체 - 몸통은 화면 안인데 연출 덩어리(F_skin)가 펼쳐져 화면 밖으로 나간다(사용자 지적, 2026-10-04).
 //   기본 거리 1.8 에서 전 구간 화면 범위: 스킬 08 묶음 y -1.16 ~ 1.26, 스킬 fire_09 y -1.71 ~ 1.14.
-const CINE_SHIFT_OFF = new URLSearchParams(location.search).get('cine') === 'off';
 // 연출을 원점으로 옮기지 않을 동작(applyCineShift). 문제가 생긴 연출만 여기 적는다.
 const CINE_NO_RECENTER = [
 ];
@@ -4178,8 +4177,6 @@ function noFollowClip(bossKey, name) {
       cineShifted = false;
     }
     function applyCineShift(clip) {
-      // ?cine=off 면 원점 맞추기를 끈다(켜고 끈 화면을 비교하려고 둔 스위치)
-      if (CINE_SHIFT_OFF) return;
       if (!cinematic || !followReady) return;
       const name = clip.name || '';
       const lift = CINE_LIFT.find(o => o.boss.test(bossKey || '') && o.re.test(name));

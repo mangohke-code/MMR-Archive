@@ -503,6 +503,28 @@ function syncNameScrollAnimations(root, wrapSelector, nameSelector) {
 // 위치를 옮기면 알아서 그 크기·위치에 맞게 다시 렌더링된다. spine 내부 상태를 전혀 건드리지 않으므로
 // 훨씬 안전하다. container는 wrapEl(overflow:hidden, position:relative) 안에서 position:absolute로
 // 움직이고 커진다.
+// 이 브라우저에서 WebGL 캔버스를 줄이지 않고 그대로 쓸 수 있는 크기(한 번만 잰다).
+// 크롬은 넓이 약 6400만 화소, 한 변 16384 가 넘으면 내부 그림판을 줄인다. 브라우저마다 달라서
+// 7000x7000(4900만)을 실제로 만들어 보고, 줄어들면 줄어든 넓이를 한도로 삼는다. 여유로 0.8 배.
+let spineCanvasLimitCache = null;
+function spineCanvasLimit() {
+  if (spineCanvasLimitCache) return spineCanvasLimitCache;
+  let area = 40e6, side = 16384;
+  try {
+    const c = document.createElement('canvas');
+    c.width = 7000; c.height = 7000;
+    const gl = c.getContext('webgl');
+    if (gl) {
+      side = Math.min(side, gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+      area = Math.min(area, gl.drawingBufferWidth * gl.drawingBufferHeight * 0.8);
+      const lose = gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    }
+  } catch (e) { /* 못 재면 기본값 */ }
+  spineCanvasLimitCache = { area, side: side * 0.95 };
+  return spineCanvasLimitCache;
+}
+
 function setupSpinePanZoom(container, wrapEl) {
   container.style.position = 'absolute';
   container.style.left = '0px';
@@ -512,12 +534,28 @@ function setupSpinePanZoom(container, wrapEl) {
   const baseHeight = container.offsetHeight;
   const MIN_SCALE = 0.3, MAX_SCALE = 5;
 
+  // 확대는 캔버스 자체를 키우는 방식이라, 크게 키우면 브라우저 한도를 넘는다. 크롬은 캔버스가 약
+  // 6400만 화소를 넘으면 내부 그림판을 몰래 반으로 줄이는데, spine 은 캔버스 크기 기준으로 그려서
+  // 그림이 좌하단으로 튀었다(사용자 지적, 2026-10-05). 그 한도 안에서만 키운다(화면 배율까지 셈).
+  function maxScale() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = baseWidth * dpr, h = baseHeight * dpr;
+    if (!w || !h) return MAX_SCALE;
+    const cap = spineCanvasLimit();
+    return Math.max(1, Math.min(MAX_SCALE,
+      Math.sqrt(cap.area / (w * h)), cap.side / w, cap.side / h));
+  }
+
+  // 마우스 위치와 이동 한계는 캔버스가 실제로 놓인 칸(그림 칸) 기준이다. 예전에는 조작판까지 든
+  // 바깥 상자(wrapEl) 기준이라, 판 폭만큼 어긋나서 커서 아래 지점이 제자리에 남지 않았다.
+  const box = () => container.offsetParent || wrapEl;
+
   let scale = 1, offsetX = 0, offsetY = 0;
 
   // 캐릭터가 화면 밖으로 완전히 나가버리지 않도록, 너무 멀리 옮기면 벽에 막힌 느낌으로 멈추게 함
   function clampOffsets(w, h) {
-    const wrapW = wrapEl.clientWidth;
-    const wrapH = wrapEl.clientHeight;
+    const wrapW = box().clientWidth;
+    const wrapH = box().clientHeight;
     const minX = Math.min(0, wrapW - w);
     const maxX = Math.max(0, wrapW - w);
     offsetX = Math.max(minX, Math.min(maxX, offsetX));
@@ -587,12 +625,13 @@ function setupSpinePanZoom(container, wrapEl) {
   const onWheel = e => {
     if (fromPanel(e)) return;   // 판 안에서는 목록을 굴려야 한다
     e.preventDefault();
-    const rect = wrapEl.getBoundingClientRect();
+    const rect = box().getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+    const newScale = Math.min(maxScale(), Math.max(MIN_SCALE, scale * factor));
+    if (newScale === scale) return;
     const actualFactor = newScale / scale;
 
     // 커서 아래 지점이 확대/축소 후에도 같은 화면 위치에 남도록 offset 보정

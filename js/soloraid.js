@@ -561,7 +561,9 @@
   const GLB_VERSION = '20261004b';
   // [로컬 확인용] ?glb=new 면 Supabase 대신 _local/new/ 의 파일을 부른다(깃에 안 올라가는
   // 폴더라 올라간 사이트에서는 없다). 다시 묶어도 바로 보이게 캐시를 매번 비킨다.
-  const LOCAL_DIR = { new: '_local/new/' }[new URLSearchParams(location.search).get('glb')] || null;
+  // 내 PC(localhost)에서만 받는다 - 올라간 사이트의 주소 옵션은 기본과 ?me=1 둘뿐이다(사용자 요청, 2026-10-05).
+  const IS_LOCALHOST = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const LOCAL_DIR = (IS_LOCALHOST && { new: '_local/new/' }[new URLSearchParams(location.search).get('glb')]) || null;
   const LOCAL_GLB = !!LOCAL_DIR;
   const withVersion = url => {
     if (LOCAL_GLB) {

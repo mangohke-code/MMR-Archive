@@ -7490,3 +7490,105 @@
       border-radius: 2px;
     }
   }
+
+  /* ===== L2D 뷰어(유니크 코스튬 · 캐릭터 도감) — 각진 모양 =====
+     재생바 단추 · 동작 · 표정 · 모델 단추(.anim-btn · .l2d-bar-btn)는 공통 단추 규칙으로 이미 각졌는데,
+     뷰어에만 있는 아래 요소들이 둥근 모양으로 남아 있었다(사용자 지적, 2026-10-05).
+       판 접기 손잡이(왼쪽 · 오른쪽), 재생 막대, 파츠 스위치(도감), 등장 목록 줄 · 넘기기 단추(도감),
+       유료 티켓 그림(코스튬) */
+
+  /* 접기 손잡이 — 판에 붙은 쪽은 네모, 바깥 두 모서리만 자른다(솔로 레이드 손잡이와 같다) */
+  .l2d-side-toggle {
+    border-radius: 0 8px 8px 0;
+    corner-shape: bevel;
+    background: var(--btn-bg-solid);
+    box-shadow: var(--btn-shadow);
+  }
+  .l2d-side-toggle.is-right { border-radius: 8px 0 0 8px; }
+  @media (hover: hover) {
+    .l2d-side-toggle:hover { background: var(--btn-bg-solid-hover); border-color: var(--border-strong); }
+  }
+
+  /* 재생 막대 — 알약 대신 각진 띠. 채움은 막대가 잘라 준다(overflow: hidden). */
+  .l2d-timeline {
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+  }
+
+  /* 파츠 스위치(도감) — 복각 스위치와 같은 말투: 각진 틀 · 각진 손잡이, 켜면 라벤더에 금색 밑단 */
+  .l2d-side .toggle-switch-wrap .toggle-switch {
+    border-color: var(--border-card);
+    border-radius: 7px 0 7px 0;
+    corner-shape: bevel;
+    background: var(--btn-bg);
+    box-shadow: var(--btn-shadow);
+  }
+  .l2d-side .toggle-switch-wrap .toggle-switch::after {
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+  }
+  .l2d-side .toggle-switch-wrap.active .toggle-switch {
+    border-color: var(--accent-strong);
+    background: var(--btn-on-bg);
+    box-shadow: var(--btn-on-shadow);
+  }
+  .l2d-side .toggle-switch-wrap.active .toggle-switch::after { background: var(--text-on-accent); }
+
+  /* 등장 목록 줄(도감 오른쪽 판) — 메인 스토리 진행도 줄과 같은 각진 비닐 단추.
+     고른 줄은 라벤더를 옅게 깔고 글자를 진하게. */
+  .detail-appear-item {
+    --btn-cut: 7px;
+    border: 1px solid var(--border-card);
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
+    box-shadow: var(--btn-shadow);
+    transition: border-color 0.18s, box-shadow 0.18s, --sheen-x 0.35s ease-out;
+  }
+  @media (hover: hover) {
+    .detail-appear-item.has-spine:not(.active):hover {
+      --sheen-x: 0%;
+      border-color: var(--border-strong);
+      background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+      box-shadow: var(--btn-shadow-hover);
+    }
+    .detail-appear-item.active:hover { background: color-mix(in srgb, var(--accent) 24%, var(--bg-panel)); }
+  }
+  .detail-appear-item.active {
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel));
+    box-shadow: var(--btn-shadow);
+  }
+
+  /* 모델 넘기기 단추(도감, 모델이 여럿일 때 아래에 뜬다) — 공통 단추 모양 */
+  #codex-spine-nav button {
+    --btn-cut: 7px;
+    border-color: var(--border-card);
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-solid);
+    box-shadow: var(--btn-shadow);
+    transition: border-color 0.18s, box-shadow 0.18s, color 0.18s, --sheen-x 0.35s ease-out;
+  }
+  @media (hover: hover) {
+    #codex-spine-nav button:hover:not(:disabled) {
+      --sheen-x: 0%;
+      background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-solid-hover);
+      border-color: var(--border-strong);
+      box-shadow: var(--btn-shadow-hover);
+    }
+  }
+
+  /* 유료 티켓 그림(코스튬 오른쪽 판) */
+  #costume-paid-ticket-img {
+    border-radius: 8px 0 8px 0;
+    corner-shape: bevel;
+  }
+
+  @supports not (corner-shape: bevel) {
+    .l2d-side-toggle, .l2d-side-toggle.is-right, .l2d-timeline,
+    .l2d-side .toggle-switch-wrap .toggle-switch, .l2d-side .toggle-switch-wrap .toggle-switch::after,
+    .detail-appear-item, #codex-spine-nav button, #costume-paid-ticket-img {
+      border-radius: 2px;
+    }
+  }
