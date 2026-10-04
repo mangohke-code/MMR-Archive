@@ -7693,3 +7693,61 @@
     .sr3d-sl input[type=range]::-webkit-slider-runnable-track,
     .sr3d-sl input[type=range]::-webkit-slider-thumb { border-radius: 2px; }
   }
+
+  /* ===== 버튼 글자 — 기본은 진하게, 마우스를 올리면 라벤더로 강조 =====
+     버튼 글자가 옅은 회색(--text-secondary · --text-muted · --text-faint)이라 잘 안 읽히고, 올려야 진해졌다.
+     기본을 본문색으로 올리고, 대신 올렸을 때를 확실히 다르게 한다(사용자 요청, 2026-10-05):
+       글자 · 테두리 라벤더, 바탕에 라벤더를 옅게, 라벤더 빛 그림자, 2px 떠오름.
+     고른 상태(.active · 서랍 열림)는 손대지 않는다. 솔로 레이드 동작 목록 줄은 옅은 글자가 "묶음 안" ·
+     "덤 동작" 이라는 뜻이라 뺀다. :is() 는 안의 아이디까지 우선순위로 세서 앞의 규칙들을 이긴다. */
+  :root {
+    --btn-bg-hover: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 8%, #ffffff) 0%,
+      color-mix(in srgb, var(--accent) 16%, #f2f0f9) 100%);
+    --btn-bg-solid-hover: var(--btn-bg-hover);
+    --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 14px rgba(127, 106, 224, 0.32);
+  }
+  :root[data-theme="dark"] {
+    --btn-bg-hover: linear-gradient(180deg, rgba(110, 92, 190, 0.55) 0%, rgba(66, 54, 120, 0.5) 100%);
+    --btn-bg-solid-hover: linear-gradient(180deg, #3a3160 0%, #2a2446 100%);
+    --btn-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(138, 117, 238, 0.42);
+  }
+
+  :is(.tab-btn, #theme-toggle, .pickup-view-btn, .pickup-group-btn, .calendar-group-btn, .calendar-nav-btn,
+      .year-nav-btn, .filter-chip:not(.overspec), .survey-chip, .survey-all-btn, .anim-btn, .detail-model-btn,
+      .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
+      .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
+      #codex-survey-btn, #soloraid-sort-btn, #stage-back-btn, #link-list a, #pickup-calendar-all,
+      #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]) {
+    color: var(--text-body);
+  }
+
+  @media (hover: hover) {
+    :is(.tab-btn, #theme-toggle, .pickup-view-btn, .pickup-group-btn, .calendar-group-btn, .calendar-nav-btn,
+        .year-nav-btn, .filter-chip:not(.overspec), .survey-chip, .survey-all-btn, .anim-btn, .detail-model-btn,
+        .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
+        .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
+        #codex-survey-btn, #soloraid-sort-btn, #stage-back-btn, #link-list a, #pickup-calendar-all,
+        #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):not([disabled]):hover {
+      color: var(--accent-strong);
+      border-color: var(--border-accent);
+      box-shadow: var(--btn-shadow-hover);
+      transform: translateY(-2px);
+    }
+    /* 바탕을 따로 칠하던 버튼(재생바 · 서랍 탭 · 손잡이)도 같은 라벤더 바탕으로 */
+    :is(#sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):hover {
+      background: var(--sheen) 0% 0 / 250% 100% no-repeat, var(--btn-bg-hover);
+    }
+    /* 탭 줄의 탭은 위치가 움직이면 줄 전체가 출렁여 보여서 떠오르기만 1px 로 */
+    .tab-btn:not(.active):hover { transform: translateY(-1px); }
+  }
+
+  /* 누르는 순간은 도로 내려앉는다 */
+  :is(.tab-btn, #theme-toggle, .pickup-view-btn, .pickup-group-btn, .calendar-group-btn, .calendar-nav-btn,
+      .year-nav-btn, .filter-chip, .survey-chip, .survey-all-btn, .anim-btn, .detail-model-btn,
+      .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
+      .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
+      #codex-survey-btn, #soloraid-sort-btn, #stage-back-btn, #link-list a, #pickup-calendar-all,
+      #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):active {
+    transform: translateY(0);
+  }
