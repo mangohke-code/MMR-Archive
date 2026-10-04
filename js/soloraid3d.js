@@ -953,6 +953,9 @@ const CLIP_CAM_LIFT = [
 // 연출을 원점으로 옮기지 않을 동작(applyCineShift). 문제가 생긴 연출만 여기 적는다.
 const CINE_NO_RECENTER = [
 ];
+// 대기 기준점을 월드 원점으로 둘 보스. 대기 중에도 접힌 연출 메쉬가 점의 중간값을 끌어당긴다.
+//   거대 질량체 - 접힌 연출 메쉬(C · F · uP · dP)가 대기 중에도 보여서 중간값이 z -8.3 으로 나왔다.
+const CINE_CENTER_BY_MESH = [/^eba004/i];   // 아래 applyCineShift - 대기 기준을 월드 원점으로
 
 const CLIP_CAM_DIST = [
   { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_08$/i, scale: 1.4 },
@@ -4020,19 +4023,47 @@ function noFollowClip(bossKey, name) {
         const xs = [], zs = [];
         const v = new THREE.Vector3();
         const d = clip.duration || 0;
+        // 그 프레임의 중심 = 지금 보이는 메쉬 점들의 중간값. 추적 기준 리그는 보이는 몸을 대표하지 못하는 연출이
+        // 있다(거대 질량체 등장은 본체 리그를 접어 두고 맵 연출 리그가 몸을 보여 준다, 그레이브 디거 · 검은 뱀은
+        // 리그 중심과 보이는 몸이 따로 움직인다). 중간값이라 상자 중심과 달리 몇 점이 튀어도 버틴다.
+        const pv = new THREE.Vector3();
+        const okAt = () => {
+          const px = [], pz = [];
+          meshes.forEach(m => {
+            if (!m.isSkinnedMesh || !m.visible) return;
+            // 뼈 행렬은 그릴 때만 갱신된다 - 안 하면 화면에 마지막으로 그린 자세를 읽는다
+            m.skeleton.update();
+            const pos = m.geometry.attributes.position;
+            const step = Math.max(1, pos.count >> 6);
+            for (let j = 0; j < pos.count; j += step) {
+              pv.fromBufferAttribute(pos, j);
+              m.applyBoneTransform(j, pv);
+              pv.applyMatrix4(m.matrixWorld);
+              if (isFinite(pv.x) && isFinite(pv.z)) { px.push(pv.x); pz.push(pv.z); }
+            }
+          });
+          if (!px.length) return false;
+          px.sort((p, q) => p - q); pz.sort((p, q) => p - q);
+          v.set(px[px.length >> 1], 0, pz[pz.length >> 1]);
+          return true;
+        };
+        let last = null;
         for (let i = 0; i <= 8; i++) {
           probeMixer.setTime(d * i / 8);
           gltf.scene.updateMatrixWorld(true);
-          if (rigCenter(focusMesh, v, focusBone) && isFinite(v.x) && isFinite(v.z)) {
+          if (okAt()) {
             xs.push(v.x); zs.push(v.z);
+            if (i === 8) last = { x: v.x, z: v.z };
           }
         }
         probeMixer.stopAllAction();
         probeMixer.uncacheRoot(gltf.scene);
-        if (xs.length) {
-          const mid = a => a.slice().sort((p, q) => p - q)[a.length >> 1];
-          result = { x: mid(xs), z: mid(zs) };
-        }
+        const mid = a => a.slice().sort((p, q) => p - q)[a.length >> 1];
+        const med = xs.length ? { x: mid(xs), z: mid(zs) } : null;
+        // 기준을 잡기 어려운 연출 - 잰 값이 절반도 안 되거나, 보스가 크게 움직여 중간값에서 2 넘게 벗어나는 프레임이
+        // 있으면 연출 마지막 위치를 원점으로 잡는다(사용자 요청, 2026-10-04). 끝나고 대기로 돌아올 때도 안 튄다.
+        const wide = med && xs.some((x, i) => Math.hypot(x - med.x, zs[i] - med.z) > 2);
+        result = (!med || xs.length < 5 || wide) ? (last || med) : med;
       } finally {
         restorePose(saved);
         gltf.scene.updateMatrixWorld(true);
@@ -4047,12 +4078,27 @@ function noFollowClip(bossKey, name) {
       cineShifted = false;
     }
     function applyCineShift(clip) {
-      if (!cinematic || !followReady) return;
+      // 확인용 - 마지막 판단을 state.cineShift 에 남긴다
+      state.cineShift = { clip: clip.name, cinematic: !!cinematic };
+      if (!cinematic || !focusMesh) return;
       if (CINE_NO_RECENTER.some(o => o.boss.test(bossKey || '') && o.re.test(clip.name || ''))) return;
       const c = cineCenterOf(clip);
+      state.cineShift.center = c;
       if (!c) return;
-      const dx = followBase.x - c.x, dz = followBase.z - c.z;
-      if (Math.hypot(dx, dz) < 0.05) return;
+      // 맞출 자리는 지금 페이즈 대기 동작의 같은 기준 위치다. 추적 기준(followBase)은 불러올 때의 기본 자세라
+      // 거대 질량체처럼 기본 자세의 본체가 멀리(z -21.7) 있는 보스에서는 연출 위치와 같아져 0 만큼 옮겼다.
+      // 메쉬 점으로 재는 보스(CINE_CENTER_BY_MESH)는 대기 중에도 접힌 연출 메쉬가 점을 끌어당겨서, 처음 불러올 때
+      // 원점에 맞춰 둔 대기 화면 그대로 월드 원점을 쓴다.
+      const idleClip = findIdleClipForPhase(currentPhase);
+      const home = CINE_CENTER_BY_MESH.some(re => re.test(bossKey || '')) ? { x: 0, z: 0 }
+        : ((idleClip && cineCenterOf(idleClip)) || { x: followBase.x, z: followBase.z });
+      state.cineShift.home = home;
+      const dx = home.x - c.x, dz = home.z - c.z;
+      state.cineShift.d = [dx, dz];
+      // 리그가 흩어지는 연출(거대 질량체 사망은 뼈가 수만 유닛까지 날아간다)은 값이 터진다 - 그만큼 옮기면
+      // 카메라가 원점에서 너무 멀어져 화면이 떨린다. 50 을 넘으면 옮기지 않는다.
+      const dist = Math.hypot(dx, dz);
+      if (dist < 0.05 || dist > 50) return;
       // 월드 가로 이동을 gltf.scene 의 부모(normGroup) 공간으로 바꾼다 — 상하 각도(pitch)가 걸린 보스도 높이는 그대로
       normGroup.updateMatrixWorld(true);
       const a = normGroup.worldToLocal(new THREE.Vector3(0, 0, 0));
