@@ -946,6 +946,15 @@ const PHASE_LIFT = [
 const CLIP_CAM_LIFT = [
 ];
 
+// 클립 하나만 시점 거리를 따로 줘야 하는 경우. 그 클립을 재생하는 동안 카메라를 시선에서 scale 배로 물린다
+// (눈높이 · 각도는 그대로). 다른 클립으로 넘어가면 기본 거리로 돌아온다.
+//   거대 질량체 - 몸통은 화면 안인데 연출 덩어리(F_skin)가 펼쳐져 화면 밖으로 나간다(사용자 지적, 2026-10-04).
+//   기본 거리 1.8 에서 전 구간 화면 범위: 스킬 08 묶음 y -1.16 ~ 1.26, 스킬 fire_09 y -1.71 ~ 1.14.
+const CLIP_CAM_DIST = [
+  { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_08$/i, scale: 1.4 },
+  { boss: /^eba004/i, re: /^eba004_skill_fire_09$/i, scale: 2.0 },
+];
+
 function getBossTransform(bossCode) {
   // 추출본은 루트 노드에 방향 회전이 이미 들어 있고(쿼터니언 [0,-1,0,0] = yaw 180도)
   // GLTFLoader 가 그걸 적용한다. 좌우 180도가 이 보스들의 정면이다(테스트 뷰어에서 확인).
@@ -3679,6 +3688,23 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       controls.target.y += d;
     }
 
+    // 클립별 시점 거리(CLIP_CAM_DIST). 기본 시점(homeCamPos)을 시선 기준으로 늘였다 줄인다.
+    let clipCamScale = 1;
+    function applyClipCamDist(clipName) {
+      if (!homeCamPos || !homeTarget) return;
+      const rule = CLIP_CAM_DIST.find(
+        o => o.boss.test(bossKey || '') && o.re.test(clipName || ''));
+      const want = (rule && rule.scale) || 1;
+      if (want === clipCamScale) return;
+      const k = want / clipCamScale;
+      clipCamScale = want;
+      homeCamPos.sub(homeTarget).multiplyScalar(k).add(homeTarget);
+      if (followEnabled) {
+        camera.position.sub(controls.target).multiplyScalar(k).add(controls.target);
+        controls.update();
+      }
+    }
+
     // 시점 추적을 아예 끄는 연출.
 //
 // 리그가 통째로 부서져 바닥 아래로 떨어지는 클립은 따라가면 안 된다 - 화면이
@@ -4132,6 +4158,7 @@ function noFollowClip(bossKey, name) {
       applyVisibility();
       if (glowReady) applyGlow();
       applyClipCamLift(clip.name);
+      applyClipCamDist(clip.name);
       markActiveClip(opts.keepQueue ? undefined : clip.name);
       markPlayingClip(clip.name);
     }
