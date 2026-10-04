@@ -495,56 +495,23 @@ function syncNameScrollAnimations(root, wrapSelector, nameSelector) {
 }
 
 // L2D 캔버스 드래그 이동(팬) + 휠 확대/축소 — spine-player 라이브러리 자체엔 이 기능이 없어서 직접 구현.
-// 이전 버전은 spine 내부 camera/currentViewport를 직접 조작했는데, 상호작용 시 캐릭터가 사라지는
-// 문제가 있었고 원인을 확정 짓지 못했다. 같은 니케 L2D 에셋을 쓰는 다른 사이트(Nikke-db.github.io)의
-// 공개 소스를 참고해보니, 그쪽은 spine 내부를 전혀 건드리지 않고 **spine이 렌더링되는 바깥 div를
-// 순수 CSS로 옮기고 크기만 조절**하는 방식이었다 — spine-player는 매 프레임 자기 canvas의
-// clientWidth/clientHeight를 읽어서 알아서 다시 그리기 때문에, 바깥 컨테이너만 크게/작게 하거나
-// 위치를 옮기면 알아서 그 크기·위치에 맞게 다시 렌더링된다. spine 내부 상태를 전혀 건드리지 않으므로
-// 훨씬 안전하다. container는 wrapEl(overflow:hidden, position:relative) 안에서 position:absolute로
-// 움직이고 커진다.
-// 이 브라우저에서 WebGL 캔버스를 줄이지 않고 그대로 쓸 수 있는 크기(한 번만 잰다).
-// 크롬은 넓이 약 6400만 화소, 한 변 16384 가 넘으면 내부 그림판을 줄인다. 브라우저마다 달라서
-// 7000x7000(4900만)을 실제로 만들어 보고, 줄어들면 줄어든 넓이를 한도로 삼는다. 여유로 0.8 배.
-let spineCanvasLimitCache = null;
-function spineCanvasLimit() {
-  if (spineCanvasLimitCache) return spineCanvasLimitCache;
-  let area = 40e6, side = 16384;
-  try {
-    const c = document.createElement('canvas');
-    c.width = 7000; c.height = 7000;
-    const gl = c.getContext('webgl');
-    if (gl) {
-      side = Math.min(side, gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
-      area = Math.min(area, gl.drawingBufferWidth * gl.drawingBufferHeight * 0.8);
-      const lose = gl.getExtension('WEBGL_lose_context');
-      if (lose) lose.loseContext();
-    }
-  } catch (e) { /* 못 재면 기본값 */ }
-  spineCanvasLimitCache = { area, side: side * 0.95 };
-  return spineCanvasLimitCache;
-}
-
-function setupSpinePanZoom(container, wrapEl) {
+//
+// 방식(2026-10-05 바꿈): 캔버스 크기는 처음 그대로 두고 spine 카메라만 당기고 옮긴다.
+// spine-player 는 매 프레임 drawFrame 에서 뷰포트로 카메라(zoom · position)를 정한 뒤
+// config.update(player, delta) 를 부르고 나서 그린다(camera.update 는 그 뒤 begin 에서). 그 사이에
+// 확대 배율과 이동량만큼 카메라를 고친다 — 라이브러리가 열어 둔 자리라 내부 상태를 덮어쓰지 않는다.
+//   예전 방식은 바깥 div(캔버스)를 배율만큼 키웠다. 휠을 굴릴 때마다 캔버스 그림판을 새로 잡아서
+//   반응이 굼떴고, 키운 만큼 매 프레임 그리는 화소가 늘어 무거웠다. 크롬은 캔버스가 약 6400만 화소를
+//   넘으면 그림판을 몰래 줄이는데 spine 은 캔버스 크기로 그려서 그림이 좌하단으로 튀었다(사용자 지적).
+//   카메라 방식은 확대해도 그리는 화소가 그대로라 가볍고, 그때그때 다시 그려서 선명하다.
+// 수식은 예전과 같은 말로 둔다: 화면 점 X 에는 배율 1 일 때의 점 (X - offsetX) / scale 이 보인다.
+// getPlayers 는 지금 떠 있는 SpinePlayer 배열을 돌려준다(코스튬은 추가 파츠 레이어가 나중에 붙는다).
+function setupSpinePanZoom(container, wrapEl, getPlayers) {
   container.style.position = 'absolute';
   container.style.left = '0px';
   container.style.top = '0px';
 
-  const baseWidth = container.offsetWidth;
-  const baseHeight = container.offsetHeight;
-  const MIN_SCALE = 0.3, MAX_SCALE = 5;
-
-  // 확대는 캔버스 자체를 키우는 방식이라, 크게 키우면 브라우저 한도를 넘는다. 크롬은 캔버스가 약
-  // 6400만 화소를 넘으면 내부 그림판을 몰래 반으로 줄이는데, spine 은 캔버스 크기 기준으로 그려서
-  // 그림이 좌하단으로 튀었다(사용자 지적, 2026-10-05). 그 한도 안에서만 키운다(화면 배율까지 셈).
-  function maxScale() {
-    const dpr = window.devicePixelRatio || 1;
-    const w = baseWidth * dpr, h = baseHeight * dpr;
-    if (!w || !h) return MAX_SCALE;
-    const cap = spineCanvasLimit();
-    return Math.max(1, Math.min(MAX_SCALE,
-      Math.sqrt(cap.area / (w * h)), cap.side / w, cap.side / h));
-  }
+  const MIN_SCALE = 0.3, MAX_SCALE = 15;
 
   // 마우스 위치와 이동 한계는 캔버스가 실제로 놓인 칸(그림 칸) 기준이다. 예전에는 조작판까지 든
   // 바깥 상자(wrapEl) 기준이라, 판 폭만큼 어긋나서 커서 아래 지점이 제자리에 남지 않았다.
@@ -553,7 +520,9 @@ function setupSpinePanZoom(container, wrapEl) {
   let scale = 1, offsetX = 0, offsetY = 0;
 
   // 캐릭터가 화면 밖으로 완전히 나가버리지 않도록, 너무 멀리 옮기면 벽에 막힌 느낌으로 멈추게 함
-  function clampOffsets(w, h) {
+  function clampOffsets() {
+    const w = container.clientWidth * scale;
+    const h = container.clientHeight * scale;
     const wrapW = box().clientWidth;
     const wrapH = box().clientHeight;
     const minX = Math.min(0, wrapW - w);
@@ -564,15 +533,43 @@ function setupSpinePanZoom(container, wrapEl) {
     offsetY = Math.max(minY, Math.min(maxY, offsetY));
   }
 
-  function apply() {
-    const w = baseWidth * scale;
-    const h = baseHeight * scale;
-    clampOffsets(w, h);
-    container.style.width = w + 'px';
-    container.style.height = h + 'px';
-    container.style.left = offsetX + 'px';
-    container.style.top = offsetY + 'px';
+  // 카메라 고치기. spine 이 이번 프레임 카메라를 정한 직후에 불린다.
+  function adjustCamera(player) {
+    if (scale === 1 && offsetX === 0 && offsetY === 0) return;
+    const cam = player.sceneRenderer && player.sceneRenderer.camera;
+    const canvas = player.canvas;
+    if (!cam || !canvas || !canvas.clientWidth) return;
+    const k = canvas.width / canvas.clientWidth;          // CSS 화소 -> 캔버스 화소
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const z0 = cam.zoom;                                   // 캔버스 화소 하나가 덮는 월드 길이
+    cam.position.x += z0 * k * (W / 2 * (1 / scale - 1) - offsetX / scale);
+    cam.position.y -= z0 * k * (H / 2 * (1 / scale - 1) - offsetY / scale);
+    cam.zoom = z0 / scale;
   }
+
+  // 떠 있는 플레이어마다 한 번씩 훅을 단다. 나중에 붙는 레이어도 잡으려고 그릴 때마다 확인한다.
+  const hooked = new Set();
+  function hookPlayers() {
+    const list = (getPlayers && getPlayers()) || [];
+    list.forEach(p => {
+      if (!p || !p.config || hooked.has(p)) return;
+      hooked.add(p);
+      const prev = p.config.update;
+      p.config.update = (player, delta) => {
+        if (prev) prev(player, delta);
+        if (destroyed) return;
+        hookPlayers();
+        adjustCamera(player);
+      };
+    });
+  }
+  let destroyed = false;
+
+  function apply() {
+    clampOffsets();
+    hookPlayers();
+  }
+  hookPlayers();
 
   let dragging = false, dragMoved = false;
   let dragStartX = 0, dragStartY = 0, startOffsetX = 0, startOffsetY = 0;
@@ -629,8 +626,8 @@ function setupSpinePanZoom(container, wrapEl) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(maxScale(), Math.max(MIN_SCALE, scale * factor));
+    const factor = e.deltaY > 0 ? 1 / 1.12 : 1.12;
+    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
     if (newScale === scale) return;
     const actualFactor = newScale / scale;
 
@@ -650,6 +647,7 @@ function setupSpinePanZoom(container, wrapEl) {
 
   const api = () => {};
   api.destroy = () => {
+    destroyed = true;
     wrapEl.removeEventListener('mousedown', onMouseDown);
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
@@ -658,8 +656,6 @@ function setupSpinePanZoom(container, wrapEl) {
     container.style.position = '';
     container.style.left = '';
     container.style.top = '';
-    container.style.width = '';
-    container.style.height = '';
   };
   api.reset = () => {
     scale = 1;
@@ -667,6 +663,8 @@ function setupSpinePanZoom(container, wrapEl) {
     offsetY = 0;
     apply();
   };
+  // 시험용(콘솔에서 상태 확인)
+  api.state = () => ({ scale, offsetX, offsetY });
   return api;
 }
 

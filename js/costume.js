@@ -822,7 +822,7 @@
         rebuildSkin();
         renderPartsToggle('costume-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
 
-        costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl);
+        costumePanZoom = setupSpinePanZoom(stageDiv, wrapEl, () => activeSpinePlayers);
 
         const resetBtn = document.getElementById('costume-spine-reset');
         if (resetBtn) {

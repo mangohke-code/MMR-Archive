@@ -813,7 +813,7 @@
             renderCostumeAnimControls(player2.skeleton.data, animOpts);
             markCostumeAnimActive('idle', animOpts);
 
-            codexPanZoom = setupSpinePanZoom(playerDiv2, wrapEl);
+            codexPanZoom = setupSpinePanZoom(playerDiv2, wrapEl, () => [player2]);
 
             const resetBtn = document.getElementById('codex-spine-reset');
             if (resetBtn) {
