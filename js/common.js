@@ -1105,7 +1105,7 @@ async function fetchAll(tableName, orderColumn) {
 }
 
 async function loadAllData() {
-  // 메인 페이지 아래 "더 많은 기능" 링크. 따로 받는다 — 이 표에 문제가 생겨도(아직 안 만듦 · 권한)
+  // 메인 페이지 아래 "외부 링크". 따로 받는다 — 이 표에 문제가 생겨도(아직 안 만듦 · 권한)
   // 다른 탭까지 먹통이 되면 안 되므로 실패하면 빈 목록으로 넘어간다. 다른 표와 같이 기다리도록 먼저 출발만 시킨다.
   const linkRowsP = fetchAll('메인_링크', '순서').catch(err => {
     console.warn('[메인 링크] 메인_링크 읽기 실패:', err.message || err);

@@ -19,7 +19,7 @@
     renderEventList(activeEvents);
   }
 
-  // "더 많은 기능" 링크 — 메인_링크 표에서 그린다. 하나도 없으면 구역째 감춘다.
+  // "외부 링크" — 메인_링크 표에서 그린다. 하나도 없으면 구역째 감춘다.
   function renderLinks(links) {
     const box = document.getElementById('main-links');
     const list = document.getElementById('link-list');
