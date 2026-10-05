@@ -8207,3 +8207,28 @@
      내용이 짧은 탭 · 긴 탭을 오갈 때도 같은 일이 있었다. 솔로 레이드는 화면 꽉 찬 배치라 자리를 두지 않는다. */
   html { scrollbar-gutter: stable; }
   html:has(body.app-mode) { scrollbar-gutter: auto; }
+
+  /* ===== 픽업 기록 — 몰아보기 분류를 보기 버튼 사이에 =====
+     몰아보기를 고르면 분류(기업 · 유형 · 우월코드 · 버스트 · 총기)가 몰아보기와 픽업 달력 사이에 펼쳐진다
+     (사용자 요청, 2026-10-05). 보기 버튼과 구분되게 조금 작게, 양옆에 얇은 라벤더 선을 긋는다.
+     폰은 한 줄에 다 안 들어가서 보기 버튼 아래 줄로 내린다. */
+  #pickup-view-btns { align-items: center; }
+  #pickup-view-btns #pickup-group-selector {
+    margin: 0 4px;
+    padding: 0 8px;
+    border-left: 1px solid var(--border-strong);
+    border-right: 1px solid var(--border-strong);
+  }
+  #pickup-view-btns .pickup-group-btn { font-size: 14px; padding: 5px 12px; }
+  @media (max-width: 540px) {
+    #pickup-view-btns { flex-wrap: wrap; }
+    #pickup-view-btns #pickup-group-selector {
+      order: 10;
+      width: 100%;
+      margin: 4px 0 0;
+      padding: 0;
+      border: 0;
+      flex-wrap: nowrap;
+    }
+    #pickup-view-btns .pickup-group-btn { flex: 1; padding: 5px 4px; font-size: 13px; white-space: nowrap; }
+  }

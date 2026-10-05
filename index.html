@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=197">
+  <link rel="stylesheet" href="css/style.css?v=199">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -123,14 +123,15 @@
           <div id="pickup-view-btns">
             <button class="pickup-view-btn active" data-view="timeline">타임라인</button>
             <button class="pickup-view-btn" data-view="group">몰아보기</button>
+            <!-- 몰아보기 분류: 몰아보기를 고르면 그 바로 옆(달력 앞)에 펼쳐진다 -->
+            <div id="pickup-group-selector" class="hidden">
+              <button class="pickup-group-btn active" data-group="company">기업</button>
+              <button class="pickup-group-btn" data-group="type">유형</button>
+              <button class="pickup-group-btn" data-group="code">우월코드</button>
+              <button class="pickup-group-btn" data-group="burst">버스트</button>
+              <button class="pickup-group-btn" data-group="weapon">총기</button>
+            </div>
             <button class="pickup-view-btn" data-view="calendar">픽업 달력</button>
-          </div>
-          <div id="pickup-group-selector" class="hidden">
-            <button class="pickup-group-btn active" data-group="company">기업</button>
-            <button class="pickup-group-btn" data-group="type">유형</button>
-            <button class="pickup-group-btn" data-group="code">우월코드</button>
-            <button class="pickup-group-btn" data-group="burst">버스트</button>
-            <button class="pickup-group-btn" data-group="weapon">총기</button>
           </div>
           <!-- 글자를 스위치 안에 넣어 옆자리를 안 차지한다 -->
           <div id="pickup-rerun-toggle" class="toggle-switch-wrap toggle-inline" role="switch"
