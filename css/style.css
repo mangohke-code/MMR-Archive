@@ -8238,3 +8238,7 @@
      (위 규칙들이 :is(#soloraid-sort-btn, #soloraid-order-btn) 로 둘을 같이 꾸민다). */
   #soloraid-order-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   #soloraid-order-btn i { font-size: 13px; }
+
+  /* 팝업 그림 칸: 새 그림이 다 받아질 때까지 비워 둔다(앞서 연 니케 그림이 잠깐 보이지 않게) */
+  .pk-detail-figure.is-loading img { visibility: hidden; }
+  .pk-detail-figure.is-loading.is-fallback::after { content: none; }

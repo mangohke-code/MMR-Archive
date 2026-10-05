@@ -651,6 +651,8 @@
   const DETAIL_ATTRS = [['기업', '기업'], ['유형', '유형'], ['버스트', '버스트'], ['총기', '무기'], ['우월코드', '우월코드']];
   let detailEl = null;
   let detailReturnFocus = null;
+  let detailImgTurn = 0;               // 그림 요청 차례(늦게 끝난 이전 요청을 거른다)
+  const missingFullImg = new Set();    // 전신 이미지가 없다고 확인된 니케 코드
 
   const escHtml = t => String(t === null || t === undefined ? '' : t)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -752,27 +754,44 @@
         <ul class="pk-hist">${historyHtml}</ul>
       </div>` : ''}`;
 
-    // 전신 이미지 -> 없으면 카드 그림
+    // 전신 이미지 -> 없으면 카드 그림.
+    // 그림 칸은 팝업마다 같은 <img> 를 쓴다. src 만 바꾸면 새 그림이 다 받아질 때까지 앞서 연 니케 그림이
+    // 그대로 보였다(전신이 없는 니케는 없음을 확인하는 동안 더 길게)(사용자 지적, 2026-10-05).
+    // 먼저 그림을 지우고 감춘 뒤, 이번 차례 그림이 다 받아지면 보인다. 늦게 끝난 이전 요청은 번호로 거른다.
     const fig = el.querySelector('.pk-detail-figure');
     const img = fig.querySelector('img');
     const code = nikkeCodeOf(name);
     const cardImg = (nikkeImgOf(name) || {})['이미지'] || '';
+    const turn = ++detailImgTurn;
     fig.classList.remove('is-fallback', 'is-empty');
-    img.onerror = null;
+    fig.classList.add('is-loading');
+    img.onload = img.onerror = null;
+    img.removeAttribute('src');
     img.alt = name;
-    if (code) {
+    const showFallback = () => {
+      if (turn !== detailImgTurn) return;
+      if (cardImg) {
+        fig.classList.add('is-fallback');
+        img.onerror = () => {   // 카드 그림까지 없으면 빈 칸 + 안내 글
+          if (turn !== detailImgTurn) return;
+          fig.classList.remove('is-loading', 'is-fallback');
+          fig.classList.add('is-empty');
+        };
+        img.src = cardImg;
+      }
+      else { fig.classList.remove('is-loading'); fig.classList.add('is-empty'); }
+    };
+    img.onload = () => { if (turn === detailImgTurn) fig.classList.remove('is-loading'); };
+    if (code && !missingFullImg.has(code)) {
       img.onerror = () => {
+        if (turn !== detailImgTurn) return;
         img.onerror = null;
-        if (cardImg) { fig.classList.add('is-fallback'); img.src = cardImg; }
-        else fig.classList.add('is-empty');
+        missingFullImg.add(code);   // 다음에 열 때는 바로 카드 그림으로
+        showFallback();
       };
       img.src = FULL_IMG_DIR + code + '.webp';
-    } else if (cardImg) {
-      fig.classList.add('is-fallback');
-      img.src = cardImg;
     } else {
-      fig.classList.add('is-empty');
-      img.removeAttribute('src');
+      showFallback();
     }
 
     const wasOpen = !el.classList.contains('hidden');
