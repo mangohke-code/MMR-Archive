@@ -74,6 +74,8 @@
       initPickupToolbar();
       initYearNav();
       updateYearNav();
+      initPickupDetail();
+      initPickupSticky();
     });
   }
 
@@ -188,7 +190,7 @@
     ].filter(Boolean).join('');
 
     return `
-      <div class="${itemClass}">
+      <div class="${itemClass}" data-nikke-name="${p['니케']}" data-start="${p['시작일']}" tabindex="0" role="button" aria-label="${p['니케']} 자세히 보기">
         <div class="group-nikke-portrait">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}">` : ''}
         </div>
@@ -532,7 +534,7 @@
     }).join('');
 
     return `
-      <div class="${cardClass}" data-nikke-name="${p['니케']}" data-start="${p['시작일']}">
+      <div class="${cardClass}" data-nikke-name="${p['니케']}" data-start="${p['시작일']}" tabindex="0" role="button" aria-label="${p['니케']} 자세히 보기">
         <div class="nikke-top-badges">
           ${isCollab ? `<span class="nikke-badge-collab">콜라보</span>` : ''}
           ${!isCollab && isLimited ? `<span class="nikke-badge-limited">한정</span>` : ''}
@@ -641,6 +643,277 @@
     setTimeout(() => target.classList.remove('jump-highlight'), 1200);
   }
 
+  // ===== 니케 상세 팝업 =====
+  // 카드(타임라인 · 몰아보기)를 누르면 뜬다. 왼쪽은 세로 전신 이미지, 오른쪽은 정보.
+  // 전신 이미지는 카드 그림과 같은 니케 코드로 찾는다: IMG_니케 이미지 "img/nikke/c063_00.webp"
+  // -> "img/nikke-full/c063_00.webp". 아직 파일이 없으면 카드 그림을 대신 크게 보여 준다.
+  const FULL_IMG_DIR = 'img/nikke-full/';
+  const DETAIL_ATTRS = [['기업', '기업'], ['유형', '유형'], ['버스트', '버스트'], ['총기', '무기'], ['우월코드', '속성']];
+  let detailEl = null;
+  let detailReturnFocus = null;
+
+  const escHtml = t => String(t === null || t === undefined ? '' : t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  function nikkeImgOf(name) {
+    return pickupNikkeImgData.find(n => n['이름'] === name) || null;
+  }
+
+  function nikkeCodeOf(name) {
+    const n = nikkeImgOf(name);
+    const m = /([a-z]\d{3}_\d{2})\.\w+$/i.exec((n && n['이미지']) || '');
+    return m ? m[1] : null;
+  }
+
+  function fullDate(v) {
+    return v ? (formatKst(v, { withTime: hasTimePart(v) }) || '-') : '-';
+  }
+
+  function ensureDetailEl() {
+    if (detailEl) return detailEl;
+    detailEl = document.createElement('div');
+    detailEl.id = 'pk-detail';
+    detailEl.className = 'hidden';
+    detailEl.innerHTML = `
+      <div class="pk-detail-backdrop" data-close></div>
+      <div class="pk-detail-panel" role="dialog" aria-modal="true" aria-labelledby="pk-detail-name">
+        <button type="button" class="pk-detail-close" aria-label="닫기" data-close><i class="fas fa-xmark"></i></button>
+        <div class="pk-detail-figure"><img alt=""></div>
+        <div class="pk-detail-body"></div>
+      </div>`;
+    document.body.appendChild(detailEl);
+    detailEl.addEventListener('click', e => {
+      if (e.target.closest('[data-close]')) closePickupDetail();
+    });
+    detailEl.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); closePickupDetail(); }
+    });
+    return detailEl;
+  }
+
+  function detailAttrRow(p, attr, label) {
+    const val = p[attr];
+    if (!val) {
+      return `<div class="pk-attr is-unknown"><span class="pk-attr-label">${label}</span>`
+        + `<span class="pk-attr-val"><span class="pk-attr-icon">?</span>미공개</span></div>`;
+    }
+    const shown = attr === '기업' ? getBaseCompany(val) : val;
+    const icon = (iconImgData[attr] && iconImgData[attr][val])
+      || (attr === '기업' && iconImgData[attr] && iconImgData[attr][shown]) || '';
+    const text = attr === '버스트' ? (String(shown) === 'Λ' ? '전체' : `${shown}단계`) : shown;
+    const codeCls = attr === '우월코드' ? ` code-${escHtml(shown)}` : '';
+    const iconHtml = icon ? `<img class="pk-attr-icon" src="${escHtml(icon)}" alt="">` : '';
+    return `<div class="pk-attr"><span class="pk-attr-label">${label}</span>`
+      + `<span class="pk-attr-val${codeCls}">${iconHtml}${escHtml(text)}</span></div>`;
+  }
+
+  function openPickupDetail(name, start, sourceEl) {
+    const all = allPickupData.filter(x => x['니케'] === name);
+    if (!all.length) return;
+    const p = all.find(x => x['시작일'] === start) || all[all.length - 1];
+    const el = ensureDetailEl();
+
+    const isCollab = isCollabCompany(p['기업']);
+    const isLimited = isCollab || LIMITED_SEASONS.includes(p['시즌']);
+    const isActive = isPickupPeriodActive(p['시작일'], p['종료일']);
+    const isUpcoming = !isActive && isPickupUpcoming(p['시작일']);
+    const badges = [
+      isCollab ? '<span class="nikke-badge-collab">콜라보</span>' : '',
+      !isCollab && isLimited ? '<span class="nikke-badge-limited">한정</span>' : '',
+      p['복각'] ? '<span class="nikke-badge-rerun">복각</span>' : '',
+      isActive ? '<span class="nikke-active-badge">픽업 중</span>' + formatRemainingDaysPickup(p['시작일'], p['종료일']) : '',
+      isUpcoming ? '<span class="nikke-upcoming-badge">픽업 예정</span>' + formatDaysUntilStart(p['시작일']) : '',
+    ].join('');
+
+    const history = [...all].sort((a, b) => new Date(a['시작일']) - new Date(b['시작일']));
+    const historyHtml = history.map((x, i) => `
+      <li class="${x === p ? 'is-current' : ''}">
+        <span class="pk-hist-kind">${i === 0 ? '최초' : '복각'}</span>
+        <span class="pk-hist-date">${fullDate(x['시작일'])} ~ ${fullDate(x['종료일'])}</span>
+        <span class="pk-hist-event">${escHtml(x['이벤트'] || '')}</span>
+      </li>`).join('');
+
+    const season = p['시즌'] ? ` <em>${escHtml(p['시즌'])}</em>` : '';
+    el.querySelector('.pk-detail-body').innerHTML = `
+      <div class="pk-detail-code">${escHtml((nikkeCodeOf(name) || '').toUpperCase())}</div>
+      <h2 id="pk-detail-name" class="pk-detail-name">${escHtml(name)}</h2>
+      ${badges ? `<div class="pk-detail-badges">${badges}</div>` : ''}
+      <div class="pk-detail-section">
+        <div class="pk-detail-label">픽업 기간</div>
+        <div class="pk-detail-period">${fullDate(p['시작일'])} ~ ${fullDate(p['종료일'])}</div>
+        <div class="pk-detail-event">${escHtml(p['이벤트'] || '')}${season}</div>
+      </div>
+      <div class="pk-detail-section">
+        <div class="pk-detail-label">정보</div>
+        <div class="pk-attrs">${DETAIL_ATTRS.map(([a, l]) => detailAttrRow(p, a, l)).join('')}</div>
+      </div>
+      ${history.length > 1 ? `<div class="pk-detail-section">
+        <div class="pk-detail-label">픽업 이력</div>
+        <ul class="pk-hist">${historyHtml}</ul>
+      </div>` : ''}`;
+
+    // 전신 이미지 -> 없으면 카드 그림
+    const fig = el.querySelector('.pk-detail-figure');
+    const img = fig.querySelector('img');
+    const code = nikkeCodeOf(name);
+    const cardImg = (nikkeImgOf(name) || {})['이미지'] || '';
+    fig.classList.remove('is-fallback', 'is-empty');
+    img.onerror = null;
+    img.alt = name;
+    if (code) {
+      img.onerror = () => {
+        img.onerror = null;
+        if (cardImg) { fig.classList.add('is-fallback'); img.src = cardImg; }
+        else fig.classList.add('is-empty');
+      };
+      img.src = FULL_IMG_DIR + code + '.webp';
+    } else if (cardImg) {
+      fig.classList.add('is-fallback');
+      img.src = cardImg;
+    } else {
+      fig.classList.add('is-empty');
+      img.removeAttribute('src');
+    }
+
+    const wasOpen = !el.classList.contains('hidden');
+    el.classList.remove('hidden');
+    document.documentElement.classList.add('pk-detail-open');
+    if (!wasOpen) {
+      detailReturnFocus = sourceEl || document.activeElement;
+      pushInTabState('pickup-detail');
+    }
+    el.querySelector('.pk-detail-close').focus({ preventScroll: true });
+  }
+
+  function closePickupDetail(opts) {
+    if (!detailEl || detailEl.classList.contains('hidden')) return;
+    detailEl.classList.add('hidden');
+    document.documentElement.classList.remove('pk-detail-open');
+    if (!(opts && opts.fromHistory)) popInTabState('pickup-detail');
+    if (detailReturnFocus && detailReturnFocus.focus) detailReturnFocus.focus({ preventScroll: true });
+    detailReturnFocus = null;
+  }
+
+  function initPickupDetail() {
+    const open = el => openPickupDetail(el.dataset.nikkeName, el.dataset.start, el);
+    [['pickup-timeline', '.nikke-card'], ['pickup-group-view', '.group-nikke-item']].forEach(([id, sel]) => {
+      const box = document.getElementById(id);
+      if (!box) return;
+      box.addEventListener('click', e => {
+        const card = e.target.closest(sel);
+        if (card && card.dataset.nikkeName) open(card);
+      });
+      box.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const card = e.target.closest(sel);
+        if (!card || card !== e.target || !card.dataset.nikkeName) return;
+        e.preventDefault();
+        open(card);
+      });
+    });
+    // 뒤로 가기 · 다른 탭으로 옮기면 닫는다
+    window.addEventListener('popstate', ev => {
+      if (ev.state && ev.state.mmrStep === 'pickup-detail') return;
+      closePickupDetail({ fromHistory: true });
+    });
+    document.addEventListener('mmr:tab-change', ev => {
+      if (!ev.detail || ev.detail.tab !== 'pickup') closePickupDetail();
+    });
+  }
+
+  // ===== 스크롤해도 툴바 고정 · 탭 바 자동 숨김 =====
+  // 픽업 탭에서 아래로 내려도 툴바(보기 전환 · 복각 · 검색 · 필터)는 화면 위에 붙어 있다.
+  // 탭 바는 조금 내려가면 위로 숨고, 마우스를 화면 맨 위로 가져가면 내려온다(터치는 위로 밀면 내려온다).
+  // 위에 붙는 다른 것들(월 이름 · 몰아보기 표 머리)은 --pk-stick(툴바 아래 끝)만큼 내려 붙인다.
+  const NAV_REVEAL_ZONE = 14;   // 화면 맨 위 몇 px 안에 마우스가 오면 탭 바를 꺼낸다
+  let stickyState = null;
+
+  function stickyMetrics() {
+    const nav = document.getElementById('tab-nav');
+    const bar = document.getElementById('pickup-toolbar');
+    const navH = nav ? nav.getBoundingClientRect().height : 0;
+    const barH = bar ? bar.getBoundingClientRect().height : 0;
+    return { nav, bar, navH, barH };
+  }
+
+  function revealBelowStickyBar(el) {
+    if (!el || !document.body.classList.contains('tab-pickup')) return;
+    // 칸이 펼쳐지면 브라우저가 보던 자리를 지키려고 스크롤을 그만큼 밀어 둔다(스크롤 고정).
+    // 그게 끝난 뒤에 재야 맞는 자리로 간다. 수천 px 를 부드럽게 굴리면 한참 걸려서 바로 옮긴다.
+    setTimeout(() => {
+      const { bar, barH } = stickyMetrics();
+      if (!bar) return;
+      const barTop = parseFloat(getComputedStyle(bar).top) || 0;
+      const r = el.getBoundingClientRect();
+      if (r.top >= barTop + barH) return;   // 이미 툴바 밑에 보인다
+      window.scrollTo({ top: window.scrollY + r.top - barTop - barH - 6, behavior: 'auto' });
+    }, 0);
+  }
+
+  function initPickupSticky() {
+    if (stickyState) return;
+    const root = document.documentElement;
+    const body = document.body;
+    stickyState = { shown: false, hideTimer: null, lastY: window.scrollY, raf: 0 };
+    const st = stickyState;
+
+    function apply() {
+      st.raf = 0;
+      if (!body.classList.contains('tab-pickup')) {
+        body.classList.remove('pk-nav-auto', 'pk-nav-show');
+        root.style.removeProperty('--pk-bar-top');
+        root.style.removeProperty('--pk-stick');
+        return;
+      }
+      const { navH, barH } = stickyMetrics();
+      const auto = window.scrollY > navH + 40;
+      body.classList.toggle('pk-nav-auto', auto);
+      body.classList.toggle('pk-nav-show', auto && st.shown);
+      const barTop = !auto || st.shown ? navH : 0;
+      root.style.setProperty('--pk-bar-top', barTop + 'px');
+      root.style.setProperty('--pk-stick', (barTop + barH) + 'px');
+    }
+    const schedule = () => { if (!st.raf) st.raf = requestAnimationFrame(apply); };
+
+    function show(on) {
+      clearTimeout(st.hideTimer);
+      if (on) { if (!st.shown) { st.shown = true; schedule(); } return; }
+      if (!st.shown) return;
+      st.hideTimer = setTimeout(() => { st.shown = false; schedule(); }, 250);
+    }
+
+    window.addEventListener('scroll', () => {
+      // 터치 기기: 위로 밀면 꺼내고 아래로 밀면 넣는다(마우스가 없어서)
+      if (!matchMedia('(hover: hover)').matches) {
+        const y = window.scrollY;
+        if (y < st.lastY - 4) show(true);
+        else if (y > st.lastY + 4) show(false);
+        st.lastY = y;
+      }
+      schedule();
+    }, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    document.addEventListener('mousemove', e => {
+      if (!body.classList.contains('pk-nav-auto')) return;
+      const { navH, barH } = stickyMetrics();
+      // 꺼낸 뒤에는 탭 바 · 툴바 위에 있는 동안 그대로 둔다
+      const keep = st.shown ? navH + barH : NAV_REVEAL_ZONE;
+      show(e.clientY <= keep);
+    }, { passive: true });
+    // 창 위쪽으로 마우스가 빠져나갈 때도 꺼낸다
+    document.addEventListener('mouseout', e => {
+      if (!e.relatedTarget && e.clientY <= NAV_REVEAL_ZONE && body.classList.contains('pk-nav-auto')) show(true);
+    });
+    // 키보드로 탭 바에 들어가면 꺼낸다
+    const nav = document.getElementById('tab-nav');
+    if (nav) {
+      nav.addEventListener('focusin', () => show(true));
+      nav.addEventListener('focusout', () => show(false));
+    }
+    document.addEventListener('mmr:tab-change', () => { st.shown = false; schedule(); });
+    schedule();
+  }
+
   // ===== 툴바 이벤트 =====
   let currentView = 'timeline';
   let currentGroup = 'company';
@@ -729,6 +1002,9 @@
     filterToggle.addEventListener('click', () => {
       const isHidden = filterWrap.classList.toggle('hidden');
       filterToggle.textContent = (isHidden ? '▼' : '▲') + ' 필터';
+      // 툴바가 화면 위에 붙어 있을 때(아래로 내려 본 상태) 열면 필터 칸이 화면 위쪽 밖에 펼쳐진다.
+      // 필터 칸이 툴바 바로 밑에 보이게 끌어 올린다.
+      if (!isHidden) revealBelowStickyBar(filterWrap);
     });
   }
 

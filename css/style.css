@@ -7864,3 +7864,339 @@
   @supports not (corner-shape: bevel) {
     #costume-ticket-imgs img, .ticket-free-badge, #hover-tooltip { border-radius: 2px; }
   }
+
+  /* ===== 픽업 기록 — 이벤트 이름 아래 시즌 =====
+     옅은 라벤더(--accent-dim)에 14px 라 잘 안 보였다(사용자 지적, 2026-10-05). */
+  .event-label-season {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-strong);
+  }
+
+  /* ===== 픽업 기록 — 스크롤해도 툴바 고정 · 탭 바 자동 숨김 (pickup.js initPickupSticky) =====
+     --pk-bar-top: 툴바가 붙는 높이(탭 바가 보이면 그 아래, 숨으면 0)
+     --pk-stick:   툴바 아래 끝. 위에 붙는 다른 것(월 이름 · 몰아보기 표 머리)이 그 밑에 붙는다. */
+  body.tab-pickup #tab-nav {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    background: color-mix(in srgb, var(--bg-page) 95%, transparent);
+    transition: zoom 0.26s ease, margin 0.26s ease, transform 0.22s ease, box-shadow 0.22s ease;
+  }
+  body.tab-pickup.pk-nav-auto #tab-nav { box-shadow: 0 6px 16px -10px rgba(40, 30, 80, 0.35); }
+  body.tab-pickup.pk-nav-auto:not(.pk-nav-show) #tab-nav { transform: translateY(-100%); }
+
+  body.tab-pickup #pickup-toolbar {
+    position: sticky;
+    top: var(--pk-bar-top, 0px);
+    z-index: 80;
+    padding: 10px 0;
+    margin-top: -10px;
+    background: color-mix(in srgb, var(--bg-page) 95%, transparent);
+    /* 바탕을 화면 양끝까지(가운데 1600px 판 밖까지) 넓힌다 */
+    box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--bg-page) 95%, transparent);
+    clip-path: inset(0 -100vmax);
+    transition: top 0.22s ease;
+  }
+  /* 구분선은 툴바 폭 안에만 긋는다. -100vmax 로 늘이면 가로 스크롤이 생긴다(그림자와 달리 넘침으로 친다). */
+  body.tab-pickup #pickup-toolbar::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--vinyl-line);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+  }
+  body.tab-pickup.pk-nav-auto #pickup-toolbar::after { opacity: 1; }
+
+  body.tab-pickup .month-label { top: calc(var(--pk-stick, 0px) + 8px); transition: top 0.22s ease; }
+  body.tab-pickup #pickup-group-header-wrap { top: var(--pk-stick, 0px); transition: top 0.22s ease; }
+  /* 연도 이동 · 카드 찾아가기로 스크롤할 때 툴바 밑에 가려지지 않게 */
+  body.tab-pickup #pickup-container :is(.timeline-year, .year-divider, .month-row, .nikke-card,
+    .group-nikke-item, #pickup-filter-wrap) {
+    scroll-margin-top: calc(var(--pk-stick, 0px) + 8px);
+  }
+
+  /* 카드는 누르면 상세가 뜬다 */
+  .nikke-card, .group-nikke-item { cursor: pointer; }
+  .nikke-card:focus-visible, .group-nikke-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* ===== 픽업 기록 — 니케 상세 팝업 (pickup.js openPickupDetail) =====
+     왼쪽 세로 전신 이미지(img/nikke-full/<코드>.webp, 없으면 카드 그림), 오른쪽 정보.
+     판은 다른 판과 같은 말투: 각진 모서리 · 라벤더 안쪽 선 · 금색 밑단 · 모서리 괄호. 글이 많아 바탕은 불투명. */
+  html.pk-detail-open { overflow: hidden; }
+
+  #pk-detail {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  #pk-detail.hidden { display: none; }
+
+  .pk-detail-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(16, 12, 32, 0.55);
+    animation: pk-fade 0.18s ease;
+  }
+
+  .pk-detail-panel {
+    --cut: 22px;
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(260px, 48%) minmax(0, 1fr);
+    width: min(940px, 100%);
+    height: min(86vh, 720px);
+    overflow: hidden;
+    border-radius: var(--cut) 0 var(--cut) 0;
+    corner-shape: bevel;
+    background-color: var(--bg-panel);
+    background-image:
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(90deg, var(--gold), transparent);
+    background-size: 14px 1.5px, 1.5px 14px, 40% 2px;
+    background-position: right 10px top 10px, right 10px top 10px, left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong),
+                0 24px 60px rgba(20, 10, 60, 0.35);
+    animation: pk-pop 0.2s ease;
+  }
+
+  @keyframes pk-fade { from { opacity: 0; } }
+  @keyframes pk-pop { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
+
+  .pk-detail-close {
+    --btn-cut: 7px;
+    position: absolute;
+    top: 14px;
+    right: 30px;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    font-size: 17px;
+    cursor: pointer;
+    color: var(--text-body);
+    border: 1px solid var(--border-card);
+    border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+    corner-shape: bevel;
+    background: var(--btn-bg-solid);
+    box-shadow: var(--btn-shadow);
+    transition: color 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+  }
+  @media (hover: hover) {
+    .pk-detail-close:hover {
+      color: var(--accent-strong);
+      border-color: var(--border-accent);
+      background: var(--btn-bg-hover);
+      box-shadow: var(--btn-shadow-hover);
+      transform: translateY(-2px);
+    }
+  }
+
+  /* 왼쪽 그림 칸: 라벤더 빛이 번진 모눈 위에 전신을 세운다 */
+  .pk-detail-figure {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: 0;
+    padding: 18px 12px 2px;
+    background:
+      radial-gradient(60% 45% at 50% 38%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(180deg, var(--bg-panel-alt), var(--bg-inset));
+    border-right: 1px solid var(--vinyl-line);
+  }
+  .pk-detail-figure img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 18px rgba(30, 20, 70, 0.28));
+  }
+  .pk-detail-figure.is-fallback { align-items: center; }
+  .pk-detail-figure.is-fallback img {
+    max-width: 78%;
+    max-height: 62%;
+    border-radius: 14px 0 14px 0;
+    corner-shape: bevel;
+    filter: none;
+    box-shadow: inset 0 0 0 1px var(--vinyl-line), var(--shadow-card);
+  }
+  .pk-detail-figure.is-fallback::after,
+  .pk-detail-figure.is-empty::after {
+    content: '전신 이미지 준비 중';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 14px;
+    text-align: center;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  .pk-detail-figure.is-empty img { display: none; }
+
+  /* 오른쪽 정보 */
+  .pk-detail-body {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 26px 30px 26px 28px;
+  }
+  .pk-detail-code {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    opacity: 0.85;
+    min-height: 1em;
+  }
+  .pk-detail-name {
+    margin: 4px 48px 0 0;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--text-heading);
+    word-break: keep-all;
+  }
+  .pk-detail-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .pk-detail-section { margin-top: 22px; }
+  .pk-detail-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+  }
+  .pk-detail-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+  }
+  .pk-detail-period {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-heading);
+    font-variant-numeric: tabular-nums;
+  }
+  .pk-detail-event {
+    margin-top: 4px;
+    font-size: 15px;
+    color: var(--text-body);
+  }
+  .pk-detail-event em {
+    margin-left: 6px;
+    font-style: normal;
+    font-weight: 600;
+    color: var(--accent-strong);
+  }
+
+  .pk-attrs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .pk-attr {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 8px 0 8px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel-alt);
+    box-shadow: inset 0 0 0 1px var(--vinyl-line);
+  }
+  .pk-attr-label { font-size: 12px; letter-spacing: 0.06em; color: var(--text-muted); }
+  .pk-attr-val {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+  .pk-attr-val .pk-attr-icon { width: 26px; height: 26px; object-fit: contain; flex: none; }
+  /* 흰색 아이콘은 라이트 모드에서 뒤집는다(카드 칩과 같다). 우월코드 아이콘은 제 색이 있다. */
+  .pk-attr-val:not([class*="code-"]) img.pk-attr-icon { filter: invert(1); }
+  [data-theme="dark"] .pk-attr-val:not([class*="code-"]) img.pk-attr-icon { filter: none; }
+  .pk-attr-val.code-작열 { color: var(--code-scorch-text); }
+  .pk-attr-val.code-철갑 { color: var(--code-iron-text); }
+  .pk-attr-val.code-풍압 { color: var(--code-wind-text); }
+  .pk-attr-val.code-전격 { color: var(--code-electric-text); }
+  .pk-attr-val.code-수냉 { color: var(--code-water-text); }
+  .pk-attr.is-unknown .pk-attr-val { color: var(--text-muted); }
+  .pk-attr.is-unknown span.pk-attr-icon {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    border-radius: 6px 0 6px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel-active);
+  }
+
+  .pk-hist { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .pk-hist li {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-body);
+  }
+  .pk-hist-kind {
+    padding: 1px 7px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 4px 0 4px 0;
+    corner-shape: bevel;
+    color: var(--text-secondary);
+    background: var(--bg-panel-alt);
+  }
+  .pk-hist-date { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pk-hist-event { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pk-hist li.is-current { color: var(--accent-strong); font-weight: 600; }
+  .pk-hist li.is-current .pk-hist-kind { color: var(--text-on-accent); background: var(--accent); }
+
+  /* 폰: 위아래로 쌓는다 */
+  @media (max-width: 640px) {
+    #pk-detail { padding: 12px; }
+    .pk-detail-panel {
+      grid-template-columns: 1fr;
+      grid-template-rows: 44vh auto;
+      height: auto;
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+    .pk-detail-figure { border-right: 0; border-bottom: 1px solid var(--vinyl-line); }
+    .pk-detail-body { overflow: visible; padding: 20px 18px 22px; }
+    .pk-detail-name { font-size: 25px; }
+    .pk-detail-close { right: 14px; }
+  }
+
+  @supports not (corner-shape: bevel) {
+    .pk-detail-panel, .pk-detail-close, .pk-attr, .pk-hist-kind,
+    .pk-detail-figure.is-fallback img, .pk-attr.is-unknown span.pk-attr-icon { border-radius: 2px; }
+  }
