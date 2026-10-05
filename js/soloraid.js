@@ -20,6 +20,8 @@
     // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
     collapseBoss();
     document.getElementById('soloraid-sort-btn').addEventListener('click', toggleSoloRaidAttrSort);
+    document.getElementById('soloraid-order-btn').addEventListener('click', toggleSoloRaidOrder);
+    syncSoloRaidOrderBtn();
     wireSoloRaidDrawers();
     wireSoloRaidSearch();
     wireSoloRaidBgm();
@@ -88,8 +90,9 @@
   function renderSoloRaidSelector(data) {
     const container = document.getElementById('soloraid-selector');
 
-    // 최신 시즌부터 먼저 보여준다
-    const sorted = [...data].sort((a, b) => Number(b['시즌']) - Number(a['시즌']));
+    // 기본은 최신 시즌부터. 시즌 순서 단추로 1시즌부터로 뒤집는다(속성별 열 안에서도 같은 순서).
+    const dir = soloRaidOldestFirst ? 1 : -1;
+    const sorted = [...data].sort((a, b) => dir * (Number(a['시즌']) - Number(b['시즌'])));
 
     container.classList.toggle('is-attr-sorted', soloRaidSortByAttr);
     container.innerHTML = soloRaidSortByAttr
@@ -142,6 +145,27 @@
         applySoloRaidFilter();
       });
     });
+  }
+
+  // 시즌 순서: false = 최신 시즌부터(기본), true = 1시즌부터. 고른 쪽을 브라우저에 기억해 둔다.
+  const SOLORAID_ORDER_KEY = 'mmr-soloraid-oldest-first';
+  let soloRaidOldestFirst = (() => {
+    try { return localStorage.getItem(SOLORAID_ORDER_KEY) === '1'; } catch (e) { return false; }
+  })();
+
+  function syncSoloRaidOrderBtn() {
+    const btn = document.getElementById('soloraid-order-btn');
+    if (!btn) return;
+    btn.querySelector('span').textContent = soloRaidOldestFirst ? '오래된순' : '최신순';
+    btn.querySelector('i').className = 'fas ' + (soloRaidOldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
+    btn.dataset.tooltip = soloRaidOldestFirst ? '1시즌부터 보는 중 - 누르면 최신 시즌부터' : '최신 시즌부터 보는 중 - 누르면 1시즌부터';
+  }
+
+  function toggleSoloRaidOrder() {
+    soloRaidOldestFirst = !soloRaidOldestFirst;
+    try { localStorage.setItem(SOLORAID_ORDER_KEY, soloRaidOldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
+    syncSoloRaidOrderBtn();
+    renderSoloRaidSelector(allSoloRaidData);
   }
 
   function toggleSoloRaidAttrSort() {
