@@ -2010,6 +2010,14 @@
       });
     }
     window.addEventListener('resize', positionYearNav);
+    // 다른 탭에 갔다 오면 맨 위에서 다시 시작하므로 표시 연도도 지금 화면 기준으로 다시 잰다
+    document.addEventListener('mmr:tab-change', ev => {
+      if (!ev.detail || ev.detail.tab !== 'pickup') return;
+      setTimeout(() => {
+        positionYearNav();
+        if (yearNavObserver) yearNavObserver();
+      }, 0);
+    });
 
     // 창 크기가 바뀌면 카드/칸 폭도 바뀌어서 이름 스크롤 여부·거리도 다시 재야 한다
     let nameScrollResizeTimer = null;
@@ -2059,6 +2067,9 @@
     if (yearSections.length === 0) return;
 
     const onScroll = () => {
+      // 픽업 탭이 안 보이면 건너뛴다. 다른 탭으로 옮기며 맨 위로 올릴 때 이 스크롤이 탭이 감춰진 뒤에
+      // 들어와서, 위치가 전부 0 으로 재져 가장 오래된 연도로 바뀌었다(사용자 지적, 2026-10-05).
+      if (!document.body.classList.contains('tab-pickup')) return;
       const mid = window.innerHeight / 2;
       // 스크롤 위치 기준으로 현재 연도 결정
       // rect.top <= mid 조건이 하나도 없으면(맨 위) 첫 번째(최신) 연도로
@@ -2102,6 +2113,9 @@
     if (yearSections.length === 0) return;
 
     const onScroll = () => {
+      // 픽업 탭이 안 보이면 건너뛴다. 다른 탭으로 옮기며 맨 위로 올릴 때 이 스크롤이 탭이 감춰진 뒤에
+      // 들어와서, 위치가 전부 0 으로 재져 가장 오래된 연도로 바뀌었다(사용자 지적, 2026-10-05).
+      if (!document.body.classList.contains('tab-pickup')) return;
       const mid = window.innerHeight / 2;
       let current = yearSections[0];
       for (const el of yearSections) {
