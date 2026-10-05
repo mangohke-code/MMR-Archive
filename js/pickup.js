@@ -648,7 +648,7 @@
   // 전신 이미지는 카드 그림과 같은 니케 코드로 찾는다: IMG_니케 이미지 "img/nikke/c063_00.webp"
   // -> "img/nikke-full/c063_00.webp". 아직 파일이 없으면 카드 그림을 대신 크게 보여 준다.
   const FULL_IMG_DIR = 'img/nikke-full/';
-  const DETAIL_ATTRS = [['기업', '기업'], ['유형', '유형'], ['버스트', '버스트'], ['총기', '무기'], ['우월코드', '속성']];
+  const DETAIL_ATTRS = [['기업', '기업'], ['유형', '유형'], ['버스트', '버스트'], ['총기', '무기'], ['우월코드', '우월코드']];
   let detailEl = null;
   let detailReturnFocus = null;
 
