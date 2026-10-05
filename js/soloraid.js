@@ -592,11 +592,17 @@
   const IS_LOCALHOST = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const LOCAL_DIR = (IS_LOCALHOST && { new: '_local/new/' }[new URLSearchParams(location.search).get('glb')]) || null;
   const LOCAL_GLB = !!LOCAL_DIR;
+  // 3D 모델은 GitHub Pages(mangohke-code/MMR-Archive-models)에서 받는다. Supabase 저장소에서 받던 때
+  // 무료 한도(캐시 전송량 5 GB)를 넘었다(2026-10-06 메일). DB model 칸에 예전 Supabase 주소가 남아 있어도
+  // 여기서 같은 파일 이름의 새 주소로 바꾼다 — DB 를 새 주소로 고치면 이 바꾸기는 그냥 지나간다.
+  const MODEL_BASE = 'https://mangohke-code.github.io/MMR-Archive-models/';
+  const SUPABASE_MODEL_RE = /^https:\/\/ivregkjnayxoyjuupuru\.supabase\.co\/storage\/v1\/object\/public\/3D%20model\//i;
   const withVersion = url => {
     if (LOCAL_GLB) {
       return LOCAL_DIR + decodeURIComponent(String(url).split(/[?#]/)[0].split('/').pop())
         + '?t=' + Date.now();
     }
+    url = String(url).replace(SUPABASE_MODEL_RE, MODEL_BASE);
     return url + (url.includes('?') ? '&' : '?') + 'v=' + GLB_VERSION;
   };
 
