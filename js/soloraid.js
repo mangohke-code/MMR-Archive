@@ -158,7 +158,6 @@
     if (!btn) return;
     btn.querySelector('span').textContent = soloRaidOldestFirst ? '오래된순' : '최신순';
     btn.querySelector('i').className = 'fas ' + (soloRaidOldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
-    btn.dataset.tooltip = soloRaidOldestFirst ? '1시즌부터 보는 중 - 누르면 최신 시즌부터' : '최신 시즌부터 보는 중 - 누르면 1시즌부터';
   }
 
   function toggleSoloRaidOrder() {
