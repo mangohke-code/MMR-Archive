@@ -52,6 +52,12 @@ function tabFromHash() {
 //
 // pushHistory 는 이름을 남겨 둔다 - 부르는 곳이 여럿이고, false 면 주소도 안 건드린다.
 function switchTab(tabName, pushHistory = true) {
+  // 다른 탭으로 옮기면 맨 위에서 시작한다. 탭들이 한 페이지라 스크롤 위치가 그대로 남아서,
+  // 픽업 기록을 내려 본 채 옮기면 다음 탭도 한참 아래에서 열렸다(사용자 지적, 2026-10-05).
+  // 카드 찾아가기(jumpToPickupNikke 등)는 이 뒤에 제 위치로 스크롤하므로 그대로 된다.
+  const prevTab = (document.querySelector('.tab-content.active') || {}).id;
+  if (prevTab && prevTab !== `tab-${tabName}`) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
   document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
