@@ -1809,8 +1809,18 @@ function findPhaseChangeClip(clips) {
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
-  // 프로비던스 skill_loop_02 - 게임 어디에도 안 쓰이는 동작(inGameUse 빈 목록). 스킬 02 묶음에서도 뺀다(applyTimelineLoops).
+  // 게임 어디에도 안 쓰이는 동작(파일 inGameUse 가 빈 목록) - 목록에서 뺀다(사용자 확인 요청, 2026-10-07).
+  // 42개 파일을 대조해서 목록에 남아 있던 것만 적었다(나머지 보스는 이미 빠져 있었다).
+  //   프로비던스 skill_loop_02 - 스킬 02 묶음에서도 뺀다(applyTimelineLoops)
   { boss: /^xbg002/i, re: /^xbg002_skill_loop_02$/i },
+  //   프로비던스 2phase_air_idle_01 · shot_01 · shot_02
+  { boss: /^xbg002/i, re: /^xbg002_(2phase_air_idle_01|shot_0[12])$/i },
+  //   니힐리스타 2페이즈 스킬 03 · 04 (백빙룡은 같은 이름이 따로 있어 니힐리스타 파일만)
+  { boss: /^mba002$/i, re: /^mba002_phase02_skill_(start|loop|fire)_0[34]$/i },
+  //   퀸 001 move_loop (move_up · move_down 은 쓴다)
+  { boss: /^xba002/i, re: /^xba002_move_loop$/i },
+  //   에고비스타 2페이즈 dash (1페이즈 dash 는 쓴다)
+  { boss: /^xbg005/i, re: /^xbg005_2phase_dash_(start|loop|end)$/i },
   // 블랙스미스 촉수 동작 - 본체 스킬 03 에 딸려 같이 돈다(SIMUL_CLIPS)
   { boss: /^bbg003/i, re: /^bbg003_[lr]_tentacle_/i },
   // 블랙스미스 · 마테리얼H empty - 애니메이터 빈 상태(0.03초 · 0.13초)
