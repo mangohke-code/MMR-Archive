@@ -1808,6 +1808,14 @@ function findPhaseChangeClip(clips) {
 // 목록에 내지 않는 클립. 파일에는 있지만 보여 줄 게 없는 연출이다.
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
+// 묶음 안 반복 동작의 횟수를 게임 타임라인 값(applyTimelineLoops) 대신 손으로 정하는 자리.
+// 게임과 일부러 다르게 두는 것만 적는다.
+//   하베스터 · 사치스러운 거미 cc(섬광 경직) - 게임은 cc_idle(1.5초)을 3.49번(5.233초 슬롯) 돈다.
+//   뷰어에서 같은 경직 자세가 너무 길어 보여 1번으로 줄인다(사용자 요청, 2026-10-07). 묶음 9.03초 -> 5.30초.
+const LOOP_REPEAT_OVERRIDE = [
+  { boss: /^bbg001/i, re: /^bbg001_cc_idle$/i, repeat: 1 },
+];
+
 const HIDDEN_CLIPS = [
   // 게임 어디에도 안 쓰이는 동작(파일 inGameUse 가 빈 목록) - 목록에서 뺀다(사용자 확인 요청, 2026-10-07).
   // 42개 파일을 대조해서 목록에 남아 있던 것만 적었다(나머지 보스는 이미 빠져 있었다).
@@ -3214,6 +3222,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
         if (!first.timeline) return;
         const out = [];
         sq.steps.forEach(st => {
+          // 게임 값 대신 손으로 정한 횟수(LOOP_REPEAT_OVERRIDE)가 있으면 그걸 쓴다
+          const ov = LOOP_REPEAT_OVERRIDE.find(o => o.boss.test(bossKey || '') && o.re.test(st.clip.name || ''));
+          if (ov) { out.push({ clip: st.clip, repeat: ov.repeat }); return; }
           const ex = clipExtrasOf(st.clip.name);
           const ac = (ex.unity && ex.unity.animationClip) || {};
           const dur = st.clip.duration || 0;
