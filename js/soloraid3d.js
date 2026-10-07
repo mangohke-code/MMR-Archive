@@ -1610,8 +1610,11 @@ const MANUAL_SEQUENCES = [
   // 시즌 37(H.S.T.A.)과 시즌 7(Z.E.U.S.)은 모델·동작이 같은데 묶음만 다르다.
   //   스킬 03  S7  start_03 -> loop_03 -> fire_03
   //            S37 start_03 -> loop_03            (fire_03 은 스킬 06 으로 갔다)
-  //   스킬 06  S7  start_06 -> (2.0~4.333 빈 슬롯) -> 2phase_idle
-  //            S37 start_06 -> fire_03 -> 2phase_idle
+  //   스킬 06  두 시즌 다 start_06 -> fire_03 -> 2phase_idle(1.533초)
+  // S7 파일에는 스킬 06 의 2.0~4.333 슬롯이 비어 보인다. 동작마다 타임라인이 하나만 적혀 와서 fire_03 에
+  // 스킬 03 값만 붙은 것이다 — 빈 길이(2.333초)가 fire_03 길이와 같고, 애니메이터에 스킬 06 용 사본 상태
+  // (bbg006_skill_fire_03 0)가 두 시즌에 똑같이 있다. 예전에는 S7 을 start_06 -> 2phase_idle 로 이어서
+  // 그 구간을 건너뛰었다(3.53초, 게임은 5.87초)(사용자 확인 요청, 2026-10-07).
   // S7 의 스킬 03 은 이름 규칙대로 자동으로 묶인다. 스킬 07(loop 다섯 번)처럼 반복
   // 횟수만 다른 것은 applyTimelineLoops 가 파일 값으로 맞춘다.
   {
@@ -1619,12 +1622,8 @@ const MANUAL_SEQUENCES = [
     steps: [/^bbg006_skill_start_03$/i, /^bbg006_skill_loop_03$/i],
   },
   {
-    key: 'bbg006_skill_06', boss: /^bbg006_hsta/i,
+    key: 'bbg006_skill_06', boss: /^bbg006/i,
     steps: [/^bbg006_skill_start_06$/i, /^bbg006_skill_fire_03$/i, /^bbg006_2phase_idle$/i],
-  },
-  {
-    key: 'bbg006_skill_06', boss: /^bbg006$/i,
-    steps: [/^bbg006_skill_start_06$/i, /^bbg006_2phase_idle$/i],
   },
 ];
 
@@ -2149,6 +2148,14 @@ const CLIP_LABEL_FIX = [
   { boss: /^xbg004_psid/i, re: /^xbg004 _skill_start_03$/, label: 'skill_start_05' },
   { boss: /^xbg004_psid/i, re: /^xbg004 _skill_loop_03$/,  label: 'skill_loop_05' },
   { boss: /^xbg004_psid/i, re: /^xbg004 _skill_fire_03$/,  label: 'skill_fire_05' },
+  // 낱개 동작 하나뿐인 스킬 - 이름이 skill_fire_NN / skill_start_NN 이라 목록에서 그 번호 스킬이 빠진 것처럼
+  // 보였다. 게임 타임라인(…_skill_NN_model)에 그 동작 하나만 든 스킬이라 스킬 이름으로 단다(사용자 확인 요청, 2026-10-07).
+  //   앨트루이아 스킬 03 = fire_03 (-> idle_01)  (위 주석 참고, 두 시즌 공통)
+  { boss: /^xbg004/i, re: /^xbg004_skill_fire_03$/i, label: 'skill_03' },
+  //   울트라 스킬 05 = start_05 하나(1.717초)
+  { boss: /^bbg006/i, re: /^bbg006_skill_start_05$/i, label: 'skill_05' },
+  //   거대 질량체 스킬 09 = fire_09 하나
+  { boss: /^eba004/i, re: /^eba004_skill_fire_09$/i, label: 'skill_09' },
 ];
 
 // 목록 차례는 이름 끝 번호로 매긴다. 위처럼 이름의 번호가 실제와 다른 클립은
@@ -2162,6 +2169,8 @@ const CLIP_SORT_FIX = [
   { boss: /^xbg004_psid/i, re: /^xbg004 _skill(_(?:start|loop|fire))?_03$/, no: 5 },
   // 블랙스미스 skill_03_break(스킬 03 뒤 blowbreak) - 이름 끝이 번호가 아니라 맨 뒤로 갔다. 03 바로 뒤에 둔다(사용자 요청).
   { boss: /^bbg003/i, re: /^bbg003_skill_03_break$/i, no: 3.5 },
+  // 크리스탈 체임버 A.N.M.I. 2페 스킬 04stone - 이름 끝이 번호가 아니라 08 뒤로 갔다. 04 자리에 둔다(사용자 확인 요청, 2026-10-07).
+  { boss: /^xbg001_anmi/i, re: /^xbg001_phase02_skill_04stone$/i, no: 4 },
 ];
 
 // 연출을 재생하는 동안에만 그 부위 파츠 하나만 남기고 나머지를 감춘다.
