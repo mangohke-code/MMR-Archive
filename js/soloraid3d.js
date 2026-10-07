@@ -1039,6 +1039,16 @@ const PHASE_LIFT = [
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
 const CLIP_CAM_LIFT = [
+  // 온리 원 소환 스킬(베히모스 · 레비아탄 · 지즈, 두 페이즈) - 소환수가 카메라 앞 바닥 밑에서 크게 솟아 화면 아래가
+  // 잘렸다(기본 시점에서 화면 세로 -4.03 까지, 사용자 지적 2026-10-08). 아래 CLIP_CAM_DIST 2.2 배와 같이 0.4 내린다 -
+  // 거리만으로 다 담으려면 2.6 배가 넘어 본체가 너무 작아진다. 이 조합에서 화면 세로 -0.85 ~ 0.55.
+  // 베히모스는 스킬 동안 탑이 0.17 가라앉아(추적이 따라 내려간다) 0.4 를 다 내리면 카메라가 바닥 높이(-0.01)까지
+  // 내려가 격자를 옆에서 본다 - 0.25 만 내린다.
+  { boss: /^xbg003/i, re: /^xbg003_skill_(leviathan|ziz)_[12]phase_(start|loop|fire)_03$/i, y: -0.4 },
+  { boss: /^xbg003/i, re: /^xbg003_skill_behemoth_[12]phase_(start|loop|fire)_03$/i, y: -0.25 },
+  // 온리 원 2페 전환 - 몸이 2페 모습으로 커지며 위가 화면 밖(세로 1.26)으로 나갔다. 추적 기준을 탑 밑동으로 옮기면서
+  // (FOCUS_OVERRIDES) 시점이 더는 꼭대기를 따라 올라가지 않아서 생겼다. 0.1 올리고 아래 CLIP_CAM_DIST 로 1.2 배 물린다(-0.63 ~ 0.93).
+  { boss: /^xbg003/i, re: /^xbg003_2phase_change$/i, y: 0.1 },
 ];
 
 // 클립 하나만 시점 거리를 따로 줘야 하는 경우. 그 클립을 재생하는 동안 카메라를 시선에서 scale 배로 물린다
@@ -1059,6 +1069,9 @@ const CINE_LIFT = [
 const CLIP_CAM_DIST = [
   { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_08$/i, scale: 1.4 },
   { boss: /^eba004/i, re: /^eba004_skill_fire_09$/i, scale: 2.0 },
+  // 온리 원 소환 스킬 - 위 CLIP_CAM_LIFT 와 짝이다
+  { boss: /^xbg003/i, re: /^xbg003_skill_(behemoth|leviathan|ziz)_[12]phase_(start|loop|fire)_03$/i, scale: 2.2 },
+  { boss: /^xbg003/i, re: /^xbg003_2phase_change$/i, scale: 1.2 },
 ];
 
 function getBossTransform(bossCode) {
@@ -1173,6 +1186,10 @@ const FOCUS_OVERRIDES = [
   // 본체 메쉬를 못 박는다 - 좌우 머리도 본 수가 같아서 자동으로 고르면 머리가 걸릴 수 있다.
   { boss: /^bbg008/i, mesh: /^bbg008_body_skin(_\d+)?$/i, bone: HEAD_BONE_RE },
   { boss: /^mbg002/i, mesh: /1phase_skin(_\d+)?$/i },
+  // 온리 원 - 자동으로는 탑 윗부분(body_skin_2)의 head · body 본 14개를 잡는데, 전부 인간형(rp_skin) 바로 밑
+  // 꼭대기(높이 0.62)에 몰려 있다. 그 자리가 스킬마다 위아래로 크게 흔들려(소환 스킬 0.39) 시점이 같이 출렁이고
+  // 소환수가 화면 밖으로 자주 나갔다(사용자 지적, 2026-10-08). 탑 밑동(body_skin_4)을 잡는다.
+  { boss: /^xbg003/i, mesh: /^xbg003_1phase_body_skin_4$/i },
 ];
 
 function focusOverrideFor(bossKey) {
