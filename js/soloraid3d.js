@@ -1059,10 +1059,19 @@ const CLIP_CAM_LIFT = [
 //   기본 거리 1.8 에서 전 구간 화면 범위: 스킬 08 묶음 y -1.16 ~ 1.26, 스킬 fire_09 y -1.71 ~ 1.14.
 // 연출을 원점으로 옮기지 않을 동작(applyCineShift). 문제가 생긴 연출만 여기 적는다.
 const CINE_NO_RECENTER = [
-  // 글러트니 · 차가운 심판자 등장 · 사망 - 땅속 깊이(등장 시작 y -17)에서 솟아오르고 가라앉는 연출이다. 기준 상하 각도
-  // (CATALOG_FIT_BASE pitch 20)로 기울어 있어 땅속 깊이가 화면 앞뒤(z) 차이로 바뀌고, 그 중앙값에 맞춰 옮기니
-  // 모델이 원점에서 카메라 쪽으로 등장 2.89 · 사망 1.72 밀려났다(사용자 지적, 2026-10-08). 원점에 그대로 둔다.
-  { boss: /^bbg009/i, re: /^bbg009_(bh_)?(appearance|death)$/i },
+];
+// 연출 하나를 통째로 중앙값이 아니라 한 프레임에 맞춰 옮긴다(applyCineShift). at 은 그 프레임의 위치(0 처음 ~ 1 끝).
+// 그 프레임의 몸 중심이 대기 때 자리에 오도록 모델 자신의 가로(앞뒤 · 좌우)로만 옮긴다 - 기준 상하 각도(pitch)가
+// 걸린 보스도 모델 기준 높이는 그대로다.
+//   글러트니 · 차가운 심판자 등장 · 사망 - 게임이 이 연출을 전투 자리보다 한참 뒤에서 찍는다(root2 앞뒤 값: 대기 4.17,
+//   등장 끝 -161.8, 사망 -103.7 ~ -108.6). 중앙값에 맞추면 등장 끝이 원점에서 2.7 뒤 · 0.9 아래(기울기 때문)였고,
+//   옮기지 않으면 2.7 뒤에 멈췄다(사용자 지적, 2026-10-08). 등장은 마지막 프레임, 사망은 첫 프레임(대기에서 이어지는
+//   자세)을 대기 자리에 맞춘다 - 사망 끝은 몸이 땅속으로 가라앉아 뼈 중심이 기준으로 쓸 수 없다.
+const CINE_ANCHOR = [
+  //   bone - 몸 중심 대신 이 뼈 하나의 자리를 대기 첫 프레임의 그 뼈 자리에 맞춘다. 글러트니는 뼈 중심(머리 · 몸통 본)이
+  //   연출 자세에 따라 크게 달라져 사망 첫 프레임이 1.7 앞 · 0.6 위에 떴다. 몸 뿌리 root2 로 맞춘다.
+  { boss: /^bbg009/i, re: /^bbg009_(bh_)?appearance$/i, at: 1, bone: /^root2$/ },
+  { boss: /^bbg009/i, re: /^bbg009_(bh_)?death$/i, at: 0, bone: /^root2$/ },
 ];
 // 연출 동작 하나만 모델을 바닥 격자 아래로 내리는 경우, 그 동작 동안 모델과 연출 카메라를 같이 올린다(applyCineShift).
 // y 는 gltf.scene 단위(파일 단위)다. 화면 구도는 그대로고 바닥 격자만 모델 밑으로 간다.
@@ -4260,6 +4269,44 @@ function noFollowClip(bossKey, name) {
       cineCenterCache.set(clip.name, result);
       return result;
     }
+    // 연출의 한 프레임(at 0~1)에서 몸 중심을 모델 공간(normGroup 기준)으로 잰다(CINE_ANCHOR).
+    const cineAnchorCache = new Map();
+    function cineAnchorOf(clip, at, boneRe) {
+      if (!focusMesh) return null;
+      const key = clip.name + '@' + at + (boneRe ? '@' + boneRe.source : '');
+      if (cineAnchorCache.has(key)) return cineAnchorCache.get(key);
+      const saved = capturePose(gltf.scene);
+      let result = null;
+      try {
+        const probeMixer = new THREE.AnimationMixer(gltf.scene);
+        restorePose(poseFor(clip.name));
+        probeMixer.clipAction(clip).play();
+        const d = clip.duration || 0;
+        probeMixer.setTime(Math.max(0, Math.min(d - 1e-3, d * at)));
+        normGroup.updateMatrixWorld(true);
+        const v = new THREE.Vector3();
+        let ok = false;
+        if (boneRe) {
+          let bone = null;
+          // 차가운 심판자 파일은 root2 가 스킨 뼈 목록에 없는 일반 노드다 - 이름으로만 찾는다
+          gltf.scene.traverse(o => { if (!bone && boneRe.test(o.name || '')) bone = o; });
+          if (bone) { bone.getWorldPosition(v); ok = true; }
+        } else {
+          ok = !!rigCenter(focusMesh, v, focusBone);
+        }
+        if (ok && isFinite(v.x) && isFinite(v.z)) {
+          normGroup.worldToLocal(v);
+          result = { x: v.x, z: v.z };
+        }
+        probeMixer.stopAllAction();
+        probeMixer.uncacheRoot(gltf.scene);
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+      cineAnchorCache.set(key, result);
+      return result;
+    }
     function resetCineShift() {
       if (!cineShifted) return;
       gltf.scene.position.set(0, 0, 0);
@@ -4270,6 +4317,20 @@ function noFollowClip(bossKey, name) {
       if (!cinematic || !followReady) return;
       const name = clip.name || '';
       const lift = CINE_LIFT.find(o => o.boss.test(bossKey || '') && o.re.test(name));
+      const anchor = CINE_ANCHOR.find(o => o.boss.test(bossKey || '') && o.re.test(name));
+      if (anchor) {
+        const c = cineAnchorOf(clip, anchor.at, anchor.bone);
+        if (!c) return;
+        normGroup.updateMatrixWorld(true);
+        // 뼈를 지정했으면 대기 첫 프레임의 그 뼈 자리, 아니면 추적 기준(대기 때 몸 중심)
+        const idle = anchor.bone ? findIdleClipForPhase(currentPhase) : null;
+        const base = idle ? cineAnchorOf(idle, 0, anchor.bone) : normGroup.worldToLocal(followBase.clone());
+        if (!base) return;
+        gltf.scene.position.set(base.x - c.x, lift ? lift.y : 0, base.z - c.z);
+        gltf.scene.updateMatrixWorld(true);
+        cineShifted = true;
+        return;
+      }
       let dx = 0, dz = 0;
       if (!CINE_NO_RECENTER.some(o => o.boss.test(bossKey || '') && o.re.test(name))) {
         const c = cineCenterOf(clip);
