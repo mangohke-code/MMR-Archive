@@ -1606,24 +1606,34 @@ const MANUAL_SEQUENCES = [
     key: 'bbg001_cc',
     steps: [/^bbg001_cc_start_01$/i, /^bbg001_cc_idle$/i, /^bbg001_cc_end_01$/i],
   },
-  // 울트라 - 스킬 묶음을 게임 타임라인(bbg006_skill_NN_model) 그대로 잇는다.
-  // 시즌 37(H.S.T.A.)과 시즌 7(Z.E.U.S.)은 모델·동작이 같은데 묶음만 다르다.
-  //   스킬 03  S7  start_03 -> loop_03 -> fire_03
-  //            S37 start_03 -> loop_03            (fire_03 은 스킬 06 으로 갔다)
-  //   스킬 06  두 시즌 다 start_06 -> fire_03 -> 2phase_idle(1.533초)
-  // S7 파일에는 스킬 06 의 2.0~4.333 슬롯이 비어 보인다. 동작마다 타임라인이 하나만 적혀 와서 fire_03 에
-  // 스킬 03 값만 붙은 것이다 — 빈 길이(2.333초)가 fire_03 길이와 같고, 애니메이터에 스킬 06 용 사본 상태
-  // (bbg006_skill_fire_03 0)가 두 시즌에 똑같이 있다. 예전에는 S7 을 start_06 -> 2phase_idle 로 이어서
-  // 그 구간을 건너뛰었다(3.53초, 게임은 5.87초)(사용자 확인 요청, 2026-10-07).
-  // S7 의 스킬 03 은 이름 규칙대로 자동으로 묶인다. 스킬 07(loop 다섯 번)처럼 반복
-  // 횟수만 다른 것은 applyTimelineLoops 가 파일 값으로 맞춘다.
-  {
-    key: 'bbg006_skill_03', boss: /^bbg006_hsta/i,
-    steps: [/^bbg006_skill_start_03$/i, /^bbg006_skill_loop_03$/i],
-  },
+  // 울트라 스킬 06 - 두 시즌(S7 Z.E.U.S. · S37 H.S.T.A.) 다 start_06 -> fire_03 -> 2phase_idle(1.533초).
+  // 스킬 03(start_03 -> loop_03 -> fire_03)도 두 시즌이 같고, fire_03 을 두 스킬이 나눠 쓴다
+  // (추출 보고서 _timeline_report, 2026-10-07). 파일에는 동작마다 타임라인이 하나만 적혀 와서
+  // fire_03 에 한쪽 값만 붙는다 — 그래서 스킬 06 은 손으로 잇고, 스킬 03 은 이름 규칙대로 자동으로 묶인다.
+  // 예전에는 S37 스킬 03 을 start -> loop 로만 잘랐는데(fire_03 이 스킬 06 몫인 줄 알았다) 틀렸다.
+  // 스킬 07(loop 다섯 번)처럼 반복 횟수만 다른 것은 applyTimelineLoops 가 파일 값으로 맞춘다.
   {
     key: 'bbg006_skill_06', boss: /^bbg006/i,
     steps: [/^bbg006_skill_start_06$/i, /^bbg006_skill_fire_03$/i, /^bbg006_2phase_idle$/i],
+  },
+  // 베히모스 2페 스킬 04 - 게임 타임라인(mbg003_phase02_skill_04_model)은 fire 뒤에 jend_04(2.267초)가
+  // 붙는다(6.267초). jend 는 이름 규칙(_end)에 안 걸려서 혼자 떨어져 있었다.
+  {
+    key: 'mbg003_2phase_skill_04', boss: /^mbg003/i,
+    steps: [/^mbg003_2phase_skill_start_04$/i, /^mbg003_2phase_skill_loop_04$/i,
+      /^mbg003_2phase_skill_fire_04$/i, /^mbg003_2phase_skill_jend_04$/i],
+  },
+  // 검은 뱀 2페 스킬 02(bbg008_2phase1_skill_02_model, 5.0초) - 1페 스킬 03 의 start · loop 를 빌려 쓰고
+  // 2페 fire_02 로 끝난다. 좌우 머리 fire 는 SIMUL_CLIPS 가 fire_02 에 맞춰 같이 돌린다.
+  {
+    key: 'bbg008_2phase_skill_02', boss: /^bbg008/i,
+    steps: [/^bbg008_1phase_skill_start_03$/i, /^bbg008_1phase_skill_loop_03$/i,
+      /^bbg008_2phase_skill_fire_02$/i],
+  },
+  // 검은 뱀 recall(bbg008_recall_model, 5.167초) - 물속으로 들어갔다가(recall_01) 다시 나온다(recall_enter_01).
+  {
+    key: 'bbg008_recall', boss: /^bbg008/i,
+    steps: [/^bbg008_recall_01$/i, /^bbg008_recall_enter_01$/i],
   },
 ];
 
@@ -1636,8 +1646,8 @@ const NO_SEQUENCE = [
   // 크라켄 그로기 - 위 MANUAL_SEQUENCES 가 wake 까지 잇는다
   { boss: /^bbg004/i, re: /^bbg004_groggy_(start|loop)_01$/i },
   { boss: /^bbg001/i, re: /^bbg001_cc_/i },
-  // 울트라 - 위 MANUAL_SEQUENCES 가 게임 타임라인대로 손수 잇는다
-  { boss: /^bbg006_hsta/i, re: /^bbg006_skill_(start|loop|fire)_03$/i },
+  // 베히모스 2페 스킬 04 - 위 MANUAL_SEQUENCES 가 jend_04 까지 잇는다
+  { boss: /^mbg003/i, re: /^mbg003_2phase_skill_(start|loop|fire)_04$/i },
 ];
 
 function isNoSequence(bossKey, name) {
