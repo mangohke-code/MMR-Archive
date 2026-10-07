@@ -1327,17 +1327,17 @@ function restorePose(list) {
 const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_.+)?$/i;
 
 // 게임에는 있는데 전용 클립이 없는 스킬을 원본 클립을 잘라 만들어 끼우는 자리.
-// 지금은 비어 있다.
 //
-// 거대 질량체 05 번이 여기 있었다. 파일에 *_05 라는 이름의 AnimationClip 이 아예
-// 없고(01·02·03·04·06·07·08·09·10 만 있다), 게임 타임라인이 skill_loop_04 를
-// 1.17 초 지점부터, 이어서 skill_fire_04 를 통째로 얹어 쓴다. 그걸 그대로 재현해
-// 목록에 skill_05 로 끼워 넣었었다(잘린 loop 가 1.663 초, 합쳐서 4.97 초).
-// 원본 클립이 아니라 우리가 이어 붙인 것이라 목록에서 뺐다 — 되살리려면
-// 아래 배열에 이 한 덩어리를 다시 넣으면 된다.
-//   { boss: /^eba004/i, key: 'skill_05',
-//     steps: [{ re: /_skill_loop_04$/i, from: 1.17 }, { re: /_skill_fire_04$/i }] }
-const SYNTHETIC_SEQUENCES = [];
+// 거대 질량체(두 시즌) 스킬 05. 파일에 *_05 라는 이름의 AnimationClip 이 아예 없고, 게임 타임라인이
+// skill_loop_04 를 1.1667 초 지점부터 끝까지(1.667초), 이어서 skill_fire_04 를 통째로(3.333초) 얹어 쓴다.
+// 게임은 스킬 04(start_04 -> loop_04, 5.67초) 도중 암전 저지 패턴을 돌리고, 갈래에 따라
+// 스킬 05(순간이동 뒤 사격) 또는 스킬 09 -> 08 로 간다(행동 트리 bt_eba004*_singleRaid, 추출 세션 확인).
+// 사용자 관찰: 저지 성공이면 09 -> 08, 실패면 05 로 보인다(실패 영상은 못 찾음, 2026-10-07).
+// 한때 "이어 붙인 것"이라 뺐었는데, 게임 타임라인 그대로라 다시 넣고 스킬 04 를 start -> loop 로 줄였다.
+const SYNTHETIC_SEQUENCES = [
+  { boss: /^eba004/i, key: 'skill_05',
+    steps: [{ re: /^eba004_skill_loop_04$/i, from: 1.1667 }, { re: /^eba004_skill_fire_04$/i }] },
+];
 
 // 연출 카메라는 추출본 값(위치·회전·화각)을 그대로 쓴다.
 //
@@ -1630,6 +1630,12 @@ const MANUAL_SEQUENCES = [
     steps: [/^bbg008_1phase_skill_start_03$/i, /^bbg008_1phase_skill_loop_03$/i,
       /^bbg008_2phase_skill_fire_02$/i],
   },
+  // 거대 질량체 스킬 04 - 게임 타임라인은 start_04 -> loop_04(한 번)에서 끝난다(5.67초).
+  // fire_04 는 스킬 05(위 SYNTHETIC_SEQUENCES) 몫이다.
+  {
+    key: 'eba004_skill_04', boss: /^eba004/i,
+    steps: [/^eba004_skill_start_04$/i, /^eba004_skill_loop_04$/i],
+  },
   // 검은 뱀 recall(bbg008_recall_model, 5.167초) - 물속으로 들어갔다가(recall_01) 다시 나온다(recall_enter_01).
   {
     key: 'bbg008_recall', boss: /^bbg008/i,
@@ -1648,6 +1654,8 @@ const NO_SEQUENCE = [
   { boss: /^bbg001/i, re: /^bbg001_cc_/i },
   // 베히모스 2페 스킬 04 - 위 MANUAL_SEQUENCES 가 jend_04 까지 잇는다
   { boss: /^mbg003/i, re: /^mbg003_2phase_skill_(start|loop|fire)_04$/i },
+  // 거대 질량체 스킬 04 - 위 MANUAL_SEQUENCES 가 start -> loop 만 잇는다
+  { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_04$/i },
 ];
 
 function isNoSequence(bossKey, name) {
@@ -1855,6 +1863,12 @@ const HIDDEN_CLIPS = [
   { boss: /^mba002_whiteice/i, re: /^mba002_(phase01_|jump_|phase02_appearance_01$)/i },
   // 크라켄 - 게임이 안 쓰는 동작(inGameUse [])
   { boss: /^bbg004/i, re: /^bbg004_legs_Field_spwan_(start|loop)$/i },
+  // 거대 질량체 fire_04 - 스킬 05(SYNTHETIC_SEQUENCES) 안에서만 돈다. 혼자 두면 스킬 05 와 같은 동작이 하나 더 보인다.
+  { boss: /^eba004/i, re: /^eba004_skill_fire_04$/i },
+  // 온리 원 1페 skill_02 - 행동 트리가 부르지 않는다(aniNumberLists []). fire_02 칸도 start_02 와 키가
+  // 똑같은 복사본(1.667초)이라 loop 끝에서 자세가 튄다(날개 106도). 만들다 만 미사용 스킬로 본다
+  // (추출 세션 확인 · 사용자 결정, 2026-10-07). 2페 skill_02 는 그대로 쓴다.
+  { boss: /^xbg003/i, re: /^xbg003_skill_1phase_(start|loop|fire)_02$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001/i, re: /^bbg001_idle_02$/i },
   // 검은 뱀 좌우 머리 클립 - 본체 클립에 딸려서 같이 돈다(SIMUL_CLIPS). 혼자 틀면
