@@ -1809,6 +1809,8 @@ function findPhaseChangeClip(clips) {
 //   (미러 컨테이너 appearance_take1 은 예전에 여기서 감췄다 - 보스가 점으로 접혀 있어 빈 화면이었다.
 //   2026-10-02 19:53 추출본부터 그 자리를 채우는 하모니 큐브 맵 리그가 들어와서 등장 묶음으로 되살렸다.)
 const HIDDEN_CLIPS = [
+  // 프로비던스 skill_loop_02 - 게임 어디에도 안 쓰이는 동작(inGameUse 빈 목록). 스킬 02 묶음에서도 뺀다(applyTimelineLoops).
+  { boss: /^xbg002/i, re: /^xbg002_skill_loop_02$/i },
   // 블랙스미스 촉수 동작 - 본체 스킬 03 에 딸려 같이 돈다(SIMUL_CLIPS)
   { boss: /^bbg003/i, re: /^bbg003_[lr]_tentacle_/i },
   // 블랙스미스 · 마테리얼H empty - 애니메이터 빈 상태(0.03초 · 0.13초)
@@ -3206,6 +3208,13 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
           const ac = (ex.unity && ex.unity.animationClip) || {};
           const dur = st.clip.duration || 0;
           const slot = ex.timelineDuration;
+          // 게임 타임라인으로 도는 스킬인데 이 동작은 그 타임라인에 없고 게임 어디에도 안 쓰인다
+          // (inGameUse 가 빈 목록) — 게임에서는 0 번이다. 빼야 게임과 같다.
+          //   프로비던스 skill_02: 타임라인은 start(0.667초) 바로 뒤에 fire 가 붙는다. skill_loop_02 는
+          //   안 쓰이는 동작인데 이름이 맞아 묶음에 끼어 1초를 더 돌았다(사용자 확인 요청, 2026-10-07).
+          if (Array.isArray(ex.inGameUse) && ex.inGameUse.length === 0 && ex.timeline !== first.timeline) {
+            return;
+          }
           if (!ac.m_LoopTime || ex.timeline !== first.timeline || !(slot > 0) || !(dur > 0)) {
             out.push(st);
             return;
