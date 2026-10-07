@@ -1040,12 +1040,12 @@ const PHASE_LIFT = [
 // 같은 값만큼 올린다 — 각도와 거리는 그대로다.
 const CLIP_CAM_LIFT = [
   // 온리 원 소환 스킬(베히모스 · 레비아탄 · 지즈, 두 페이즈) - 소환수가 카메라 앞 바닥 밑에서 크게 솟아 화면 아래가
-  // 잘렸다(기본 시점에서 화면 세로 -4.03 까지, 사용자 지적 2026-10-08). 아래 CLIP_CAM_DIST 2.2 배와 같이 0.4 내린다 -
-  // 거리만으로 다 담으려면 2.6 배가 넘어 본체가 너무 작아진다. 이 조합에서 화면 세로 -0.85 ~ 0.55.
-  // 베히모스는 스킬 동안 탑이 0.17 가라앉아(추적이 따라 내려간다) 0.4 를 다 내리면 카메라가 바닥 높이(-0.01)까지
-  // 내려가 격자를 옆에서 본다 - 0.25 만 내린다.
-  { boss: /^xbg003/i, re: /^xbg003_skill_(leviathan|ziz)_[12]phase_(start|loop|fire)_03$/i, y: -0.4 },
-  { boss: /^xbg003/i, re: /^xbg003_skill_behemoth_[12]phase_(start|loop|fire)_03$/i, y: -0.25 },
+  // 잘렸다(기본 시점에서 화면 세로 -4.0 까지, 사용자 지적 2026-10-08). 아래 CLIP_CAM_DIST 와 짝으로 loop 구간이 다 들어오게
+  // 맞춘다 - start · fire 는 소환수가 솟아오르고 사라지는 연출이라 넓게 퍼져서, 그걸 다 담으면(2.2 배) 너무 멀었다(사용자 요청).
+  // 단계마다 거리가 바뀌면 화면이 튀어서 세 단계 모두 같은 값을 쓴다. loop 구간 화면 세로:
+  //   베히모스 1.2 배 · 0.1 내림 -0.64 ~ 0.62 / 레비아탄 1.4 배 · 0.15 내림 -0.76 ~ 0.48 / 지즈 같은 값 -0.87 ~ 0.48
+  { boss: /^xbg003/i, re: /^xbg003_skill_behemoth_[12]phase_(start|loop|fire)_03$/i, y: -0.1 },
+  { boss: /^xbg003/i, re: /^xbg003_skill_(leviathan|ziz)_[12]phase_(start|loop|fire)_03$/i, y: -0.15 },
   // 온리 원 2페 전환 - 몸이 2페 모습으로 커지며 위가 화면 밖(세로 1.26)으로 나갔다. 추적 기준을 탑 밑동으로 옮기면서
   // (FOCUS_OVERRIDES) 시점이 더는 꼭대기를 따라 올라가지 않아서 생겼다. 0.1 올리고 아래 CLIP_CAM_DIST 로 1.2 배 물린다(-0.63 ~ 0.93).
   { boss: /^xbg003/i, re: /^xbg003_2phase_change$/i, y: 0.1 },
@@ -1070,7 +1070,8 @@ const CLIP_CAM_DIST = [
   { boss: /^eba004/i, re: /^eba004_skill_(start|loop|fire)_08$/i, scale: 1.4 },
   { boss: /^eba004/i, re: /^eba004_skill_fire_09$/i, scale: 2.0 },
   // 온리 원 소환 스킬 - 위 CLIP_CAM_LIFT 와 짝이다
-  { boss: /^xbg003/i, re: /^xbg003_skill_(behemoth|leviathan|ziz)_[12]phase_(start|loop|fire)_03$/i, scale: 2.2 },
+  { boss: /^xbg003/i, re: /^xbg003_skill_behemoth_[12]phase_(start|loop|fire)_03$/i, scale: 1.2 },
+  { boss: /^xbg003/i, re: /^xbg003_skill_(leviathan|ziz)_[12]phase_(start|loop|fire)_03$/i, scale: 1.4 },
   { boss: /^xbg003/i, re: /^xbg003_2phase_change$/i, scale: 1.2 },
 ];
 
