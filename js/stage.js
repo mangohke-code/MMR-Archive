@@ -245,7 +245,8 @@
     // 폰처럼 표가 칸보다 넓어 옆으로 밀리는 화면에서는 보스 열 가운데가 칸 밖(오른쪽)이라 단추가
     // 안 보였다(사용자 지적, 2026-10-09). 그때는 보이는 폭 가운데에 두고 옆으로 밀어도 따라오게 한다.
     const overflowing = tableWrap.scrollWidth > tableWrap.clientWidth + 1;
-    if (overflowing) leftOffset = tableWrap.scrollLeft + tableWrap.clientWidth / 2;
+    // 폰에서는 표 머리줄이 숨어(줄을 카드처럼 편다) 보스 열 위치를 못 잰다 - 그때도 가운데에 둔다
+    if (overflowing || !thRect.width) leftOffset = tableWrap.scrollLeft + tableWrap.clientWidth / 2;
 
     const overlay = document.createElement('button');
     overlay.id = 'stage-spoiler-overlay';

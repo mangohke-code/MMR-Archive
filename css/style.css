@@ -5158,6 +5158,9 @@
   body.app-mode {
     overflow: hidden;
     height: 100vh;
+    /* 폰 브라우저의 100vh 는 주소창 · 아래 도구막대 뒤까지 잡아서 화면 아래(재생바 · 전체화면 단추)가
+       도구막대에 가려졌다(사용자 지적, 2026-10-09). 실제로 보이는 높이로 잡는다. */
+    height: 100dvh;
     display: flex;
     flex-direction: column;
   }
@@ -8557,4 +8560,51 @@
       box-shadow: var(--shadow-card-hover);
     }
     #sr3d-stage { flex: 1 1 auto; min-width: 0; }
+    /* 전체화면에서는 나머지 단추가 다 접힌다. 나가기 단추를 손이 닿는 오른쪽 위로 올린다(노치 · 상태바 피함) */
+    body.sr3d-immersive #sr3d-immersive {
+      top: max(12px, env(safe-area-inset-top));
+      bottom: auto;
+      right: max(12px, env(safe-area-inset-right));
+      width: 44px;
+      height: 44px;
+      font-size: 17px;
+    }
+
+    /* 스테이지 표 - 일곱 칸이 옆으로 900px 라 가린 칸(보스 · 유형)이 화면 밖이었다. 보이는 칸은 안 가려져서
+       스포일러 처리가 안 된 것처럼 보였다(사용자 지적, 2026-10-09). 한 스테이지를 카드처럼 두 칸씩 세로로 편다. */
+    #stage-table, #stage-table tbody { display: block; width: 100%; }
+    #stage-table thead { display: none; }
+    #stage-table tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 14px;
+      padding: 14px 4px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    #stage-table tr:last-child { border-bottom: 0; }
+    #stage-table td,
+    #stage-table th:nth-child(n), #stage-table td:nth-child(n) {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      width: auto;
+      padding: 0;
+      border: 0;
+      text-align: left;
+      white-space: normal;
+      word-break: keep-all;
+      font-size: 15px;
+    }
+    #stage-table td::before { font-size: 12px; letter-spacing: 0.04em; color: var(--text-muted); }
+    #stage-table td:nth-child(1)::before { content: '스테이지'; }
+    #stage-table td:nth-child(2)::before { content: '기준 전투력'; }
+    #stage-table td:nth-child(3)::before { content: '보스'; }
+    #stage-table td:nth-child(4)::before { content: '약점코드'; }
+    #stage-table td:nth-child(5)::before { content: '스토리'; }
+    #stage-table td:nth-child(6)::before { content: '유형'; }
+    #stage-table td:nth-child(7)::before { content: '특이사항'; }
+    #stage-table td:nth-child(7) { grid-column: 1 / -1; }
+    #stage-table td:nth-child(1) { font-size: 18px; font-weight: 700; color: var(--text-heading); }
+    #stage-table .spoiler-mask { width: 72px; }
   }
