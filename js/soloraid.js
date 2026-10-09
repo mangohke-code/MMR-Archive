@@ -175,6 +175,17 @@
 
   // 보스 목록과 상세 정보는 평소에 접어 두고 오른쪽 세로 버튼으로 연다.
   // 둘 다 열면 3D 구역이 너무 좁아져서 한 번에 하나만 열리게 한다.
+  const SR_MOBILE_MQ = window.matchMedia('(max-width: 640px)');
+  function setSideCollapsed(on) {
+    const app = document.getElementById('sr3d-app');
+    const sideBtn = document.getElementById('sr3d-side-toggle');
+    if (!app) return;
+    app.classList.toggle('side-collapsed', on);
+    if (!sideBtn) return;
+    sideBtn.setAttribute('aria-expanded', String(!on));
+    sideBtn.title = on ? '조작판 펼치기' : '조작판 접기';
+  }
+
   function wireSoloRaidDrawers() {
     const drawer = document.getElementById('sr3d-drawer');
     const panes = {
@@ -195,6 +206,8 @@
         if (pane) pane.classList.toggle('hidden', !on);
       });
       if (drawer) drawer.classList.toggle('hidden', !openId);
+      // 폰 폭에서는 서랍과 왼쪽 조작판이 둘 다 그림 위에 겹쳐 뜬다(CSS). 서랍을 펴면 조작판을 접는다.
+      if (openId && SR_MOBILE_MQ.matches) setSideCollapsed(true);
       // 서랍을 접어도 BGM 은 그대로 둔다 — 틀어 놓고 다른 정보를 보는 쪽이 낫다.
       // 소리가 남으면 곤란한 경우(탭 이동·보스 변경)는 각자 자리에서 끊는다.
     }
@@ -210,11 +223,14 @@
 
     const sideBtn = document.getElementById('sr3d-side-toggle');
     if (sideBtn) {
+      // 폰 폭에서는 처음에 조작판을 접어 둔다 - 펴 두면 그림 칸을 다 가린다
+      if (SR_MOBILE_MQ.matches) setSideCollapsed(true);
       sideBtn.addEventListener('click', () => {
         const app = document.getElementById('sr3d-app');
-        const on = app.classList.toggle('side-collapsed');
-        sideBtn.setAttribute('aria-expanded', String(!on));
-        sideBtn.title = on ? '조작판 펼치기' : '조작판 접기';
+        const on = !app.classList.contains('side-collapsed');
+        setSideCollapsed(on);
+        // 폰 폭에서 조작판을 펴면 오른쪽 서랍은 접는다(둘 다 그림 위에 겹친다)
+        if (!on && SR_MOBILE_MQ.matches && openId) { openId = null; render(); }
       });
     }
 

@@ -351,24 +351,40 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange, opts) {
 
 // L2D 뷰어(유니크 코스튬·캐릭터 도감)의 왼쪽 조작판 접기. 솔로 레이드 뷰어와 같은 감각으로
 // 손잡이 하나만 남기고 판을 접는다. 판이 그림 칸의 형제라서 접으면 그림이 그만큼 넓어진다.
+// 폰 폭에서는 판이 그림 위에 겹쳐 뜨는 서랍이다(CSS). 처음에는 둘 다 접고, 하나를 펴면
+// 다른 하나는 접는다 - 둘 다 펴면 손잡이끼리 겹치고 그림이 다 가려진다.
+const L2D_MOBILE_MQ = window.matchMedia('(max-width: 640px)');
 function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
   const wrap = document.getElementById(wrapId);
   const btn = document.getElementById(toggleId);
+  const info = infoToggleId && document.getElementById(infoToggleId);
+  const setSide = open => {
+    wrap.classList.toggle('is-side-closed', !open);
+    if (!btn) return;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.title = open ? '조작판 접기' : '조작판 펴기';
+  };
+  const setInfo = open => {
+    wrap.classList.toggle('is-info-open', open);
+    if (!info) return;
+    info.setAttribute('aria-expanded', String(open));
+    info.title = open ? '정보 접기' : '정보 펴기';
+  };
   if (wrap && btn && !btn.dataset.wired) {
     btn.dataset.wired = '1';
+    if (L2D_MOBILE_MQ.matches) setSide(false);
     btn.addEventListener('click', () => {
-      const closed = wrap.classList.toggle('is-side-closed');
-      btn.setAttribute('aria-expanded', String(!closed));
-      btn.title = closed ? '조작판 펴기' : '조작판 접기';
+      const open = wrap.classList.contains('is-side-closed');
+      setSide(open);
+      if (open && L2D_MOBILE_MQ.matches) setInfo(false);
     });
   }
-  const info = infoToggleId && document.getElementById(infoToggleId);
   if (wrap && info && !info.dataset.wired) {
     info.dataset.wired = '1';
     info.addEventListener('click', () => {
-      const open = wrap.classList.toggle('is-info-open');
-      info.setAttribute('aria-expanded', String(open));
-      info.title = open ? '정보 접기' : '정보 펴기';
+      const open = !wrap.classList.contains('is-info-open');
+      setInfo(open);
+      if (open && L2D_MOBILE_MQ.matches) setSide(false);
     });
   }
 }

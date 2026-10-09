@@ -1151,6 +1151,17 @@
       </tr>`;
     }).join('');
     syncNameScrollAnimations(tbody, '.group-nikke-name-wrap', '.group-nikke-name');
+
+    // 폰 폭에서는 열마다 최소 폭을 주고 표를 옆으로 밀어 보게 한다(CSS 가 --group-cols 로 폭을 잡는다).
+    // 열 이름 줄은 따로 떠 있는 표라서 몸통을 옆으로 밀면 같이 밀어 준다.
+    const groupView = document.getElementById('pickup-group-view');
+    groupView.style.setProperty('--group-cols', columns.length);
+    const bodyWrap = document.getElementById('pickup-group-table-wrap');
+    const headWrap = document.getElementById('pickup-group-header-wrap');
+    if (bodyWrap && headWrap && !bodyWrap.dataset.syncX) {
+      bodyWrap.dataset.syncX = '1';
+      bodyWrap.addEventListener('scroll', () => { headWrap.scrollLeft = bodyWrap.scrollLeft; }, { passive: true });
+    }
     if (currentView === 'group') {
       requestAnimationFrame(() => setupGroupYearObserver());
     }

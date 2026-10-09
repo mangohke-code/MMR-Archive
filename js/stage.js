@@ -241,7 +241,11 @@
 
     const thRect = bossHeader.getBoundingClientRect();
     const wrapRect = tableWrap.getBoundingClientRect();
-    const leftOffset = thRect.left - wrapRect.left + thRect.width / 2;
+    let leftOffset = thRect.left - wrapRect.left + tableWrap.scrollLeft + thRect.width / 2;
+    // 폰처럼 표가 칸보다 넓어 옆으로 밀리는 화면에서는 보스 열 가운데가 칸 밖(오른쪽)이라 단추가
+    // 안 보였다(사용자 지적, 2026-10-09). 그때는 보이는 폭 가운데에 두고 옆으로 밀어도 따라오게 한다.
+    const overflowing = tableWrap.scrollWidth > tableWrap.clientWidth + 1;
+    if (overflowing) leftOffset = tableWrap.scrollLeft + tableWrap.clientWidth / 2;
 
     const overlay = document.createElement('button');
     overlay.id = 'stage-spoiler-overlay';
@@ -259,6 +263,14 @@
     });
 
     tableWrap.appendChild(overlay);
+
+    if (overflowing) {
+      const followX = () => {
+        if (!overlay.isConnected) { tableWrap.removeEventListener('scroll', followX); return; }
+        overlay.style.left = (tableWrap.scrollLeft + tableWrap.clientWidth / 2) + 'px';
+      };
+      tableWrap.addEventListener('scroll', followX, { passive: true });
+    }
 
     // 표가 길면 단추가 한가운데에 박혀 있어서, 아래쪽을 보고 있을 때는 화면 밖에
     // 있다. 스크롤을 따라 화면 세로 한가운데에 머물게 한다.
