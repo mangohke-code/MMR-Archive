@@ -38,29 +38,32 @@
       container.innerHTML = '';
       return;
     }
-    // 내역이 길어지면 첫 화면을 다 잡아먹는다. 최근 다섯 줄만 두고 나머지는 접는다.
-    const SHOWN = 5;
-    const row = item => `
-      <div class="update-log-item">
+    // 내역이 길어지면 첫 화면을 다 잡아먹는다. 최근 다섯 줄만 두고 더보기를 누를 때마다
+    // 다섯 줄씩 더 연다. 끝까지 열면 버튼이 접기로 바뀌고, 누르면 처음 다섯 줄로 돌아간다.
+    const STEP = 5;
+    const row = (item, i) => `
+      <div class="update-log-item${i >= STEP ? ' hidden' : ''}">
         <span class="update-log-date">${formatLogDate(item.date)}</span>
         <span class="update-log-note">${item.note || ''}</span>
       </div>`;
-    const head = log.slice(0, SHOWN).map(row).join('');
-    const rest = log.slice(SHOWN).map(row).join('');
-    container.innerHTML = head
-      + (rest ? `<div class="update-log-rest hidden">${rest}</div>
-                 <button type="button" class="update-log-more" aria-expanded="false">
-                   더보기 <em>${log.length - SHOWN}</em>
-                 </button>` : '');
+    container.innerHTML = log.map(row).join('')
+      + (log.length > STEP ? '<button type="button" class="update-log-more" aria-expanded="false"></button>' : '');
 
     const more = container.querySelector('.update-log-more');
     if (more) {
-      const restBox = container.querySelector('.update-log-rest');
+      const rows = [...container.querySelectorAll('.update-log-item')];
+      let shown = STEP;
+      const sync = () => {
+        rows.forEach((r, i) => r.classList.toggle('hidden', i >= shown));
+        const left = rows.length - shown;
+        more.setAttribute('aria-expanded', String(left <= 0));
+        more.innerHTML = left > 0 ? `더보기 <em>${left}</em>` : '접기';
+      };
       more.addEventListener('click', () => {
-        const open = restBox.classList.toggle('hidden') === false;
-        more.setAttribute('aria-expanded', String(open));
-        more.innerHTML = open ? '접기' : `더보기 <em>${log.length - SHOWN}</em>`;
+        shown = shown >= rows.length ? STEP : Math.min(rows.length, shown + STEP);
+        sync();
       });
+      sync();
     }
 
     // 내역에 새 니케 · 보스 · 기념품 이름이 그대로 적혀 스포일러가 된다. 처음에는 흐리게 가리고

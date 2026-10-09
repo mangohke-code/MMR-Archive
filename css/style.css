@@ -604,8 +604,7 @@
   /* 업데이트 내역 가리기(main.js renderUpdateLog). 기념품 설명처럼 흐림만 건다 -
      transition 은 걸지 않는다(처음 그릴 때 흐림이 서서히 올라가는 동안 글자가 읽힌다).
      가린 동안에는 더보기를 숨기고 줄을 누르거나 고를 수 없게 한다. */
-  #update-log-list.is-spoiler > .update-log-item,
-  #update-log-list.is-spoiler > .update-log-rest {
+  #update-log-list.is-spoiler > .update-log-item {
     filter: blur(5px);
     user-select: none;
     pointer-events: none;
@@ -791,11 +790,6 @@
      줄바꿈을 허용하면 이름이 긴 카드만 키가 커지는데, 한 줄에 같이 있을 때는
      줄 높이에 묻혀 안 보이다가 그 카드가 혼자 다음 줄로 밀리면 크기가 달라 보인다.
      실제로 넘치는 카드에만 JS 가 is-scrolling 을 붙인다. */
-  /* 접힌 줄을 감싼 상자가 flex 항목 하나로 묶이면서, 그 안쪽 줄끼리는 목록의
-     gap 이 안 먹어 펼쳤을 때 간격이 달라졌다. display:contents 로 감싼 상자를
-     레이아웃에서 비켜 세워 안쪽 줄이 바로 목록의 항목이 되게 한다.
-     (접을 때는 .hidden 의 display:none !important 가 이긴다) */
-  .update-log-rest { display: contents; }
 
   .update-log-more {
     align-self: flex-start;
@@ -8256,3 +8250,17 @@
   /* 팝업 그림 칸: 새 그림이 다 받아질 때까지 비워 둔다(앞서 연 니케 그림이 잠깐 보이지 않게) */
   .pk-detail-figure.is-loading img { visibility: hidden; }
   .pk-detail-figure.is-loading.is-fallback::after { content: none; }
+
+  /* ===== 유니크 코스튬 · 캐릭터 도감 정보창 줄 간격 =====
+     구역(머리 · 픽업 기간 · 전용 티켓 · 복각 기간)이 여백 없이 바로 붙고 글줄도 기본 줄높이라
+     다닥다닥 붙어 보였다(사용자 지적, 2026-10-09). 구역 사이를 띄우고 줄높이를 준다. */
+  #costume-info > :is(#costume-info-row, #costume-ticket-wrap, #costume-rerun-wrap) { margin-top: 18px; }
+  #costume-info-header { gap: 6px; line-height: 1.25; }
+  #costume-info-row, #costume-ticket-wrap, #costume-rerun-wrap { gap: 6px; }
+  #costume-date, #costume-rerun-date, #costume-ticket-name { line-height: 1.45; }
+  #costume-info .costume-date-days { display: inline-block; margin-top: 4px; }
+
+  #codex-detail-name { line-height: 1.3; }
+  #codex-detail-affil { margin-top: 6px; line-height: 1.5; }
+  #codex-detail-squad { margin-top: 4px; line-height: 1.5; }
+  #codex-detail-appears { margin-top: 18px; }
