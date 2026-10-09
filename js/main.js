@@ -62,6 +62,26 @@
         more.innerHTML = open ? '접기' : `더보기 <em>${log.length - SHOWN}</em>`;
       });
     }
+
+    // 내역에 새 니케 · 보스 · 기념품 이름이 그대로 적혀 스포일러가 된다. 처음에는 흐리게 가리고
+    // 가운데 해제 버튼을 둔다(기념품 설명과 같은 방식). 해제는 이 탭을 닫을 때까지 유지한다.
+    if (updateLogRevealed()) return;
+    container.classList.add('is-spoiler');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'spoiler-reveal-btn';
+    btn.textContent = '스포일러 해제';
+    btn.addEventListener('click', () => {
+      container.classList.remove('is-spoiler');
+      btn.remove();
+      try { sessionStorage.setItem(UPDATE_LOG_REVEAL_KEY, '1'); } catch (e) { /* 저장 못 해도 이번 화면은 풀린다 */ }
+    });
+    container.appendChild(btn);
+  }
+
+  const UPDATE_LOG_REVEAL_KEY = 'mmr-update-log-revealed';
+  function updateLogRevealed() {
+    try { return sessionStorage.getItem(UPDATE_LOG_REVEAL_KEY) === '1'; } catch (e) { return false; }
   }
 
   // 카드 구석에 찍는 기록 번호(예: PU-2026-1008). 시작일에서 만든다. 꾸밈용이라

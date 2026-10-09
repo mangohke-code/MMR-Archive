@@ -598,7 +598,21 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    position: relative;
   }
+
+  /* 업데이트 내역 가리기(main.js renderUpdateLog). 기념품 설명처럼 흐림만 건다 -
+     transition 은 걸지 않는다(처음 그릴 때 흐림이 서서히 올라가는 동안 글자가 읽힌다).
+     가린 동안에는 더보기를 숨기고 줄을 누르거나 고를 수 없게 한다. */
+  #update-log-list.is-spoiler > .update-log-item,
+  #update-log-list.is-spoiler > .update-log-rest {
+    filter: blur(5px);
+    user-select: none;
+    pointer-events: none;
+  }
+  #update-log-list.is-spoiler > .update-log-more { display: none; }
+  /* 줄이 적으면 버튼이 내역 위아래로 삐져나온다 - 가린 동안은 버튼 높이만큼은 확보한다 */
+  #update-log-list.is-spoiler { min-height: 3rem; }
 
   .update-log-item {
     display: flex;
