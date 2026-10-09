@@ -901,11 +901,9 @@
     const e = new Date(end);
     const days = Math.round((e - s) / (1000 * 60 * 60 * 24));
 
-    const fmtFull = d =>
-      `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ` +
-      `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-
-    return `${fmtFull(s)} ~<br>${fmtFull(e)}<span class="costume-date-days">(${days}일간)</span>`;
+    // 픽업 기록 정보창과 같은 표기(2026.01.01 00:00). 기간 칸은 한 줄에 다 안 들어가서 ~ 뒤에서 끊는다.
+    return `<span class="costume-period">${formatKst(start, { withTime: true })} ~<br>${formatKst(end, { withTime: true })}</span>`
+      + `<span class="costume-date-days">${days}일간</span>`;
   }
 
   // 남은 일수를 D-n 배지로 표시. 진행중이면 종료까지, 아직 시작 전이면 시작까지 —
@@ -927,7 +925,7 @@
     if (!origStart || !rerunStart) return '';
     const gap = Math.round((new Date(rerunStart) - new Date(origStart)) / (1000 * 60 * 60 * 24));
     if (gap < 0) return '';
-    return `<span class="costume-date-days">(최초 픽업 후 ${gap}일 만에 복각)</span>`;
+    return `<span class="costume-date-days">최초 픽업 후 ${gap}일 만에 복각</span>`;
   }
 
   function waitForSpine(callback) {

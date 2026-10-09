@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=204">
+  <link rel="stylesheet" href="css/style.css?v=205">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -300,8 +300,8 @@
               <div class="info-handle"><i class="fas fa-circle-info"></i></div>
 
               <div id="costume-info-header">
-                <div id="costume-name"></div>
                 <div id="costume-nikke-name"></div>
+                <div id="costume-name"></div>
               </div>
 
               <div id="costume-info-row">
@@ -433,9 +433,17 @@
 
                 <div id="codex-detail-info" class="l2d-side l2d-side-right">
                   <div id="codex-detail-name"></div>
-                  <div id="codex-detail-affil"></div>
-                  <div id="codex-detail-squad"></div>
-                  <div id="codex-detail-appears"></div>
+                  <div class="codex-detail-section">
+                    <div class="codex-detail-label">정보</div>
+                    <div class="codex-attrs">
+                      <div class="codex-attr"><span class="codex-attr-label">소속</span><div id="codex-detail-affil"></div></div>
+                      <div class="codex-attr"><span class="codex-attr-label">스쿼드</span><div id="codex-detail-squad"></div></div>
+                    </div>
+                  </div>
+                  <div class="codex-detail-section">
+                    <div class="codex-detail-label">등장</div>
+                    <div id="codex-detail-appears"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -753,7 +761,7 @@
   <script src="js/common.js?v=71"></script>
   <script src="js/main.js?v=22"></script>
   <script src="js/pickup.js?v=48"></script>
-  <script src="js/costume.js?v=54"></script>
+  <script src="js/costume.js?v=55"></script>
   <script src="js/codex.js?v=3"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">

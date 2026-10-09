@@ -8251,16 +8251,111 @@
   .pk-detail-figure.is-loading img { visibility: hidden; }
   .pk-detail-figure.is-loading.is-fallback::after { content: none; }
 
-  /* ===== 유니크 코스튬 · 캐릭터 도감 정보창 줄 간격 =====
-     구역(머리 · 픽업 기간 · 전용 티켓 · 복각 기간)이 여백 없이 바로 붙고 글줄도 기본 줄높이라
-     다닥다닥 붙어 보였다(사용자 지적, 2026-10-09). 구역 사이를 띄우고 줄높이를 준다. */
-  #costume-info > :is(#costume-info-row, #costume-ticket-wrap, #costume-rerun-wrap) { margin-top: 18px; }
-  #costume-info-header { gap: 6px; line-height: 1.25; }
-  #costume-info-row, #costume-ticket-wrap, #costume-rerun-wrap { gap: 6px; }
-  #costume-date, #costume-rerun-date, #costume-ticket-name { line-height: 1.45; }
-  #costume-info .costume-date-days { display: inline-block; margin-top: 4px; }
+  /* ===== 유니크 코스튬 · 캐릭터 도감 정보창 — 픽업 기록 정보창(.pk-detail-*) 모양으로 =====
+     작은 머리말(니케 이름) -> 큰 이름 -> 줄 그은 구역 제목 -> 값 순서로 정리하고, 글자는 픽업 정보창보다
+     한 단계씩 크게 둔다(사용자 요청, 2026-10-09). 픽업: 이름 30 · 구역 제목 14 · 기간 20 · 부연 15 · 칸 이름 12 · 칸 값 17.
+     예전 규칙(이름 42px, 머리 왼쪽 띠, 구역 사이 여백 없음)을 이 블록이 덮는다. */
+  #costume-info-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+    border-bottom: 0;
+  }
+  #costume-info-header::before { content: none; }
+  #costume-nikke-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    color: var(--accent);
+  }
+  #costume-name {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--text-heading);
+    word-break: keep-all;
+  }
+  #costume-info > :is(#costume-info-row, #costume-ticket-wrap, #costume-rerun-wrap) { margin-top: 24px; }
+  #costume-info-row, #costume-ticket-wrap, #costume-rerun-wrap { display: flex; flex-direction: column; gap: 0; }
 
-  #codex-detail-name { line-height: 1.3; }
-  #codex-detail-affil { margin-top: 6px; line-height: 1.5; }
-  #codex-detail-squad { margin-top: 4px; line-height: 1.5; }
-  #codex-detail-appears { margin-top: 18px; }
+  /* 구역 제목 - .pk-detail-label 과 같다(15px) */
+  .costume-info-label,
+  .codex-detail-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    color: var(--accent);
+  }
+  .costume-info-label::after,
+  .codex-detail-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+  }
+
+  /* 기간 - .pk-detail-period(20px) 보다 한 단계 크게. 부연("21일간")은 .pk-detail-event 처럼 */
+  #costume-date, #costume-rerun-date { font-size: 16px; line-height: 1.4; color: var(--text-body); }
+  #costume-info .costume-period {
+    display: block;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text-heading);
+    font-variant-numeric: tabular-nums;
+  }
+  #costume-info .costume-date-days {
+    display: block;
+    margin: 4px 0 0;
+    font-size: 16px;
+    letter-spacing: 0;
+    color: var(--text-body);
+  }
+  #costume-info .costume-remaining-badge.is-own-line { margin-top: 8px; font-size: 15px; }
+  #costume-ticket-name { font-size: 18px; font-weight: 600; line-height: 1.35; color: var(--text-heading); }
+  #costume-ticket-imgs { margin-top: 10px; }
+
+  /* 도감 - 이름 -> 정보(소속 · 스쿼드 칸) -> 등장 */
+  #codex-detail-name {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--text-heading);
+    word-break: keep-all;
+  }
+  .codex-detail-section { margin-top: 24px; }
+  /* 픽업 정보창의 .pk-attrs 칸과 같은 모양. 바뀐 이력(A -> B)이 길 수 있어서 한 줄에 하나씩 */
+  .codex-attrs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .codex-attr {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 8px 0 8px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel-alt);
+    box-shadow: inset 0 0 0 1px var(--vinyl-line);
+  }
+  .codex-attr-label { font-size: 13px; letter-spacing: 0.06em; color: var(--text-muted); }
+  #codex-detail-affil, #codex-detail-squad {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-heading);
+  }
+  /* 값이 없는 칸(스쿼드 없는 니케)은 칸째 숨긴다. 둘 다 없으면 정보 구역째 숨긴다 */
+  .codex-attr:has(> div:empty) { display: none; }
+  .codex-detail-section:has(.codex-attrs):not(:has(.codex-attr > div:not(:empty))) { display: none; }
+  #codex-detail-appears { margin-top: 0; gap: 6px; }
+  #codex-detail-appears .detail-appear-num { font-size: 13px; }
+  #codex-detail-appears .detail-appear-val { font-size: 16px; }
