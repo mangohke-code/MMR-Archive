@@ -232,6 +232,23 @@
 
     if (isRevealed) return;
 
+    // 폰에서는 표를 카드처럼 펼쳐 두어(CSS) 떠 있는 단추가 계속 카드 글자를 가렸다(사용자 지적, 2026-10-11).
+    // 단추를 띄우지 않고 카드들 위에 안내 줄로 붙박아 둔다.
+    if (window.matchMedia('(max-width: 640px)').matches) {
+      const tableWrap = document.getElementById('stage-table-wrap');
+      const bar = document.createElement('div');
+      bar.id = 'stage-spoiler-overlay';
+      bar.className = 'stage-spoiler-bar';
+      bar.innerHTML = '<span>보스 · 유형은 스포일러라 가려 두었어요</span>'
+        + '<button type="button" class="spoiler-reveal-btn">스포일러 해제</button>';
+      bar.querySelector('button').addEventListener('click', () => {
+        revealedChapters.add(key);
+        applyStageBlur();
+      });
+      tableWrap.parentNode.insertBefore(bar, tableWrap);
+      return;
+    }
+
     // 보스 열(3번째 th) 위치 기준으로 버튼 배치
     const bossHeader = document.querySelector('#stage-table th:nth-child(3)');
     if (!bossHeader) return;

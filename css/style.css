@@ -8755,3 +8755,30 @@
     .codex-card { padding-left: 12px; padding-right: 12px; gap: 11px; }
     .codex-card-appear { font-size: 14px; }
   }
+
+  /* 유니크 코스튬 카드 아래 니케 이름 - 흐린 글자(text-muted)라 잘 안 읽혔다(사용자 요청, 2026-10-11) */
+  .costume-portrait-name { color: var(--text-heading); font-weight: 600; }
+
+  /* 폰 스테이지 스포일러 안내 줄(stage.js) - 떠 있는 단추 대신 카드들 위에 붙박는다 */
+  .stage-spoiler-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 8px 0 8px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel-alt);
+    box-shadow: inset 0 0 0 1px var(--vinyl-line);
+    font-size: 13px;
+    color: var(--text-secondary);
+    word-break: keep-all;
+  }
+  .stage-spoiler-bar .spoiler-reveal-btn {
+    position: static;
+    translate: none;
+    flex: none;
+    font-size: 14px;
+    padding: 7px 12px;
+  }
