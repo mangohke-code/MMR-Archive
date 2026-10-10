@@ -8782,3 +8782,24 @@
     font-size: 14px;
     padding: 7px 12px;
   }
+
+  /* ===== 유니크 코스튬 이름 검색 (사용자 요청, 2026-10-11) ===== */
+  #costume-search { margin-right: auto; }
+  .costume-search-empty { color: var(--text-faint); font-size: 15px; padding: 1.5rem 0; text-align: center; }
+
+  @media (max-width: 640px) {
+    /* 솔로 레이드: 검색창이 정렬 단추 둘과 한 줄을 나눠 쓰다 보니 안내 문구가 "보스 이름 · 시" 에서 잘렸다.
+       검색창이 한 줄을 다 쓰고, 정렬 단추 둘은 다음 줄에 원래 크기로 놓는다(글자 꺾임 없이). */
+    #soloraid-toolbar { flex-wrap: wrap; }
+    #soloraid-toolbar #soloraid-search-box { flex: 1 1 100%; width: auto; }
+    #soloraid-toolbar #soloraid-sort-btn, #soloraid-toolbar #soloraid-order-btn { white-space: nowrap; }
+
+    /* 유니크 코스튬: 검색창이 한 줄을 다 쓰고, 복각 · 순서 단추는 다음 줄 오른쪽 */
+    #costume-selector-toolbar { flex-wrap: wrap; }
+    #costume-search { flex: 1 1 100%; width: auto; margin-right: 0; }
+
+    /* iOS 사파리는 글자가 16px 보다 작은 입력칸을 누르면 화면을 확대해 버린다(그리고 안 돌아온다). */
+    input, textarea, select { font-size: 16px; }
+    .search-box input, #soloraid-search-drawer-box input,
+    #contact-subject, #contact-body, #contact-email { font-size: 16px; }
+  }

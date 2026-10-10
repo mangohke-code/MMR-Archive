@@ -12,6 +12,14 @@
     try { return localStorage.getItem(COSTUME_ORDER_KEY) === '1'; } catch (e) { return false; }
   })();
 
+  // 이름 검색(사용자 요청, 2026-10-11). 픽업 기록 검색과 같다 - 띄어쓰기 · 대소문자는 무시하고
+  // 니케 이름이나 코스튬 이름 어디든 들어 있으면 맞는 걸로 본다.
+  let costumeQuery = '';
+  const normCostumeName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+  const costumeMatches = c => !costumeQuery
+    || normCostumeName(c['니케']).includes(costumeQuery)
+    || normCostumeName(c['코스튬명']).includes(costumeQuery);
+
   function loadCostumeData() {
     onAppDataReady(() => {
       allNikkeImgData = APP_DATA.nikkeImg || [];
@@ -39,6 +47,22 @@
         toggle.click();
       }
     });
+
+    // 한 글자 칠 때마다 다시 그리면 무거워서 잠깐 멈췄을 때만 그린다
+    const searchInput = document.getElementById('costume-search-input');
+    if (searchInput) {
+      let searchTimer = null;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          const q = normCostumeName(searchInput.value);
+          if (q === costumeQuery) return;
+          costumeQuery = q;
+          renderCostumeSelector(allCostumeData);
+          updateCostumeScrollBtns();
+        }, 150);
+      });
+    }
 
     const orderBtn = document.getElementById('costume-order-btn');
     const syncOrderBtn = () => {
@@ -92,7 +116,8 @@
       : [];
 
     // 원본 + 복각 합산 후 연도별 그룹핑
-    const all = [...originals.map(c => ({ ...c, _isRerun: false })), ...reruns];
+    const all = [...originals.map(c => ({ ...c, _isRerun: false })), ...reruns]
+      .filter(costumeMatches);
 
     const byYear = {};
     all.forEach(c => {
@@ -114,6 +139,10 @@
     const yearOrder = Object.keys(byYear).sort((a, b) => (a - b) * dir);
 
     const container = document.getElementById('costume-selector-inner');
+    if (!yearOrder.length) {
+      container.innerHTML = '<p class="costume-search-empty">검색한 이름의 코스튬이 없습니다.</p>';
+      return;
+    }
     container.innerHTML = yearOrder.map(year => `
       <div class="costume-year-section">
         <div class="costume-year-divider">

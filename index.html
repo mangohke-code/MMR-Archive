@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=229">
+  <link rel="stylesheet" href="css/style.css?v=231">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -335,6 +335,11 @@
           <!-- 복각 표시 토글 + 코스튬 선택 -->
           <div id="costume-selector">
             <div id="costume-selector-toolbar">
+              <label id="costume-search" class="search-box">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <input id="costume-search-input" type="search" placeholder="니케 · 코스튬 이름" autocomplete="off"
+                       spellcheck="false" aria-label="니케 · 코스튬 이름으로 검색">
+              </label>
               <div id="costume-rerun-toggle" class="toggle-switch-wrap toggle-inline" role="switch"
                    aria-checked="false" aria-label="복각 표시" tabindex="0" title="복각 코스튬도 함께 보기">
                 <div class="toggle-switch"><span class="toggle-label">복각</span></div>
@@ -763,7 +768,7 @@
   <script src="js/common.js?v=74"></script>
   <script src="js/main.js?v=22"></script>
   <script src="js/pickup.js?v=52"></script>
-  <script src="js/costume.js?v=60"></script>
+  <script src="js/costume.js?v=61"></script>
   <script src="js/codex.js?v=6"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">
