@@ -5,6 +5,12 @@
   let activeSpinePlayers = []; // 기본 스켈레톤 + 추가 파츠 스켈레톤 전부 (정리용)
   let costumePanZoom = null;
   let showRerunCostume = true;
+  // 코스튬 순서: false = 최신부터(기본 - 위 연도 · 왼쪽 칸이 최신), true = 오래된 것부터. 고른 쪽을 기억한다.
+  // 예전 기본은 연도 안에서 왼쪽이 오래된 것이었다 - 최신이 왼쪽에 오게 바꿨다(사용자 요청, 2026-10-10).
+  const COSTUME_ORDER_KEY = 'mmr-costume-oldest-first';
+  let costumeOldestFirst = (() => {
+    try { return localStorage.getItem(COSTUME_ORDER_KEY) === '1'; } catch (e) { return false; }
+  })();
 
   function loadCostumeData() {
     onAppDataReady(() => {
@@ -33,6 +39,22 @@
         toggle.click();
       }
     });
+
+    const orderBtn = document.getElementById('costume-order-btn');
+    const syncOrderBtn = () => {
+      if (!orderBtn) return;
+      orderBtn.querySelector('span').textContent = costumeOldestFirst ? '오래된순' : '최신순';
+      orderBtn.querySelector('i').className = 'fas ' + (costumeOldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
+    };
+    if (orderBtn) {
+      syncOrderBtn();
+      orderBtn.addEventListener('click', () => {
+        costumeOldestFirst = !costumeOldestFirst;
+        try { localStorage.setItem(COSTUME_ORDER_KEY, costumeOldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
+        syncOrderBtn();
+        renderCostumeSelector(allCostumeData);
+      });
+    }
 
     // 탭이 display:none일 때는 폭을 잴 수 없으므로, 탭이 열릴 때/창 크기 변경 시 재계산
     const tabBtn = document.querySelector('[data-tab="costume"]');
@@ -75,15 +97,16 @@
       byYear[year].push(c);
     });
 
-    // 연도 내부 오래된순 정렬
+    // 연도 안 · 연도끼리 순서. 최신부터면 왼쪽 칸 · 위 연도가 최신이다.
+    const dir = costumeOldestFirst ? 1 : -1;
     Object.values(byYear).forEach(arr =>
       arr.sort((a, b) => {
         const da = new Date(a._isRerun ? a['복각 시작일'] : a['시작일']);
         const db = new Date(b._isRerun ? b['복각 시작일'] : b['시작일']);
-        return da - db;
+        return (da - db) * dir;
       })
     );
-    const yearOrder = Object.keys(byYear).sort((a, b) => b - a);
+    const yearOrder = Object.keys(byYear).sort((a, b) => (a - b) * dir);
 
     const container = document.getElementById('costume-selector-inner');
     container.innerHTML = yearOrder.map(year => `

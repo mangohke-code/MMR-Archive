@@ -397,6 +397,30 @@
     return eventSeasonMap[eventName] || fallback;
   }
 
+  // 픽업 순서: false = 최신부터(기본), true = 오래된 것부터. 고른 쪽을 브라우저에 기억해 둔다(솔로 레이드와 같은 방식).
+  const PICKUP_ORDER_KEY = 'mmr-pickup-oldest-first';
+  let pickupOldestFirst = (() => {
+    try { return localStorage.getItem(PICKUP_ORDER_KEY) === '1'; } catch (e) { return false; }
+  })();
+  // 최신부터면 큰 값이 앞, 오래된 것부터면 작은 값이 앞
+  const pickupOrder = (a, b) => (pickupOldestFirst ? a - b : b - a);
+
+  function syncPickupOrderBtn() {
+    const btn = document.getElementById('pickup-order-btn');
+    if (!btn) return;
+    btn.querySelector('span').textContent = pickupOldestFirst ? '오래된순' : '최신순';
+    btn.querySelector('i').className = 'fas ' + (pickupOldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
+  }
+
+  function togglePickupOrder() {
+    pickupOldestFirst = !pickupOldestFirst;
+    try { localStorage.setItem(PICKUP_ORDER_KEY, pickupOldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
+    syncPickupOrderBtn();
+    renderPickupTimeline();
+    renderPickupGroupView();
+    updateYearNav();
+  }
+
   function renderPickupTimeline() {
     const data = getFilteredData();
     const timeline = document.getElementById('pickup-timeline');
@@ -428,7 +452,7 @@
       byYear[year][eventKey].nikkes.push(p);
     });
 
-    const years = Object.keys(byYear).sort((a, b) => b - a);
+    const years = Object.keys(byYear).sort((a, b) => pickupOrder(Number(a), Number(b)));
 
     timeline.innerHTML = years.map(year => {
       const byMonth = {};
@@ -444,14 +468,14 @@
           <span class="year-label">${year}</span>
           <div class="year-line"></div>
         </div>
-        ${Object.keys(byMonth).sort((a, b) => b - a).map(month => `
+        ${Object.keys(byMonth).sort((a, b) => pickupOrder(Number(a), Number(b))).map(month => `
           <div class="month-row">
             <div class="month-col">
               <div class="month-label">${month}월</div>
             </div>
             <div class="events-col">
               ${byMonth[month]
-                .sort((a, b) => new Date(b[1].rangeStart) - new Date(a[1].rangeStart))
+                .sort((a, b) => pickupOrder(new Date(a[1].rangeStart), new Date(b[1].rangeStart)))
                 .map(([eventName, eventData]) => renderEventLine(eventName, eventData))
                 .join('')}
             </div>
@@ -1015,6 +1039,10 @@
 
     initPickupCalendarNav();
 
+    // 순서 버튼
+    const orderBtn = document.getElementById('pickup-order-btn');
+    if (orderBtn) { syncPickupOrderBtn(); orderBtn.addEventListener('click', togglePickupOrder); }
+
     // 필터 토글
     const filterToggle = document.getElementById('pickup-filter-toggle');
     const filterWrap = document.getElementById('pickup-filter-wrap');
@@ -1107,7 +1135,7 @@
       if (!periodMap[pk]) periodMap[pk] = { start: new Date(p['시작일']), nikkes: [] };
       periodMap[pk].nikkes.push(p);
     });
-    const periods = Object.entries(periodMap).sort((a, b) => b[1].start - a[1].start);
+    const periods = Object.entries(periodMap).sort((a, b) => pickupOrder(a[1].start, b[1].start));
 
     // 열 너비 계산: 기간열 150px, 나머지 균등
     const colWidthStyle = `width: calc((100% - 150px) / ${columns.length});`;

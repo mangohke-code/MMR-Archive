@@ -4944,7 +4944,7 @@
     margin-bottom: 4px;
   }
 
-  :is(#soloraid-sort-btn, #soloraid-order-btn) {
+  :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn) {
     padding: 6px 14px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-subtle);
@@ -4955,12 +4955,12 @@
     transition: all 0.15s;
   }
 
-  :is(#soloraid-sort-btn, #soloraid-order-btn):hover {
+  :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn):hover {
     border-color: var(--border-accent);
     color: var(--accent);
   }
 
-  :is(#soloraid-sort-btn, #soloraid-order-btn).active {
+  :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn).active {
     background: var(--bg-panel-active);
     border-color: var(--border-accent);
     color: var(--accent);
@@ -6592,7 +6592,7 @@
   .anim-btn, .detail-model-btn, .mode-btn, .update-log-more, .costume-scroll-btn,
   .scroll-btn, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn),
   #theme-toggle, #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
-  #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn), #stage-back-btn {
+  #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn), #stage-back-btn {
     background: var(--btn-bg);
     border-color: var(--border-card);
     box-shadow: var(--btn-shadow);
@@ -6610,7 +6610,7 @@
   .costume-scroll-btn:hover, .scroll-btn:hover, .l2d-bar-btn:hover:not([disabled]),
   .sr3d-btn:not(.soloraid-anim-btn):hover,
   #theme-toggle:hover, #pickup-filter-toggle:hover, #pickup-filter-reset:hover,
-  #pickup-calendar-today:hover, #codex-survey-btn:hover, :is(#soloraid-sort-btn, #soloraid-order-btn):hover,
+  #pickup-calendar-today:hover, #codex-survey-btn:hover, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn):hover,
   #stage-back-btn:hover {
     background: var(--btn-bg-hover);
     border-color: var(--border-strong);
@@ -6627,7 +6627,7 @@
   .costume-scroll-btn:active, .scroll-btn:active, .l2d-bar-btn:active,
   .sr3d-btn:not(.soloraid-anim-btn):active,
   #theme-toggle:active, #pickup-filter-toggle:active, #pickup-filter-reset:active,
-  #pickup-calendar-today:active, #codex-survey-btn:active, :is(#soloraid-sort-btn, #soloraid-order-btn):active,
+  #pickup-calendar-today:active, #codex-survey-btn:active, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn):active,
   #stage-back-btn:active {
     transform: translateY(0);
     box-shadow: var(--btn-shadow);
@@ -6636,7 +6636,7 @@
   /* 고른 상태 — 라벤더 바탕에 금색 밑단. 탭 줄의 선택 표시와 같은 말투다. */
   .pickup-view-btn.active, .pickup-group-btn.active, .calendar-group-btn.active,
   .filter-chip.active, .survey-chip.active, .anim-btn.active, .detail-model-btn.active,
-  .mode-btn.active, .sr3d-btn.active:not(.soloraid-anim-btn), :is(#soloraid-sort-btn, #soloraid-order-btn).active {
+  .mode-btn.active, .sr3d-btn.active:not(.soloraid-anim-btn), :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn).active {
     background: var(--btn-on-bg);
     border-color: var(--accent-strong);
     color: var(--text-on-accent);
@@ -6648,7 +6648,7 @@
   .pickup-view-btn.active:hover, .pickup-group-btn.active:hover,
   .calendar-group-btn.active:hover, .filter-chip.active:hover, .survey-chip.active:hover,
   .anim-btn.active:hover, .detail-model-btn.active:hover, .mode-btn.active:hover,
-  .sr3d-btn.active:not(.soloraid-anim-btn):hover, :is(#soloraid-sort-btn, #soloraid-order-btn).active:hover {
+  .sr3d-btn.active:not(.soloraid-anim-btn):hover, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn).active:hover {
     background: var(--btn-on-bg);
     color: var(--text-on-accent);
     box-shadow: var(--btn-on-shadow), 0 4px 14px var(--accent-glow);
@@ -6717,7 +6717,7 @@
   .anim-btn, .detail-model-btn, .mode-btn, .update-log-more, .costume-scroll-btn,
   .scroll-btn, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn),
   #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
-  #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn), #stage-back-btn,
+  #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn), #stage-back-btn,
   #contact-send, #survey-confirm-btn, .spoiler-reveal-btn {
     --btn-cut: 7px;
     border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
@@ -6737,7 +6737,7 @@
     .anim-btn, .detail-model-btn, .mode-btn, .update-log-more, .costume-scroll-btn,
     .scroll-btn, .l2d-bar-btn, .sr3d-btn:not(.soloraid-anim-btn),
     #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
-    #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn), #stage-back-btn,
+    #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn), #stage-back-btn,
     #contact-send, #survey-confirm-btn, .spoiler-reveal-btn {
       border-radius: 0;
       clip-path: polygon(var(--btn-cut) 0, 100% 0, 100% calc(100% - var(--btn-cut)),
@@ -6906,7 +6906,7 @@
   .survey-all-btn, #survey-global-btns .survey-global-btn, .detail-model-btn:not(.active),
   .mode-btn:not(.active), .update-log-more, #theme-toggle, #pickup-filter-toggle,
   #pickup-filter-reset, #pickup-calendar-today, #codex-survey-btn,
-  :is(#soloraid-sort-btn, #soloraid-order-btn):not(.active), #stage-back-btn {
+  :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn):not(.active), #stage-back-btn {
     background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg);
     transition: border-color 0.18s, box-shadow 0.18s, color 0.18s, transform 0.12s,
                 --sheen-x 0.35s ease-out;
@@ -6919,7 +6919,7 @@
   #survey-global-btns .survey-global-btn:hover, .detail-model-btn:not(.active):hover,
   .mode-btn:not(.active):hover, .update-log-more:hover, #theme-toggle:hover,
   #pickup-filter-toggle:hover, #pickup-filter-reset:hover, #pickup-calendar-today:hover,
-  #codex-survey-btn:hover, :is(#soloraid-sort-btn, #soloraid-order-btn):not(.active):hover, #stage-back-btn:hover {
+  #codex-survey-btn:hover, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn):not(.active):hover, #stage-back-btn:hover {
     --sheen-x: 0%;
     background: var(--sheen) var(--sheen-x) 0 / 250% 100% no-repeat, var(--btn-bg-hover);
   }
@@ -7728,7 +7728,7 @@
       .year-nav-btn, .filter-chip:not(.overspec), .survey-chip, .survey-all-btn, .anim-btn, .detail-model-btn,
       .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
       .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
-      #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
+      #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
       #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]) {
     color: var(--text-body);
   }
@@ -7738,7 +7738,7 @@
         .year-nav-btn, .filter-chip:not(.overspec), .survey-chip, .survey-all-btn, .anim-btn, .detail-model-btn,
         .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
         .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
-        #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
+        #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
         #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):not([disabled]):hover {
       color: var(--accent-strong);
       border-color: var(--border-accent);
@@ -7758,7 +7758,7 @@
       .year-nav-btn, .filter-chip, .survey-chip, .survey-all-btn, .anim-btn, .detail-model-btn,
       .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
       .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
-      #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
+      #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
       #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):active {
     transform: translateY(0);
   }
@@ -8246,7 +8246,7 @@
 
   /* ===== 솔로 레이드 목록 — 시즌 순서 단추 =====
      최신 시즌부터(기본) / 1시즌부터를 오간다(사용자 요청, 2026-10-05). 모양은 속성별 정렬 단추와 같다
-     (위 규칙들이 :is(#soloraid-sort-btn, #soloraid-order-btn) 로 둘을 같이 꾸민다). */
+     (위 규칙들이 :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn) 로 둘을 같이 꾸민다). */
   #soloraid-order-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   #soloraid-order-btn i { font-size: 13px; }
 
@@ -8725,4 +8725,17 @@
     #pickup-calendar-group-selector:not(.hidden) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
     #pickup-calendar-group-label { grid-column: 1 / -1; }
     #pickup-calendar-group-selector .calendar-group-btn { width: auto; min-width: 0; padding-left: 2px; padding-right: 2px; }
+  }
+
+  /* ===== 픽업 기록 · 유니크 코스튬 순서 버튼 (사용자 요청, 2026-10-10) =====
+     솔로 레이드의 최신순 버튼과 같은 모양 · 동작. 고른 쪽은 페이지마다 따로 기억한다. */
+  #pickup-order-btn, #costume-order-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
+  /* 픽업 툴바는 옆의 필터 단추와 높이를 맞춘다 */
+  #pickup-order-btn { font-size: 15px; padding: 7px 6px; width: 96px; justify-content: center; }
+  #costume-selector-toolbar { display: flex; align-items: center; gap: 8px; }
+  @media (max-width: 640px) {
+    /* 폰 픽업 툴바: 복각 + 검색이 한 줄, 최신순 + 필터가 다음 줄을 반씩(필터만 혼자 셋째 줄로 밀렸다) */
+    #pickup-toolbar #pickup-search { flex: 1 1 calc(100% - 90px); min-width: 0; }
+    #pickup-toolbar #pickup-order-btn,
+    #pickup-toolbar #pickup-filter-toggle { flex: 1 1 calc(50% - 5px); width: auto; }
   }
