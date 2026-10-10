@@ -71,6 +71,9 @@
       return;
     }
 
+    // 보내기 전에 한 번 더 묻는다(사용자 요청, 2026-10-10). 실수로 누르거나 이메일을 빠뜨린 채 보내는 일을 막는다.
+    if (!(await confirmSend(v))) return;
+
     $('contact-send').disabled = true;
     setStatus('보내는 중…', '');
     let res;
@@ -96,6 +99,50 @@
 
     try { localStorage.setItem(LAST_KEY, String(Date.now())); } catch (e) { /* 무시 */ }
     done();
+  }
+
+  // 보낼 내용을 보여 주고 보낼지 묻는다. 확인 창은 처음 한 번만 만든다.
+  // 답은 단추 누름으로 바로 받는다 - dialog 의 close 사건은 브라우저에 따라 늦게 오거나 안 와서 기대지 않는다.
+  let confirmFinish = null;
+  function confirmSend(v) {
+    let dlg = $('contact-confirm');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'contact-confirm';
+      // 안쪽 상자에 여백을 둔다 - 창 자체를 누른 것(= 바깥 어두운 바탕)과 구분하려고
+      dlg.innerHTML = `<div class="cc-box">
+        <h3 class="cc-title">문의를 보낼까요?</h3>
+        <dl class="cc-summary">
+          <dt>제목</dt><dd class="cc-subject"></dd>
+          <dt>내용</dt><dd class="cc-body"></dd>
+          <dt>답변 이메일</dt><dd class="cc-email"></dd>
+        </dl>
+        <div class="cc-actions">
+          <button type="button" class="cc-cancel">취소</button>
+          <button type="button" class="cc-send">보내기</button>
+        </div></div>`;
+      document.body.appendChild(dlg);
+      const answer = ok => { if (confirmFinish) confirmFinish(ok); };
+      dlg.querySelector('.cc-cancel').addEventListener('click', () => answer(false));
+      dlg.querySelector('.cc-send').addEventListener('click', () => answer(true));
+      // Esc · 바깥(어두운 바탕) 누름은 취소
+      dlg.addEventListener('cancel', e => { e.preventDefault(); answer(false); });
+      dlg.addEventListener('click', e => { if (e.target === dlg) answer(false); });
+    }
+    dlg.querySelector('.cc-subject').textContent = v.subject;
+    dlg.querySelector('.cc-body').textContent = v.body.length > 140 ? v.body.slice(0, 140) + '…' : v.body;
+    const em = dlg.querySelector('.cc-email');
+    em.textContent = v.email || '없음 - 답변을 받을 수 없어요';
+    em.classList.toggle('is-empty', !v.email);
+    return new Promise(resolve => {
+      confirmFinish = ok => {
+        confirmFinish = null;
+        if (dlg.open) dlg.close();
+        resolve(ok);
+      };
+      dlg.showModal();
+      dlg.querySelector('.cc-send').focus();
+    });
   }
 
   function done() {

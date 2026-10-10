@@ -8608,3 +8608,42 @@
     #stage-table td:nth-child(1) { font-size: 18px; font-weight: 700; color: var(--text-heading); }
     #stage-table .spoiler-mask { width: 72px; }
   }
+
+  /* ===== 문의 보내기 확인 창 (contact.js confirmSend) ===== */
+  #contact-confirm {
+    /* 전체 margin 0 초기화가 dialog 의 가운데 맞춤(margin:auto)까지 지워서 왼쪽 위에 붙었다 */
+    margin: auto;
+    inset: 0;
+    width: min(420px, calc(100vw - 32px));
+    padding: 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px 0 12px 0;
+    corner-shape: bevel;
+    background: var(--bg-panel);
+    color: var(--text-body);
+    box-shadow: var(--shadow-card-hover);
+  }
+  #contact-confirm::backdrop { background: rgba(10, 10, 30, 0.45); }
+  #contact-confirm .cc-box { padding: 22px 22px 18px; }
+  #contact-confirm .cc-title { margin: 0 0 14px; font-size: 19px; font-weight: 700; color: var(--text-heading); }
+  #contact-confirm .cc-summary { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 14px; font-size: 14px; }
+  #contact-confirm dt { color: var(--text-muted); white-space: nowrap; }
+  #contact-confirm dd { margin: 0; color: var(--text-heading); white-space: pre-wrap; word-break: break-word; }
+  #contact-confirm dd.cc-body { max-height: 8.5em; overflow-y: auto; color: var(--text-body); }
+  #contact-confirm dd.is-empty { color: var(--status-warn-text); }
+  #contact-confirm .cc-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  #contact-confirm .cc-actions button {
+    min-width: 84px;
+    padding: 9px 18px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+  #contact-confirm .cc-cancel { border: 1px solid var(--border-subtle); background: var(--bg-panel-alt); color: var(--text-body); }
+  #contact-confirm .cc-send { border: 1px solid var(--accent-strong); background: var(--btn-on-bg, var(--accent)); color: var(--text-on-accent); }
+  @media (hover: hover) {
+    #contact-confirm .cc-cancel:hover { background: var(--bg-panel-active); color: var(--text-heading); }
+    #contact-confirm .cc-send:hover { filter: brightness(1.08); }
+  }
