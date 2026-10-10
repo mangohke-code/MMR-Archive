@@ -978,6 +978,9 @@
     // 보기 전환
     document.querySelectorAll('.pickup-view-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        // 보던 연도를 기억했다가 새 보기에서 같은 연도로 옮긴다. 그대로 두면 스크롤 높이만 남아서 보기마다
+        // 길이가 달라 엉뚱한 연도(오래된순에서 2025 -> 2026)로 가고 연도 단추도 어긋났다(사용자 지적, 2026-10-10).
+        const keepYear = window.scrollY > 0 ? currentNavYear : null;
         currentView = btn.dataset.view;
         document.querySelectorAll('.pickup-view-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -994,6 +997,10 @@
         }
         renderCurrentView();
         updateYearNav();
+        if (keepYear && currentView !== 'calendar') {
+          // 몰아보기는 연도 관찰을 다음 그림 차례에 붙이므로 그 뒤에 옮긴다
+          requestAnimationFrame(() => requestAnimationFrame(() => scrollToNavYear(keepYear)));
+        }
       });
     });
 
@@ -2196,12 +2203,26 @@
   // 몰아보기는 열 헤더가 position:sticky로 스크롤 컨테이너 위쪽에 붙어있어서,
   // scrollIntoView(block:'start')로 그냥 맞추면 대상 행 윗부분이 그 헤더에 가려진다.
   // 헤더 실제 높이를 재서 그만큼(+여백) 더 내려간 위치로 스크롤한다.
-  function scrollGroupRowIntoView(row) {
+  function scrollGroupRowIntoView(row, behavior = 'smooth') {
     if (!row) return;
     const headerWrap = document.getElementById('pickup-group-header-wrap');
     const headerHeight = headerWrap ? headerWrap.offsetHeight : 0;
     const targetTop = window.scrollY + row.getBoundingClientRect().top - headerHeight - 12;
-    window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' });
+    window.scrollTo({ top: Math.max(targetTop, 0), behavior });
+  }
+
+  // 지금 보기에서 그 연도의 첫 자리로 바로 옮긴다(보기 전환 때). 연도가 없으면(필터로 빠짐) 그대로 둔다.
+  function scrollToNavYear(year) {
+    if (currentView === 'timeline') {
+      const sec = [...document.querySelectorAll('#pickup-timeline .timeline-year')]
+        .find(el => el.querySelector('.year-label')?.textContent === year);
+      if (sec) sec.scrollIntoView({ behavior: 'auto', block: 'start' });
+    } else if (currentView === 'group') {
+      const cell = [...document.querySelectorAll('#pickup-group-tbody .period-label-cell')]
+        .find(el => el.querySelector('.period-year-label')?.textContent === year);
+      if (cell) scrollGroupRowIntoView(cell.closest('tr'), 'auto');
+    }
+    if (yearNavObserver) yearNavObserver();
   }
 
   function moveToYear(direction) {

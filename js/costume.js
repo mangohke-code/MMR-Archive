@@ -68,8 +68,11 @@
       const wrap = row.querySelector('.costume-portrait-scroll-wrap');
       if (!wrap) return;
       const needsScroll = wrap.scrollWidth > wrap.clientWidth + 1;
+      // 숨길 때도 자리는 남긴다(보이지만 않게). 자리째 빼면 화살표가 있는 연도만 첫 코스튬이 오른쪽으로 밀려
+      // 연도끼리 첫 칸이 세로로 안 맞았다(사용자 지적, 2026-10-10).
       row.querySelectorAll('.costume-scroll-btn').forEach(btn => {
-        btn.classList.toggle('hidden', !needsScroll);
+        btn.classList.toggle('is-idle', !needsScroll);
+        btn.tabIndex = needsScroll ? 0 : -1;
       });
     });
   }

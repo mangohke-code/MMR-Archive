@@ -8739,3 +8739,6 @@
     #pickup-toolbar #pickup-order-btn,
     #pickup-toolbar #pickup-filter-toggle { flex: 1 1 calc(50% - 5px); width: auto; }
   }
+
+  /* 유니크 코스튬 좌우 화살표 - 넘치지 않는 연도에서는 보이지만 않게(자리는 남김, costume.js) */
+  .costume-scroll-btn.is-idle { visibility: hidden; pointer-events: none; }
