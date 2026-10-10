@@ -352,30 +352,28 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange, opts) {
 // L2D 뷰어(유니크 코스튬·캐릭터 도감)의 왼쪽 조작판 접기. 솔로 레이드 뷰어와 같은 감각으로
 // 손잡이 하나만 남기고 판을 접는다. 판이 그림 칸의 형제라서 접으면 그림이 그만큼 넓어진다.
 // ===== 정렬 바꿀 때 애니메이션 (사용자 요청, 2026-10-10) =====
-// 기기에서 "동작 줄이기"를 켠 사람에게는 애니메이션 없이 바로 바꾼다.
+// 기기에서 "동작 줄이기"를 켠 사람과 폰 폭에서는 애니메이션 없이 바로 바꾼다(폰은 사용자 요청).
 const REDUCE_MOTION_MQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+const SORT_ANIM_OFF_MQ = window.matchMedia('(max-width: 640px)');
+const sortAnimOff = () => REDUCE_MOTION_MQ.matches || SORT_ANIM_OFF_MQ.matches;
 
 // 카드가 원래 자리에서 새 자리로 미끄러진다(FLIP). render 가 목록을 통째로 다시 그려도 keyOf 로 같은 카드를 찾는다.
-// 화면 높이보다 멀리 가는 카드(위 연도 <-> 아래 연도)는 날아다니면 정신없어서 제자리에서 나타나게만 한다.
+// 한 페이지 안에서는 모든 카드가 같은 움직임이다 - 멀리 가는 카드만 따로 흐려지게 하던 것을 걷었다(사용자 요청).
 function animateReorder(selector, keyOf, render, duration = 380) {
-  if (REDUCE_MOTION_MQ.matches) { render(); return; }
+  if (sortAnimOff()) { render(); return; }
   const before = new Map();
   document.querySelectorAll(selector).forEach(el => {
     const r = el.getBoundingClientRect();
     if (r.width || r.height) before.set(keyOf(el), r);
   });
   render();
-  const far = window.innerHeight;
-  const fade = el => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing: 'ease-out' });
   document.querySelectorAll(selector).forEach(el => {
     const r = el.getBoundingClientRect();
-    if (!r.width && !r.height) return;
     const old = before.get(keyOf(el));
-    if (!old) { fade(el); return; }
+    if (!old || (!r.width && !r.height)) return;
     const dx = old.left - r.left;
     const dy = old.top - r.top;
     if (!dx && !dy) return;
-    if (Math.abs(dy) > far) { fade(el); return; }
     el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
       { duration, easing: 'cubic-bezier(.2, .8, .2, 1)' });
   });
@@ -384,7 +382,7 @@ function animateReorder(selector, keyOf, render, duration = 380) {
 // 목록이 통째로 흐려졌다가 새 순서로 살짝 내려오며 나타난다(카드가 아주 많은 목록 - 픽업 기록).
 function animateSwap(container, render, duration = 320) {
   render();
-  if (REDUCE_MOTION_MQ.matches || !container) return;
+  if (sortAnimOff() || !container) return;
   container.animate([{ opacity: 0, transform: 'translateY(-12px)' }, { opacity: 1, transform: 'none' }],
     { duration, easing: 'ease-out' });
 }
