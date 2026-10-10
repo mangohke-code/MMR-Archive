@@ -738,14 +738,13 @@
         disposeSpinePlayer(player);
         wrap.innerHTML = '';
 
-        const wrapEl = document.getElementById('codex-spine-wrap');
-        const wrapW  = wrapEl.clientWidth;
-        const wrapH  = wrapEl.clientHeight;
-
+        // 그림 칸을 그대로 채운다(유니크 코스튬과 같은 까닭 - 뷰어 상자 전체 크기로 박으면 세로 가운데가
+        // 재생바 아래까지 잡혔다).
+        const wrapEl = document.getElementById('codex-spine-wrap');   // 팬 · 줌 손잡이(setupSpinePanZoom)가 쓴다
         const playerDiv2 = document.createElement('div');
         playerDiv2.id = 'codex-spine-inner';
-        playerDiv2.style.width  = wrapW + 'px';
-        playerDiv2.style.height = wrapH + 'px';
+        playerDiv2.style.width  = '100%';
+        playerDiv2.style.height = '100%';
         wrap.appendChild(playerDiv2);
 
         codexSpinePlayer = new spine.SpinePlayer('codex-spine-inner', {

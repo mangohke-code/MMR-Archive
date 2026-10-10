@@ -763,15 +763,17 @@
     }
 
     const wrap = document.getElementById('costume-spine-player');
-    const wrapEl = document.getElementById('costume-spine-wrap');
-    const wrapHeight = wrapEl.clientHeight;
-    const wrapWidth = wrapEl.clientWidth;
+    const wrapEl = document.getElementById('costume-spine-wrap');   // 팬 · 줌 손잡이(setupSpinePanZoom)가 쓴다
 
     // 여러 스켈레톤 레이어(기본 + 추가 파츠)를 담을 무대. 팬/줌은 이 div 하나에만 적용한다.
+    // 크기는 그림 칸(조작판 · 정보판 · 재생바를 뺀 자리)을 그대로 채운다. 예전에는 뷰어 상자 전체
+    // (costume-spine-wrap) 크기를 픽셀로 박아서, 그림 칸보다 47px 높고 판 폭만큼 넓었다 - 그림의
+    // 세로 가운데가 재생바 아래까지 잡혀 아래쪽이 재생바에 가렸다(사용자 지적, 2026-10-11).
+    // 판을 접고 펴면 그림 칸 크기가 바뀌므로 픽셀 대신 100% 로 따라가게 한다.
     const stageDiv = document.createElement('div');
     stageDiv.id = 'costume-spine-stage';
-    stageDiv.style.width = wrapWidth + 'px';
-    stageDiv.style.height = wrapHeight + 'px';
+    stageDiv.style.width = '100%';
+    stageDiv.style.height = '100%';
     stageDiv.style.position = 'relative';
     wrap.appendChild(stageDiv);
 
