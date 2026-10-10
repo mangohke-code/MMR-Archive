@@ -164,13 +164,20 @@
     soloRaidOldestFirst = !soloRaidOldestFirst;
     try { localStorage.setItem(SOLORAID_ORDER_KEY, soloRaidOldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
     syncSoloRaidOrderBtn();
-    renderSoloRaidSelector(allSoloRaidData);
+    reorderSoloRaidSelector();
+  }
+
+  // 정렬을 바꾸면 보스 카드가 새 자리로 미끄러진다(목록 화면 · 서랍 목록 둘 다)
+  function reorderSoloRaidSelector() {
+    animateReorder('#soloraid-selector .soloraid-item, #sr3d-drawer-selector .soloraid-item',
+      el => (el.closest('#sr3d-drawer-selector') ? 'd' : 'h') + el.dataset.idx,
+      () => renderSoloRaidSelector(allSoloRaidData));
   }
 
   function toggleSoloRaidAttrSort() {
     soloRaidSortByAttr = !soloRaidSortByAttr;
     document.getElementById('soloraid-sort-btn').classList.toggle('active', soloRaidSortByAttr);
-    renderSoloRaidSelector(allSoloRaidData);
+    reorderSoloRaidSelector();
   }
 
   // 보스 목록과 상세 정보는 평소에 접어 두고 오른쪽 세로 버튼으로 연다.

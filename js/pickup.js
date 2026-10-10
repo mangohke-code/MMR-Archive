@@ -416,9 +416,18 @@
     pickupOldestFirst = !pickupOldestFirst;
     try { localStorage.setItem(PICKUP_ORDER_KEY, pickupOldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
     syncPickupOrderBtn();
-    renderPickupTimeline();
-    renderPickupGroupView();
+    // 보던 연도에 그대로 머문다(순서를 뒤집으면 같은 높이에 다른 연도가 온다). 목록은 흐려졌다가 새 순서로 나타난다.
+    const keepYear = window.scrollY > 0 ? currentNavYear : null;
+    const shown = currentView === 'group' ? document.getElementById('pickup-group-view')
+      : document.getElementById('pickup-timeline');
+    animateSwap(shown, () => {
+      renderPickupTimeline();
+      renderPickupGroupView();
+    });
     updateYearNav();
+    if (keepYear && currentView !== 'calendar') {
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollToNavYear(keepYear)));
+    }
   }
 
   function renderPickupTimeline() {

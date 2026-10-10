@@ -52,7 +52,9 @@
         costumeOldestFirst = !costumeOldestFirst;
         try { localStorage.setItem(COSTUME_ORDER_KEY, costumeOldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
         syncOrderBtn();
-        renderCostumeSelector(allCostumeData);
+        // 카드가 새 자리로 미끄러진다. 원본 · 복각은 같은 번호라 둘을 나눠서 짝짓는다.
+        animateReorder('.costume-portrait-item', el => el.dataset.idx + '-' + el.dataset.isRerun,
+          () => { renderCostumeSelector(allCostumeData); updateCostumeScrollBtns(); });
       });
     }
 
