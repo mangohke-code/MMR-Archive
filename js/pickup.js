@@ -343,10 +343,10 @@
   }
 
   // 이름 검색. 띄어쓰기·대소문자는 무시하고 이름 어디든 들어 있으면 맞는 걸로 본다
-  // ("펌킨" 으로 "벨로타 : 펌킨 위치" 가 나온다).
+  // ("펌킨" 으로 "벨로타 : 펌킨 위치" 가 나온다). 초성으로도 찾는다(common.js searchMatches).
   let nameQuery = '';
-  const normName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
-  const nameMatches = p => !nameQuery || normName(p['니케']).includes(nameQuery);
+  const normName = normSearch;
+  const nameMatches = p => !nameQuery || searchMatches(p['니케'], nameQuery);
 
   function clearNameSearch() {
     nameQuery = '';

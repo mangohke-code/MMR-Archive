@@ -61,9 +61,12 @@
   }
 
   // 캐릭터 목록에서 "등장" 값 하나를 정렬 가능한 순위로 바꾼다. 순서는
-  // 챕터(번호순) → 사이드 스토리 → 이벤트 스토리(픽업 기록의 시작일 순) → 미등장(맨 뒤).
+  // 챕터(번호순) → 사이드 스토리(도감 번호에서 처음 나오는 순) → 이벤트 스토리(픽업 기록의 시작일 순) → 미등장(맨 뒤).
   // 만우절은 픽업 기록에 없어서 순번을 못 받지만 사이드 스토리가 아니라 이벤트이므로,
   // 이벤트들 뒤에 라벨의 연도순으로 붙인다.
+  // 사이드 스토리끼리의 순서(사용자 요청, 2026-10-11): 일단 도감 번호(index)에서 처음 나오는 순서.
+  // 공개일 순과 어긋나는 일이 생기면 그때 공개일 칸을 따로 두기로 했다. classifySurveyItems 가 채운다.
+  let sideOrderMap = {};
   const APPEAR_SIDE_OFFSET   = 100000; // 챕터 번호가 절대 이 값을 넘지 않는다고 가정
   const APPEAR_EVENT_OFFSET  = 200000;
   const APPEAR_UNDATED_EVENT = 300000; // 픽업 기록에 순번이 없는 이벤트(만우절)
@@ -76,7 +79,8 @@
       const year = surveyLabelYear(val);
       return APPEAR_UNDATED_EVENT + (year < 3000 ? year : 0);
     }
-    return APPEAR_SIDE_OFFSET;
+    const sideIdx = sideOrderMap[val];
+    return APPEAR_SIDE_OFFSET + (sideIdx !== undefined ? sideIdx : 9999);
   }
 
   // Infinity - Infinity(둘 다 미등장)이 NaN이 되어 정렬이 불안정해지는 걸 피하기 위한 비교 함수
@@ -159,6 +163,8 @@
     });
 
     surveyItems.side = sideList.map(label => ({ label }));
+    sideOrderMap = {};
+    sideList.forEach((label, i) => { sideOrderMap[label] = i; });
   }
 
   // 설문 선택지 정렬: 픽업 기록에 있는 이벤트는 출시 순서대로.

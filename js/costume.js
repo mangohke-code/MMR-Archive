@@ -13,12 +13,12 @@
   })();
 
   // 이름 검색(사용자 요청, 2026-10-11). 픽업 기록 검색과 같다 - 띄어쓰기 · 대소문자는 무시하고
-  // 니케 이름이나 코스튬 이름 어디든 들어 있으면 맞는 걸로 본다.
+  // 니케 이름이나 코스튬 이름 어디든 들어 있으면 맞는 걸로 본다. 초성으로도 찾는다.
   let costumeQuery = '';
-  const normCostumeName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+  const normCostumeName = normSearch;
   const costumeMatches = c => !costumeQuery
-    || normCostumeName(c['니케']).includes(costumeQuery)
-    || normCostumeName(c['코스튬명']).includes(costumeQuery);
+    || searchMatches(c['니케'], costumeQuery)
+    || searchMatches(c['코스튬명'], costumeQuery);
 
   function loadCostumeData() {
     onAppDataReady(() => {

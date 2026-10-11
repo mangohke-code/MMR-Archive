@@ -351,6 +351,32 @@ function renderPartsToggle(containerId, skins, enabledSet, onChange, opts) {
 
 // L2D 뷰어(유니크 코스튬·캐릭터 도감)의 왼쪽 조작판 접기. 솔로 레이드 뷰어와 같은 감각으로
 // 손잡이 하나만 남기고 판을 접는다. 판이 그림 칸의 형제라서 접으면 그림이 그만큼 넓어진다.
+// ===== 검색창 공용 비교 (한글 초성 검색: 사용자 요청, 2026-10-11) =====
+// 띄어쓰기 · 대소문자는 무시하고, 이름 어디든 들어 있으면 맞는 걸로 본다.
+// 검색어의 자음(ㄱ~ㅎ)은 그 자리 글자의 첫소리와 같으면 맞는다: "ㄹㅍ" · "ㄹ피" -> "라피".
+const SEARCH_CHOSUNG = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+function normSearch(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+function searchMatches(text, query) {
+  const q = normSearch(query);
+  if (!q) return true;
+  const t = normSearch(text);
+  if (t.includes(q)) return true;
+  if (!/[ㄱ-ㅎ]/.test(q)) return false;
+  const same = (tc, qc) => {
+    if (tc === qc) return true;
+    const cho = SEARCH_CHOSUNG.indexOf(qc);
+    if (cho < 0) return false;
+    const code = tc.charCodeAt(0) - 0xAC00; // 가 ~ 힣: 첫소리 하나에 588 글자씩
+    return code >= 0 && code < 11172 && Math.floor(code / 588) === cho;
+  };
+  for (let i = 0; i + q.length <= t.length; i++) {
+    let j = 0;
+    while (j < q.length && same(t[i + j], q[j])) j++;
+    if (j === q.length) return true;
+  }
+  return false;
+}
+
 // ===== 정렬 바꿀 때 애니메이션 (사용자 요청, 2026-10-10) =====
 // 기기에서 "동작 줄이기"를 켠 사람과 폰 폭에서는 애니메이션 없이 바로 바꾼다(폰은 사용자 요청).
 const REDUCE_MOTION_MQ = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1177,7 +1203,8 @@ async function loadAllData() {
     // range() 로 두 쪽에 나눠 받는데, 정렬 없는 페이징은 행이 겹치거나 빠질 수도
     // 있다 -- 순서를 정해줘야 쪽 나누기가 안전해진다.
     fetchAll('스테이지_정보', '번호'),
-    fetchAll('캐릭터_도감'),
+    // 번호 순으로 받는다. 사이드 스토리 순서를 도감 번호에서 처음 나오는 순서로 정한다(codex.js).
+    fetchAll('캐릭터_도감', '번호'),
     fetchAll('IMG_니케'),
     fetchAll('IMG_아이콘'),
     fetchAll('IMG_챕터'),

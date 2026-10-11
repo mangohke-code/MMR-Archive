@@ -117,11 +117,12 @@
   let soloRaidQuery = '';
 
   function applySoloRaidFilter() {
-    const q = soloRaidQuery.trim().toLowerCase();
+    // 띄어쓰기 · 대소문자 무시, 초성으로도 찾는다(common.js searchMatches). 이름과 시즌은 따로 본다.
+    const q = normSearch(soloRaidQuery);
     document.querySelectorAll('#sr3d-home .soloraid-item, #sr3d-drawer-selector .soloraid-item').forEach(el => {
       const name = (el.querySelector('.soloraid-item-boss') || {}).textContent || '';
       const season = (el.querySelector('.soloraid-item-season') || {}).textContent || '';
-      const hit = !q || (name + ' ' + season).toLowerCase().includes(q);
+      const hit = !q || searchMatches(name, q) || searchMatches(season, q);
       el.classList.toggle('is-filtered-out', !hit);
     });
     // 속성별 정렬에서는 통째로 비는 열이 생긴다. 그 열도 같이 감춘다.
