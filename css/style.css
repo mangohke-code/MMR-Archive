@@ -8803,3 +8803,44 @@
     .search-box input, #soloraid-search-drawer-box input,
     #contact-subject, #contact-body, #contact-email { font-size: 16px; }
   }
+
+  /* ===== 픽업 몰아보기 - 연도는 따로 한 줄 (사용자 요청, 2026-10-11) =====
+     행마다 연도를 적으니 겹치고 아래 기간이 작아 묻혔다. 연도가 바뀌는 자리에 타임라인과 같은 연도 줄을 넣고,
+     기간 칸에는 날짜만 크게 둔다. */
+  #pickup-group-table tbody tr.group-year-row { border-bottom: 0; }
+  #pickup-group-table td.group-year-cell { padding: 36px 0 10px; border-bottom: 0; }
+  #pickup-group-table tr.group-year-row.is-first td.group-year-cell { padding-top: 16px; }
+  #pickup-group-table td.group-year-cell .year-divider { margin: 0; }
+  #pickup-group-table .period-date-label {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-heading);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 픽업 이력 - 칸 맞추기 (사용자 요청, 2026-10-11) =====
+     줄마다 따로 칸을 잡아서 기간 길이(시각이 있고 없고)에 따라 이벤트 시작 자리가 들쭉날쭉했다.
+     목록 전체가 한 표처럼 칸을 나눠 쓴다(subgrid). subgrid 를 모르는 브라우저는 예전처럼 줄마다 잡는다. */
+  .pk-hist { display: grid; grid-template-columns: auto auto minmax(0, 1fr); column-gap: 10px; row-gap: 6px; }
+  .pk-hist li { grid-column: 1 / -1; }
+  @supports (grid-template-columns: subgrid) {
+    .pk-hist li { grid-template-columns: subgrid; }
+  }
+  .pk-hist-kind { justify-self: start; }
+
+  /* ===== 유니크 코스튬 정보창 - 픽업 이력 (사용자 요청, 2026-10-11) =====
+     복각이 있으면 "픽업 기간" · "복각 기간" 두 구역 대신, 픽업 기록 정보창처럼 최초 · 복각 배지 옆에 기간을 세운다. */
+  #costume-info .costume-hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+  #costume-info .costume-hist li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: start; }
+  #costume-info .costume-hist .pk-hist-kind { margin-top: 5px; font-size: 13px; }
+  #costume-info .costume-hist li.is-current .pk-hist-kind { color: var(--text-on-accent); background: var(--accent); }
+  #costume-info .costume-hist li:not(.is-current) .costume-period { color: var(--text-body); }
+
+  @media (max-width: 640px) {
+    /* 픽업 이력: 이벤트는 둘째 줄로 내리되 기간과 같은 칸에서 시작한다 */
+    .pk-hist { grid-template-columns: auto minmax(0, 1fr); }
+    .pk-hist-event { grid-column: 2 / -1; }
+    #pickup-group-table .period-date-label { font-size: 15px; }
+    /* 옆으로 밀어도 연도는 화면 왼쪽에 남는다 */
+    #pickup-group-table td.group-year-cell .year-divider { position: sticky; left: 0; width: min(100%, calc(100vw - 40px)); }
+  }

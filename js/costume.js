@@ -254,10 +254,23 @@
     // 정보 업데이트
     document.getElementById('costume-nikke-name').textContent = costume['니케'];
     document.getElementById('costume-name').textContent = costume['코스튬명'];
-    // D-day 배지는 기간 문구(와 복각의 "N일 만에 복각" 부연) 다음 줄에 놓는다
-    document.getElementById('costume-date').innerHTML =
-      formatCostumeDate(costume['시작일'], costume['종료일']) +
-      formatRemainingDays(costume['시작일'], costume['종료일'], 'is-own-line');
+    // 픽업 기간. 복각이 있으면 픽업 기록 정보창의 "픽업 이력"처럼 최초 · 복각을 표처럼 세워
+    // 기간 칸의 왼쪽 끝을 맞춘다(사용자 요청, 2026-10-11). 고른 초상화(원본/복각) 쪽 배지가 강조된다.
+    // D-day 배지는 기간 문구(와 복각의 "N일 만에 복각" 부연) 다음 줄에 놓는다.
+    const hist = [{ kind: '최초', start: costume['시작일'], end: costume['종료일'], cur: !isRerun, extra: '' }];
+    if (costume['복각 시작일'] && costume['복각 종료일']) {
+      hist.push({ kind: '복각', start: costume['복각 시작일'], end: costume['복각 종료일'], cur: isRerun,
+        extra: formatRerunGap(costume['시작일'], costume['복각 시작일']) });
+    }
+    const histBody = h => formatCostumeDate(h.start, h.end) + h.extra + formatRemainingDays(h.start, h.end, 'is-own-line');
+    document.getElementById('costume-date-label').textContent = hist.length > 1 ? '픽업 이력' : '픽업 기간';
+    document.getElementById('costume-date').innerHTML = hist.length > 1
+      ? `<ul class="costume-hist">${hist.map(h => `
+          <li class="${h.cur ? 'is-current' : ''}">
+            <span class="pk-hist-kind">${h.kind}</span>
+            <div class="costume-hist-body">${histBody(h)}</div>
+          </li>`).join('')}</ul>`
+      : histBody(hist[0]);
     document.getElementById('costume-ticket-name').textContent = costume['티켓'];
 
     const freeTicketWrap = document.getElementById('costume-free-ticket-wrap');
@@ -269,19 +282,6 @@
     paidTicketImg.src = costume['유료티켓'] || '';
     paidTicketImg.dataset.tooltip = costume['티켓 설명'] || '';
     paidTicketImg.style.display = costume['유료티켓'] ? 'block' : 'none';
-
-    // 복각 기간 표시 (원본/복각 어느 초상화를 클릭했든 복각 기간이 있으면 항상 표시)
-    const rerunWrap = document.getElementById('costume-rerun-wrap');
-    const rerunDate = document.getElementById('costume-rerun-date');
-    if (costume['복각 시작일'] && costume['복각 종료일']) {
-      rerunWrap.classList.remove('hidden');
-      rerunDate.innerHTML =
-        formatCostumeDate(costume['복각 시작일'], costume['복각 종료일']) +
-        formatRerunGap(costume['시작일'], costume['복각 시작일']) +
-        formatRemainingDays(costume['복각 시작일'], costume['복각 종료일'], 'is-own-line');
-    } else {
-      rerunWrap.classList.add('hidden');
-    }
 
     // 다른 코스튬으로 넘어가면 기본 모델부터 보여 준다
     currentVariationIdx = -1;

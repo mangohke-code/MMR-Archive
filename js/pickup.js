@@ -1175,20 +1175,26 @@
     document.getElementById('pickup-group-header-table').style.tableLayout = 'fixed';
     // 바디 렌더링
     const tbody = document.getElementById('pickup-group-tbody');
+    // 연도는 행마다 적지 않고, 연도가 바뀌는 자리에 타임라인과 같은 연도 줄을 한 번만 넣는다(사용자 요청, 2026-10-11).
+    // 첫 줄이 칸을 합친 연도 줄이라 열 폭은 colgroup 으로 따로 정해 준다(table-layout: fixed 는 첫 줄로 폭을 정한다).
+    const table = document.getElementById('pickup-group-table');
+    table.querySelector('colgroup')?.remove();
+    table.insertAdjacentHTML('afterbegin', `<colgroup><col style="width:150px">${columns.map(() => `<col style="${colWidthStyle}">`).join('')}</colgroup>`);
     tbody.innerHTML = periods.map(([pk, periodData], idx) => {
       const [year, dateRange] = pk.split('||');
-      // 타임라인 뷰의 연도 구분선처럼, 바로 위 행과 연도가 바뀌는 지점에만 굵은 경계를
-      // 넣어서 연도 구분이 눈에 띄게 한다 (맨 첫 행은 표 자체 헤더로 이미 구분되니 제외)
       const prevYear = idx > 0 ? periods[idx - 1][0].split('||')[0] : null;
-      const isYearBoundary = idx > 0 && year !== prevYear;
+      const yearRow = year !== prevYear
+        ? `<tr class="group-year-row${idx === 0 ? ' is-first' : ''}"><td class="group-year-cell" colspan="${columns.length + 1}">
+            <div class="year-divider"><span class="year-label period-year-label">${year}</span><div class="year-line"></div></div>
+          </td></tr>`
+        : '';
       const cells = columns.map(col => {
         const match = periodData.nikkes.filter(p => groupKey === '기업' ? getBaseCompany(p[groupKey]) === col : p[groupKey] === col);
         if (match.length === 0) return `<td class="group-cell-empty" style="${colWidthStyle}">—</td>`;
         return `<td style="${colWidthStyle}">${match.map(p => renderGroupNikkeItem(p)).join('')}</td>`;
       });
-      return `<tr class="${isYearBoundary ? 'year-boundary' : ''}">
+      return `${yearRow}<tr>
         <td class="period-label-cell">
-          <div class="period-year-label">${year}</div>
           <div class="period-date-label">${dateRange}</div>
         </td>
         ${cells.join('')}
@@ -2163,8 +2169,8 @@
       yearNavObserver = null;
     }
 
-    // period-label-cell의 year 라벨들을 수집
-    yearSections = [...document.querySelectorAll('#pickup-group-tbody .period-label-cell')];
+    // 연도 줄들을 모은다(연도마다 하나)
+    yearSections = [...document.querySelectorAll('#pickup-group-tbody .group-year-cell')];
     if (yearSections.length === 0) return;
 
     const onScroll = () => {
@@ -2227,7 +2233,7 @@
         .find(el => el.querySelector('.year-label')?.textContent === year);
       if (sec) sec.scrollIntoView({ behavior: 'auto', block: 'start' });
     } else if (currentView === 'group') {
-      const cell = [...document.querySelectorAll('#pickup-group-tbody .period-label-cell')]
+      const cell = [...document.querySelectorAll('#pickup-group-tbody .group-year-cell')]
         .find(el => el.querySelector('.period-year-label')?.textContent === year);
       if (cell) scrollGroupRowIntoView(cell.closest('tr'), 'auto');
     }
