@@ -20,7 +20,9 @@
     // 처음에는 아무 보스도 펼치지 않는다. 목록만 넓게 보여주고 고를 때 펼친다.
     collapseBoss();
     document.getElementById('soloraid-sort-btn').addEventListener('click', toggleSoloRaidAttrSort);
-    document.getElementById('soloraid-order-btn').addEventListener('click', toggleSoloRaidOrder);
+    // 순서 버튼은 목록 화면과 뷰어 안 보스 목록(서랍)에 하나씩 있다. 둘 다 같은 순서를 바꾼다.
+    ['soloraid-order-btn', 'soloraid-order-drawer-btn'].forEach(id =>
+      document.getElementById(id)?.addEventListener('click', toggleSoloRaidOrder));
     syncSoloRaidOrderBtn();
     wireSoloRaidDrawers();
     wireSoloRaidSearch();
@@ -155,10 +157,12 @@
   })();
 
   function syncSoloRaidOrderBtn() {
-    const btn = document.getElementById('soloraid-order-btn');
-    if (!btn) return;
-    btn.querySelector('span').textContent = soloRaidOldestFirst ? '오래된순' : '최신순';
-    btn.querySelector('i').className = 'fas ' + (soloRaidOldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
+    ['soloraid-order-btn', 'soloraid-order-drawer-btn'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.querySelector('span').textContent = soloRaidOldestFirst ? '오래된순' : '최신순';
+      btn.querySelector('i').className = 'fas ' + (soloRaidOldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
+    });
   }
 
   function toggleSoloRaidOrder() {
