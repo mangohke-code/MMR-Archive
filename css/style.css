@@ -6063,6 +6063,8 @@
     gap: 6px;
     padding: 6px;
   }
+  /* 위 규칙(display: flex)이 검색에서 빠진 카드 감추기(.is-filtered-out)보다 세서, 서랍 목록은 검색해도 그대로였다 */
+  #sr3d-drawer .soloraid-item.is-filtered-out { display: none; }
 
   #sr3d-drawer .soloraid-item-text { text-align: center; }
   #sr3d-drawer .soloraid-item-season { font-size: 10px; }
