@@ -8898,10 +8898,17 @@
 
   /* ===== 유니크 코스튬 스킬 컷신 (skillcut.js, 사용자 요청 2026-10-12) =====
      켜면 그림 칸(진행바 위)을 덮고, 인게임 카메라 화면비 상자를 가운데 둔다. 상자 밖은 어둡게. */
-  #costume-skillcut .skillcut-btns,
-  #costume-skillcut .skillcut-screen { display: flex; flex-wrap: wrap; gap: 6px; }
-  #costume-skillcut .skillcut-screen { margin-top: 10px; align-items: center; }
-  #costume-skillcut .skillcut-screen span { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
+  #costume-skillcut-controls .skillcut-btns,
+  #costume-skillcut-controls .skillcut-screen { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* 기본 L2D / 스킬 컷신 전환 - 판 맨 위, 두 칸을 반씩 */
+  #costume-view-switch { display: flex; gap: 6px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle); }
+  #costume-view-switch.hidden { display: none; }
+  #costume-view-switch .anim-btn { flex: 1 1 0; padding: 6px 8px; font-size: 14px; }
+  /* 전환 줄이 있으면 그 아래 첫 제목은 위 선을 다시 긋지 않는다 */
+  #costume-l2d-controls > h2:first-of-type,
+  #costume-skillcut-controls > h2:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+  /* 컷신 중에는 모델 시점 초기화 단추가 쓸모없다 */
+  #costume-spine-wrap.is-skillcut #costume-spine-reset { display: none; }
   #costume-skillcut-layer {
     position: absolute;
     top: 0;

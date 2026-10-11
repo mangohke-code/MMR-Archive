@@ -1,6 +1,7 @@
 // ===== 유니크 코스튬 스킬 컷신 (사용자 요청, 2026-10-12) =====
-// 코스튬 뷰어 왼쪽 판의 "스킬 컷신" 버튼으로 L2D 모델 대신 그 코스튬의 스킬 컷신을 튼다.
-//   기본 L2D   : 컷신을 끄고 원래 스탠딩 L2D 로 돌아간다
+// 코스튬 뷰어 왼쪽 판 맨 위의 [기본 L2D | 스킬 컷신] 으로 둘을 오간다. 둘은 완전히 나뉘어 있어서
+// 기본 L2D 상태에는 L2D 조작(모델 · 동작 · 표정 · 파츠)만, 스킬 컷신 상태에는 아래 컷신 조작만 보인다.
+// 스킬 컷신으로 넘어가면 idle 반복부터 보여 준다.
 //   전체 재생  : 로비 라이브 월페이퍼 순서 그대로 - 컷신 → 검은 화면 → idle 반복
 //   스킬컷 재생: 컷신만 한 번, 끝나면 바로 idle 반복으로 넘어간다
 //   idle 반복  : 전체 재생의 반복 구간만
@@ -260,10 +261,19 @@ const CostumeSkillcut = (() => {
     box.style.height = Math.round(h) + 'px';
   }
 
+  // 판 맨 위 전환 줄과 고른 쪽 조작만 보이게 한다(기본 L2D 상태에는 L2D 조작만, 컷신 상태에는 컷신 조작만)
   function syncButtons() {
-    document.querySelectorAll('#costume-skillcut [data-sc-mode]').forEach(b =>
-      b.classList.toggle('active', b.dataset.scMode === (mode || 'off')));
-    document.querySelectorAll('#costume-skillcut [data-sc-screen]').forEach(b =>
+    const on = !!mode;
+    document.querySelectorAll('#costume-view-switch [data-sc-view]').forEach(b =>
+      b.classList.toggle('active', (b.dataset.scView === 'skillcut') === on));
+    const l2d = el('costume-l2d-controls'), sc = el('costume-skillcut-controls');
+    if (l2d) l2d.classList.toggle('hidden', on);
+    if (sc) sc.classList.toggle('hidden', !on);
+    const wrap = el('costume-spine-wrap');
+    if (wrap) wrap.classList.toggle('is-skillcut', on);
+    document.querySelectorAll('#costume-skillcut-controls [data-sc-mode]').forEach(b =>
+      b.classList.toggle('active', b.dataset.scMode === mode));
+    document.querySelectorAll('#costume-skillcut-controls [data-sc-screen]').forEach(b =>
       b.classList.toggle('active', b.dataset.scScreen === screen));
   }
 
@@ -290,7 +300,6 @@ const CostumeSkillcut = (() => {
 
   async function start(m) {
     if (!code) return;
-    if (m === 'off') { stop(); return; }
     ensureDom();
     const seq = ++loadSeq;
     mode = m;
@@ -322,49 +331,39 @@ const CostumeSkillcut = (() => {
     syncButtons();
   }
 
-  // 왼쪽 판의 모델 · 동작 · 표정 · 파츠 버튼을 누르면 컷신을 끄고 L2D 로 돌아간다
-  let sideWired = false;
-  function wireSide() {
-    if (sideWired) return;
-    const side = el('costume-side');
-    if (!side) return;
-    sideWired = true;
-    side.addEventListener('click', e => {
-      if (e.target.closest('#costume-variation button, #costume-anim-toggle button, #costume-expression button, '
-        + '#costume-parts-toggle button, #costume-extra-parts-toggle button')) stop();
-    });
-  }
-
-  function renderPanel() {
-    const panel = el('costume-skillcut');
-    if (!panel) return;
-    if (!code) { panel.innerHTML = ''; panel.classList.add('hidden'); return; }
-    panel.classList.remove('hidden');
-    panel.innerHTML = `
-      <div class="skillcut-btns">
-        <button type="button" class="anim-btn" data-sc-mode="off">기본 L2D</button>
-        <button type="button" class="anim-btn" data-sc-mode="full">전체 재생</button>
-        <button type="button" class="anim-btn" data-sc-mode="cut">스킬컷 재생</button>
-        <button type="button" class="anim-btn" data-sc-mode="idle">idle 반복</button>
-      </div>
-      <div class="skillcut-screen">
-        <span>화면</span>
-        <button type="button" class="anim-btn" data-sc-screen="ingame">인게임 카메라</button>
-        <button type="button" class="anim-btn" data-sc-screen="phone">휴대폰</button>
-      </div>`;
-    panel.querySelectorAll('[data-sc-mode]').forEach(b => b.addEventListener('click', () => start(b.dataset.scMode)));
-    panel.querySelectorAll('[data-sc-screen]').forEach(b => b.addEventListener('click', () => {
+  // 컷신 조작 버튼은 index.html 에 고정으로 있다. 한 번만 연결한다.
+  let wired = false;
+  function wireControls() {
+    if (wired) return;
+    const sc = el('costume-skillcut-controls');
+    if (!sc) return;
+    wired = true;
+    sc.querySelectorAll('[data-sc-mode]').forEach(b => b.addEventListener('click', () => start(b.dataset.scMode)));
+    sc.querySelectorAll('[data-sc-screen]').forEach(b => b.addEventListener('click', () => {
       screen = b.dataset.scScreen;
       syncButtons();
       fitBox();
     }));
+  }
+
+  // 전환 줄: 컷신이 있는 코스튬만 보인다. 스킬 컷신으로 넘어가면 idle 반복부터 보여 준다.
+  function renderPanel() {
+    const sw = el('costume-view-switch');
+    if (!sw) return;
+    if (!code) { sw.innerHTML = ''; sw.classList.add('hidden'); syncButtons(); return; }
+    sw.classList.remove('hidden');
+    sw.innerHTML = `
+      <button type="button" class="anim-btn" data-sc-view="l2d">기본 L2D</button>
+      <button type="button" class="anim-btn" data-sc-view="skillcut">스킬 컷신</button>`;
+    sw.querySelector('[data-sc-view="l2d"]').addEventListener('click', () => stop());
+    sw.querySelector('[data-sc-view="skillcut"]').addEventListener('click', () => { if (!mode) start('idle'); });
     syncButtons();
   }
 
   // 코스튬을 고를 때마다 부른다. 컷신이 있는 코스튬만 버튼이 보인다.
   function show(costume) {
     stop();
-    wireSide();
+    wireControls();
     const c = costume && costume['코드'];
     if (!index) {
       // 목록을 처음 한 번 받아 온다. 받는 동안 고른 코스튬이 바뀌었으면 마지막 것으로 다시 그린다.

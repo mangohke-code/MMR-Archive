@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=238">
+  <link rel="stylesheet" href="css/style.css?v=239">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -258,11 +258,12 @@
                    판을 접으면 그림만 남는다. -->
               <div id="costume-spine-wrap" class="l2d-wrap">
                 <div id="costume-side" class="l2d-side">
+                  <!-- 기본 L2D / 스킬 컷신 전환(컷신이 있는 코스튬만, skillcut.js). 고른 쪽 조작만 보인다 -->
+                  <div id="costume-view-switch" class="hidden"></div>
+
+                  <div id="costume-l2d-controls">
                   <h2>모델</h2>
                   <div id="costume-variation" class="spine-variation hidden"></div>
-
-                  <h2>스킬 컷신</h2>
-                  <div id="costume-skillcut" class="hidden"></div>
 
                   <h2>동작</h2>
                   <div id="costume-anim-toggle" class="anim-toggle hidden"></div>
@@ -275,6 +276,21 @@
 
                   <h2>추가 파츠</h2>
                   <div id="costume-extra-parts-toggle" class="parts-toggle hidden"></div>
+                  </div>
+
+                  <div id="costume-skillcut-controls" class="hidden">
+                    <h2>재생</h2>
+                    <div class="skillcut-btns">
+                      <button type="button" class="anim-btn" data-sc-mode="full">전체 재생</button>
+                      <button type="button" class="anim-btn" data-sc-mode="cut">스킬컷 재생</button>
+                      <button type="button" class="anim-btn" data-sc-mode="idle">idle 반복</button>
+                    </div>
+                    <h2>화면</h2>
+                    <div class="skillcut-screen">
+                      <button type="button" class="anim-btn" data-sc-screen="ingame">인게임 카메라</button>
+                      <button type="button" class="anim-btn" data-sc-screen="phone">휴대폰</button>
+                    </div>
+                  </div>
 
                 </div>
 
@@ -776,7 +792,7 @@
   <script src="js/common.js?v=76"></script>
   <script src="js/main.js?v=22"></script>
   <script src="js/pickup.js?v=55"></script>
-  <script src="js/skillcut.js?v=7"></script>
+  <script src="js/skillcut.js?v=8"></script>
   <script src="js/costume.js?v=65"></script>
   <script src="js/codex.js?v=7"></script>
   <script src="js/souvenir.js?v=14"></script>
