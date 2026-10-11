@@ -8863,3 +8863,18 @@
   #costume-ticket-imgs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   #costume-ticket-imgs > * { min-width: 0; }
   #costume-ticket-imgs img { width: 100%; height: auto; aspect-ratio: 1; box-sizing: border-box; }
+
+  /* 티켓 설명 - 말풍선 대신 그림 아래에 (사용자 요청, 2026-10-11). 줄바꿈은 데이터 그대로 */
+  #costume-ticket-desc {
+    margin: 10px 0 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-body);
+    white-space: pre-line;
+    word-break: keep-all;
+  }
+
+  /* ===== 픽업 기록 - 툴바를 탭 바 바로 밑에 (사용자 요청, 2026-10-11) =====
+     내리면 툴바가 탭 바 밑에 붙는데, 맨 위에서는 본문 위 여백(32px)만큼 떨어져 있어 빈 줄처럼 보였다.
+     본문 위 여백을 없애 처음부터 붙어 있던 자리에 둔다(스크롤해도 툴바가 움직이지 않는다). */
+  body.tab-pickup #tab-pickup { padding-top: 0; }

@@ -277,11 +277,13 @@
     const freeTicketImg  = document.getElementById('costume-free-ticket-img');
     const paidTicketImg  = document.getElementById('costume-paid-ticket-img');
     freeTicketImg.src = costume['무료티켓'] || '';
-    freeTicketImg.dataset.tooltip = costume['티켓 설명'] || '';
     freeTicketWrap.style.display = costume['무료티켓'] ? 'block' : 'none';
     paidTicketImg.src = costume['유료티켓'] || '';
-    paidTicketImg.dataset.tooltip = costume['티켓 설명'] || '';
     paidTicketImg.style.display = costume['유료티켓'] ? 'block' : 'none';
+    // 티켓 설명은 마우스를 올려야 보이는 말풍선 대신 그림 아래에 바로 적는다(사용자 요청, 2026-10-11)
+    const ticketDesc = document.getElementById('costume-ticket-desc');
+    ticketDesc.textContent = String(costume['티켓 설명'] || '').trim();
+    ticketDesc.classList.toggle('hidden', !ticketDesc.textContent);
 
     // 다른 코스튬으로 넘어가면 기본 모델부터 보여 준다
     currentVariationIdx = -1;
