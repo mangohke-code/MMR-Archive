@@ -764,7 +764,7 @@
     const historyHtml = history.map((x, i) => `
       <li class="${x === p ? 'is-current' : ''}">
         <span class="pk-hist-kind">${i === 0 ? '최초' : '복각'}</span>
-        <span class="pk-hist-date">${fullDate(x['시작일'])} ~ ${fullDate(x['종료일'])}</span>
+        <span class="pk-hist-date"><span>${fullDate(x['시작일'])}</span><span class="pk-hist-tilde">~</span><span>${fullDate(x['종료일'])}</span></span>
         <span class="pk-hist-event">${escHtml(x['이벤트'] || '')}</span>
       </li>`).join('');
 
