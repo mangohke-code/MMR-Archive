@@ -8916,5 +8916,15 @@
   }
   #costume-skillcut-layer.hidden { display: none; }
   #costume-skillcut-layer .skillcut-box { position: relative; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
-  #costume-skillcut-layer .skillcut-player { position: absolute; inset: 0; }
-  #costume-skillcut-layer .skillcut-black { position: absolute; inset: 0; background: #000; display: none; }
+  #costume-skillcut-layer .skillcut-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #costume-skillcut-layer .skillcut-msg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 14px;
+    pointer-events: none;
+  }
+  #costume-skillcut-layer .skillcut-msg.hidden { display: none; }
