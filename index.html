@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=236">
+  <link rel="stylesheet" href="css/style.css?v=237">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -261,6 +261,9 @@
                   <h2>모델</h2>
                   <div id="costume-variation" class="spine-variation hidden"></div>
 
+                  <h2>스킬 컷신</h2>
+                  <div id="costume-skillcut" class="hidden"></div>
+
                   <h2>동작</h2>
                   <div id="costume-anim-toggle" class="anim-toggle hidden"></div>
 
@@ -282,6 +285,13 @@
 
                 <div class="l2d-stage">
                   <div id="costume-spine-player"></div>
+                  <!-- 스킬 컷신(skillcut.js). 켜면 모델 자리를 덮는다. 상자는 인게임 카메라 화면비로 가운데 -->
+                  <div id="costume-skillcut-layer" class="hidden">
+                    <div class="skillcut-box">
+                      <div class="skillcut-player"></div>
+                      <div class="skillcut-black"></div>
+                    </div>
+                  </div>
                   <div class="l2d-bar" id="costume-bar">
                     <button type="button" class="l2d-bar-btn" data-act="restart" title="처음부터"><i class="fas fa-rotate-left"></i></button>
                     <button type="button" class="l2d-bar-btn" data-act="playpause" title="일시정지"><i class="fas fa-pause"></i></button>
@@ -764,10 +774,11 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=75"></script>
+  <script src="js/common.js?v=76"></script>
   <script src="js/main.js?v=22"></script>
   <script src="js/pickup.js?v=55"></script>
-  <script src="js/costume.js?v=64"></script>
+  <script src="js/skillcut.js?v=3"></script>
+  <script src="js/costume.js?v=65"></script>
   <script src="js/codex.js?v=7"></script>
   <script src="js/souvenir.js?v=14"></script>
   <script type="importmap">

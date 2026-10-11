@@ -291,6 +291,8 @@
 
     // 스파인 플레이어 로드
     loadSpinePlayer(costume);
+    // 스킬 컷신 버튼(데이터가 있는 코스튬만). 켜져 있던 컷신은 끈다.
+    CostumeSkillcut.show(costume);
 
     // 목록이 길어서 아래쪽 코스튬을 고르면 모델이 화면 밖에 있다. 화면을 맨 위로 올린다.
     // (예전에는 판 위쪽을 화면에 걸치게만 했는데, 탭 바 높이만큼 어긋나서 맨 위로 바꿨다.)
@@ -305,6 +307,7 @@
     document.querySelectorAll('.costume-portrait-item').forEach(el => el.classList.remove('active'));
     document.getElementById('costume-top').classList.add('hidden');
     currentCostume = null;
+    CostumeSkillcut.stop();
     clearCostumeSpinePlayer();
     // 바리에이션 줄은 모델을 다시 불러올 때마다 지우면 안 된다(고르는 순간 사라진다).
     // 코스튬을 접을 때만 치운다.
@@ -1000,6 +1003,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     setupL2dSideToggle('costume-spine-wrap', 'costume-side-toggle', 'costume-info-toggle');
     // 재생바는 지금 떠 있는 플레이어를 그때그때 물어본다(모델을 바꾸면 새로 만들어진다)
-    setupL2dBar('costume-bar', () => spinePlayer);
+    // 스킬 컷신이 켜져 있으면 진행바는 컷신의 바깥 타임라인을 다룬다(skillcut.js)
+    setupL2dBar('costume-bar', () => (CostumeSkillcut.isActive() ? CostumeSkillcut.adapter : spinePlayer));
     waitForSpine(loadCostumeData);
   });

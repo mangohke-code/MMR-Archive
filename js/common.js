@@ -914,6 +914,8 @@ function buildCostumeData(rows) {
     // 아니라 기본 모델을 통째로 바꿔 끼운다.
     '바리에이션': parseCostumeVariations(r['바리에이션']),
     '픽업 배너': r['픽업_배너'],
+    // 코스튬 코드(c016_01). 스킬 컷신 데이터(skillcut.js)를 찾는 열쇠
+    '코드': r['코드'],
   }));
 }
 
