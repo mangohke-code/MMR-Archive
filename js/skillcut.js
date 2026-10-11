@@ -1,8 +1,10 @@
 // ===== 유니크 코스튬 스킬 컷신 (사용자 요청, 2026-10-12) =====
 // 코스튬 뷰어 왼쪽 판의 "스킬 컷신" 버튼으로 L2D 모델 대신 그 코스튬의 스킬 컷신을 튼다.
+//   기본 L2D   : 컷신을 끄고 원래 스탠딩 L2D 로 돌아간다
 //   전체 재생  : 로비 라이브 월페이퍼 순서 그대로 - 컷신 → 검은 화면 → idle 반복
+//   스킬컷 재생: 컷신만 한 번, 끝나면 바로 idle 반복으로 넘어간다
 //   idle 반복  : 전체 재생의 반복 구간만
-//   스킬컷 재생: 컷신만 한 번(끝나면 마지막 장면에서 멈춘다)
+// 재생 버튼은 누를 때마다 처음부터 다시 튼다(켜고 끄는 단추가 아니다).
 // 화면은 인게임 카메라 시야로 자른다. 컷신 파일에는 화면 틀이 없고(클리핑 없음), 게임은 카메라
 // 시야만큼 보여 준다(추출 세션 조사, 리소스/코스튬/_skillcut_frames.json). 세로 범위는 데이터 값,
 // 가로는 기기 화면비라 데이터에 없어서 PC 1:1 · 휴대폰 9:16 둘 중에 고른다.
@@ -38,7 +40,7 @@ const CostumeSkillcut = (() => {
   let mode = null;          // 'full' | 'idle' | 'cut' | null(꺼짐)
   let screen = L2D_MOBILE_MQ.matches ? 'phone' : 'ingame';
   let T = 0, paused = false, lastNow = 0;
-  let player = null, playerFile = null, loading = false;
+  let player = null, playerFile = null, loading = false, loadSeq = 0;
   let layer, box, holder, black, resizeObs;
 
   const el = id => document.getElementById(id);
@@ -53,11 +55,7 @@ const CostumeSkillcut = (() => {
   // 진행바(setupL2dBar)가 보는 "플레이어" - 바깥 타임라인 시각을 트랙 시간처럼 보여 준다
   const adapter = {
     get paused() { return paused; },
-    play() {
-      // 스킬컷 재생이 끝나 멈췄으면 처음부터 다시
-      if (mode === 'cut' && T >= data.cutEnd - 1e-4) T = 0;
-      paused = false;
-    },
+    play() { paused = false; },
     pause() { paused = true; },
     animationState: {
       tracks: [{
@@ -114,7 +112,8 @@ const CostumeSkillcut = (() => {
     if (!paused) {
       T += dt;
       if (mode === 'cut') {
-        if (T >= data.cutEnd) { T = data.cutEnd - 1e-4; paused = true; }
+        // 컷신이 끝나면 바로 idle 반복으로(검은 화면 없이)
+        if (T >= data.cutEnd) { mode = 'idle'; T = data.jump.to; syncButtons(); }
       } else if (data.jump && T >= data.jump.at) {
         T = data.jump.to + (T - data.jump.at);
       }
@@ -140,9 +139,11 @@ const CostumeSkillcut = (() => {
 
   function loadPlayer() {
     const file = data.clips[0].file;
-    if (player && playerFile === data.files[file]) return;
+    // 이미 떠 있거나 같은 파일을 불러오는 중이면 그대로 쓴다(버튼을 연달아 눌러도 한 번만 만든다)
+    if (playerFile === data.files[file] && (player || loading)) return;
     disposePlayer();
     loading = true;
+    const seq = ++loadSeq;
     playerFile = data.files[file];
     holder.innerHTML = '<div id="costume-skillcut-canvas" style="position:absolute;inset:0"></div>';
     const vp = frameViewport(data.clips[0].frame);
@@ -155,25 +156,27 @@ const CostumeSkillcut = (() => {
       viewport: { ...vp, transitionTime: 0 },
       frame: onFrame,
       success: p => {
+        // 그사이 코스튬을 바꾸거나 껐으면 늦게 끝난 이 플레이어는 버린다
+        if (seq !== loadSeq) { disposeSpinePlayer(p); return; }
         loading = false;
-        if (playerFile !== p.config.skelUrl.replace(/\.skel$/, '')) { disposeSpinePlayer(p); return; }
         player = p;
         try { p.animationState.clearTracks(); } catch (e) { /* 트랙이 없으면 그대로 */ }
         p.play();
       },
-      error: () => { loading = false; },
+      error: () => { if (seq === loadSeq) loading = false; },
     });
   }
 
   function disposePlayer() {
     if (player) { try { disposeSpinePlayer(player); } catch (e) { /* 이미 정리됨 */ } }
-    player = null; playerFile = null;
+    player = null; playerFile = null; loading = false;
+    loadSeq++;   // 불러오는 중인 것이 있으면 끝나는 대로 버린다
     if (holder) holder.innerHTML = '';
   }
 
   function syncButtons() {
     document.querySelectorAll('#costume-skillcut [data-sc-mode]').forEach(b =>
-      b.classList.toggle('active', b.dataset.scMode === mode));
+      b.classList.toggle('active', b.dataset.scMode === (mode || 'off')));
     document.querySelectorAll('#costume-skillcut [data-sc-screen]').forEach(b =>
       b.classList.toggle('active', b.dataset.scScreen === screen));
   }
@@ -190,8 +193,8 @@ const CostumeSkillcut = (() => {
 
   function start(m) {
     if (!data) return;
+    if (m === 'off') { stop(); return; }
     ensureDom();
-    if (mode === m) { stop(); return; }   // 켜진 버튼을 다시 누르면 모델로 돌아간다
     mode = m;
     T = m === 'idle' ? data.jump.to : 0;
     paused = false;
@@ -212,9 +215,23 @@ const CostumeSkillcut = (() => {
     syncButtons();
   }
 
+  // 왼쪽 판의 모델 · 동작 · 표정 · 파츠 버튼을 누르면 컷신을 끄고 L2D 로 돌아간다
+  let sideWired = false;
+  function wireSide() {
+    if (sideWired) return;
+    const side = el('costume-side');
+    if (!side) return;
+    sideWired = true;
+    side.addEventListener('click', e => {
+      if (e.target.closest('#costume-variation button, #costume-anim-toggle button, #costume-expression button, '
+        + '#costume-parts-toggle button, #costume-extra-parts-toggle button')) stop();
+    });
+  }
+
   // 코스튬을 고를 때마다 부른다. 컷신 데이터가 있는 코스튬만 버튼이 보인다.
   function show(costume) {
     stop();
+    wireSide();
     const code = costume && costume['코드'];
     data = (code && SKILLCUT_DATA[code]) || null;
     const panel = el('costume-skillcut');
@@ -223,9 +240,10 @@ const CostumeSkillcut = (() => {
     panel.classList.remove('hidden');
     panel.innerHTML = `
       <div class="skillcut-btns">
+        <button type="button" class="anim-btn" data-sc-mode="off">기본 L2D</button>
         <button type="button" class="anim-btn" data-sc-mode="full">전체 재생</button>
-        <button type="button" class="anim-btn" data-sc-mode="idle">idle 반복</button>
         <button type="button" class="anim-btn" data-sc-mode="cut">스킬컷 재생</button>
+        <button type="button" class="anim-btn" data-sc-mode="idle">idle 반복</button>
       </div>
       <div class="skillcut-screen">
         <span>화면</span>
