@@ -6,10 +6,10 @@
     _skillcut_elements/<코드>/        Spine 이 아닌 그림(배경 스프라이트 · 검은 판 등)
 
 출력 (저장소):
-    l2d/skillcut/<코드>/play.json    js/skillcut.js 가 읽는 재생 데이터(필요한 값만)
-    l2d/skillcut/<코드>/*.skel · *.atlas · *.webp   텍스처는 WebP(q90, 알파 무손실)로 바꾸고 atlas 의 페이지 이름도 고친다
-    l2d/skillcut/<코드>/el/*.webp     요소 그림
-    l2d/skillcut/index.json          컷신이 있는 코드 목록
+    l2d/<코드>/skillcut/play.json    js/skillcut.js 가 읽는 재생 데이터(필요한 값만)
+    l2d/<코드>/skillcut/*.skel · *.atlas · *.webp   텍스처는 WebP(q90, 알파 무손실)로 바꾸고 atlas 의 페이지 이름도 고친다
+    l2d/<코드>/skillcut/el/*.webp     요소 그림
+    l2d/skillcut.json                컷신이 있는 코드 목록
 
 WebP 는 c016_01 로 PNG 와 렌더 결과를 비교해 정했다(q90: 평균 차이 2/255, 3배 확대에서도 구분 안 됨, 용량 -74%).
 
@@ -37,7 +37,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(HERE)
 SRC = os.path.join(os.path.dirname(WEB), '리소스', '코스튬')
-OUT = os.path.join(WEB, 'l2d', 'skillcut')
+L2D = os.path.join(WEB, 'l2d')
 WRITE = '--write' in sys.argv
 
 OVERLAY_LAYER = 570438649   # 스프라이트 전용 정렬 레이어(값 4) - Spine(레이어 0)보다 나중에 그린다
@@ -101,7 +101,7 @@ def element_texture(e):
 
 def build_code(it, report):
     code = it['code']
-    folder = os.path.join(OUT, code)
+    folder = os.path.join(L2D, code, 'skillcut')
     if WRITE:
         os.makedirs(os.path.join(folder, 'el'), exist_ok=True)
 
@@ -209,7 +209,7 @@ def main():
     for it in sorted(data['items'], key=lambda x: x['code']):
         build_code(it, report)
     if WRITE:
-        with io.open(os.path.join(OUT, 'index.json'), 'w', encoding='utf-8', newline='\n') as f:
+        with io.open(os.path.join(L2D, 'skillcut.json'), 'w', encoding='utf-8', newline='\n') as f:
             json.dump(sorted(report['codes']), f)
     print(f'\n{len(report["codes"])}개 · 그림 PNG {report["png"] / 1e6:.1f}MB → WebP {report["webp"] / 1e6:.1f}MB'
           + ('' if WRITE else '  (확인만 - --write 로 쓴다)'))

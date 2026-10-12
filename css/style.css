@@ -8898,8 +8898,7 @@
 
   /* ===== 유니크 코스튬 스킬 컷신 (skillcut.js, 사용자 요청 2026-10-12) =====
      켜면 그림 칸(진행바 위)을 덮고, 인게임 카메라 화면비 상자를 가운데 둔다. 상자 밖은 어둡게. */
-  #costume-skillcut-controls .skillcut-btns,
-  #costume-skillcut-controls .skillcut-screen { display: flex; flex-wrap: wrap; gap: 6px; }
+  #costume-skillcut-controls .skillcut-btns { display: flex; flex-wrap: wrap; gap: 6px; }
   /* 기본 L2D / 스킬 컷신 전환 - 판 맨 위, 두 칸을 반씩 */
   #costume-view-switch { display: flex; gap: 6px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle); }
   #costume-view-switch.hidden { display: none; }
