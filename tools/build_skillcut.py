@@ -2,42 +2,42 @@
 
 입력 (추출 세션이 만든 것, 리소스/코스튬/):
     _skillcut_playback.json          코드별 재생 데이터(바깥 타임라인 30fps, Spine 런타임 · BoneFollower 적용)
-    _skillcut_particles/<코드>.json   Spine 이 아닌 요소(스프라이트 · 메시 · 파티클)의 시간별 꼭짓점 · 색 · 머티리얼
+    _skillcut_particles/<코드>.json   Spine 이 아닌 렌더러(스프라이트 · 메시 · 파티클)마다 GPU 가 실제로 받은 꼭짓점 입력
+                                     (gpu: 월드 좌표 · COLOR · TEXCOORD0~2 · 삼각형), 머티리얼, propertyBlock
+    _skillcut_textures.json          텍스처 설정(wrap · filter)과 머티리얼 텍스처 칸 상태(있음 / null / 없음)
+    _skillcut_shaders/               게임 셰이더 디스어셈블(js/skillcut.js FX_FS 가 이것을 옮긴 것)
     <skel 이름>/                     .skel · .atlas · .png
     _skillcut_elements/<코드>/        요소 텍스처 PNG
 
 출력 (저장소):
-    l2d/<코드>/skillcut/play.json    js/skillcut.js 가 읽는 재생 데이터(필요한 값만)
-    l2d/<코드>/skillcut/*.skel · *.atlas · *.webp   텍스처는 WebP(q90, 알파 무손실)로 바꾸고 atlas 의 페이지 이름도 고친다
-    l2d/<코드>/skillcut/el/*.webp     요소 텍스처
+    l2d/<코드>/skillcut/play.json    js/skillcut.js 가 읽는 재생 데이터
+    l2d/<코드>/skillcut/*.skel · *.atlas · *.webp   텍스처는 무손실 WebP(원본 픽셀 그대로), atlas 의 페이지 이름도 고친다
+    l2d/<코드>/skillcut/el/*.webp     요소 텍스처(무손실 WebP)
     l2d/skillcut.json                컷신이 있는 코드 목록
 
-WebP 는 c016_01 로 PNG 와 렌더 결과를 비교해 정했다(q90: 평균 차이 2/255, 3배 확대에서도 구분 안 됨, 용량 -74%).
-
 요소 (play.json elements[]):
-    kind 'q'  스프라이트 · 메시 판: q = [[t, 꼭짓점 8개]] (왼위 · 오른위 · 오른아래 · 왼아래, 화면 단위), color = [[t, r,g,b,a]]
-    kind 'p'  파티클: p = [[t, 사각형들] 또는 [t, 사각형들, {m, v, i}]]
-              사각형 = 입자마다 꼭짓점 xy 8 · uv 8 · rgba(0~255) 4 (Billboard · Stretch)
-              m = Mesh 입자마다 [a,b,c, d,e,f, r,g,b,a, uv변환 (, 근평면 뒤 꼭짓점 번호들)]: 요소의 mesh.ref(기준 xy)를
-                  x' = a·x + b·y + c, y' = d·x + e·y + f 로 옮긴 것. mesh.uv · mesh.tri 는 요소에 한 번만.
-                  uv변환 = 0(기준 uv 그대로) 또는 [su, ou, sv, ov]: u' = su·u + ou, v' = sv·v + ov (텍스처 시트 칸 · 뒤집기)
-              x = 아핀으로 안 맞는 Mesh 입자마다 [r,g,b,a, uv변환, x0,y0, x1,y1, ...] (화면 xy 를 1000 배 정수로, 근평면 뒤는 null)
-              v · i = 그대로 적은 삼각형: 꼭짓점 [x, y, u, v, r, g, b, a] 씩 + 인덱스 (기준 모양이 없는 Mesh 입자 ·
-                  근평면에서 자른 Billboard)
-              uv 는 엔진 값 그대로(v 는 아래가 0), 메인 텍스처 st(배율 · 오프셋)는 그릴 때 곱한다.
-    둘 다 "바뀐 시각만" 적혀 있어서, 그 사이는 앞 값을 그대로 쓴다.
-    add 1 = 가산 블렌드. 셰이더로 정한다(가산 셰이더 / 알파 셰이더). 다른 셰이더는 머티리얼 이름의 add · blend 로.
-    mask = 마스크 텍스처(_MaskTex)와 st.
+    { name, layer, order, active, draws: [{ m: 머티리얼, f: 프레임들 }], pb: propertyBlock 변화 }
+    draws 는 렌더러의 머티리얼 칸마다 하나(입자 렌더러는 칸0 = 입자, 칸1 = 트레일). 머티리얼이 null 인 칸은 엔진이 안 그려 뺀다.
+    f = [[t, 0 | {n, p, c, u, a, b, nr, i}]] "바뀐 시각만"(그 사이는 앞 값). 0 = 그리는 것 없음.
+        p  = 월드 xyz × n (카메라가 원점 · 회전 없음 · +z 라 카메라 공간. 화면 = x / (z · tanHalfFov))
+        c  = COLOR 바이트 r,g,b,a — 같은 값이 이어지는 꼭짓점은 [개수, r, g, b, a] 로 묶는다
+        u  = TEXCOORD0.xy × n
+        a  = TEXCOORD1.xyzw (같은 값 묶음, c 와 같은 방식) / b = TEXCOORD2.x (같은 값 묶음) - add · blend 셰이더만
+        nr = 월드 법선(fresnel 만), i = 삼각형(GPU 가 그린 순서)
+        p · c · u · a · b · nr · i 가 빠져 있으면 앞 프레임 값 그대로(꼭짓점 수가 같을 때만 빠진다)
+    값은 추출 파일(소수 넷째 자리)을 그대로 옮긴다.
+    m = { sh, at, tex: {칸: [파일 또는 null, sx, sy, ox, oy, wrapU, wrapV, filter]}, f: {실수 속성}, c: {색 속성}, q: 렌더 큐 }
+        sh: add(NK_fx_add_all) · blend(NK_fx_blend_all _FOGOFF_ON) · blendfog(NK_fx_blend_all 안개 변형) ·
+            uvadd(NK_fx_uv_add) · uvblend(NK_fx_uv_blend) · b3d(NK_fx_blend_3d) · fresnel(NK_fx_fresnel) · sprite(Sprites/Default)
+        텍스처 칸이 없거나 null 이면 셰이더 기본 텍스처(이 셰이더들은 모두 white). _ST 는 칸이 있으면 그 값, 없으면 (1,1,0,0).
+    pb = [[t, {color, st: {칸: [sx,sy,ox,oy]}, bloom, tex: {칸: 파일}} 또는 null]] 타임라인이 움직이는 머티리얼 속성.
 
-못 그리는 것은 뺀다:
-    - 자유 늘이기(freeformStretching) Stretch 파티클, 엔진 값으로 조립되지 않은 Mesh 입자, SkinnedMeshRenderer
-    - 디졸브 · 노이즈 왜곡 · UV 흐름 같은 셰이더 효과(셰이더 코드가 없다) - 메인 텍스처와 마스크만 쓴다
-    - 덮개 정렬 레이어의 판 중 색 변화 기록이 없는 것: 셰이더 값으로 움직이는 화면 전환이라
-      색만으로 그리면 화면을 통째로 덮어 버린다(검은 판 black_bg 는 알파 변화가 기록돼 있어 그린다).
+안개: 전역값(_Global_Fog_Effect_*)을 게임 코드가 넣어 데이터로 정할 수 없어, 사용자 결정(2026-10-13)으로 안개 비율 1(안개 없음)로 그린다.
+후처리: 사용자 결정(2026-10-13)으로 넣지 않는다.
 
 사용법:
-    python tools/build_skillcut.py           # 확인만
-    python tools/build_skillcut.py --write   # 저장소에 쓴다
+    python tools/build_skillcut.py [코드 ...]           # 확인만
+    python tools/build_skillcut.py --write [코드 ...]   # 저장소에 쓴다
 """
 
 import io
@@ -45,9 +45,8 @@ import json
 import os
 import shutil
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 
-import numpy as np
 from PIL import Image
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -59,16 +58,34 @@ L2D = os.path.join(WEB, 'l2d')
 WRITE = '--write' in sys.argv
 
 OVERLAY_LAYER = 570438649   # 스프라이트 전용 정렬 레이어(값 4) - Spine(레이어 0)보다 나중에 그린다
-WEBP = dict(quality=90, method=6, alpha_quality=100, exact=True)
-# 셰이더(번들 pathID) → 블렌드. 머티리얼 이름 접미사(_add / _blend)와 1:1 로 맞는 두 셰이더.
-SHADER_ADD = 2609380419410529261
-SHADER_ALPHA = 4540921370150519042
-NEAR = 0.1
-AFFINE_TOL = 0.004   # Mesh 입자를 아핀 변환으로 적어도 되는 최대 오차(화면 단위, 세로 반높이 1 기준)
+WEBP = dict(lossless=True, method=6, exact=True)
 
 r3 = lambda v: round(float(v), 3)
 r4 = lambda v: round(float(v), 4)
 r1 = lambda v: round(float(v), 1)
+
+# 셰이더 이름 → 사이트 셰이더 이름(js/skillcut.js FX_MODE 와 짝)
+SHADERS = {
+    'NK/Unlit/FX/NK_fx_add_all': 'add',
+    'NK/Unlit/FX/NK_fx_blend_all': 'blend',
+    'NK/Unlit/FX/NK_fx_uv_add': 'uvadd',
+    'NK/Unlit/FX/NK_fx_uv_blend': 'uvblend',
+    'NK/Unlit/FX/NK_fx_blend_3d': 'b3d',
+    'NK/Unlit/FX/NK_fx_fresnel': 'fresnel',
+    'Sprites/Default': 'sprite',
+}
+TEX_PROPS = {'_MainTex': 'main', '_MaskTex': 'mask', '_DissolveTex': 'dis', '_NoiseTex': 'noise', '_UVMaskTex': 'uvm'}
+FLOAT_PROPS = {
+    '_UVRotation': 'rot', '_NoiseAmount': 'noise', '_CutOut': 'cut', '_BloomIntensity': 'bloom',
+    '_OverlayOpacity': 'ovo', '_CustomData_Offset': 'cdO', '_CustomData_Intensity': 'cdI',
+    '_CustomData_Dissolve': 'cdD', '_CustomData_Distortion': 'cdT', '_Fog_BloomIntensity': 'fogBloom',
+    '_LightenOpacity': 'lo', '_Power': 'power', '_GlowPower': 'glow', '_ZTest': 'ztest',
+}
+COLOR_PROPS = {'_Color': 'color', '_OverlayColor': 'ov', '_LightenColor': 'lc', '_GlowColor': 'gc',
+               '_RendererColor': 'rc'}
+SHADER_QUEUE = {'b3d': 2450}   # 셰이더 태그 Queue(AlphaTest = 2450). 나머지는 Transparent = 3000
+WRAP = {'Repeat': 0, 'Clamp': 1, 'Mirror': 2, 'MirrorOnce': 3}
+FILTER = {'Point': 0, 'Bilinear': 1, 'Trilinear': 1}
 
 
 def to_webp(src, dst):
@@ -116,194 +133,50 @@ def frame_of(sp):
     return {'samples': [[r3(s['t']), r1(s['centerX_px']), r1(s['centerY_px']), r1(s['halfHeight_px'])] for s in samples]}
 
 
-def is_add(mat):
-    sid = (mat.get('shader') or {}).get('pathID')
-    if sid == SHADER_ADD:
-        return True
-    if sid == SHADER_ALPHA:
-        return False
-    return (mat.get('blend') or {}).get('nameHint') == 'add' or '_add' in mat.get('name', '')
-
-
-def st_of(tx):
-    st = [r4(tx['scale']['x']), r4(tx['scale']['y']), r4(tx['offset']['x']), r4(tx['offset']['y'])]
-    return None if st == [1, 1, 0, 0] else st
-
-
-def mat_tex(mat, prop):
-    for tx in mat.get('textures') or []:
-        if tx['prop'] == prop and tx.get('file'):
-            return tx
-    return None
-
-
-def vert8(x, y, u, v, rgba):
-    return [r3(x), r3(y), r4(u), r4(v)] + [int(c) for c in rgba]
-
-
-def clip_near(q, tan):
-    """3D 회전 Billboard 가 근평면에 걸치면 카메라 공간 꼭짓점(20~31번째 값)으로 근평면에서 잘라 투영한다.
-    반환: (꼭짓점 [x,y,u,v,r,g,b,a]..., 삼각형 인덱스) - 다 잘려 나가면 None"""
-    pts = [(q[20 + 3 * k], q[21 + 3 * k], q[22 + 3 * k], q[8 + 2 * k], q[9 + 2 * k]) for k in range(4)]
+def runs(vals, k, conv):
+    """k 개씩 끊은 값을 같은 값끼리 묶는다: [개수, v1..vk, 개수, ...]"""
     out = []
-    for i, a in enumerate(pts):
-        b = pts[(i + 1) % 4]
-        if a[2] >= NEAR:
-            out.append(a)
-        if (a[2] >= NEAR) != (b[2] >= NEAR):
-            k = (NEAR - a[2]) / (b[2] - a[2])
-            out.append(tuple(a[j] + (b[j] - a[j]) * k for j in range(5)))
-    if len(out) < 3:
-        return None
-    verts = []
-    for x, y, z, u, v in out:
-        verts += vert8(x / (z * tan), y / (z * tan), u, v, q[16:20])
-    return verts, [i for k in range(1, len(out) - 1) for i in (0, k, k + 1)]
+    prev, cnt = None, 0
+    for i in range(0, len(vals), k):
+        cur = [conv(v) for v in vals[i:i + k]]
+        if cur == prev:
+            cnt += 1
+            continue
+        if prev is not None:
+            out += [cnt] + prev
+        prev, cnt = cur, 1
+    if prev is not None:
+        out += [cnt] + prev
+    return out
 
 
-def mesh_template(e):
-    """Mesh 모드 요소의 기준 모양: 첫 입자의 꼭짓점 uv · 삼각형과, 빠진 꼭짓점이 없는 첫 입자의 화면 xy.
-    입자마다 화면 xy 가 이 기준 xy 의 2D 아핀 변환이면 변환값 6개만 적는다(멀리 있는 메시 · 화면 축 회전).
-    아니면 화면 xy 만 적는다. uv 는 입자마다 기준 uv 의 배율 · 오프셋(텍스처 시트 칸 · 뒤집기)이어야 한다."""
-    parts = [q for _, s in e.get('samples') or [] for q in (s.get('p') or []) if isinstance(q, list)]
-    if not parts:
-        return None
-    n = len(parts[0]) // 8
-    if any(len(q) // 8 != n for q in parts):
-        return None
-    base = next((q for q in parts if all(v is not None for v in q[2::8] + q[3::8])), None)
-    if base is None:
-        return None
-    ref = next((q for q in parts if all(v is not None for v in q[0::8] + q[1::8])), None)
-    return {
-        'n': n,
-        'u': np.array(base[2::8], float), 'v': np.array(base[3::8], float),
-        'uv': [r4(v) for pair in zip(base[2::8], base[3::8]) for v in pair],
-        'tri': e.get('meshTriangles') or [],
-        'ref': None if ref is None else np.array([ref[0::8], ref[1::8]], float).T,
+def frame_data(s, sh, prev):
+    """GPU 드로우 한 칸 → 사이트 형식. prev(앞 프레임 원값)와 같은 채널은 뺀다. 반환 (사이트 값, 이번 원값)"""
+    n = s.get('n') or 0
+    if not n:
+        return 0, None
+    t0 = s['t0']
+    cur = {
+        'p': [r4(v) for v in s['pos']],
+        'c': runs(s['col'], 4, lambda v: int(round(v * 255))),
+        'u': [r4(v) for i, v in enumerate(t0) if i % 4 < 2],
+        'i': list(s['idx']),
     }
+    if sh in ('add', 'blend', 'blendfog'):
+        cur['a'] = runs(s['t1'], 4, r4)
+        cur['b'] = runs(s['t2'][0::4], 1, r4)
+    if sh == 'fresnel':
+        cur['nr'] = [r4(v) for v in s['nrm']]
+    out = {'n': n}
+    same = prev is not None and prev['n'] == n
+    for k, v in cur.items():
+        if not (same and prev.get(k) == v):
+            out[k] = v
+    cur['n'] = n
+    return out, cur
 
 
-def fit_axis(a, b):
-    """b = s·a + o 인 (s, o). 안 맞으면 None"""
-    if np.ptp(a) < 1e-6:
-        return (1.0, float(b[0] - a[0])) if np.ptp(b) < 1e-3 else None
-    sol = np.polyfit(a, b, 1)
-    return (float(sol[0]), float(sol[1])) if np.abs(np.polyval(sol, a) - b).max() <= 1e-3 else None
-
-
-def mesh_common(q, tpl):
-    """입자의 색(꼭짓점마다 같아야 한다)과 uv 변환([su, ou, sv, ov], 기준 그대로면 0). 안 맞으면 None"""
-    n = tpl['n']
-    col = {tuple(q[i * 8 + 4:i * 8 + 8]) for i in range(n)}
-    if len(col) != 1:
-        return None
-    u, v = q[2::8], q[3::8]
-    if any(x is None for x in u + v):
-        return None
-    fu, fv = fit_axis(tpl['u'], np.array(u, float)), fit_axis(tpl['v'], np.array(v, float))
-    if not fu or not fv:
-        return None
-    uvt = [r4(fu[0]), r4(fu[1]), r4(fv[0]), r4(fv[1])]
-    return [int(c) for c in col.pop()] + [0 if uvt == [1, 0, 1, 0] else uvt]
-
-
-def mesh_affine(q, tpl, common):
-    """입자 하나를 기준 모양의 아핀 변환으로: [a,b,c, d,e,f, r,g,b,a, uv변환 (, 근평면 뒤 꼭짓점 번호들)]. 안 맞으면 None"""
-    n = tpl['n']
-    if tpl['ref'] is None:
-        return None
-    xy = np.array([[np.nan if v is None else v for v in q[0::8]], [np.nan if v is None else v for v in q[1::8]]], float).T
-    ok = ~np.isnan(xy[:, 0]) & ~np.isnan(xy[:, 1])
-    if ok.sum() < 3:
-        return None
-    X = np.c_[tpl['ref'], np.ones(n)]
-    sol = np.linalg.lstsq(X[ok], xy[ok], rcond=None)[0]
-    if np.abs(X[ok] @ sol - xy[ok]).max() > AFFINE_TOL:
-        return None
-    out = [r4(v) for v in sol.T.reshape(-1)] + common
-    if not ok.all():
-        out.append([int(i) for i in np.nonzero(~ok)[0]])
-    return out
-
-
-def mesh_xy(q, tpl, common):
-    """기준 모양을 쓰는 Mesh 입자를 화면 xy 로: [r,g,b,a, uv변환, x0,y0, x1,y1, ...] (xy 는 1000 배 정수, 근평면 뒤는 null)"""
-    out = list(common)
-    for i in range(tpl['n']):
-        x, y = q[i * 8], q[i * 8 + 1]
-        out += [None, None] if x is None or y is None else [round(x * 1000), round(y * 1000)]
-    return out
-
-
-def particle_samples(e, tan, skipped):
-    """[t, 사각형들] 또는 [t, 사각형들, {m: 아핀 메시 입자들, x: xy 메시 입자들, v: 꼭짓점들, i: 삼각형}]
-    사각형 = 입자마다 xy 8 · uv 8 · rgba 4 (Billboard · Stretch).
-    v · i = 그대로 적은 삼각형(기준 모양이 없는 Mesh 입자, 근평면에서 자른 Billboard), 꼭짓점은 [x,y,u,v,r,g,b,a] 씩.
-    반환: (줄들, 메시 기준 모양 또는 None)"""
-    out = []
-    mode = e.get('renderMode')
-    tris = e.get('meshTriangles') or []
-    tpl = mesh_template(e) if mode == 'Mesh' else None
-    for t, s in e.get('samples') or []:
-        quads, verts, idx, aff, rxy = [], [], [], [], []
-
-        def add_mesh(vs, ix):
-            base = len(verts) // 8
-            verts.extend(vs)
-            idx.extend(i + base for i in ix)
-
-        for q in s.get('p') or []:
-            if isinstance(q, dict):
-                skipped['조립 안 된 입자'] += 1
-                continue
-            if mode == 'Mesh':
-                common = mesh_common(q, tpl) if tpl else None
-                if common:
-                    a = mesh_affine(q, tpl, common)
-                    if a:
-                        aff.append(a)
-                    else:
-                        rxy.append(mesh_xy(q, tpl, common))
-                    continue
-                n = len(q) // 8
-                ok = [all(v is not None for v in q[i * 8:i * 8 + 4]) for i in range(n)]
-                ix = [tris[j + k] for j in range(0, len(tris), 3) for k in range(3)
-                      if all(ok[tris[j + m]] for m in range(3))]
-                if not ix:
-                    continue
-                vs = []
-                for i in range(n):
-                    a = q[i * 8:i * 8 + 8]
-                    vs += vert8(a[0] or 0, a[1] or 0, a[2] or 0, a[3] or 0, a[4:8])
-                add_mesh(vs, ix)
-            elif len(q) > 20 and any(q[20 + 3 * k + 2] <= NEAR for k in range(4)):
-                c = clip_near(q, tan)
-                if c:
-                    add_mesh(*c)
-            elif any(v is None for v in q[:20]):
-                # 카메라 공간 값 없이 꼭짓점(근평면 뒤 Stretch)이나 uv 가 비어 있는 입자
-                skipped['값 빠진 입자'] += 1
-            else:
-                # Billboard: 왼위 · 오른위 · 오른아래 · 왼아래 / Stretch: 머리+ · 머리- · 꼬리- · 꼬리+ (둘 다 한 바퀴 도는 순서)
-                quads += [r3(v) for v in q[:8]] + [r4(v) for v in q[8:16]] + [int(v) for v in q[16:20]]
-        extra = {}
-        if aff:
-            extra['m'] = aff
-        if rxy:
-            extra['x'] = rxy
-        if idx:
-            extra.update(v=verts, i=idx)
-        out.append([r3(t), quads, extra] if extra else [r3(t), quads])
-    mesh = None
-    if tpl and any(len(r) > 2 and ('m' in r[2] or 'x' in r[2]) for r in out):
-        mesh = {'uv': tpl['uv'], 'tri': tpl['tri']}
-        if tpl['ref'] is not None:
-            mesh['ref'] = [r4(v) for v in tpl['ref'].reshape(-1)]
-    return out, mesh
-
-
-def build_code(it, report):
+def build_code(it, report, texinfo):
     code = it['code']
     folder = os.path.join(L2D, code, 'skillcut')
     if WRITE:
@@ -341,100 +214,142 @@ def build_code(it, report):
             'frame': frame_of(sp),
         })
 
-    # 요소: 파티클 파일이 기준. 스프라이트 그림 파일 이름만 재생 파일에서 가져온다(경로로 찾는다)
     pdata = json.load(io.open(os.path.join(SRC, it['particlesFile']), encoding='utf-8'))
-    tan = pdata['camera']['tanHalfFov']
-    by_path = defaultdict(list)
-    for o in it['otherElements']:
-        by_path[o['path']].append(o)
-
-    elements = []
-    skipped = Counter()
     edir = os.path.join(SRC, '_skillcut_elements', code)
+    texenv = texinfo['materials'].get(code, {})
+    textures = texinfo['textures']
     converted = set()
+    skipped = Counter()
 
-    def tex_file(fname):
-        if not fname or not os.path.exists(os.path.join(edir, fname)):
+    def tex_file(name):
+        """텍스처 이름 → 사이트 파일(el/<이름>.webp). 없으면 None"""
+        if not name:
             return None
-        wname = os.path.splitext(fname)[0] + '.webp'
+        src = os.path.join(edir, name + '.png')
+        if not os.path.exists(src):
+            return None
+        wname = name + '.webp'
         if wname not in converted:
             converted.add(wname)
-            a, b = to_webp(os.path.join(edir, fname), os.path.join(folder, 'el', wname))
+            a, b = to_webp(src, os.path.join(folder, 'el', wname))
             report['png'] += a
             report['webp'] += b
         return 'el/' + wname
 
+    def tex_entry(name, st):
+        ti = textures.get(name) or {}
+        f = tex_file(name)
+        if name and not f:
+            raise SystemExit(f'{code}: 텍스처 {name} PNG 없음')
+        return [f] + [r4(v) for v in st] + [WRAP.get(ti.get('wrapU'), 0), WRAP.get(ti.get('wrapV'), 0),
+                                           FILTER.get(ti.get('filter'), 1)]
+
+    def material_of(mat):
+        name = mat.get('shaderName')
+        sh = SHADERS.get(name)
+        if not sh:
+            return None, f'셰이더 {name}'
+        kw = set(mat.get('keywords') or [])
+        if sh == 'blend' and '_FOGOFF_ON' not in kw:
+            sh = 'blendfog'
+        # 텍스처 칸: _skillcut_textures.json 의 칸 상태(texture / null / missing-ref)
+        envs = (texenv.get(mat.get('name')) or {}).get('texEnvs')
+        if envs is None:
+            raise SystemExit(f'{code}: 머티리얼 {mat.get("name")} 텍스처 칸 정보 없음')
+        tex = {}
+        for te in envs:
+            key = TEX_PROPS.get(te['prop'])
+            if not key:
+                continue
+            tname = te['texture'] if te['state'] == 'texture' else None
+            tex[key] = tex_entry(tname, te['scale'] + te['offset'])
+        fl = mat.get('floats') or {}
+        co = mat.get('colors') or {}
+        m = {'sh': sh, 'tex': tex,
+             'f': {k: r4(fl[p]) for p, k in FLOAT_PROPS.items() if p in fl},
+             'c': {k: [r4(co[p][c]) for c in 'rgba'] for p, k in COLOR_PROPS.items() if p in co},
+             'q': mat.get('renderQueue') if (mat.get('renderQueue') or -1) >= 0 else SHADER_QUEUE.get(sh, 3000)}
+        if '_ALPHATEST_ON' in kw and sh in ('add', 'blend', 'blendfog'):
+            m['at'] = 1
+        return m, None
+
+    def sprite_material():
+        sd = texinfo['spritesWithoutBundleMaterial']
+        if sd.get('shader') != 'Sprites/Default':
+            raise SystemExit(f'{code}: 머티리얼 없는 스프라이트 셰이더가 Sprites/Default 가 아니다')
+        return {'sh': 'sprite', 'tex': {}, 'f': {}, 'c': {}, 'q': 3000}
+
+    def pb_rows(e):
+        rows = []
+        for t, v in e.get('propertyBlock') or []:
+            if not v or v.get('_onlyOtherEntries'):
+                ent = None
+            else:
+                ent = {}
+                for k, val in v.items():
+                    if k == '_Color':
+                        ent['color'] = [r4(x) for x in val]
+                    elif k == '_BloomIntensity':
+                        ent['bloom'] = r4(val)
+                    elif k.endswith('_ST') and TEX_PROPS.get(k[:-3]):
+                        ent.setdefault('st', {})[TEX_PROPS[k[:-3]]] = [r4(x) for x in val]
+                    elif TEX_PROPS.get(k) and isinstance(val, dict):
+                        f = tex_file(val.get('texture'))
+                        if val.get('texture') and not f:
+                            raise SystemExit(f'{code}: propertyBlock 텍스처 {val.get("texture")} PNG 없음')
+                        ent.setdefault('tex', {})[TEX_PROPS[k]] = f
+                ent = ent or None
+            if rows and rows[-1][1] == ent:
+                continue
+            rows.append([r3(t), ent])
+        return rows if any(r[1] for r in rows) else []
+
+    elements = []
     for e in pdata['elements']:
         name = e['path'].rsplit('/', 1)[-1]
-        typ = e['type']
         act = [[r3(a), r3(length if b is None else b)] for a, b in (e.get('activeIntervals') or [])]
-        if not act:
-            skipped['켜지는 구간 없음'] += 1
+        gpu = e.get('gpu') or []
+        if not act or not gpu:
+            skipped['켜지는 구간 · 그림 없음'] += 1
             continue
-        mat = (e.get('materials') or [None])[0] or {}
-        overlay = e.get('sortingLayerID') == OVERLAY_LAYER
-        el = {'name': name, 'layer': 4 if overlay else 0, 'order': e.get('sortingOrder') or 0, 'active': act}
-
-        if typ == 'ParticleSystemRenderer':
-            if e.get('renderMode') not in ('Billboard', 'Stretch', 'Mesh') or e.get('freeformStretching'):
-                skipped[f'파티클 {e.get("renderMode")} 모드' + (' 자유 늘이기' if e.get('freeformStretching') else '')] += 1
-                continue
-            main = mat_tex(mat, '_MainTex')
-            tex = tex_file(main['file']) if main else None
-            if not tex:
-                skipped['파티클 그림 없음'] += 1
-                continue
-            rows, mesh = particle_samples(e, tan, skipped)
-            el.update(kind='p', tex=tex, p=rows)
-            if mesh:
-                el['mesh'] = mesh
-            if not any(s[1] or len(s) > 2 for s in el['p']):
-                skipped['파티클 입자 없음'] += 1
-                continue
-            st = st_of(main)
-        elif typ in ('SpriteRenderer', 'MeshRenderer'):
-            quads = e.get('screenQuadChanges') or []
-            if not quads:
-                skipped['판 위치 없음'] += 1
-                continue
-            colors = e.get('colorChanges') or []
-            if overlay and name != 'black_bg' and len(colors) <= 1:
-                skipped[f'셰이더 전환 {name}'] += 1
-                continue
-            if typ == 'SpriteRenderer':
-                src = (by_path.get(e['path']) or [{}])[0]
-                main = None
-                tex = tex_file(src.get('spriteFile'))
+        mats = {m.get('slot', 0): m for m in e.get('materials') or []}
+        slots = e.get('materialSlots') or [None]
+        draws = []
+        for k, slot_name in enumerate(slots):
+            if e['type'] == 'SpriteRenderer' and not mats:
+                m = sprite_material()
+            elif slot_name is None or k not in mats:
+                continue              # 빈 칸은 엔진이 안 그린다
             else:
-                main = mat_tex(mat, '_MainTex')
-                tex = tex_file(main['file']) if main else None
-            if not tex:
-                skipped[f'{name}(그림 없음)'] += 1
-                continue
-            el.update(kind='q', tex=tex,
-                      q=[[r3(t), [r3(v) for v in xy]] for t, xy in quads],
-                      color=[[r3(t)] + [r3(v) for v in c] for t, c in colors] or [[0, 1, 1, 1, 1]])
-            st = st_of(main) if main else None
-        else:
-            skipped[typ] += 1
+                m, why = material_of(mats[k])
+                if not m:
+                    skipped[why] += 1
+                    continue
+            frames, prev = [], None
+            for t, ds in gpu:
+                s = ds[k] if k < len(ds) else None
+                fd, cur = frame_data(s or {}, m['sh'], prev)
+                prev = cur
+                if frames and fd == 0 and frames[-1][1] == 0:
+                    continue
+                frames.append([r3(t), fd])
+            if any(f[1] for f in frames):
+                draws.append({'m': m, 'f': frames})
+        if not draws:
+            skipped['그리는 칸 없음'] += 1
             continue
-
-        if st:
-            el['st'] = st
-        if mat and is_add(mat):
-            el['add'] = 1
-        mk = mat_tex(mat, '_MaskTex') if mat else None
-        if mk:
-            mt = tex_file(mk['file'])
-            if mt:
-                el['mask'] = mt
-                if st_of(mk):
-                    el['maskSt'] = st_of(mk)
+        el = {'name': name, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
+              'order': e.get('sortingOrder') or 0, 'active': act, 'draws': draws}
+        if e.get('sortingFudge'):
+            el['fudge'] = r3(e['sortingFudge'])
+        pb = pb_rows(e)
+        if pb:
+            el['pb'] = pb
         elements.append(el)
 
     jump = tl['jump'][0] if tl.get('jump') else None
     # 스킬컷 끝 = 검은 판이 켜지는 시각(없으면 컷신 오브젝트들이 꺼지는 시각)
-    black = [e for e in it['otherElements'] if e['path'].endswith('/black_bg') and e.get('activeIntervals')]
+    black = [e for e in pdata['elements'] if e['path'].endswith('/black_bg') and e.get('activeIntervals')]
     if black:
         cut_end = black[0]['activeIntervals'][0][0]
     else:
@@ -444,6 +359,9 @@ def build_code(it, report):
         'length': length,
         'jump': {'at': r3(jump['at']), 'to': r3(jump['to'])} if jump else None,
         'cutEnd': r3(cut_end),
+        'tanHalfFov': pdata['camera']['tanHalfFov'],
+        'near': pdata['camera'].get('near', 0.1),
+        'far': pdata['camera'].get('far', 800),
         'files': sorted(files.values()),
         'spines': spines,
         'elements': elements,
@@ -454,19 +372,21 @@ def build_code(it, report):
             f.write(text)
     report['codes'].append(code)
     report['json'] += len(text)
-    kinds = Counter(x['kind'] for x in elements)
-    print(f'{code}: Spine {len(spines)} · 판 {kinds["q"]} · 파티클 {kinds["p"]} · play.json {len(text) / 1e6:.2f}MB'
+    shs = Counter(d['m']['sh'] for x in elements for d in x['draws'])
+    print(f'{code}: Spine {len(spines)} · 요소 {len(elements)} ({", ".join(f"{k} {v}" for k, v in shs.items())})'
+          f' · play.json {len(text) / 1e6:.2f}MB'
           + (' · 뺀 것 ' + ', '.join(f'{k}×{v}' for k, v in skipped.items()) if skipped else ''))
 
 
 def main():
     data = json.load(io.open(os.path.join(SRC, '_skillcut_playback.json'), encoding='utf-8'))
+    texinfo = json.load(io.open(os.path.join(SRC, '_skillcut_textures.json'), encoding='utf-8'))
     only = [a for a in sys.argv[1:] if not a.startswith('--')]
     report = {'png': 0, 'webp': 0, 'json': 0, 'codes': []}
     for it in sorted(data['items'], key=lambda x: x['code']):
         if only and it['code'] not in only:
             continue
-        build_code(it, report)
+        build_code(it, report, texinfo)
     if WRITE and not only:
         with io.open(os.path.join(L2D, 'skillcut.json'), 'w', encoding='utf-8', newline='\n') as f:
             json.dump(sorted(report['codes']), f)
