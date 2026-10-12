@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=5';
+const SKILLCUT_DATA_VER = '?d=6';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 화면비(가로/세로): 휴대폰 화면이면 9:16, 아니면 인게임 카메라 1:1. 그릴 때마다 지금 화면 기준으로 정한다.
@@ -132,19 +132,6 @@ const CostumeSkillcut = (() => {
           N: fd.nr ? new Float32Array(fd.nr) : keep ? prev.N : null,
           I: fd.i ? new Uint32Array(fd.i) : keep ? prev.I : null,
         };
-        // 정렬 거리: 꼭짓점 경계 상자 중심과 카메라(원점) 사이
-        if (fd.p || !keep) {
-          let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
-          const P = fr.P;
-          for (let k = 0; k < P.length; k += 3) {
-            x0 = Math.min(x0, P[k]); x1 = Math.max(x1, P[k]);
-            y0 = Math.min(y0, P[k + 1]); y1 = Math.max(y1, P[k + 1]);
-            z0 = Math.min(z0, P[k + 2]); z1 = Math.max(z1, P[k + 2]);
-          }
-          fr.dist = Math.hypot((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-        } else {
-          fr.dist = prev.dist;
-        }
         prev = fr;
         return [t, fr];
       });
@@ -198,45 +185,35 @@ const CostumeSkillcut = (() => {
     c.clear(c.COLOR_BUFFER_BIT | c.DEPTH_BUFFER_BIT);
 
     const a = skillcutAspect();
-    // 불투명 큐(2500 미만, NK_fx_blend_3d)는 유니티처럼 투명 큐보다 먼저, 정렬 레이어와 상관없이 그린다
-    const opaque = [], items = [];
-    g.skels.forEach((o, i) => {
-      if (activeAt(o.sp.active, T)) items.push({ o, layer: o.sp.layer, order: o.sp.order, q: 3000, dist: o.sp.z, i });
-    });
-    data.elements.forEach((e, i) => {
-      if (!activeAt(e.active, T)) return;
-      e.draws.forEach((dr, k) => {
-        const row = hold(dr.rows, T);
-        if (!row || !row[1]) return;
-        const it = { e, dr, fr: row[1], layer: e.layer, order: e.order, q: dr.m.q, dist: row[1].dist + (e.fudge || 0), i: 1000 + i * 4 + k };
-        (dr.m.q < 2500 ? opaque : items).push(it);
-      });
-    });
-    // 투명 큐: 정렬 레이어 → 정렬 순서 → 렌더 큐 → 카메라에서 먼 것부터
-    items.sort((p, q) => p.layer - q.layer || p.order - q.order || p.q - q.q || q.dist - p.dist || p.i - q.i);
-
-    opaque.forEach(it => drawElement(it, a));
+    // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
+    const row = hold(data.order, T);
     const r = g.renderer, cam = r.camera;
-    for (const it of items) {
-      if (it.o) {
-        poseSpine(it.o, T);
-        const f = frameAt(it.o.sp, T);
+    for (const ref of (row ? row[1] : [])) {
+      if (ref[0] === 1) {
+        const o = g.skels[ref[1]];
+        if (!o || !activeAt(o.sp.active, T)) continue;
+        poseSpine(o, T);
+        const f = frameAt(o.sp, T);
         cam.setViewport(2 * f.hh * a, 2 * f.hh);
         cam.position.set(f.cx, f.cy, 0);
         cam.zoom = 1;
-        // Spine 셰이더(Skeleton Alpha Dither): ZWrite Off · ZTest LessEqual. 뼈대 전체가 월드 z 한 평면이라 그 깊이로 검사한다
+        // Spine 셰이더(Skeleton Alpha Dither): ZWrite Off · ZTest LessEqual. 뼈대가 월드 z 한 평면이라 그 깊이로 검사한다
         c.enable(c.DEPTH_TEST);
         c.depthFunc(c.LEQUAL);
         c.depthMask(false);
-        const dz = depthOf(it.o.sp.z);
+        const zr = o.sp.zw && hold(o.sp.zw, T);
+        const dz = depthOf(zr ? zr[1] : o.sp.z);
         c.depthRange(dz, dz);
         r.begin();
-        r.drawSkeleton(it.o.skeleton, true);
+        r.drawSkeleton(o.skeleton, true);
         r.end();
         c.depthRange(0, 1);
         c.disable(c.DEPTH_TEST);
       } else {
-        drawElement(it, a);
+        const e = data.elements[ref[1]], dr = e && e.draws[ref[2]];
+        if (!dr || !activeAt(e.active, T)) continue;
+        const fr = hold(dr.rows, T);
+        if (fr && fr[1]) drawElement({ e, dr, fr: fr[1] }, a);
       }
     }
   }

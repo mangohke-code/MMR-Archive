@@ -32,6 +32,10 @@
         텍스처 칸이 없거나 null 이면 셰이더 기본 텍스처(이 셰이더들은 모두 white). _ST 는 칸이 있으면 그 값, 없으면 (1,1,0,0).
     pb = [[t, {color, st: {칸: [sx,sy,ox,oy]}, bloom, tex: {칸: 파일}} 또는 null]] 타임라인이 움직이는 머티리얼 속성.
 
+드로우 순서 (play.json order): [[t, [[0, 요소, 드로우] 또는 [1, Spine], ...]]] 바뀐 때만. 엔진(URP 12.1.15)이 실제로 실행한 순서
+(불투명 패스 먼저, 투명 패스는 정렬 레이어 · 순서 · 큐 · 거리+fudge). 키가 완전히 같은 동률은 추출 재생에서 나온 순서다.
+Spine 의 zw = [[t, 월드 z]] - 뼈대 평면의 깊이(ZTest LessEqual 로 불투명 배경판과 앞뒤를 정한다).
+
 안개: 전역값(_Global_Fog_Effect_*)을 게임 코드가 넣어 데이터로 정할 수 없어, 사용자 결정(2026-10-13)으로 안개 비율 1(안개 없음)로 그린다.
 후처리: 사용자 결정(2026-10-13)으로 넣지 않는다.
 
@@ -193,12 +197,14 @@ def build_code(it, report, texinfo):
     length = r3(tl['duration'])
 
     spines = []
+    spine_index = {}          # 경로 → spines 번호(드로우 순서 · 월드 행렬 연결용)
     for sp in it['spines']:
         plays = sp.get('plays') or []
         act = sp.get('activeIntervals') or []
         if not plays or not act or not sp.get('files'):
             continue
         do = sp['drawOrder']
+        spine_index[sp['path']] = len(spines)
         spines.append({
             'file': os.path.splitext(sp['files']['skel'])[0],
             'name': sp['path'].rsplit('/', 1)[-1],
@@ -305,7 +311,8 @@ def build_code(it, report, texinfo):
         return rows if any(r[1] for r in rows) else []
 
     elements = []
-    for e in pdata['elements']:
+    el_index = {}             # 파티클 파일 요소 번호 → (elements 번호, {칸: draws 번호})
+    for ei, e in enumerate(pdata['elements']):
         name = e['path'].rsplit('/', 1)[-1]
         act = [[r3(a), r3(length if b is None else b)] for a, b in (e.get('activeIntervals') or [])]
         gpu = e.get('gpu') or []
@@ -315,6 +322,7 @@ def build_code(it, report, texinfo):
         mats = {m.get('slot', 0): m for m in e.get('materials') or []}
         slots = e.get('materialSlots') or [None]
         draws = []
+        slotmap = {}
         for k, slot_name in enumerate(slots):
             if e['type'] == 'SpriteRenderer' and not mats:
                 m = sprite_material()
@@ -334,6 +342,7 @@ def build_code(it, report, texinfo):
                     continue
                 frames.append([r3(t), fd])
             if any(f[1] for f in frames):
+                slotmap[k] = len(draws)
                 draws.append({'m': m, 'f': frames})
         if not draws:
             skipped['그리는 칸 없음'] += 1
@@ -345,7 +354,44 @@ def build_code(it, report, texinfo):
         pb = pb_rows(e)
         if pb:
             el['pb'] = pb
+        el_index[ei] = (len(elements), slotmap)
         elements.append(el)
+
+    # Spine 렌더러: 프레임별 월드 z(뼈대 평면, 기울기 없음 - 행렬 행우선 [11])
+    for sr in pdata.get('spineRenderers') or []:
+        si = spine_index.get(sr['path'])
+        if si is None:
+            continue
+        rows = []
+        for t, m in sr.get('world') or []:
+            if any(abs(m[i]) > 1e-6 for i in (2, 6, 8, 9)):
+                raise SystemExit(f'{code}: Spine {sr["path"]} 가 기울어 있다(z 한 값으로 깊이를 못 정함)')
+            if rows and rows[-1][1] == r4(m[11]):
+                continue
+            rows.append([r3(t), r4(m[11])])
+        spines[si]['zw'] = rows
+
+    # 드로우 순서: 엔진이 실제로 실행한 순서. [0, 요소, 드로우] 또는 [1, Spine]
+    spine_refs = [spine_index.get(sr['path']) for sr in pdata.get('spineRenderers') or []]
+    order = []
+    for t, lst in pdata.get('drawOrder') or []:
+        row = []
+        for ref, slot, _q, _tie in lst:
+            if isinstance(ref, str) and ref.startswith('spine:'):
+                si = spine_refs[int(ref[6:])]
+                if si is None:
+                    skipped['순서: Spine 연결 없음'] += 1
+                    continue
+                row.append([1, si])
+            else:
+                hit = el_index.get(ref)
+                if not hit or slot not in hit[1]:
+                    skipped['순서: 뺀 요소'] += 1
+                    continue
+                row.append([0, hit[0], hit[1][slot]])
+        if order and order[-1][1] == row:
+            continue
+        order.append([r3(t), row])
 
     jump = tl['jump'][0] if tl.get('jump') else None
     # 스킬컷 끝 = 검은 판이 켜지는 시각(없으면 컷신 오브젝트들이 꺼지는 시각)
@@ -365,6 +411,7 @@ def build_code(it, report, texinfo):
         'files': sorted(files.values()),
         'spines': spines,
         'elements': elements,
+        'order': order,
     }
     text = json.dumps(play, ensure_ascii=False, separators=(',', ':'))
     if WRITE:
