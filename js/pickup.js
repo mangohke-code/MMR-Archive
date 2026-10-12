@@ -969,7 +969,11 @@
   // ===== 툴바 이벤트 =====
   let currentView = 'timeline';
   let currentGroup = 'company';
-  let showRerun = false;
+  // 복각 토글: 고른 쪽을 기억한다(사용자 요청, 2026-10-13). 기본은 꺼짐.
+  const PICKUP_RERUN_KEY = 'mmr-pickup-rerun';
+  let showRerun = (() => {
+    try { return localStorage.getItem(PICKUP_RERUN_KEY) === '1'; } catch (e) { return false; }
+  })();
 
   // 현재 보기 모드에 맞는 렌더 함수만 호출 - 필터/복각 토글 등 여러 곳에서
   // 공통으로 써서 뷰가 늘어나도(타임라인/몰아보기/달력) 분기를 한 곳에서만 관리한다
@@ -1026,10 +1030,13 @@
 
     // 복각 토글
     const rerunToggle = document.getElementById('pickup-rerun-toggle');
+    rerunToggle.classList.toggle('active', showRerun);
+    rerunToggle.setAttribute('aria-checked', String(showRerun));
     rerunToggle.addEventListener('click', () => {
       showRerun = !showRerun;
       rerunToggle.classList.toggle('active', showRerun);
       rerunToggle.setAttribute('aria-checked', String(showRerun));
+      try { localStorage.setItem(PICKUP_RERUN_KEY, showRerun ? '1' : '0'); } catch (e) { /* 저장 안 됨 */ }
       renderCurrentView();
     });
     rerunToggle.addEventListener('keydown', e => {

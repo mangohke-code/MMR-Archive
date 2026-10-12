@@ -4,7 +4,11 @@
   let spinePlayer = null;
   let activeSpinePlayers = []; // 기본 스켈레톤 + 추가 파츠 스켈레톤 전부 (정리용)
   let costumePanZoom = null;
-  let showRerunCostume = true;
+  // 복각 표시 토글: 고른 쪽을 기억한다(사용자 요청, 2026-10-13). 기본은 켜짐.
+  const COSTUME_RERUN_KEY = 'mmr-costume-rerun';
+  let showRerunCostume = (() => {
+    try { return localStorage.getItem(COSTUME_RERUN_KEY) !== '0'; } catch (e) { return true; }
+  })();
   // 코스튬 순서: false = 최신부터(기본 - 위 연도 · 왼쪽 칸이 최신), true = 오래된 것부터. 고른 쪽을 기억한다.
   // 예전 기본은 연도 안에서 왼쪽이 오래된 것이었다 - 최신이 왼쪽에 오게 바꿨다(사용자 요청, 2026-10-10).
   const COSTUME_ORDER_KEY = 'mmr-costume-oldest-first';
@@ -39,6 +43,7 @@
       showRerunCostume = !showRerunCostume;
       toggle.classList.toggle('active', showRerunCostume);
       toggle.setAttribute('aria-checked', String(showRerunCostume));
+      try { localStorage.setItem(COSTUME_RERUN_KEY, showRerunCostume ? '1' : '0'); } catch (e) { /* 저장 안 됨 */ }
       renderCostumeSelector(allCostumeData);
     });
     toggle.addEventListener('keydown', e => {

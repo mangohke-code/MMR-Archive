@@ -35,6 +35,10 @@ const CostumeSkillcut = (() => {
   let layer, box, msg, resizeObs;
   let gl = null;            // { canvas, ctx, renderer, assets, ready, skels: [], tex: {} }
   const playCache = {};
+  // 빛 효과(가산 블렌드 셰이더로 그리는 요소) 표시 - 고른 쪽을 기억한다(사용자 요청, 2026-10-13)
+  const LIGHT_KEY = 'mmr-skillcut-light';
+  const LIGHT_SHADERS = new Set(['add', 'uvadd', 'fresnel']);
+  let showLight = (() => { try { return localStorage.getItem(LIGHT_KEY) !== '0'; } catch (e) { return true; } })();
 
   const el = id => document.getElementById(id);
 
@@ -212,6 +216,7 @@ const CostumeSkillcut = (() => {
       } else {
         const e = data.elements[ref[1]], dr = e && e.draws[ref[2]];
         if (!dr || !activeAt(e.active, T)) continue;
+        if (!showLight && LIGHT_SHADERS.has(dr.m.sh)) continue;
         const fr = hold(dr.rows, T);
         if (fr && fr[1]) drawElement({ e, dr, fr: fr[1] }, a);
       }
@@ -633,6 +638,10 @@ const CostumeSkillcut = (() => {
     if (wrap) wrap.classList.toggle('is-skillcut', on);
     document.querySelectorAll('#costume-skillcut-controls [data-sc-mode]').forEach(b =>
       b.classList.toggle('active', b.dataset.scMode === mode));
+    document.querySelectorAll('#costume-skillcut-controls [data-sc-light]').forEach(b => {
+      b.classList.toggle('active', showLight);
+      b.setAttribute('aria-pressed', String(showLight));
+    });
   }
 
   // 모델 쪽 L2D 를 감추고 멈춘다(컷신이 그 자리를 덮는다)
@@ -697,6 +706,12 @@ const CostumeSkillcut = (() => {
     if (!sc) return;
     wired = true;
     sc.querySelectorAll('[data-sc-mode]').forEach(b => b.addEventListener('click', () => start(b.dataset.scMode)));
+    sc.querySelectorAll('[data-sc-light]').forEach(b => b.addEventListener('click', () => {
+      showLight = !showLight;
+      try { localStorage.setItem(LIGHT_KEY, showLight ? '1' : '0'); } catch (e) { /* 저장 안 됨 */ }
+      syncButtons();
+      if (paused && gl && gl.ready) draw();   // 멈춘 상태에서도 바로 바뀐 모습을 보여 준다
+    }));
     // 휴대폰 화면 기준을 넘나들면(창 크기 · 회전) 화면비도 따라 바꾼다
     L2D_MOBILE_MQ.addEventListener('change', fitBox);
   }
