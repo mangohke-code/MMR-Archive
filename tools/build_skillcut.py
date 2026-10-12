@@ -16,18 +16,24 @@ WebP 는 c016_01 로 PNG 와 렌더 결과를 비교해 정했다(q90: 평균 �
 
 요소 (play.json elements[]):
     kind 'q'  스프라이트 · 메시 판: q = [[t, 꼭짓점 8개]] (왼위 · 오른위 · 오른아래 · 왼아래, 화면 단위), color = [[t, r,g,b,a]]
-    kind 'p'  Billboard 파티클: p = [[t, [입자마다 꼭짓점 xy 8 · uv 8 · rgba(0~255) 4]]]
+    kind 'p'  파티클: p = [[t, 사각형들] 또는 [t, 사각형들, {m, v, i}]]
+              사각형 = 입자마다 꼭짓점 xy 8 · uv 8 · rgba(0~255) 4 (Billboard · Stretch)
+              m = Mesh 입자마다 [a,b,c, d,e,f, r,g,b,a, uv변환 (, 근평면 뒤 꼭짓점 번호들)]: 요소의 mesh.ref(기준 xy)를
+                  x' = a·x + b·y + c, y' = d·x + e·y + f 로 옮긴 것. mesh.uv · mesh.tri 는 요소에 한 번만.
+                  uv변환 = 0(기준 uv 그대로) 또는 [su, ou, sv, ov]: u' = su·u + ou, v' = sv·v + ov (텍스처 시트 칸 · 뒤집기)
+              x = 아핀으로 안 맞는 Mesh 입자마다 [r,g,b,a, uv변환, x0,y0, x1,y1, ...] (화면 xy 를 1000 배 정수로, 근평면 뒤는 null)
+              v · i = 그대로 적은 삼각형: 꼭짓점 [x, y, u, v, r, g, b, a] 씩 + 인덱스 (기준 모양이 없는 Mesh 입자 ·
+                  근평면에서 자른 Billboard)
               uv 는 엔진 값 그대로(v 는 아래가 0), 메인 텍스처 st(배율 · 오프셋)는 그릴 때 곱한다.
     둘 다 "바뀐 시각만" 적혀 있어서, 그 사이는 앞 값을 그대로 쓴다.
     add 1 = 가산 블렌드. 셰이더로 정한다(가산 셰이더 / 알파 셰이더). 다른 셰이더는 머티리얼 이름의 add · blend 로.
     mask = 마스크 텍스처(_MaskTex)와 st.
 
 못 그리는 것은 뺀다:
-    - Mesh · Stretch 모드 파티클(3D 메시 · 진행 방향 정보가 없다), SkinnedMeshRenderer
+    - 자유 늘이기(freeformStretching) Stretch 파티클, 엔진 값으로 조립되지 않은 Mesh 입자, SkinnedMeshRenderer
     - 디졸브 · 노이즈 왜곡 · UV 흐름 같은 셰이더 효과(셰이더 코드가 없다) - 메인 텍스처와 마스크만 쓴다
     - 덮개 정렬 레이어의 판 중 색 변화 기록이 없는 것: 셰이더 값으로 움직이는 화면 전환이라
       색만으로 그리면 화면을 통째로 덮어 버린다(검은 판 black_bg 는 알파 변화가 기록돼 있어 그린다).
-    - 근평면에 걸친 입자(화면 좌표가 뒤집힌다)
 
 사용법:
     python tools/build_skillcut.py           # 확인만
@@ -41,6 +47,7 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 
+import numpy as np
 from PIL import Image
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -57,6 +64,7 @@ WEBP = dict(quality=90, method=6, alpha_quality=100, exact=True)
 SHADER_ADD = 2609380419410529261
 SHADER_ALPHA = 4540921370150519042
 NEAR = 0.1
+AFFINE_TOL = 0.004   # Mesh 입자를 아핀 변환으로 적어도 되는 최대 오차(화면 단위, 세로 반높이 1 기준)
 
 r3 = lambda v: round(float(v), 3)
 r4 = lambda v: round(float(v), 4)
@@ -129,22 +137,170 @@ def mat_tex(mat, prop):
     return None
 
 
-def particle_samples(e, skipped):
+def vert8(x, y, u, v, rgba):
+    return [r3(x), r3(y), r4(u), r4(v)] + [int(c) for c in rgba]
+
+
+def clip_near(q, tan):
+    """3D 회전 Billboard 가 근평면에 걸치면 카메라 공간 꼭짓점(20~31번째 값)으로 근평면에서 잘라 투영한다.
+    반환: (꼭짓점 [x,y,u,v,r,g,b,a]..., 삼각형 인덱스) - 다 잘려 나가면 None"""
+    pts = [(q[20 + 3 * k], q[21 + 3 * k], q[22 + 3 * k], q[8 + 2 * k], q[9 + 2 * k]) for k in range(4)]
     out = []
-    cut = 0
+    for i, a in enumerate(pts):
+        b = pts[(i + 1) % 4]
+        if a[2] >= NEAR:
+            out.append(a)
+        if (a[2] >= NEAR) != (b[2] >= NEAR):
+            k = (NEAR - a[2]) / (b[2] - a[2])
+            out.append(tuple(a[j] + (b[j] - a[j]) * k for j in range(5)))
+    if len(out) < 3:
+        return None
+    verts = []
+    for x, y, z, u, v in out:
+        verts += vert8(x / (z * tan), y / (z * tan), u, v, q[16:20])
+    return verts, [i for k in range(1, len(out) - 1) for i in (0, k, k + 1)]
+
+
+def mesh_template(e):
+    """Mesh 모드 요소의 기준 모양: 첫 입자의 꼭짓점 uv · 삼각형과, 빠진 꼭짓점이 없는 첫 입자의 화면 xy.
+    입자마다 화면 xy 가 이 기준 xy 의 2D 아핀 변환이면 변환값 6개만 적는다(멀리 있는 메시 · 화면 축 회전).
+    아니면 화면 xy 만 적는다. uv 는 입자마다 기준 uv 의 배율 · 오프셋(텍스처 시트 칸 · 뒤집기)이어야 한다."""
+    parts = [q for _, s in e.get('samples') or [] for q in (s.get('p') or []) if isinstance(q, list)]
+    if not parts:
+        return None
+    n = len(parts[0]) // 8
+    if any(len(q) // 8 != n for q in parts):
+        return None
+    base = next((q for q in parts if all(v is not None for v in q[2::8] + q[3::8])), None)
+    if base is None:
+        return None
+    ref = next((q for q in parts if all(v is not None for v in q[0::8] + q[1::8])), None)
+    return {
+        'n': n,
+        'u': np.array(base[2::8], float), 'v': np.array(base[3::8], float),
+        'uv': [r4(v) for pair in zip(base[2::8], base[3::8]) for v in pair],
+        'tri': e.get('meshTriangles') or [],
+        'ref': None if ref is None else np.array([ref[0::8], ref[1::8]], float).T,
+    }
+
+
+def fit_axis(a, b):
+    """b = s·a + o 인 (s, o). 안 맞으면 None"""
+    if np.ptp(a) < 1e-6:
+        return (1.0, float(b[0] - a[0])) if np.ptp(b) < 1e-3 else None
+    sol = np.polyfit(a, b, 1)
+    return (float(sol[0]), float(sol[1])) if np.abs(np.polyval(sol, a) - b).max() <= 1e-3 else None
+
+
+def mesh_common(q, tpl):
+    """입자의 색(꼭짓점마다 같아야 한다)과 uv 변환([su, ou, sv, ov], 기준 그대로면 0). 안 맞으면 None"""
+    n = tpl['n']
+    col = {tuple(q[i * 8 + 4:i * 8 + 8]) for i in range(n)}
+    if len(col) != 1:
+        return None
+    u, v = q[2::8], q[3::8]
+    if any(x is None for x in u + v):
+        return None
+    fu, fv = fit_axis(tpl['u'], np.array(u, float)), fit_axis(tpl['v'], np.array(v, float))
+    if not fu or not fv:
+        return None
+    uvt = [r4(fu[0]), r4(fu[1]), r4(fv[0]), r4(fv[1])]
+    return [int(c) for c in col.pop()] + [0 if uvt == [1, 0, 1, 0] else uvt]
+
+
+def mesh_affine(q, tpl, common):
+    """입자 하나를 기준 모양의 아핀 변환으로: [a,b,c, d,e,f, r,g,b,a, uv변환 (, 근평면 뒤 꼭짓점 번호들)]. 안 맞으면 None"""
+    n = tpl['n']
+    if tpl['ref'] is None:
+        return None
+    xy = np.array([[np.nan if v is None else v for v in q[0::8]], [np.nan if v is None else v for v in q[1::8]]], float).T
+    ok = ~np.isnan(xy[:, 0]) & ~np.isnan(xy[:, 1])
+    if ok.sum() < 3:
+        return None
+    X = np.c_[tpl['ref'], np.ones(n)]
+    sol = np.linalg.lstsq(X[ok], xy[ok], rcond=None)[0]
+    if np.abs(X[ok] @ sol - xy[ok]).max() > AFFINE_TOL:
+        return None
+    out = [r4(v) for v in sol.T.reshape(-1)] + common
+    if not ok.all():
+        out.append([int(i) for i in np.nonzero(~ok)[0]])
+    return out
+
+
+def mesh_xy(q, tpl, common):
+    """기준 모양을 쓰는 Mesh 입자를 화면 xy 로: [r,g,b,a, uv변환, x0,y0, x1,y1, ...] (xy 는 1000 배 정수, 근평면 뒤는 null)"""
+    out = list(common)
+    for i in range(tpl['n']):
+        x, y = q[i * 8], q[i * 8 + 1]
+        out += [None, None] if x is None or y is None else [round(x * 1000), round(y * 1000)]
+    return out
+
+
+def particle_samples(e, tan, skipped):
+    """[t, 사각형들] 또는 [t, 사각형들, {m: 아핀 메시 입자들, x: xy 메시 입자들, v: 꼭짓점들, i: 삼각형}]
+    사각형 = 입자마다 xy 8 · uv 8 · rgba 4 (Billboard · Stretch).
+    v · i = 그대로 적은 삼각형(기준 모양이 없는 Mesh 입자, 근평면에서 자른 Billboard), 꼭짓점은 [x,y,u,v,r,g,b,a] 씩.
+    반환: (줄들, 메시 기준 모양 또는 None)"""
+    out = []
+    mode = e.get('renderMode')
+    tris = e.get('meshTriangles') or []
+    tpl = mesh_template(e) if mode == 'Mesh' else None
     for t, s in e.get('samples') or []:
-        flat = []
+        quads, verts, idx, aff, rxy = [], [], [], [], []
+
+        def add_mesh(vs, ix):
+            base = len(verts) // 8
+            verts.extend(vs)
+            idx.extend(i + base for i in ix)
+
         for q in s.get('p') or []:
             if isinstance(q, dict):
+                skipped['조립 안 된 입자'] += 1
                 continue
-            if len(q) > 20 and any(q[20 + 3 * k + 2] <= NEAR for k in range(4)):
-                cut += 1
-                continue
-            flat += [r3(v) for v in q[:8]] + [r4(v) for v in q[8:16]] + [int(v) for v in q[16:20]]
-        out.append([r3(t), flat])
-    if cut:
-        skipped['근평면 입자'] += cut
-    return out
+            if mode == 'Mesh':
+                common = mesh_common(q, tpl) if tpl else None
+                if common:
+                    a = mesh_affine(q, tpl, common)
+                    if a:
+                        aff.append(a)
+                    else:
+                        rxy.append(mesh_xy(q, tpl, common))
+                    continue
+                n = len(q) // 8
+                ok = [all(v is not None for v in q[i * 8:i * 8 + 4]) for i in range(n)]
+                ix = [tris[j + k] for j in range(0, len(tris), 3) for k in range(3)
+                      if all(ok[tris[j + m]] for m in range(3))]
+                if not ix:
+                    continue
+                vs = []
+                for i in range(n):
+                    a = q[i * 8:i * 8 + 8]
+                    vs += vert8(a[0] or 0, a[1] or 0, a[2] or 0, a[3] or 0, a[4:8])
+                add_mesh(vs, ix)
+            elif len(q) > 20 and any(q[20 + 3 * k + 2] <= NEAR for k in range(4)):
+                c = clip_near(q, tan)
+                if c:
+                    add_mesh(*c)
+            elif any(v is None for v in q[:20]):
+                # 카메라 공간 값 없이 꼭짓점(근평면 뒤 Stretch)이나 uv 가 비어 있는 입자
+                skipped['값 빠진 입자'] += 1
+            else:
+                # Billboard: 왼위 · 오른위 · 오른아래 · 왼아래 / Stretch: 머리+ · 머리- · 꼬리- · 꼬리+ (둘 다 한 바퀴 도는 순서)
+                quads += [r3(v) for v in q[:8]] + [r4(v) for v in q[8:16]] + [int(v) for v in q[16:20]]
+        extra = {}
+        if aff:
+            extra['m'] = aff
+        if rxy:
+            extra['x'] = rxy
+        if idx:
+            extra.update(v=verts, i=idx)
+        out.append([r3(t), quads, extra] if extra else [r3(t), quads])
+    mesh = None
+    if tpl and any(len(r) > 2 and ('m' in r[2] or 'x' in r[2]) for r in out):
+        mesh = {'uv': tpl['uv'], 'tri': tpl['tri']}
+        if tpl['ref'] is not None:
+            mesh['ref'] = [r4(v) for v in tpl['ref'].reshape(-1)]
+    return out, mesh
 
 
 def build_code(it, report):
@@ -187,6 +343,7 @@ def build_code(it, report):
 
     # 요소: 파티클 파일이 기준. 스프라이트 그림 파일 이름만 재생 파일에서 가져온다(경로로 찾는다)
     pdata = json.load(io.open(os.path.join(SRC, it['particlesFile']), encoding='utf-8'))
+    tan = pdata['camera']['tanHalfFov']
     by_path = defaultdict(list)
     for o in it['otherElements']:
         by_path[o['path']].append(o)
@@ -219,16 +376,19 @@ def build_code(it, report):
         el = {'name': name, 'layer': 4 if overlay else 0, 'order': e.get('sortingOrder') or 0, 'active': act}
 
         if typ == 'ParticleSystemRenderer':
-            if e.get('renderMode') != 'Billboard':
-                skipped[f'파티클 {e.get("renderMode")} 모드'] += 1
+            if e.get('renderMode') not in ('Billboard', 'Stretch', 'Mesh') or e.get('freeformStretching'):
+                skipped[f'파티클 {e.get("renderMode")} 모드' + (' 자유 늘이기' if e.get('freeformStretching') else '')] += 1
                 continue
             main = mat_tex(mat, '_MainTex')
             tex = tex_file(main['file']) if main else None
             if not tex:
                 skipped['파티클 그림 없음'] += 1
                 continue
-            el.update(kind='p', tex=tex, p=particle_samples(e, skipped))
-            if not any(s[1] for s in el['p']):
+            rows, mesh = particle_samples(e, tan, skipped)
+            el.update(kind='p', tex=tex, p=rows)
+            if mesh:
+                el['mesh'] = mesh
+            if not any(s[1] or len(s) > 2 for s in el['p']):
                 skipped['파티클 입자 없음'] += 1
                 continue
             st = st_of(main)

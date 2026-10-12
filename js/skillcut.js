@@ -205,7 +205,8 @@ const CostumeSkillcut = (() => {
     '}',
   ].join('\n');
   const ST_ONE = [1, 1, 0, 0];
-  const FX_MAX_QUADS = 8192;
+  const FX_MAX_VERTS = 65536;          // Uint16 인덱스 한도. 넘치면 중간에 한 번 그리고 비운다.
+  const FX_MAX_IDX = FX_MAX_VERTS * 3;
 
   function createFx(c) {
     const sh = (type, src) => {
@@ -220,58 +221,140 @@ const CostumeSkillcut = (() => {
     c.attachShader(prog, sh(c.FRAGMENT_SHADER, FX_FS));
     c.linkProgram(prog);
     if (!c.getProgramParameter(prog, c.LINK_STATUS)) throw new Error(c.getProgramInfoLog(prog));
-    const idx = new Uint16Array(FX_MAX_QUADS * 6);
-    for (let q = 0; q < FX_MAX_QUADS; q++) idx.set([q * 4, q * 4 + 1, q * 4 + 2, q * 4, q * 4 + 2, q * 4 + 3], q * 6);
-    const ibo = c.createBuffer();
-    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, ibo);
-    c.bufferData(c.ELEMENT_ARRAY_BUFFER, idx, c.STATIC_DRAW);
-    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, null);
     const loc = n => c.getAttribLocation(prog, n), uni = n => c.getUniformLocation(prog, n);
     return {
-      prog, ibo, vbo: c.createBuffer(), verts: new Float32Array(FX_MAX_QUADS * 4 * 8),
+      prog, vbo: c.createBuffer(), ibo: c.createBuffer(),
+      verts: new Float32Array(FX_MAX_VERTS * 8), idx: new Uint16Array(FX_MAX_IDX), nv: 0, ni: 0,
       aPos: loc('aPos'), aUv: loc('aUv'), aCol: loc('aCol'),
       uAspect: uni('uAspect'), uTex: uni('uTex'), uMask: uni('uMask'), uSt: uni('uSt'), uMaskSt: uni('uMaskSt'),
       uTile: uni('uTile'), uUseMask: uni('uUseMask'),
     };
   }
 
+  // 모아 둔 삼각형을 그린다(그리기 상태는 drawElement 가 맞춰 둔다)
+  function flushFx(fx, c) {
+    if (fx.ni) {
+      c.bindBuffer(c.ARRAY_BUFFER, fx.vbo);
+      c.bufferData(c.ARRAY_BUFFER, fx.verts.subarray(0, fx.nv * 8), c.STREAM_DRAW);
+      c.vertexAttribPointer(fx.aPos, 2, c.FLOAT, false, 32, 0);
+      c.vertexAttribPointer(fx.aUv, 2, c.FLOAT, false, 32, 8);
+      c.vertexAttribPointer(fx.aCol, 4, c.FLOAT, false, 32, 16);
+      c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, fx.ibo);
+      c.bufferData(c.ELEMENT_ARRAY_BUFFER, fx.idx.subarray(0, fx.ni), c.STREAM_DRAW);
+      c.drawElements(c.TRIANGLES, fx.ni, c.UNSIGNED_SHORT, 0);
+    }
+    fx.nv = 0;
+    fx.ni = 0;
+  }
+
+  // 꼭짓점 nv 개 · 인덱스 ni 개 자리를 비워 두고 첫 꼭짓점 번호를 돌려준다. 한 덩어리가 한도보다 크면 -1.
+  function reserve(fx, c, nv, ni) {
+    if (nv > FX_MAX_VERTS || ni > FX_MAX_IDX) return -1;
+    if (fx.nv + nv > FX_MAX_VERTS || fx.ni + ni > FX_MAX_IDX) flushFx(fx, c);
+    return fx.nv;
+  }
+
   // 꼭짓점 하나: x, y, u, v, r, g, b, a
-  function putVert(v, o, x, y, u, w, r, g, b, al) {
+  function putVert(fx, x, y, u, w, r, g, b, al) {
+    const v = fx.verts, o = fx.nv * 8;
     v[o] = x; v[o + 1] = y; v[o + 2] = u; v[o + 3] = w; v[o + 4] = r; v[o + 5] = g; v[o + 6] = b; v[o + 7] = al;
+    fx.nv++;
+  }
+
+  function putQuadIdx(fx, b) {
+    fx.idx.set([b, b + 1, b + 2, b, b + 2, b + 3], fx.ni);
+    fx.ni += 6;
+  }
+
+  // 메시 삼각형: 빠진 꼭짓점(근평면 뒤)이 낀 삼각형은 뺀다
+  function putTris(fx, tri, b, missing) {
+    const idx = fx.idx;
+    for (let k = 0; k + 2 < tri.length; k += 3) {
+      if (missing && (missing.has(tri[k]) || missing.has(tri[k + 1]) || missing.has(tri[k + 2]))) continue;
+      idx[fx.ni++] = b + tri[k];
+      idx[fx.ni++] = b + tri[k + 1];
+      idx[fx.ni++] = b + tri[k + 2];
+    }
   }
 
   // 판: 꼭짓점 순서 왼위 · 오른위 · 오른아래 · 왼아래, uv 는 그 순서로 (0,1) (1,1) (1,0) (0,0)
   const QUAD_UV = [0, 1, 1, 1, 1, 0, 0, 0];
-  function fillQuad(e, v) {
+  function fillQuad(e, fx, c) {
     const col = sample(e.color, T);
-    if (col[4] <= 0.002) return 0;
+    if (col[4] <= 0.002) return;
     const q = sample(e.rows, T);
-    for (let k = 0; k < 4; k++) {
-      putVert(v, k * 8, q[1 + k * 2], q[2 + k * 2], QUAD_UV[k * 2], QUAD_UV[k * 2 + 1], col[1], col[2], col[3], col[4]);
-    }
-    return 1;
+    const b = reserve(fx, c, 4, 6);
+    for (let k = 0; k < 4; k++) putVert(fx, q[1 + k * 2], q[2 + k * 2], QUAD_UV[k * 2], QUAD_UV[k * 2 + 1], col[1], col[2], col[3], col[4]);
+    putQuadIdx(fx, b);
   }
 
-  // 파티클: 입자마다 [꼭짓점 xy 8, uv 8, rgba(0~255) 4]
-  function fillParticles(e, v) {
+  // Mesh 입자 하나: 기준 uv(배율 · 오프셋 uvt) · 삼각형 + 꼭짓점 xy(xyAt(i) → [x, y] 또는 null)
+  function fillMeshParticle(fx, c, mesh, col, uvt, xyAt) {
+    const n = mesh.uv.length / 2;
+    if (col[3] <= 0.5) return;
+    const b = reserve(fx, c, n, mesh.tri.length);
+    if (b < 0) return;
+    const r = col[0] / 255, g = col[1] / 255, bl = col[2] / 255, al = col[3] / 255;
+    const [su, ou, sv, ov] = uvt || [1, 0, 1, 0];
+    let missing = null;
+    for (let i = 0; i < n; i++) {
+      const xy = xyAt(i);
+      if (!xy) (missing || (missing = new Set())).add(i);
+      putVert(fx, xy ? xy[0] : 0, xy ? xy[1] : 0, mesh.uv[i * 2] * su + ou, mesh.uv[i * 2 + 1] * sv + ov, r, g, bl, al);
+    }
+    putTris(fx, mesh.tri, b, missing);
+  }
+
+  // 파티클: 사각형(입자마다 꼭짓점 xy 8, uv 8, rgba(0~255) 4) + 메시 입자(m: 아핀, x: 화면 xy) + 그대로 적은 삼각형(v · i)
+  function fillParticles(e, fx, c) {
     const row = hold(e.p, T);
-    if (!row) return 0;
+    if (!row) return;
     const p = row[1];
-    let n = 0;
-    for (let s = 0; s + 20 <= p.length && n < FX_MAX_QUADS; s += 20) {
+    for (let s = 0; s + 20 <= p.length; s += 20) {
       const al = p[s + 19] / 255;
       if (al <= 0.002) continue;
       const r = p[s + 16] / 255, g = p[s + 17] / 255, b = p[s + 18] / 255;
-      for (let k = 0; k < 4; k++) putVert(v, (n * 4 + k) * 8, p[s + k * 2], p[s + k * 2 + 1], p[s + 8 + k * 2], p[s + 9 + k * 2], r, g, b, al);
-      n++;
+      const base = reserve(fx, c, 4, 6);
+      for (let k = 0; k < 4; k++) putVert(fx, p[s + k * 2], p[s + k * 2 + 1], p[s + 8 + k * 2], p[s + 9 + k * 2], r, g, b, al);
+      putQuadIdx(fx, base);
     }
-    return n;
+    const ex = row[2];
+    if (!ex) return;
+    const mesh = e.mesh;
+    if (ex.m && mesh && mesh.ref) {
+      const ref = mesh.ref;
+      for (const m of ex.m) {
+        const miss = m[11] ? new Set(m[11]) : null;
+        fillMeshParticle(fx, c, mesh, [m[6], m[7], m[8], m[9]], m[10] || null, i => {
+          if (miss && miss.has(i)) return null;
+          const x = ref[i * 2], y = ref[i * 2 + 1];
+          return [m[0] * x + m[1] * y + m[2], m[3] * x + m[4] * y + m[5]];
+        });
+      }
+    }
+    if (ex.x && mesh) {
+      for (const m of ex.x) {
+        fillMeshParticle(fx, c, mesh, [m[0], m[1], m[2], m[3]], m[4] || null, i => {
+          const x = m[5 + i * 2], y = m[6 + i * 2];
+          return x === null || y === null ? null : [x / 1000, y / 1000];
+        });
+      }
+    }
+    if (ex.v && ex.i) {
+      const v = ex.v, nv = v.length / 8;
+      const b = reserve(fx, c, nv, ex.i.length);
+      if (b >= 0) {
+        for (let k = 0; k < nv; k++) {
+          const o = k * 8;
+          putVert(fx, v[o], v[o + 1], v[o + 2], v[o + 3], v[o + 4] / 255, v[o + 5] / 255, v[o + 6] / 255, v[o + 7] / 255);
+        }
+        putTris(fx, ex.i, b, null);
+      }
+    }
   }
 
   function drawElement(e, aspect) {
     const g = gl, fx = g.fx, c = g.ctx.gl;
-    const n = e.kind === 'p' ? fillParticles(e, fx.verts) : fillQuad(e, fx.verts);
-    if (!n) return;
     c.useProgram(fx.prog);
     c.enable(c.BLEND);
     if (e.add) c.blendFunc(c.ONE, c.ONE); else c.blendFunc(c.ONE, c.ONE_MINUS_SRC_ALPHA);
@@ -290,16 +373,13 @@ const CostumeSkillcut = (() => {
     } else {
       c.uniform1i(fx.uMask, 0);
     }
-    c.bindBuffer(c.ARRAY_BUFFER, fx.vbo);
-    c.bufferData(c.ARRAY_BUFFER, fx.verts.subarray(0, n * 32), c.STREAM_DRAW);
     c.enableVertexAttribArray(fx.aPos);
     c.enableVertexAttribArray(fx.aUv);
     c.enableVertexAttribArray(fx.aCol);
-    c.vertexAttribPointer(fx.aPos, 2, c.FLOAT, false, 32, 0);
-    c.vertexAttribPointer(fx.aUv, 2, c.FLOAT, false, 32, 8);
-    c.vertexAttribPointer(fx.aCol, 4, c.FLOAT, false, 32, 16);
-    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, fx.ibo);
-    c.drawElements(c.TRIANGLES, n * 6, c.UNSIGNED_SHORT, 0);
+    fx.nv = 0;
+    fx.ni = 0;
+    if (e.kind === 'p') fillParticles(e, fx, c); else fillQuad(e, fx, c);
+    flushFx(fx, c);
     c.disableVertexAttribArray(fx.aPos);
     c.disableVertexAttribArray(fx.aUv);
     c.disableVertexAttribArray(fx.aCol);

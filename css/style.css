@@ -8934,3 +8934,11 @@
     pointer-events: none;
   }
   #costume-skillcut-layer .skillcut-msg.hidden { display: none; }
+
+  /* ===== 재생바 통일 (사용자 요청, 2026-10-12) =====
+     유니크 코스튬 · 캐릭터 도감(.l2d-bar) · 솔로 레이드(#sr3d-bar) 재생바가 얇아서(8~9px) 누르기 힘들었다.
+     세 뷰어 모두 같은 막대 높이 · 단추 크기 · 여백으로 맞춘다. */
+  .l2d-bar, #sr3d-bar { gap: 10px; padding: 10px 14px; }
+  .l2d-bar-btn, #sr3d-bar button { width: 36px; height: 36px; font-size: 14px; }
+  .l2d-timeline, #soloraid-timeline { height: 16px; }
+  .l2d-timecode, #soloraid-timecode { font-size: 13px; }
