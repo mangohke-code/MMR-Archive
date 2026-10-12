@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=6';
+const SKILLCUT_DATA_VER = '?d=7';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 화면비(가로/세로): 휴대폰 화면이면 9:16, 아니면 인게임 카메라 1:1. 그릴 때마다 지금 화면 기준으로 정한다.
@@ -82,7 +82,14 @@ const CostumeSkillcut = (() => {
     }
   }
 
-  const activeAt = (iv, t) => iv.some(([a, b]) => t >= a && t < b);
+  // 켜짐 구간. 시각은 소수 셋째 자리로 적혀 있어 경계에 0.5ms 여유를 둔다(반복 시작 jump.to 가 4.666667 이면 4.667 구간도 켜짐)
+  const activeAt = (iv, t) => iv.some(([a, b]) => t >= a - 5e-4 && t < b);
+
+  // 반복 구간 데이터: idle 반복(점프로 되감은 뒤)이면 추출 세션이 되감기 3바퀴 뒤에 기록한 한 바퀴를 쓴다.
+  // 자동 재생 파티클이 되감기와 상관없이 이어져서 반복할 때 이펙트가 끊기지 않는다. 처음 재생은 원래 데이터.
+  const looped = () => mode === 'idle' && !!(data && data.orderLoop && data.orderLoop.length);
+  // "바뀐 시각만" 줄에서 시각 t 의 값. 반복 구간은 첫 줄이 jump.to 보다 조금 늦게 적혀 있어(반올림) 그 앞은 첫 줄로 본다
+  const holdIn = (rows, t, loop) => (loop && rows.length && t < rows[0][0] ? rows[0] : hold(rows, t));
 
   // [t, 값...] 줄들에서 시각 t 의 값. 기록은 30fps 표본이거나 "바뀔 때만" 이라,
   // 바로 다음 표본(한 프레임 거리)이면 선형으로 잇고, 멀면 앞 값을 그대로 둔다.
@@ -99,7 +106,7 @@ const CostumeSkillcut = (() => {
 
   // "바뀐 시각만" 적힌 줄에서 시각 t 의 값(사이는 앞 값 그대로). 파티클은 입자 수가 바뀌어 잇지 않는다.
   function hold(rows, t) {
-    if (t < rows[0][0]) return null;
+    if (!rows || !rows.length || t < rows[0][0]) return null;
     let lo = 0, hi = rows.length - 1;
     if (t >= rows[hi][0]) return rows[hi];
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (rows[m][0] <= t) lo = m; else hi = m; }
@@ -123,7 +130,7 @@ const CostumeSkillcut = (() => {
     if (d.prepared) return d;
     d.elements.forEach(e => e.draws.forEach(dr => {
       let prev = null;
-      dr.rows = dr.f.map(([t, fd]) => {
+      const build = src => (src || []).map(([t, fd]) => {
         if (!fd) { prev = null; return [t, null]; }
         const n = fd.n, keep = prev && prev.n === n;
         const fr = {
@@ -139,6 +146,9 @@ const CostumeSkillcut = (() => {
         prev = fr;
         return [t, fr];
       });
+      dr.rows = build(dr.f);
+      prev = null;
+      dr.lrows = dr.fl ? build(dr.fl) : [];
     }));
     d.prepared = true;
     return d;
@@ -190,12 +200,13 @@ const CostumeSkillcut = (() => {
 
     const a = skillcutAspect();
     // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
-    const row = hold(data.order, T);
+    const L = looped();
+    const row = L ? holdIn(data.orderLoop, T, true) : hold(data.order, T);
     const r = g.renderer, cam = r.camera;
     for (const ref of (row ? row[1] : [])) {
       if (ref[0] === 1) {
         const o = g.skels[ref[1]];
-        if (!o || !activeAt(o.sp.active, T)) continue;
+        if (!o || !activeAt(L ? o.sp.activeLoop || [] : o.sp.active, T)) continue;
         poseSpine(o, T);
         const f = frameAt(o.sp, T);
         cam.setViewport(2 * f.hh * a, 2 * f.hh);
@@ -205,7 +216,8 @@ const CostumeSkillcut = (() => {
         c.enable(c.DEPTH_TEST);
         c.depthFunc(c.LEQUAL);
         c.depthMask(false);
-        const zr = o.sp.zw && hold(o.sp.zw, T);
+        const zrows = L ? o.sp.zwl : o.sp.zw;
+        const zr = zrows && zrows.length && holdIn(zrows, T, L);
         const dz = depthOf(zr ? zr[1] : o.sp.z);
         c.depthRange(dz, dz);
         r.begin();
@@ -215,9 +227,9 @@ const CostumeSkillcut = (() => {
         c.disable(c.DEPTH_TEST);
       } else {
         const e = data.elements[ref[1]], dr = e && e.draws[ref[2]];
-        if (!dr || !activeAt(e.active, T)) continue;
+        if (!dr || !activeAt(L ? e.activeLoop || [] : e.active, T)) continue;
         if (!showLight && LIGHT_SHADERS.has(dr.m.sh)) continue;
-        const fr = hold(dr.rows, T);
+        const fr = L ? holdIn(dr.lrows, T, true) : hold(dr.rows, T);
         if (fr && fr[1]) drawElement({ e, dr, fr: fr[1] }, a);
       }
     }
@@ -437,7 +449,10 @@ const CostumeSkillcut = (() => {
   }
 
   // 그 시각의 propertyBlock(타임라인이 움직이는 머티리얼 속성)
-  const pbAt = e => (e.pb ? (hold(e.pb, T) || [0, null])[1] : null);
+  const pbAt = e => {
+    const L = looped(), rows = L ? e.pbl : e.pb;
+    return rows ? (holdIn(rows, T, L) || [0, null])[1] : null;
+  };
 
   function drawElement(it, aspect) {
     const g = gl, fx = g.fx, c = g.ctx.gl, u = fx.u, m = it.dr.m, fr = it.fr;

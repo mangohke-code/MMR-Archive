@@ -32,6 +32,10 @@
         텍스처 칸이 없거나 null 이면 셰이더 기본 텍스처(이 셰이더들은 모두 white). _ST 는 칸이 있으면 그 값, 없으면 (1,1,0,0).
     pb = [[t, {color, st: {칸: [sx,sy,ox,oy]}, bloom, tex: {칸: 파일}} 또는 null]] 타임라인이 움직이는 머티리얼 속성.
 
+반복 구간(점프로 되감은 뒤): 추출 세션이 처음 재생 → 되감기 → 3바퀴 더 돈 뒤의 한 바퀴를 따로 기록한 것.
+    draws[].fl · pbl · activeLoop · orderLoop · Spine 의 zwl · activeLoop 이 처음 재생 쪽(f · pb · active · order · zw)과 같은 형식.
+    자동 재생 파티클은 되감기와 상관없이 계속 흘러서, 반복할 때 이펙트가 끊기지 않는다.
+
 드로우 순서 (play.json order): [[t, [[0, 요소, 드로우] 또는 [1, Spine], ...]]] 바뀐 때만. 엔진(URP 12.1.15)이 실제로 실행한 순서
 (불투명 패스 먼저, 투명 패스는 정렬 레이어 · 순서 · 큐 · 거리+fudge). 키가 완전히 같은 동률은 추출 재생에서 나온 순서다.
 Spine 의 zw = [[t, 월드 z]] - 뼈대 평면의 깊이(ZTest LessEqual 로 불투명 배경판과 앞뒤를 정한다).
@@ -285,9 +289,9 @@ def build_code(it, report, texinfo):
             raise SystemExit(f'{code}: 머티리얼 없는 스프라이트 셰이더가 Sprites/Default 가 아니다')
         return {'sh': 'sprite', 'tex': {}, 'f': {}, 'c': {}, 'q': 3000}
 
-    def pb_rows(e):
+    def pb_rows(src):
         rows = []
-        for t, v in e.get('propertyBlock') or []:
+        for t, v in src or []:
             if not v or v.get('_onlyOtherEntries'):
                 ent = None
             else:
@@ -310,13 +314,26 @@ def build_code(it, report, texinfo):
             rows.append([r3(t), ent])
         return rows if any(r[1] for r in rows) else []
 
+    def intervals(src):
+        return [[r3(a), r3(length if b is None else b)] for a, b in (src or [])]
+
+    def slot_frames(gpu, k, sh):
+        frames, prev = [], None
+        for t, ds in gpu or []:
+            s = ds[k] if k < len(ds) else None
+            fd, cur = frame_data(s or {}, sh, prev)
+            prev = cur
+            if frames and fd == 0 and frames[-1][1] == 0:
+                continue
+            frames.append([r3(t), fd])
+        return frames if any(f[1] for f in frames) else []
+
     elements = []
     el_index = {}             # 파티클 파일 요소 번호 → (elements 번호, {칸: draws 번호})
     for ei, e in enumerate(pdata['elements']):
         name = e['path'].rsplit('/', 1)[-1]
-        act = [[r3(a), r3(length if b is None else b)] for a, b in (e.get('activeIntervals') or [])]
-        gpu = e.get('gpu') or []
-        if not act or not gpu:
+        act, act_loop = intervals(e.get('activeIntervals')), intervals(e.get('activeLoopIntervals'))
+        if not (act and e.get('gpu')) and not (act_loop and e.get('gpuLoop')):
             skipped['켜지는 구간 · 그림 없음'] += 1
             continue
         mats = {m.get('slot', 0): m for m in e.get('materials') or []}
@@ -333,67 +350,79 @@ def build_code(it, report, texinfo):
                 if not m:
                     skipped[why] += 1
                     continue
-            frames, prev = [], None
-            for t, ds in gpu:
-                s = ds[k] if k < len(ds) else None
-                fd, cur = frame_data(s or {}, m['sh'], prev)
-                prev = cur
-                if frames and fd == 0 and frames[-1][1] == 0:
-                    continue
-                frames.append([r3(t), fd])
-            if any(f[1] for f in frames):
+            frames = slot_frames(e.get('gpu'), k, m['sh'])
+            loop = slot_frames(e.get('gpuLoop'), k, m['sh'])
+            if frames or loop:
                 slotmap[k] = len(draws)
-                draws.append({'m': m, 'f': frames})
+                d = {'m': m, 'f': frames}
+                if loop:
+                    d['fl'] = loop
+                draws.append(d)
         if not draws:
             skipped['그리는 칸 없음'] += 1
             continue
         el = {'name': name, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
-              'order': e.get('sortingOrder') or 0, 'active': act, 'draws': draws}
+              'order': e.get('sortingOrder') or 0, 'active': act, 'activeLoop': act_loop, 'draws': draws}
         if e.get('sortingFudge'):
             el['fudge'] = r3(e['sortingFudge'])
-        pb = pb_rows(e)
+        pb = pb_rows(e.get('propertyBlock'))
         if pb:
             el['pb'] = pb
+        pbl = pb_rows(e.get('propertyBlockLoop'))
+        if pbl:
+            el['pbl'] = pbl
         el_index[ei] = (len(elements), slotmap)
         elements.append(el)
 
-    # Spine 렌더러: 프레임별 월드 z(뼈대 평면, 기울기 없음 - 행렬 행우선 [11])
+    # Spine 렌더러: 프레임별 월드 z(뼈대 평면, 기울기 없음 - 행렬 행우선 [11]), 반복 구간의 켜짐 구간
+    def world_z(src, path):
+        rows = []
+        for t, m in src or []:
+            if any(abs(m[i]) > 1e-6 for i in (2, 6, 8, 9)):
+                raise SystemExit(f'{code}: Spine {path} 가 기울어 있다(z 한 값으로 깊이를 못 정함)')
+            if rows and rows[-1][1] == r4(m[11]):
+                continue
+            rows.append([r3(t), r4(m[11])])
+        return rows
+
     for sr in pdata.get('spineRenderers') or []:
         si = spine_index.get(sr['path'])
         if si is None:
             continue
-        rows = []
-        for t, m in sr.get('world') or []:
-            if any(abs(m[i]) > 1e-6 for i in (2, 6, 8, 9)):
-                raise SystemExit(f'{code}: Spine {sr["path"]} 가 기울어 있다(z 한 값으로 깊이를 못 정함)')
-            if rows and rows[-1][1] == r4(m[11]):
-                continue
-            rows.append([r3(t), r4(m[11])])
-        spines[si]['zw'] = rows
+        spines[si]['zw'] = world_z(sr.get('world'), sr['path'])
+        spines[si]['zwl'] = world_z(sr.get('worldLoop'), sr['path'])
+        spines[si]['activeLoop'] = intervals(sr.get('activeLoopIntervals'))
 
     # 드로우 순서: 엔진이 실제로 실행한 순서. [0, 요소, 드로우] 또는 [1, Spine]
     spine_refs = [spine_index.get(sr['path']) for sr in pdata.get('spineRenderers') or []]
-    order = []
-    for t, lst in pdata.get('drawOrder') or []:
-        row = []
-        for ref, slot, _q, _tie in lst:
-            if isinstance(ref, str) and ref.startswith('spine:'):
-                si = spine_refs[int(ref[6:])]
-                if si is None:
-                    skipped['순서: Spine 연결 없음'] += 1
-                    continue
-                row.append([1, si])
-            else:
-                hit = el_index.get(ref)
-                if not hit or slot not in hit[1]:
-                    skipped['순서: 뺀 요소'] += 1
-                    continue
-                row.append([0, hit[0], hit[1][slot]])
-        if order and order[-1][1] == row:
-            continue
-        order.append([r3(t), row])
+
+    def order_rows(src):
+        out = []
+        for t, lst in src or []:
+            row = []
+            for ref, slot, _q, _tie in lst:
+                if isinstance(ref, str) and ref.startswith('spine:'):
+                    si = spine_refs[int(ref[6:])]
+                    if si is None:
+                        skipped['순서: Spine 연결 없음'] += 1
+                        continue
+                    row.append([1, si])
+                else:
+                    hit = el_index.get(ref)
+                    if not hit or slot not in hit[1]:
+                        skipped['순서: 뺀 요소'] += 1
+                        continue
+                    row.append([0, hit[0], hit[1][slot]])
+            if out and out[-1][1] == row:
+                continue
+            out.append([r3(t), row])
+        return out
+
+    order = order_rows(pdata.get('drawOrder'))
+    order_loop = order_rows(pdata.get('drawOrderLoop'))
 
     jump = tl['jump'][0] if tl.get('jump') else None
+    lp = pdata.get('loop')
     # 스킬컷 끝 = 검은 판이 켜지는 시각(없으면 컷신 오브젝트들이 꺼지는 시각)
     black = [e for e in pdata['elements'] if e['path'].endswith('/black_bg') and e.get('activeIntervals')]
     if black:
@@ -403,7 +432,9 @@ def build_code(it, report, texinfo):
     play = {
         'code': code,
         'length': length,
-        'jump': {'at': r3(jump['at']), 'to': r3(jump['to'])} if jump else None,
+        # 반복 구간 경계: JumpMarker / DestinationMarker 정확값(추출 loop). 없으면 타임라인 값
+        'jump': ({'at': round(lp['jumpAt'], 6), 'to': round(lp['jumpTo'], 6)} if lp
+                 else {'at': r3(jump['at']), 'to': r3(jump['to'])} if jump else None),
         'cutEnd': r3(cut_end),
         'tanHalfFov': pdata['camera']['tanHalfFov'],
         'near': pdata['camera'].get('near', 0.1),
@@ -412,6 +443,7 @@ def build_code(it, report, texinfo):
         'spines': spines,
         'elements': elements,
         'order': order,
+        'orderLoop': order_loop,
     }
     text = json.dumps(play, ensure_ascii=False, separators=(',', ':'))
     if WRITE:
