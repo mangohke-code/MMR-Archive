@@ -16,7 +16,9 @@
 //
 // 재생은 AnimationState 를 쓰지 않고 바깥 타임라인 시각 하나(T)로 모든 포즈 · 위치 · 색을 정한다.
 // 점프 마커로 idle 구간을 되감고, 진행바로 아무 시각이나 골라도 어긋나지 않는다.
-// 못 그리는 것: 파티클 · 셰이더로 움직이는 화면 전환(그림 · 값이 데이터에 없다).
+// 배경 그림 · 검은 판 · 파티클(요소)은 추출 세션이 엔진에서 30fps 로 뽑은 화면 꼭짓점 · UV · 색을 그대로 그린다.
+// 요소는 메인 텍스처(배율 · 오프셋) × 마스크만 쓰는 작은 셰이더로 그린다(가산 / 알파 블렌드).
+// 못 그리는 것: Mesh · Stretch 모드 파티클, 디졸브 · 왜곡 같은 셰이더 효과, 셰이더로 움직이는 화면 전환.
 
 const SKILLCUT_INDEX = 'l2d/skillcut.json';
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
@@ -90,6 +92,23 @@ const CostumeSkillcut = (() => {
     return a.map((v, i) => (i === 0 ? t : v + (b[i] - v) * k));
   }
 
+  // "바뀐 시각만" 적힌 줄에서 시각 t 의 값(사이는 앞 값 그대로). 파티클은 입자 수가 바뀌어 잇지 않는다.
+  function hold(rows, t) {
+    if (t < rows[0][0]) return null;
+    let lo = 0, hi = rows.length - 1;
+    if (t >= rows[hi][0]) return rows[hi];
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (rows[m][0] <= t) lo = m; else hi = m; }
+    return rows[lo];
+  }
+
+  // play.json 을 처음 받았을 때 한 번: 판 꼭짓점 줄을 sample() 이 읽는 [t, x0,y0, ...] 꼴로 편다
+  function prepare(d) {
+    if (d.prepared) return d;
+    d.elements.forEach(e => { if (e.kind === 'q') e.rows = e.q.map(([t, xy]) => [t, ...xy]); });
+    d.prepared = true;
+    return d;
+  }
+
   function frameAt(sp, t) {
     const f = sp.frame;
     if (!f.samples) return f;
@@ -139,10 +158,8 @@ const CostumeSkillcut = (() => {
     });
     data.elements.forEach((e, i) => {
       if (!activeAt(e.active, T) || !g.tex[e.tex]) return;
-      const col = sample(e.color, T);
-      if (col[4] <= 0.002) return;
       // 같은 레이어 · 순서면 Spine 보다 뒤(배경 판들이 여기에 걸린다)
-      items.push({ e, col, layer: e.layer, order: e.order, z: Infinity, i: 1000 + i });
+      items.push({ e, layer: e.layer, order: e.order, z: Infinity, i: 1000 + i });
     });
     // 유니티 규칙: 정렬 레이어 → 정렬 순서 → 같으면 카메라에서 먼 것부터
     items.sort((p, q) => p.layer - q.layer || p.order - q.order || q.z - p.z || p.i - q.i);
@@ -159,18 +176,136 @@ const CostumeSkillcut = (() => {
         r.drawSkeleton(it.o.skeleton, true);
         r.end();
       } else {
-        // 요소 화면 사각형: y 는 -1~1 이 화면 아래~위, x 도 같은 단위
-        const rc = sample(it.e.rect, T);
-        cam.setViewport(2 * a, 2);
-        cam.position.set(0, 0, 0);
-        cam.zoom = 1;
-        r.begin();
-        r.batcher.setBlendMode(spine.BlendMode.Normal, false);
-        r.drawTexture(g.tex[it.e.tex], rc[1], rc[3], rc[2] - rc[1], rc[4] - rc[3],
-          new spine.Color(it.col[1], it.col[2], it.col[3], it.col[4]));
-        r.end();
+        drawElement(it.e, a);
       }
     }
+  }
+
+  // ---- 요소(판 · 파티클) ----
+  // 화면 단위 꼭짓점(y -1~1 이 아래~위, x 는 -a~a)을 그대로 받아 그린다.
+  // 색 = 메인 텍스처(uv × 배율 + 오프셋, 넘치면 되풀이) × 꼭짓점 색, 마스크가 있으면 그 r·a 를 알파에 곱한다.
+  // 출력은 미리 곱한 알파라 알파 블렌드는 (1, 1-a), 가산은 (1, 1).
+  const FX_VS = [
+    'attribute vec2 aPos; attribute vec2 aUv; attribute vec4 aCol;',
+    'uniform float uAspect;',
+    'varying vec2 vUv; varying vec4 vCol;',
+    'void main() { vUv = aUv; vCol = aCol; gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0); }',
+  ].join('\n');
+  const FX_FS = [
+    'precision mediump float;',
+    'uniform sampler2D uTex; uniform sampler2D uMask;',
+    'uniform vec4 uSt; uniform vec4 uMaskSt; uniform float uTile; uniform float uUseMask;',
+    'varying vec2 vUv; varying vec4 vCol;',
+    // 엔진 v 는 아래가 0, 텍스처는 위가 0
+    'vec2 tc(vec2 uv, vec4 st, float tile) { vec2 p = uv * st.xy + st.zw; if (tile > 0.5) p = fract(p); return vec2(p.x, 1.0 - p.y); }',
+    'void main() {',
+    '  vec4 c = texture2D(uTex, tc(vUv, uSt, uTile)) * vCol;',
+    '  if (uUseMask > 0.5) { vec4 m = texture2D(uMask, tc(vUv, uMaskSt, 1.0)); c.a *= m.r * m.a; }',
+    '  gl_FragColor = vec4(c.rgb * c.a, c.a);',
+    '}',
+  ].join('\n');
+  const ST_ONE = [1, 1, 0, 0];
+  const FX_MAX_QUADS = 8192;
+
+  function createFx(c) {
+    const sh = (type, src) => {
+      const s = c.createShader(type);
+      c.shaderSource(s, src);
+      c.compileShader(s);
+      if (!c.getShaderParameter(s, c.COMPILE_STATUS)) throw new Error(c.getShaderInfoLog(s));
+      return s;
+    };
+    const prog = c.createProgram();
+    c.attachShader(prog, sh(c.VERTEX_SHADER, FX_VS));
+    c.attachShader(prog, sh(c.FRAGMENT_SHADER, FX_FS));
+    c.linkProgram(prog);
+    if (!c.getProgramParameter(prog, c.LINK_STATUS)) throw new Error(c.getProgramInfoLog(prog));
+    const idx = new Uint16Array(FX_MAX_QUADS * 6);
+    for (let q = 0; q < FX_MAX_QUADS; q++) idx.set([q * 4, q * 4 + 1, q * 4 + 2, q * 4, q * 4 + 2, q * 4 + 3], q * 6);
+    const ibo = c.createBuffer();
+    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, ibo);
+    c.bufferData(c.ELEMENT_ARRAY_BUFFER, idx, c.STATIC_DRAW);
+    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, null);
+    const loc = n => c.getAttribLocation(prog, n), uni = n => c.getUniformLocation(prog, n);
+    return {
+      prog, ibo, vbo: c.createBuffer(), verts: new Float32Array(FX_MAX_QUADS * 4 * 8),
+      aPos: loc('aPos'), aUv: loc('aUv'), aCol: loc('aCol'),
+      uAspect: uni('uAspect'), uTex: uni('uTex'), uMask: uni('uMask'), uSt: uni('uSt'), uMaskSt: uni('uMaskSt'),
+      uTile: uni('uTile'), uUseMask: uni('uUseMask'),
+    };
+  }
+
+  // 꼭짓점 하나: x, y, u, v, r, g, b, a
+  function putVert(v, o, x, y, u, w, r, g, b, al) {
+    v[o] = x; v[o + 1] = y; v[o + 2] = u; v[o + 3] = w; v[o + 4] = r; v[o + 5] = g; v[o + 6] = b; v[o + 7] = al;
+  }
+
+  // 판: 꼭짓점 순서 왼위 · 오른위 · 오른아래 · 왼아래, uv 는 그 순서로 (0,1) (1,1) (1,0) (0,0)
+  const QUAD_UV = [0, 1, 1, 1, 1, 0, 0, 0];
+  function fillQuad(e, v) {
+    const col = sample(e.color, T);
+    if (col[4] <= 0.002) return 0;
+    const q = sample(e.rows, T);
+    for (let k = 0; k < 4; k++) {
+      putVert(v, k * 8, q[1 + k * 2], q[2 + k * 2], QUAD_UV[k * 2], QUAD_UV[k * 2 + 1], col[1], col[2], col[3], col[4]);
+    }
+    return 1;
+  }
+
+  // 파티클: 입자마다 [꼭짓점 xy 8, uv 8, rgba(0~255) 4]
+  function fillParticles(e, v) {
+    const row = hold(e.p, T);
+    if (!row) return 0;
+    const p = row[1];
+    let n = 0;
+    for (let s = 0; s + 20 <= p.length && n < FX_MAX_QUADS; s += 20) {
+      const al = p[s + 19] / 255;
+      if (al <= 0.002) continue;
+      const r = p[s + 16] / 255, g = p[s + 17] / 255, b = p[s + 18] / 255;
+      for (let k = 0; k < 4; k++) putVert(v, (n * 4 + k) * 8, p[s + k * 2], p[s + k * 2 + 1], p[s + 8 + k * 2], p[s + 9 + k * 2], r, g, b, al);
+      n++;
+    }
+    return n;
+  }
+
+  function drawElement(e, aspect) {
+    const g = gl, fx = g.fx, c = g.ctx.gl;
+    const n = e.kind === 'p' ? fillParticles(e, fx.verts) : fillQuad(e, fx.verts);
+    if (!n) return;
+    c.useProgram(fx.prog);
+    c.enable(c.BLEND);
+    if (e.add) c.blendFunc(c.ONE, c.ONE); else c.blendFunc(c.ONE, c.ONE_MINUS_SRC_ALPHA);
+    c.uniform1f(fx.uAspect, aspect);
+    c.uniform4fv(fx.uSt, e.st || ST_ONE);
+    c.uniform1f(fx.uTile, e.st ? 1 : 0);
+    g.tex[e.tex].bind(0);
+    c.uniform1i(fx.uTex, 0);
+    const mask = e.mask && g.tex[e.mask];
+    c.uniform1f(fx.uUseMask, mask ? 1 : 0);
+    if (mask) {
+      mask.bind(1);
+      c.uniform1i(fx.uMask, 1);
+      c.uniform4fv(fx.uMaskSt, e.maskSt || ST_ONE);
+      c.activeTexture(c.TEXTURE0);
+    } else {
+      c.uniform1i(fx.uMask, 0);
+    }
+    c.bindBuffer(c.ARRAY_BUFFER, fx.vbo);
+    c.bufferData(c.ARRAY_BUFFER, fx.verts.subarray(0, n * 32), c.STREAM_DRAW);
+    c.enableVertexAttribArray(fx.aPos);
+    c.enableVertexAttribArray(fx.aUv);
+    c.enableVertexAttribArray(fx.aCol);
+    c.vertexAttribPointer(fx.aPos, 2, c.FLOAT, false, 32, 0);
+    c.vertexAttribPointer(fx.aUv, 2, c.FLOAT, false, 32, 8);
+    c.vertexAttribPointer(fx.aCol, 4, c.FLOAT, false, 32, 16);
+    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, fx.ibo);
+    c.drawElements(c.TRIANGLES, n * 6, c.UNSIGNED_SHORT, 0);
+    c.disableVertexAttribArray(fx.aPos);
+    c.disableVertexAttribArray(fx.aUv);
+    c.disableVertexAttribArray(fx.aCol);
+    c.bindBuffer(c.ARRAY_BUFFER, null);
+    c.bindBuffer(c.ELEMENT_ARRAY_BUFFER, null);
+    c.disable(c.BLEND);
   }
 
   function loop() {
@@ -199,12 +334,14 @@ const CostumeSkillcut = (() => {
       datas[f] = bin.readSkeletonData(g.assets.require(base + f + '.skel'));
     }
     g.skels = data.spines.map(sp => ({ sp, skeleton: new spine.Skeleton(datas[sp.file]), anims: {} }));
-    data.elements.forEach(e => { g.tex[e.tex] = g.assets.require(base + e.tex); });
+    elementTextures().forEach(t => { g.tex[t] = g.assets.require(base + t); });
+    g.fx = createFx(g.ctx.gl);
     g.ready = true;
     showMsg('');
   }
 
   const usedFiles = () => [...new Set(data.spines.map(s => s.file))];
+  const elementTextures = () => [...new Set(data.elements.flatMap(e => (e.mask ? [e.tex, e.mask] : [e.tex])))];
 
   function createGL() {
     const canvas = document.createElement('canvas');
@@ -218,7 +355,7 @@ const CostumeSkillcut = (() => {
       assets.loadBinary(base + f + '.skel');
       assets.loadTextureAtlas(base + f + '.atlas');
     }
-    [...new Set(data.elements.map(e => e.tex))].forEach(t => assets.loadTexture(base + t));
+    elementTextures().forEach(t => assets.loadTexture(base + t));
     gl = { canvas, ctx, renderer, assets, ready: false, skels: [], tex: {} };
   }
 
@@ -313,7 +450,7 @@ const CostumeSkillcut = (() => {
     if (!data || data.code !== code) {
       disposeGL();
       showMsg('불러오는 중…');
-      try { data = await loadPlay(code); } catch (e) { if (seq === loadSeq) showMsg('컷신 정보를 불러오지 못했습니다.'); return; }
+      try { data = prepare(await loadPlay(code)); } catch (e) { if (seq === loadSeq) showMsg('컷신 정보를 불러오지 못했습니다.'); return; }
       if (seq !== loadSeq || !mode) return;   // 그사이 끄거나 다른 버튼을 눌렀다
     }
     T = m === 'idle' && data.jump ? data.jump.to : 0;
