@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=10';
+const SKILLCUT_DATA_VER = '?d=11';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 요소 텍스처 공용 폴더(코스튬끼리 같은 그림을 같이 써서 한 벌만 둔다)
@@ -218,21 +218,26 @@ const CostumeSkillcut = (() => {
     return { cx: s[1], cy: s[2], hh: s[3] };
   }
 
-  // 클립 시작부터 지난 시간 → Spine 애니메이션 시간. 평소엔 그대로.
-  // 점검용 render({ accum: true }): 엔진 기준 화면은 spine-unity 가 고정 1/30초를 float32 로 더해 간 시간이라(64프레임 = 2.1333327)
-  // 키 경계 프레임(c354_01 0.8초, c821_01 2.133초)에서 어느 쪽 포즈인지가 그 누적값으로 정해진다.
-  const SAME_CLOCK = e => e;
-  const ACCUM_CLOCK = e => {
-    const dt = Math.fround(1 / 30);
-    let s = 0;
-    for (let i = Math.round(e * 30); i > 0; i--) s = Math.fround(s + dt);
-    return s;
-  };
-  let spineClock = SAME_CLOCK;
-  let mwShift = 0;          // 점검용: Spine 월드 행렬만 시각을 옮겨 본다
-
-  // 그 오브젝트의 포즈를 시각 t 로 맞춘다. 재생 구간 밖이면 가까운 구간의 처음/끝을 붙든다.
-  function poseSpine(o, t) {
+  // 그 오브젝트의 포즈를 시각 t 로 맞춘다.
+  // 엔진이 프레임마다 실제로 쓴 애니메이션 시각(an: [t, 이름, 적용 시각, 루프])이 있으면 그것을 따른다.
+  // 기록 프레임에서는 값 그대로(키 경계에서 어느 쪽 포즈인지까지 엔진과 같다), 프레임 사이는 지난 시간만큼 잇는다.
+  function poseSpine(o, t, L, li) {
+    const rows = L ? pick(o.sp.anls, o.sp.anl, li) : o.sp.an;
+    const r = rows && rows.length ? holdIn(rows, t, L) : null;
+    if (r) {
+      const sk = o.skeleton;
+      sk.setToSetupPose();
+      const anim = r[1] && (o.anims[r[1]] || (o.anims[r[1]] = sk.data.findAnimation(r[1])));
+      if (anim) {
+        const dt = t - r[0];
+        // 기록값은 엔진 float32 를 9자리로 적은 것이라 Math.fround 로 원래 값을 되살린다(키 시각도 float32 라 경계 판정이 같아진다. c321_01 0.533초)
+        const at = dt > 1e-3 ? r[2] + dt : Math.fround(r[2]);
+        anim.apply(sk, at, at, !!r[3], null, 1, spine.MixBlend.setup, spine.MixDirection.mixIn);
+      }
+      sk.updateWorldTransform();
+      return;
+    }
+    // 예전 데이터: 타임라인 클립으로 계산. 재생 구간 밖이면 가까운 구간의 처음/끝을 붙든다
     const plays = o.sp.plays;
     let p = null;
     for (const q of plays) if (t >= q.vs && t < q.ve) p = q;
@@ -246,7 +251,7 @@ const CostumeSkillcut = (() => {
     sk.setToSetupPose();
     const anim = o.anims[p.anim] || (o.anims[p.anim] = sk.data.findAnimation(p.anim));
     if (anim) {
-      let at = p.clipIn + spineClock(tt - p.start, o) * p.ts;
+      let at = p.clipIn + (tt - p.start) * p.ts;
       at = p.loop ? (anim.duration ? ((at % anim.duration) + anim.duration) % anim.duration : 0)
         : Math.max(0, Math.min(at, anim.duration));
       anim.apply(sk, at, at, p.loop, null, 1, spine.MixBlend.setup, spine.MixDirection.mixIn);
@@ -279,13 +284,13 @@ const CostumeSkillcut = (() => {
       if (ref[0] === 1) {
         const o = g.skels[ref[1]];
         if (!o || !activeAt(L ? pick(o.sp.activeLoops, o.sp.activeLoop, li) || [] : o.sp.active, T)) continue;
-        poseSpine(o, T);
+        poseSpine(o, T, L, li);
         // Spine 셰이더(Skeleton Alpha Dither): ZWrite Off · ZTest LessEqual. 뼈대가 월드 z 한 평면이라 그 깊이로 검사한다
         c.enable(c.DEPTH_TEST);
         c.depthFunc(c.LEQUAL);
         c.depthMask(false);
         const mrows = L ? pick(o.sp.mwls, o.sp.mwl, li) : o.sp.mw;
-        const mr = mrows && mrows.length && holdIn(mrows, T + mwShift, L);
+        const mr = mrows && mrows.length && holdIn(mrows, T, L);
         if (mr) {
           // 플레이 모드 월드 행렬: 스켈레톤 (x, y) → 월드 (a·x + b·y + tx, c·x + d·y + ty, z), 화면 = 월드.xy / (z · tanHalfFov).
           // 뼈대가 한 평면이라 원근 나눗셈이 상수 → 아핀 행렬 하나로 요소 정점 셰이더와 같은 투영 · 확대 · 이동이 된다
@@ -966,7 +971,7 @@ const CostumeSkillcut = (() => {
     state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
     // 점검용(엔진 기준 화면과 비교): 처음 재생(lap null) 또는 반복 바퀴 lap 의 시각 t 를, 셰이더 시간 shaderTime 으로,
     // size×size(px) 에 그려 PNG 로 돌려준다
-    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null, accum = false, poseShift = 0, worldShift = 0 }) {
+    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null }) {
       if (!gl || !gl.ready) return null;
       const keep = { mode, lap, T, flowT, paused };
       mode = lp === null ? 'full' : 'idle';
@@ -975,16 +980,12 @@ const CostumeSkillcut = (() => {
       flowT = shaderTime;
       forceSize = [size, size];
       drawFilter = filter;
-      spineClock = accum ? ACCUM_CLOCK : poseShift ? (e, o) => e + (typeof poseShift === 'function' ? poseShift(o.sp) : poseShift) : SAME_CLOCK;
-      mwShift = worldShift;
       try {
         draw();
         return gl.canvas.toDataURL('image/png');
       } finally {
         forceSize = null;
         drawFilter = null;
-        spineClock = SAME_CLOCK;
-        mwShift = 0;
         ({ mode, lap, T, flowT, paused } = keep);
       }
     },

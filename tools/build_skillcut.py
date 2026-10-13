@@ -439,6 +439,26 @@ def build_code(it, report, texinfo):
             rows.append([r3(t)] + row)
         return rows
 
+    # Spine 포즈 시각: 엔진이 그 프레임 포즈를 계산할 때 쓴 애니메이션 시각(TrackEntry.nextAnimationLast, 루프 반영)을
+    # 추출 세션이 매 프레임 기록(spineRenderers[].anim). 오브젝트가 켜질 때부터 시간이 흐르거나(c223_01) Spine 끼리
+    # 갱신 순서가 달라(c222_01 0.267초) 타임라인 시각과 한 프레임씩 어긋나는 것을 그대로 따른다.
+    # 행: [트랙, 깊이, 이름, 적용 애니시각, 적용 트랙시각, AnimationTime, TrackTime, Alpha, MixTime, MixDuration, Loop, TimeScale]
+    def anim_rows(src, path):
+        rows = []
+        for t, ents in src or []:
+            if not isinstance(ents, list):
+                continue                                  # {"valid": false}: 스켈레톤이 없는 루트 경로
+            if not ents:
+                rows.append([r4(t), None, 0, 0])          # 트랙 없음: 기본(셋업) 포즈. c450_02 0초
+                continue
+            cur = [e for e in ents if e[1] == 0]
+            if len(cur) != 1 or cur[0][0] != 0 or any(e[0] != 0 for e in ents):
+                raise SystemExit(f'{code}: Spine {path} {t}초 트랙이 하나가 아니다 - 섞기 구현 필요')
+            if any(e[1] > 0 and e[9] > 0 for e in ents) or cur[0][7] != 1 or cur[0][11] != 1:
+                raise SystemExit(f'{code}: Spine {path} {t}초 섞임(MixDuration>0) · Alpha · TimeScale 이 기본값이 아니다')
+            rows.append([r4(t), cur[0][2], cur[0][3], 1 if cur[0][10] else 0])
+        return rows
+
     play_spines = {sp['path']: sp for sp in it['spines']}
     for sr in pdata.get('spineRenderers') or []:
         si = spine_index.get(sr['path'])
@@ -453,6 +473,10 @@ def build_code(it, report, texinfo):
         spines[si]['mwl'] = world_mat(sr.get('worldLoop'), sr['path'], sc)
         if sr.get('worldLoops'):
             spines[si]['mwls'] = [world_mat(x, sr['path'], sc) for x in sr['worldLoops']]
+        spines[si]['an'] = anim_rows(sr.get('anim'), sr['path'])
+        spines[si]['anl'] = anim_rows(sr.get('animLoop'), sr['path'])
+        if sr.get('animLoops'):
+            spines[si]['anls'] = [anim_rows(x, sr['path']) for x in sr['animLoops']]
         spines[si]['zw'] = world_z(sr.get('world'), sr['path'])
         spines[si]['zwl'] = world_z(sr.get('worldLoop'), sr['path'])
         if sr.get('worldLoops'):
