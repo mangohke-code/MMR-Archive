@@ -421,10 +421,38 @@ def build_code(it, report, texinfo):
             rows.append([r3(t), r4(m[11])])
         return rows
 
+    # Spine 화면 배치: 플레이 모드 월드 행렬(행우선 4x4) × 스켈레톤 데이터 크기(SkeletonDataAsset scale).
+    # 스켈레톤 좌표 (x, y) → 월드 = (a·x + b·y + tx, c·x + d·y + ty, z). 화면 = 월드.xy / (z · tanHalfFov).
+    # 예전 편집 모드 표본(frame)은 바깥 · 안쪽 타임라인이 같이 움직이는 Spine 에서 틀려서 이것으로 바꿨다.
+    skel_scale = {}
+    for sp in it['spines']:
+        sc = DATA_SCALE.get(sp['path'])
+        if sc and sp.get('files'):
+            skel_scale.setdefault(sp['files']['skel'], sc)
+
+    def world_mat(src, path, sc):
+        rows = []
+        for t, m in src or []:
+            row = [round(m[0] * sc, 7), round(m[1] * sc, 7), r4(m[3]), round(m[4] * sc, 7), round(m[5] * sc, 7), r4(m[7]), r4(m[11])]
+            if rows and rows[-1][1:] == row:
+                continue
+            rows.append([r3(t)] + row)
+        return rows
+
+    play_spines = {sp['path']: sp for sp in it['spines']}
     for sr in pdata.get('spineRenderers') or []:
         si = spine_index.get(sr['path'])
         if si is None:
             continue
+        sp = play_spines[sr['path']]
+        skel = (sp.get('files') or {}).get('skel')
+        sc = DATA_SCALE.get(sr['path']) or skel_scale.get(skel) or REF_CHECKED_SCALE.get(skel)
+        if not sc:
+            raise SystemExit(f'{code}: Spine {sr["path"]} 의 스켈레톤 데이터 크기(dataScale)를 모른다')
+        spines[si]['mw'] = world_mat(sr.get('world'), sr['path'], sc)
+        spines[si]['mwl'] = world_mat(sr.get('worldLoop'), sr['path'], sc)
+        if sr.get('worldLoops'):
+            spines[si]['mwls'] = [world_mat(x, sr['path'], sc) for x in sr['worldLoops']]
         spines[si]['zw'] = world_z(sr.get('world'), sr['path'])
         spines[si]['zwl'] = world_z(sr.get('worldLoop'), sr['path'])
         if sr.get('worldLoops'):
@@ -487,6 +515,7 @@ def build_code(it, report, texinfo):
         'orderLoop': order_loop,
         # 반복 구간 바퀴 수(추출: 자동 재생 파티클이 정확히 되풀이되는 주기, 없으면 이어 기록한 8바퀴)
         'laps': (lp or {}).get('laps') or 1,
+        'cycleFrom': (lp or {}).get('cycleFrom') or 0,      # 마지막 바퀴 뒤에 돌아갈 바퀴(주기 시작)
     }
     if order_loops:
         play['orderLoops'] = order_loops
@@ -517,8 +546,18 @@ def build_code(it, report, texinfo):
           + (' · 뺀 것 ' + ', '.join(f'{k}×{v}' for k, v in skipped.items()) if skipped else ''))
 
 
+DATA_SCALE = {}       # Spine 렌더러 경로 → SkeletonDataAsset scale(_skillcut_frames.json)
+# _skillcut_frames.json 에 코스튬이 빠져 있어 크기 값이 없는 스켈레톤. 0.01 로 그린 화면이 엔진 기준 화면
+# (_skillcut_ref) 과 픽셀 단위로 맞는 것을 확인한 값만 둔다(다른 34개 스켈레톤도 전부 0.01).
+REF_CHECKED_SCALE = {'c272_01_skillcut.skel': 0.01}
+
+
 def main():
     data = json.load(io.open(os.path.join(SRC, '_skillcut_playback.json'), encoding='utf-8'))
+    for fi in json.load(io.open(os.path.join(SRC, '_skillcut_frames.json'), encoding='utf-8'))['items']:
+        for sp in fi.get('spines') or []:
+            if sp.get('dataScale'):
+                DATA_SCALE[sp['path']] = sp['dataScale']
     texinfo = json.load(io.open(os.path.join(SRC, '_skillcut_textures.json'), encoding='utf-8'))
     only = [a for a in sys.argv[1:] if not a.startswith('--')]
     report = {'png': 0, 'webp': 0, 'json': 0, 'codes': []}

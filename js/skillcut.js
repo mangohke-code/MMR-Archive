@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=9';
+const SKILLCUT_DATA_VER = '?d=10';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 요소 텍스처 공용 폴더(코스튬끼리 같은 그림을 같이 써서 한 벌만 둔다)
@@ -51,6 +51,8 @@ const CostumeSkillcut = (() => {
   // 셰이더 흐름 시간(_TimeParameters.x): 게임은 앱을 켠 뒤 계속 흐르는 시간이라 되감기와 상관없이 이어진다.
   // 위상은 데이터로 알 수 없어 재생을 시작한 시각에서 출발해 재생하는 동안 계속 흐르게 한다(되감아도 돌아가지 않는다).
   let flowT = 0;
+  let forceSize = null;       // 점검용 render() 가 정한 캔버스 크기(px)
+  let drawFilter = null;      // 점검용 render() 가 고른 드로우만 그린다(ref → true/false)
   // 확대 · 이동(사용자 요청, 2026-10-13). zoom 1 = 기본 화면(이보다 작게는 못 줄인다), pan = 화면 가운데가 가리키는 곳(NDC -1~1)
   const ZOOM_MAX = 6;
   let zoom = 1, panX = 0, panY = 0;
@@ -104,7 +106,7 @@ const CostumeSkillcut = (() => {
       T = data.jump.to + (T - loopEnd());
       // 반복 구간은 되감을 때마다 다음 바퀴. 전체 재생에서 넘어오면 첫 바퀴.
       // 바퀴별 데이터(laps.json)를 아직 못 받았으면 첫 바퀴에 머문다(받는 순간 바퀴가 갑자기 바뀌지 않게)
-      if (mode === 'full') { mode = 'idle'; lap = 0; syncButtons(); } else if (!data.lapsFile || data.lapsLoaded) lap++;
+      if (mode === 'full') { mode = 'idle'; lap = 0; syncButtons(); } else if (!data.lapsFile || data.lapsLoaded) nextLap();
     } else if (!data.jump && T >= data.length) {
       T = data.length - 1e-4; paused = true;
     }
@@ -117,7 +119,11 @@ const CostumeSkillcut = (() => {
   // 자동 재생 파티클이 되감기와 상관없이 이어져서 반복할 때 이펙트가 끊기지 않는다. 처음 재생은 원래 데이터.
   const looped = () => mode === 'idle' && !!(data && ((data.orderLoop && data.orderLoop.length) || data.orderLoops));
   // 지금 바퀴(되감을 때마다 하나씩). 바퀴별 데이터(laps.json)를 받기 전에는 첫 바퀴
-  const lapIndex = () => (data.laps > 1 && (!data.lapsFile || data.lapsLoaded) ? lap % data.laps : 0);
+  const lapIndex = () => (data.laps > 1 && (!data.lapsFile || data.lapsLoaded) ? Math.min(lap, data.laps - 1) : 0);
+  // 다음 바퀴. 마지막 바퀴 뒤에는 cycleFrom(주기가 시작되는 바퀴, 없으면 0)으로 돌아간다
+  function nextLap() {
+    lap = lap + 1 < (data.laps || 1) ? lap + 1 : (data.cycleFrom || 0);
+  }
   const pick = (laps, one, li) => (laps ? laps[li] || laps[0] : one);
   // "바뀐 시각만" 줄에서 시각 t 의 값. 반복 구간은 첫 줄이 jump.to 보다 조금 늦게 적혀 있어(반올림) 그 앞은 첫 줄로 본다
   const holdIn = (rows, t, loop) => (loop && rows.length && t < rows[0][0] ? rows[0] : hold(rows, t));
@@ -136,7 +142,9 @@ const CostumeSkillcut = (() => {
   }
 
   // "바뀐 시각만" 적힌 줄에서 시각 t 의 값(사이는 앞 값 그대로). 파티클은 입자 수가 바뀌어 잇지 않는다.
+  // 시각은 소수 셋째 자리로 반올림돼 있어(0.2667 → 0.267) 그 프레임을 0.5ms 일찍부터 잡는다
   function hold(rows, t) {
+    t += 5e-4;
     if (!rows || !rows.length || t < rows[0][0]) return null;
     let lo = 0, hi = rows.length - 1;
     if (t >= rows[hi][0]) return rows[hi];
@@ -210,6 +218,19 @@ const CostumeSkillcut = (() => {
     return { cx: s[1], cy: s[2], hh: s[3] };
   }
 
+  // 클립 시작부터 지난 시간 → Spine 애니메이션 시간. 평소엔 그대로.
+  // 점검용 render({ accum: true }): 엔진 기준 화면은 spine-unity 가 고정 1/30초를 float32 로 더해 간 시간이라(64프레임 = 2.1333327)
+  // 키 경계 프레임(c354_01 0.8초, c821_01 2.133초)에서 어느 쪽 포즈인지가 그 누적값으로 정해진다.
+  const SAME_CLOCK = e => e;
+  const ACCUM_CLOCK = e => {
+    const dt = Math.fround(1 / 30);
+    let s = 0;
+    for (let i = Math.round(e * 30); i > 0; i--) s = Math.fround(s + dt);
+    return s;
+  };
+  let spineClock = SAME_CLOCK;
+  let mwShift = 0;          // 점검용: Spine 월드 행렬만 시각을 옮겨 본다
+
   // 그 오브젝트의 포즈를 시각 t 로 맞춘다. 재생 구간 밖이면 가까운 구간의 처음/끝을 붙든다.
   function poseSpine(o, t) {
     const plays = o.sp.plays;
@@ -225,7 +246,7 @@ const CostumeSkillcut = (() => {
     sk.setToSetupPose();
     const anim = o.anims[p.anim] || (o.anims[p.anim] = sk.data.findAnimation(p.anim));
     if (anim) {
-      let at = p.clipIn + (tt - p.start) * p.ts;
+      let at = p.clipIn + spineClock(tt - p.start, o) * p.ts;
       at = p.loop ? (anim.duration ? ((at % anim.duration) + anim.duration) % anim.duration : 0)
         : Math.max(0, Math.min(at, anim.duration));
       anim.apply(sk, at, at, p.loop, null, 1, spine.MixBlend.setup, spine.MixDirection.mixIn);
@@ -236,8 +257,8 @@ const CostumeSkillcut = (() => {
   // ---- 그리기 ----
   function draw() {
     const g = gl;
-    const W = box.clientWidth, H = box.clientHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = forceSize ? forceSize[0] : box.clientWidth, H = forceSize ? forceSize[1] : box.clientHeight;
+    const dpr = forceSize ? 1 : Math.min(window.devicePixelRatio || 1, 2);
     const cw = Math.max(1, Math.round(W * dpr)), ch = Math.max(1, Math.round(H * dpr));
     if (g.canvas.width !== cw || g.canvas.height !== ch) { g.canvas.width = cw; g.canvas.height = ch; }
     const c = g.ctx.gl;
@@ -254,22 +275,39 @@ const CostumeSkillcut = (() => {
     const row = L ? holdIn(pick(data.orderLoops, data.orderLoop, li) || [], T, true) : hold(data.order, T);
     const r = g.renderer, cam = r.camera;
     for (const ref of (row ? row[1] : [])) {
+      if (drawFilter && !drawFilter(ref)) continue;
       if (ref[0] === 1) {
         const o = g.skels[ref[1]];
         if (!o || !activeAt(L ? pick(o.sp.activeLoops, o.sp.activeLoop, li) || [] : o.sp.active, T)) continue;
         poseSpine(o, T);
-        const f = frameAt(o.sp, T);
-        cam.setViewport(2 * f.hh * a / zoom, 2 * f.hh / zoom);
-        cam.position.set(f.cx + panX * f.hh * a, f.cy + panY * f.hh, 0);
-        cam.zoom = 1;
         // Spine 셰이더(Skeleton Alpha Dither): ZWrite Off · ZTest LessEqual. 뼈대가 월드 z 한 평면이라 그 깊이로 검사한다
         c.enable(c.DEPTH_TEST);
         c.depthFunc(c.LEQUAL);
         c.depthMask(false);
-        const zrows = L ? pick(o.sp.zwls, o.sp.zwl, li) : o.sp.zw;
-        const zr = zrows && zrows.length && holdIn(zrows, T, L);
-        const dz = depthOf(zr ? zr[1] : o.sp.z);
-        c.depthRange(dz, dz);
+        const mrows = L ? pick(o.sp.mwls, o.sp.mwl, li) : o.sp.mw;
+        const mr = mrows && mrows.length && holdIn(mrows, T + mwShift, L);
+        if (mr) {
+          // 플레이 모드 월드 행렬: 스켈레톤 (x, y) → 월드 (a·x + b·y + tx, c·x + d·y + ty, z), 화면 = 월드.xy / (z · tanHalfFov).
+          // 뼈대가 한 평면이라 원근 나눗셈이 상수 → 아핀 행렬 하나로 요소 정점 셰이더와 같은 투영 · 확대 · 이동이 된다
+          const [, ma, mb, tx, mc, md, ty, mz] = mr;
+          const kx = zoom / (mz * data.tanHalfFov * a), ky = zoom / (mz * data.tanHalfFov);
+          const v = cam.projectionView.values;
+          v.fill(0);
+          v[0] = kx * ma; v[4] = kx * mb; v[12] = kx * tx - panX * zoom;
+          v[1] = ky * mc; v[5] = ky * md; v[13] = ky * ty - panY * zoom;
+          v[14] = 2 * depthOf(mz) - 1; v[15] = 1;
+          cam.update = NO_UPDATE;
+        } else {
+          delete cam.update;                       // 원래 OrthoCamera.update(프로토타입)
+          const f = frameAt(o.sp, T);
+          cam.setViewport(2 * f.hh * a / zoom, 2 * f.hh / zoom);
+          cam.position.set(f.cx + panX * f.hh * a, f.cy + panY * f.hh, 0);
+          cam.zoom = 1;
+          const zrows = L ? pick(o.sp.zwls, o.sp.zwl, li) : o.sp.zw;
+          const zr = zrows && zrows.length && holdIn(zrows, T, L);
+          const dz = depthOf(zr ? zr[1] : o.sp.z);
+          c.depthRange(dz, dz);
+        }
         r.begin();
         r.drawSkeleton(o.skeleton, true);
         r.end();
@@ -284,6 +322,8 @@ const CostumeSkillcut = (() => {
       }
     }
   }
+
+  const NO_UPDATE = () => {};
 
   // 월드 z(카메라 앞 거리) → 깊이 버퍼 값(0~1). 요소 정점 셰이더와 같은 투영
   function depthOf(z) {
@@ -518,7 +558,8 @@ const CostumeSkillcut = (() => {
     c.enable(c.DEPTH_TEST);
     c.depthFunc(c[zfuncOf(m.f.ztest !== undefined ? m.f.ztest : (st.ztest || 4))]);
     c.depthMask(!!st.zwrite);
-    if (st.cullBack) { c.enable(c.CULL_FACE); c.cullFace(c.BACK); c.frontFace(c.CCW); } else c.disable(c.CULL_FACE);
+    // Cull Back: 엔진(D3D)은 화면에서 시계 방향 삼각형이 앞면. GPU 캡처로도 확인(c017_01 1.6초 유리 조각: 시계 방향 149개 중 140개가 카메라를 향함)
+    if (st.cullBack) { c.enable(c.CULL_FACE); c.cullFace(c.BACK); c.frontFace(c.CW); } else c.disable(c.CULL_FACE);
     const n = data.near, f = data.far;
     c.uniform1f(u.uTan, data.tanHalfFov);
     c.uniform1f(u.uAspect, aspect);
@@ -923,6 +964,41 @@ const CostumeSkillcut = (() => {
     snapshot,
     // 점검용: 지금 시각 · 모드 · 반복 바퀴
     state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
+    // 점검용(엔진 기준 화면과 비교): 처음 재생(lap null) 또는 반복 바퀴 lap 의 시각 t 를, 셰이더 시간 shaderTime 으로,
+    // size×size(px) 에 그려 PNG 로 돌려준다
+    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null, accum = false, poseShift = 0, worldShift = 0 }) {
+      if (!gl || !gl.ready) return null;
+      const keep = { mode, lap, T, flowT, paused };
+      mode = lp === null ? 'full' : 'idle';
+      lap = lp === null ? 0 : lp;
+      T = t;
+      flowT = shaderTime;
+      forceSize = [size, size];
+      drawFilter = filter;
+      spineClock = accum ? ACCUM_CLOCK : poseShift ? (e, o) => e + (typeof poseShift === 'function' ? poseShift(o.sp) : poseShift) : SAME_CLOCK;
+      mwShift = worldShift;
+      try {
+        draw();
+        return gl.canvas.toDataURL('image/png');
+      } finally {
+        forceSize = null;
+        drawFilter = null;
+        spineClock = SAME_CLOCK;
+        mwShift = 0;
+        ({ mode, lap, T, flowT, paused } = keep);
+      }
+    },
+    // 점검용: 그 시각에 그려지는 드로우 목록([0, 요소, 드로우] / [1, Spine]과 이름)
+    drawList({ t, lap: lp = null }) {
+      const keep = { mode, lap, T };
+      mode = lp === null ? 'full' : 'idle'; lap = lp === null ? 0 : lp; T = t;
+      try {
+        const L = looped(), li = L ? lapIndex() : 0;
+        const row = L ? holdIn(pick(data.orderLoops, data.orderLoop, li) || [], T, true) : hold(data.order, T);
+        return (row ? row[1] : []).map(ref => [ref, ref[0] === 1 ? 'spine:' + data.spines[ref[1]].name
+          : data.elements[ref[1]].name + '#' + ref[2] + ' ' + data.elements[ref[1]].draws[ref[2]].m.sh]);
+      } finally { ({ mode, lap, T } = keep); }
+    },
     // 점검용: 재생과 똑같이 dt 만큼 진행(되감기 · 바퀴 넘김 포함)한 뒤 한 장 그려 돌려준다
     step(dt) {
       if (!gl || !gl.ready) return null;
