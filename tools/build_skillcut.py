@@ -11,6 +11,7 @@
 
 출력 (저장소):
     l2d/<코드>/skillcut/play.json    js/skillcut.js 가 읽는 재생 데이터
+    l2d/<코드>/skillcut/laps.json    반복 구간 2바퀴째부터의 파티클 프레임(재생을 시작한 뒤 따로 받는다)
     l2d/<코드>/skillcut/*.skel · *.atlas · *.webp   텍스처는 무손실 WebP(원본 픽셀 그대로), atlas 의 페이지 이름도 고친다
     l2d/<코드>/skillcut/el/*.webp     요소 텍스처(무손실 WebP)
     l2d/skillcut.json                컷신이 있는 코드 목록
@@ -35,6 +36,8 @@
 반복 구간(점프로 되감은 뒤): 추출 세션이 처음 재생 → 되감기 → 3바퀴 더 돈 뒤의 한 바퀴를 따로 기록한 것.
     draws[].fl · pbl · activeLoop · orderLoop · Spine 의 zwl · activeLoop 이 처음 재생 쪽(f · pb · active · order · zw)과 같은 형식.
     자동 재생 파티클은 되감기와 상관없이 계속 흘러서, 반복할 때 이펙트가 끊기지 않는다.
+    바퀴마다 다르면 복수형(fls · pbls · activeLoops · orderLoops · zwls) = [바퀴0, 바퀴1, ...], play.laps 바퀴를 차례로 돈다
+    (추출 세션이 해시로 정확한 주기를 찾았으면 그 바퀴 수, 없으면 이어 기록한 8바퀴 - 8바퀴마다 한 번만 끊긴다).
 
 드로우 순서 (play.json order): [[t, [[0, 요소, 드로우] 또는 [1, Spine], ...]]] 바뀐 때만. 엔진(URP 12.1.15)이 실제로 실행한 순서
 (불투명 패스 먼저, 투명 패스는 정렬 레이어 · 순서 · 큐 · 거리+fudge). 키가 완전히 같은 동률은 추출 재생에서 나온 순서다.
@@ -333,7 +336,9 @@ def build_code(it, report, texinfo):
     for ei, e in enumerate(pdata['elements']):
         name = e['path'].rsplit('/', 1)[-1]
         act, act_loop = intervals(e.get('activeIntervals')), intervals(e.get('activeLoopIntervals'))
-        if not (act and e.get('gpu')) and not (act_loop and e.get('gpuLoop')):
+        act_laps = [intervals(x) for x in e.get('activeLoopIntervalsLaps') or []]
+        loop_src = e.get('gpuLoops') or ([e['gpuLoop']] if e.get('gpuLoop') else [])
+        if not (act and e.get('gpu')) and not ((act_loop or act_laps) and any(loop_src)):
             skipped['켜지는 구간 · 그림 없음'] += 1
             continue
         mats = {m.get('slot', 0): m for m in e.get('materials') or []}
@@ -351,18 +356,22 @@ def build_code(it, report, texinfo):
                     skipped[why] += 1
                     continue
             frames = slot_frames(e.get('gpu'), k, m['sh'])
-            loop = slot_frames(e.get('gpuLoop'), k, m['sh'])
-            if frames or loop:
+            laps = [slot_frames(g, k, m['sh']) for g in loop_src]
+            if frames or any(laps):
                 slotmap[k] = len(draws)
                 d = {'m': m, 'f': frames}
-                if loop:
-                    d['fl'] = loop
+                if e.get('gpuLoops'):
+                    d['fls'] = laps          # 바퀴마다 다른 반복 구간
+                elif laps and laps[0]:
+                    d['fl'] = laps[0]
                 draws.append(d)
         if not draws:
             skipped['그리는 칸 없음'] += 1
             continue
         el = {'name': name, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
               'order': e.get('sortingOrder') or 0, 'active': act, 'activeLoop': act_loop, 'draws': draws}
+        if act_laps:
+            el['activeLoops'] = act_laps
         if e.get('sortingFudge'):
             el['fudge'] = r3(e['sortingFudge'])
         pb = pb_rows(e.get('propertyBlock'))
@@ -371,6 +380,8 @@ def build_code(it, report, texinfo):
         pbl = pb_rows(e.get('propertyBlockLoop'))
         if pbl:
             el['pbl'] = pbl
+        if e.get('propertyBlockLoops'):
+            el['pbls'] = [pb_rows(x) for x in e['propertyBlockLoops']]
         el_index[ei] = (len(elements), slotmap)
         elements.append(el)
 
@@ -391,7 +402,11 @@ def build_code(it, report, texinfo):
             continue
         spines[si]['zw'] = world_z(sr.get('world'), sr['path'])
         spines[si]['zwl'] = world_z(sr.get('worldLoop'), sr['path'])
+        if sr.get('worldLoops'):
+            spines[si]['zwls'] = [world_z(x, sr['path']) for x in sr['worldLoops']]
         spines[si]['activeLoop'] = intervals(sr.get('activeLoopIntervals'))
+        if sr.get('activeLoopIntervalsLaps'):
+            spines[si]['activeLoops'] = [intervals(x) for x in sr['activeLoopIntervalsLaps']]
 
     # 드로우 순서: 엔진이 실제로 실행한 순서. [0, 요소, 드로우] 또는 [1, Spine]
     spine_refs = [spine_index.get(sr['path']) for sr in pdata.get('spineRenderers') or []]
@@ -420,6 +435,7 @@ def build_code(it, report, texinfo):
 
     order = order_rows(pdata.get('drawOrder'))
     order_loop = order_rows(pdata.get('drawOrderLoop'))
+    order_loops = [order_rows(x) for x in pdata.get('drawOrderLoops') or []]
 
     jump = tl['jump'][0] if tl.get('jump') else None
     lp = pdata.get('loop')
@@ -444,7 +460,28 @@ def build_code(it, report, texinfo):
         'elements': elements,
         'order': order,
         'orderLoop': order_loop,
+        # 반복 구간 바퀴 수(추출: 자동 재생 파티클이 정확히 되풀이되는 주기, 없으면 이어 기록한 8바퀴)
+        'laps': (lp or {}).get('laps') or 1,
     }
+    if order_loops:
+        play['orderLoops'] = order_loops
+    # 2바퀴째부터의 파티클 프레임(용량 대부분)은 laps.json 으로 떼어 재생을 시작한 뒤 받는다.
+    # play.json 에는 첫 바퀴만 남긴다(fls = [바퀴0]). laps.json = {요소번호: {드로우번호: [바퀴1, 바퀴2, ...]}}
+    rest = {}
+    for ei, el in enumerate(elements):
+        for di, d in enumerate(el['draws']):
+            if len(d.get('fls') or []) > 1:
+                rest.setdefault(str(ei), {})[str(di)] = d['fls'][1:]
+                d['fls'] = d['fls'][:1]
+    if rest:
+        play['lapsFile'] = 1
+        laps_text = json.dumps(rest, ensure_ascii=False, separators=(',', ':'))
+        if WRITE:
+            with io.open(os.path.join(folder, 'laps.json'), 'w', encoding='utf-8', newline='\n') as f:
+                f.write(laps_text)
+        report['json'] += len(laps_text)
+    elif WRITE and os.path.exists(os.path.join(folder, 'laps.json')):
+        os.remove(os.path.join(folder, 'laps.json'))
     text = json.dumps(play, ensure_ascii=False, separators=(',', ':'))
     if WRITE:
         with io.open(os.path.join(folder, 'play.json'), 'w', encoding='utf-8', newline='\n') as f:

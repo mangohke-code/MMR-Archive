@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=7';
+const SKILLCUT_DATA_VER = '?d=8';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 화면비(가로/세로): 휴대폰 화면이면 9:16, 아니면 인게임 카메라 1:1. 그릴 때마다 지금 화면 기준으로 정한다.
@@ -31,7 +31,7 @@ const CostumeSkillcut = (() => {
   let code = null;          // 지금 코스튬 코드(컷신이 있을 때만)
   let data = null;          // 그 코드의 play.json
   let mode = null;          // 'full' | 'idle' | 'cut' | null(꺼짐)
-  let T = 0, paused = false, lastNow = 0, raf = 0, loadSeq = 0;
+  let T = 0, paused = false, lastNow = 0, raf = 0, loadSeq = 0, lap = 0;
   let layer, box, msg, resizeObs;
   let gl = null;            // { canvas, ctx, renderer, assets, ready, skels: [], tex: {} }
   const playCache = {};
@@ -71,12 +71,13 @@ const CostumeSkillcut = (() => {
     if (mode === 'cut') {
       // 컷신이 끝나면 바로 idle 반복으로(검은 화면 없이)
       if (T >= data.cutEnd) {
-        if (data.jump) { mode = 'idle'; T = data.jump.to; syncButtons(); } else { T = data.cutEnd - 1e-4; paused = true; }
+        if (data.jump) { mode = 'idle'; lap = 0; T = data.jump.to; syncButtons(); } else { T = data.cutEnd - 1e-4; paused = true; }
       }
     } else if (data.jump && T >= data.jump.at) {
       // 전체 재생도 반복 구간에 들어서면 idle 반복으로 넘어간다
       T = data.jump.to + (T - data.jump.at);
-      if (mode === 'full') { mode = 'idle'; syncButtons(); }
+      // 반복 구간은 되감을 때마다 다음 바퀴(바퀴별 데이터가 있을 때). 전체 재생에서 넘어오면 첫 바퀴
+      if (mode === 'full') { mode = 'idle'; lap = 0; syncButtons(); } else lap++;
     } else if (!data.jump && T >= data.length) {
       T = data.length - 1e-4; paused = true;
     }
@@ -87,7 +88,10 @@ const CostumeSkillcut = (() => {
 
   // 반복 구간 데이터: idle 반복(점프로 되감은 뒤)이면 추출 세션이 되감기 3바퀴 뒤에 기록한 한 바퀴를 쓴다.
   // 자동 재생 파티클이 되감기와 상관없이 이어져서 반복할 때 이펙트가 끊기지 않는다. 처음 재생은 원래 데이터.
-  const looped = () => mode === 'idle' && !!(data && data.orderLoop && data.orderLoop.length);
+  const looped = () => mode === 'idle' && !!(data && ((data.orderLoop && data.orderLoop.length) || data.orderLoops));
+  // 지금 바퀴(되감을 때마다 하나씩). 바퀴별 데이터(laps.json)를 받기 전에는 첫 바퀴
+  const lapIndex = () => (data.laps > 1 && (!data.lapsFile || data.lapsLoaded) ? lap % data.laps : 0);
+  const pick = (laps, one, li) => (laps ? laps[li] || laps[0] : one);
   // "바뀐 시각만" 줄에서 시각 t 의 값. 반복 구간은 첫 줄이 jump.to 보다 조금 늦게 적혀 있어(반올림) 그 앞은 첫 줄로 본다
   const holdIn = (rows, t, loop) => (loop && rows.length && t < rows[0][0] ? rows[0] : hold(rows, t));
 
@@ -126,32 +130,53 @@ const CostumeSkillcut = (() => {
 
   // play.json 을 처음 받았을 때 한 번: 프레임마다 빠진 채널(앞 프레임과 같은 값)을 앞 프레임 배열로 채우고 묶음을 펼친다.
   // 같은 배열을 함께 쓰므로 메모리는 바뀐 채널만큼만 는다.
+  // 프레임 줄을 꼭짓점 배열로 편다. 빠진 채널(앞 프레임과 같은 값)은 앞 프레임 배열을 함께 쓴다.
+  function buildRows(src) {
+    let prev = null;
+    return (src || []).map(([t, fd]) => {
+      if (!fd) { prev = null; return [t, null]; }
+      const n = fd.n, keep = prev && prev.n === n;
+      const fr = {
+        n,
+        P: fd.p ? new Float32Array(fd.p) : keep ? prev.P : null,
+        C: fd.c ? unrun(fd.c, 4, n, 1 / 255) : keep ? prev.C : null,
+        U: fd.u ? new Float32Array(fd.u) : keep ? prev.U : null,
+        A: fd.a ? unrun(fd.a, 4, n, 1) : keep ? prev.A : null,
+        B: fd.b ? unrun(fd.b, 1, n, 1) : keep ? prev.B : null,
+        N: fd.nr ? new Float32Array(fd.nr) : keep ? prev.N : null,
+        I: fd.i ? new Uint32Array(fd.i) : keep ? prev.I : null,
+      };
+      prev = fr;
+      return [t, fr];
+    });
+  }
+
+  // play.json 을 처음 받았을 때 한 번: 처음 재생 · 반복 구간(바퀴별이면 첫 바퀴만, 나머지는 laps.json) 프레임을 편다
   function prepare(d) {
     if (d.prepared) return d;
     d.elements.forEach(e => e.draws.forEach(dr => {
-      let prev = null;
-      const build = src => (src || []).map(([t, fd]) => {
-        if (!fd) { prev = null; return [t, null]; }
-        const n = fd.n, keep = prev && prev.n === n;
-        const fr = {
-          n,
-          P: fd.p ? new Float32Array(fd.p) : keep ? prev.P : null,
-          C: fd.c ? unrun(fd.c, 4, n, 1 / 255) : keep ? prev.C : null,
-          U: fd.u ? new Float32Array(fd.u) : keep ? prev.U : null,
-          A: fd.a ? unrun(fd.a, 4, n, 1) : keep ? prev.A : null,
-          B: fd.b ? unrun(fd.b, 1, n, 1) : keep ? prev.B : null,
-          N: fd.nr ? new Float32Array(fd.nr) : keep ? prev.N : null,
-          I: fd.i ? new Uint32Array(fd.i) : keep ? prev.I : null,
-        };
-        prev = fr;
-        return [t, fr];
-      });
-      dr.rows = build(dr.f);
-      prev = null;
-      dr.lrows = dr.fl ? build(dr.fl) : [];
+      dr.rows = buildRows(dr.f);
+      dr.lrows = dr.fl ? buildRows(dr.fl) : [];
+      dr.lapRows = dr.fls ? dr.fls.map(buildRows) : null;
     }));
     d.prepared = true;
     return d;
+  }
+
+  // 반복 구간 2바퀴째부터(laps.json)를 재생을 시작한 뒤 받는다. 받기 전에는 첫 바퀴만 되풀이한다.
+  function loadLaps(d) {
+    if (!d.lapsFile || d.lapsLoading) return;
+    d.lapsLoading = true;
+    fetch(skillcutBase(d.code) + 'laps.json' + SKILLCUT_DATA_VER).then(r => {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(rest => {
+      Object.entries(rest).forEach(([ei, draws]) => Object.entries(draws).forEach(([di, laps]) => {
+        const dr = d.elements[+ei].draws[+di];
+        laps.forEach((l, k) => { dr.lapRows[k + 1] = buildRows(l); });
+      }));
+      d.lapsLoaded = true;
+    }).catch(() => { d.lapsLoading = false; });
   }
 
   function frameAt(sp, t) {
@@ -201,12 +226,13 @@ const CostumeSkillcut = (() => {
     const a = skillcutAspect();
     // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
     const L = looped();
-    const row = L ? holdIn(data.orderLoop, T, true) : hold(data.order, T);
+    const li = L ? lapIndex() : 0;
+    const row = L ? holdIn(pick(data.orderLoops, data.orderLoop, li) || [], T, true) : hold(data.order, T);
     const r = g.renderer, cam = r.camera;
     for (const ref of (row ? row[1] : [])) {
       if (ref[0] === 1) {
         const o = g.skels[ref[1]];
-        if (!o || !activeAt(L ? o.sp.activeLoop || [] : o.sp.active, T)) continue;
+        if (!o || !activeAt(L ? pick(o.sp.activeLoops, o.sp.activeLoop, li) || [] : o.sp.active, T)) continue;
         poseSpine(o, T);
         const f = frameAt(o.sp, T);
         cam.setViewport(2 * f.hh * a, 2 * f.hh);
@@ -216,7 +242,7 @@ const CostumeSkillcut = (() => {
         c.enable(c.DEPTH_TEST);
         c.depthFunc(c.LEQUAL);
         c.depthMask(false);
-        const zrows = L ? o.sp.zwl : o.sp.zw;
+        const zrows = L ? pick(o.sp.zwls, o.sp.zwl, li) : o.sp.zw;
         const zr = zrows && zrows.length && holdIn(zrows, T, L);
         const dz = depthOf(zr ? zr[1] : o.sp.z);
         c.depthRange(dz, dz);
@@ -227,9 +253,9 @@ const CostumeSkillcut = (() => {
         c.disable(c.DEPTH_TEST);
       } else {
         const e = data.elements[ref[1]], dr = e && e.draws[ref[2]];
-        if (!dr || !activeAt(L ? e.activeLoop || [] : e.active, T)) continue;
+        if (!dr || !activeAt(L ? pick(e.activeLoops, e.activeLoop, li) || [] : e.active, T)) continue;
         if (!showLight && LIGHT_SHADERS.has(dr.m.sh)) continue;
-        const fr = L ? holdIn(dr.lrows, T, true) : hold(dr.rows, T);
+        const fr = L ? holdIn(pick(dr.lapRows, dr.lrows, li) || [], T, true) : hold(dr.rows, T);
         if (fr && fr[1]) drawElement({ e, dr, fr: fr[1] }, a);
       }
     }
@@ -450,7 +476,7 @@ const CostumeSkillcut = (() => {
 
   // 그 시각의 propertyBlock(타임라인이 움직이는 머티리얼 속성)
   const pbAt = e => {
-    const L = looped(), rows = L ? e.pbl : e.pb;
+    const L = looped(), rows = L ? pick(e.pbls, e.pbl, lapIndex()) : e.pb;
     return rows ? (holdIn(rows, T, L) || [0, null])[1] : null;
   };
 
@@ -698,6 +724,8 @@ const CostumeSkillcut = (() => {
       if (seq !== loadSeq || !mode) return;   // 그사이 끄거나 다른 버튼을 눌렀다
     }
     T = m === 'idle' && data.jump ? data.jump.to : 0;
+    lap = 0;
+    loadLaps(data);
     if (!gl) { showMsg('불러오는 중…'); createGL(); }
     if (!raf) raf = requestAnimationFrame(loop);
   }
@@ -785,5 +813,7 @@ const CostumeSkillcut = (() => {
     isReady: () => !!(gl && gl.ready),
     adapter,
     snapshot,
+    // 점검용: 지금 시각 · 모드 · 반복 바퀴
+    state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
   };
 })();
