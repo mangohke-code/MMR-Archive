@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=11';
+const SKILLCUT_DATA_VER = '?d=12';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 요소 텍스처 공용 폴더(코스튬끼리 같은 그림을 같이 써서 한 벌만 둔다)
@@ -267,6 +267,10 @@ const CostumeSkillcut = (() => {
     const cw = Math.max(1, Math.round(W * dpr)), ch = Math.max(1, Math.round(H * dpr));
     if (g.canvas.width !== cw || g.canvas.height !== ch) { g.canvas.width = cw; g.canvas.height = ch; }
     const c = g.ctx.gl;
+    // 게임(PC · HD 화질)은 HDR 켬: 중간 버퍼가 B10G11R11 부동소수라 드로우마다 0~1 로 잘리지 않고, 마지막에 8비트 화면으로 복사된다
+    // (URP 12 MakeRenderTextureGraphicsFormat, 후처리 · 톤매핑 없음). 같은 형식 R11F_G11F_B10F 에 그린 뒤 캔버스로 옮긴다
+    const hdr = useHdr ? hdrTarget(g, cw, ch) : null;
+    c.bindFramebuffer(c.FRAMEBUFFER, hdr ? hdr.fb : null);
     c.viewport(0, 0, cw, ch);
     c.clearColor(0, 0, 0, 1);
     c.depthMask(true);
@@ -326,9 +330,74 @@ const CostumeSkillcut = (() => {
         if (fr && fr[1]) drawElement({ e, dr, fr: fr[1] }, a);
       }
     }
+    if (hdr) blitHdr(g, hdr, cw, ch);
+  }
+
+  // HDR 중간 버퍼(R11F_G11F_B10F 색 + 24비트 깊이). WebGL2 + EXT_color_buffer_float 가 없으면 null → 8비트로 바로 그린다
+  function hdrTarget(g, w, h) {
+    const c = g.ctx.gl;
+    if (g.hdr === false) return null;
+    if (!g.hdr) {
+      const ok = typeof WebGL2RenderingContext !== 'undefined' && c instanceof WebGL2RenderingContext && c.getExtension('EXT_color_buffer_float');
+      if (!ok) { g.hdr = false; return null; }
+      const vs = 'attribute vec2 aP; varying vec2 vT; void main() { vT = aP * 0.5 + 0.5; gl_Position = vec4(aP, 0.0, 1.0); }';
+      const fs = 'precision highp float; uniform sampler2D tS; varying vec2 vT; void main() { gl_FragColor = vec4(texture2D(tS, vT).rgb, 1.0); }';
+      const prog = c.createProgram();
+      [[c.VERTEX_SHADER, vs], [c.FRAGMENT_SHADER, fs]].forEach(([t, src]) => {
+        const s = c.createShader(t); c.shaderSource(s, src); c.compileShader(s); c.attachShader(prog, s);
+      });
+      c.linkProgram(prog);
+      const buf = c.createBuffer();
+      c.bindBuffer(c.ARRAY_BUFFER, buf);
+      c.bufferData(c.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), c.STATIC_DRAW);
+      g.hdr = { prog, buf, aP: c.getAttribLocation(prog, 'aP'), tS: c.getUniformLocation(prog, 'tS'), w: 0, h: 0 };
+    }
+    const t = g.hdr;
+    if (t.w !== w || t.h !== h) {
+      if (t.fb) { c.deleteFramebuffer(t.fb); c.deleteTexture(t.tex); c.deleteRenderbuffer(t.depth); }
+      t.tex = c.createTexture();
+      c.bindTexture(c.TEXTURE_2D, t.tex);
+      c.texStorage2D(c.TEXTURE_2D, 1, c.R11F_G11F_B10F, w, h);
+      c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MIN_FILTER, c.NEAREST);
+      c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MAG_FILTER, c.NEAREST);
+      c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_S, c.CLAMP_TO_EDGE);
+      c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_T, c.CLAMP_TO_EDGE);
+      t.depth = c.createRenderbuffer();
+      c.bindRenderbuffer(c.RENDERBUFFER, t.depth);
+      c.renderbufferStorage(c.RENDERBUFFER, c.DEPTH_COMPONENT24, w, h);
+      t.fb = c.createFramebuffer();
+      c.bindFramebuffer(c.FRAMEBUFFER, t.fb);
+      c.framebufferTexture2D(c.FRAMEBUFFER, c.COLOR_ATTACHMENT0, c.TEXTURE_2D, t.tex, 0);
+      c.framebufferRenderbuffer(c.FRAMEBUFFER, c.DEPTH_ATTACHMENT, c.RENDERBUFFER, t.depth);
+      const done = c.checkFramebufferStatus(c.FRAMEBUFFER) === c.FRAMEBUFFER_COMPLETE;
+      c.bindFramebuffer(c.FRAMEBUFFER, null);
+      c.bindTexture(c.TEXTURE_2D, null);
+      if (!done) { g.hdr = false; return null; }
+      t.w = w; t.h = h;
+    }
+    return t;
+  }
+
+  // HDR 버퍼 → 캔버스(8비트). Graphics.Blit 처럼 그대로 복사(1 넘는 값은 여기서 잘린다)
+  function blitHdr(g, t, w, h) {
+    const c = g.ctx.gl;
+    c.bindFramebuffer(c.FRAMEBUFFER, null);
+    c.viewport(0, 0, w, h);
+    c.disable(c.BLEND); c.disable(c.DEPTH_TEST); c.disable(c.CULL_FACE); c.depthMask(true);
+    c.useProgram(t.prog);
+    c.activeTexture(c.TEXTURE0);
+    c.bindTexture(c.TEXTURE_2D, t.tex);
+    c.uniform1i(t.tS, 0);
+    c.bindBuffer(c.ARRAY_BUFFER, t.buf);
+    c.enableVertexAttribArray(t.aP);
+    c.vertexAttribPointer(t.aP, 2, c.FLOAT, false, 0, 0);
+    c.drawArrays(c.TRIANGLES, 0, 3);
+    c.disableVertexAttribArray(t.aP);
+    c.bindTexture(c.TEXTURE_2D, null);
   }
 
   const NO_UPDATE = () => {};
+  let useHdr = true;        // 점검용 render({ hdr: false }) 로 8비트(게임 SD · HDR 꺼짐) 화면도 볼 수 있다
 
   // 월드 z(카메라 앞 거리) → 깊이 버퍼 값(0~1). 요소 정점 셰이더와 같은 투영
   function depthOf(z) {
@@ -971,7 +1040,7 @@ const CostumeSkillcut = (() => {
     state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
     // 점검용(엔진 기준 화면과 비교): 처음 재생(lap null) 또는 반복 바퀴 lap 의 시각 t 를, 셰이더 시간 shaderTime 으로,
     // size×size(px) 에 그려 PNG 로 돌려준다
-    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null }) {
+    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null, hdr = true }) {
       if (!gl || !gl.ready) return null;
       const keep = { mode, lap, T, flowT, paused };
       mode = lp === null ? 'full' : 'idle';
@@ -980,12 +1049,14 @@ const CostumeSkillcut = (() => {
       flowT = shaderTime;
       forceSize = [size, size];
       drawFilter = filter;
+      useHdr = hdr;
       try {
         draw();
         return gl.canvas.toDataURL('image/png');
       } finally {
         forceSize = null;
         drawFilter = null;
+        useHdr = true;
         ({ mode, lap, T, flowT, paused } = keep);
       }
     },
