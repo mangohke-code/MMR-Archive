@@ -10,10 +10,10 @@
     _skillcut_elements/<코드>/        요소 텍스처 PNG
 
 출력 (저장소):
-    l2d/<코드>/skillcut/play.json    js/skillcut.js 가 읽는 재생 데이터
-    l2d/<코드>/skillcut/laps.json    반복 구간 2바퀴째부터의 파티클 프레임(재생을 시작한 뒤 따로 받는다)
+    l2d/<코드>/skillcut/play.json.gz 재생 데이터(gzip, 브라우저가 DecompressionStream 으로 푼다)
+    l2d/<코드>/skillcut/laps.json.gz 반복 구간 2바퀴째부터의 파티클 프레임(재생을 시작한 뒤 따로 받는다)
     l2d/<코드>/skillcut/*.skel · *.atlas · *.webp   텍스처는 무손실 WebP(원본 픽셀 그대로), atlas 의 페이지 이름도 고친다
-    l2d/<코드>/skillcut/el/*.webp     요소 텍스처(무손실 WebP)
+    l2d/skillcut-el/*.webp            요소 텍스처(무손실 WebP) - 코스튬끼리 같은 그림을 같이 써서 한 폴더에 한 벌만
     l2d/skillcut.json                컷신이 있는 코드 목록
 
 요소 (play.json elements[]):
@@ -51,6 +51,8 @@ Spine 의 zw = [[t, 월드 z]] - 뼈대 평면의 깊이(ZTest LessEqual 로 불
     python tools/build_skillcut.py --write [코드 ...]   # 저장소에 쓴다
 """
 
+import gzip
+import hashlib
 import io
 import json
 import os
@@ -66,6 +68,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(HERE)
 SRC = os.path.join(os.path.dirname(WEB), '리소스', '코스튬')
 L2D = os.path.join(WEB, 'l2d')
+# 요소 텍스처는 코스튬끼리 같은 그림을 많이 같이 써서(fx_gra_04 는 34개 전부, fx_c271_cut_scene_blen 은 8개) 한 폴더에 한 벌만 둔다
+EL_DIR = os.path.join(L2D, 'skillcut-el')
+EL_SEEN = {}          # 사이트 파일 이름 → 원본 PNG md5 (이름이 같아도 내용이 다르면 해시를 붙여 나눈다)
 WRITE = '--write' in sys.argv
 
 OVERLAY_LAYER = 570438649   # 스프라이트 전용 정렬 레이어(값 4) - Spine(레이어 0)보다 나중에 그린다
@@ -134,6 +139,16 @@ def convert_set(res, folder, report):
     return stem
 
 
+def write_gz(path, text):
+    """재생 데이터는 미리 gzip 으로 압축해 저장한다(js/skillcut.js 가 DecompressionStream 으로 푼다).
+    GitHub Pages 가 JSON 을 보낼 때 하던 압축과 같은 크기라 받는 양은 그대로이고, 저장 용량은 약 1/4. 반환: 압축 크기"""
+    data = gzip.compress(text.encode('utf-8'), compresslevel=9, mtime=0)
+    if WRITE:
+        with open(path, 'wb') as f:
+            f.write(data)
+    return len(data)
+
+
 def frame_of(sp):
     f = sp.get('frame') or {}
     if f.get('static'):
@@ -191,7 +206,9 @@ def build_code(it, report, texinfo):
     code = it['code']
     folder = os.path.join(L2D, code, 'skillcut')
     if WRITE:
-        os.makedirs(os.path.join(folder, 'el'), exist_ok=True)
+        os.makedirs(folder, exist_ok=True)
+        if os.path.isdir(os.path.join(folder, 'el')):
+            shutil.rmtree(os.path.join(folder, 'el'))   # 예전 코스튬별 요소 텍스처 폴더
 
     # 파일 세트(같은 skel 을 여러 오브젝트가 쓴다)
     files = {}
@@ -231,23 +248,31 @@ def build_code(it, report, texinfo):
     edir = os.path.join(SRC, '_skillcut_elements', code)
     texenv = texinfo['materials'].get(code, {})
     textures = texinfo['textures']
-    converted = set()
+    converted = {}
     skipped = Counter()
 
     def tex_file(name):
-        """텍스처 이름 → 사이트 파일(el/<이름>.webp). 없으면 None"""
+        """텍스처 이름 → 공용 폴더(l2d/skillcut-el)의 파일 이름. 없으면 None"""
         if not name:
             return None
         src = os.path.join(edir, name + '.png')
         if not os.path.exists(src):
             return None
+        if src in converted:
+            return converted[src]
+        h = hashlib.md5(open(src, 'rb').read()).hexdigest()
         wname = name + '.webp'
-        if wname not in converted:
-            converted.add(wname)
-            a, b = to_webp(src, os.path.join(folder, 'el', wname))
+        if EL_SEEN.get(wname, h) != h:
+            wname = f'{name}-{h[:8]}.webp'       # 같은 이름 다른 그림(예: fx_jh_snow_ball_01)
+        if wname not in EL_SEEN:
+            EL_SEEN[wname] = h
+            if WRITE:
+                os.makedirs(EL_DIR, exist_ok=True)
+            a, b = to_webp(src, os.path.join(EL_DIR, wname))
             report['png'] += a
             report['webp'] += b
-        return 'el/' + wname
+        converted[src] = wname
+        return wname
 
     def tex_entry(name, st):
         ti = textures.get(name) or {}
@@ -476,18 +501,16 @@ def build_code(it, report, texinfo):
     if rest:
         play['lapsFile'] = 1
         laps_text = json.dumps(rest, ensure_ascii=False, separators=(',', ':'))
-        if WRITE:
-            with io.open(os.path.join(folder, 'laps.json'), 'w', encoding='utf-8', newline='\n') as f:
-                f.write(laps_text)
-        report['json'] += len(laps_text)
-    elif WRITE and os.path.exists(os.path.join(folder, 'laps.json')):
-        os.remove(os.path.join(folder, 'laps.json'))
+        report['json'] += write_gz(os.path.join(folder, 'laps.json.gz'), laps_text)
+    elif WRITE and os.path.exists(os.path.join(folder, 'laps.json.gz')):
+        os.remove(os.path.join(folder, 'laps.json.gz'))
     text = json.dumps(play, ensure_ascii=False, separators=(',', ':'))
+    report['json'] += write_gz(os.path.join(folder, 'play.json.gz'), text)
     if WRITE:
-        with io.open(os.path.join(folder, 'play.json'), 'w', encoding='utf-8', newline='\n') as f:
-            f.write(text)
+        for old in ('play.json', 'laps.json'):          # 예전 압축 안 한 파일
+            if os.path.exists(os.path.join(folder, old)):
+                os.remove(os.path.join(folder, old))
     report['codes'].append(code)
-    report['json'] += len(text)
     shs = Counter(d['m']['sh'] for x in elements for d in x['draws'])
     print(f'{code}: Spine {len(spines)} · 요소 {len(elements)} ({", ".join(f"{k} {v}" for k, v in shs.items())})'
           f' · play.json {len(text) / 1e6:.2f}MB'
@@ -507,7 +530,7 @@ def main():
         with io.open(os.path.join(L2D, 'skillcut.json'), 'w', encoding='utf-8', newline='\n') as f:
             json.dump(sorted(report['codes']), f)
     print(f'\n{len(report["codes"])}개 · 그림 PNG {report["png"] / 1e6:.1f}MB → WebP {report["webp"] / 1e6:.1f}MB'
-          f' · play.json 합계 {report["json"] / 1e6:.1f}MB'
+          f' · 재생 데이터(gzip) 합계 {report["json"] / 1e6:.1f}MB'
           + ('' if WRITE else '  (확인만 - --write 로 쓴다)'))
 
 

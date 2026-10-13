@@ -7,7 +7,7 @@
 //   idle 반복  : 전체 재생의 반복 구간만
 // 재생 버튼은 누를 때마다 처음부터 다시 튼다(켜고 끄는 단추가 아니다).
 //
-// 데이터: l2d/<코드>/skillcut/play.json (tools/build_skillcut.py 가 추출 세션의 _skillcut_playback.json 에서 만든다).
+// 데이터: l2d/<코드>/skillcut/play.json.gz (tools/build_skillcut.py 가 추출 세션의 _skillcut_playback.json 에서 만든다).
 // 인게임 라이브 월페이퍼는 Spine 오브젝트 여러 개 · 배경 그림 · 검은 판을 원근 카메라 하나로 비춘다.
 // 오브젝트마다 카메라와의 거리가 달라서 skel 좌표로 본 화면 범위(중심 cx·cy, 세로 반높이 hh)가 저마다 다르고,
 // 15개는 그 범위가 시간에 따라 움직인다(30fps 표본). 그래서 Spine 플레이어(뼈대 하나 · 화면 하나)를 쓰지 않고
@@ -20,9 +20,25 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=8';
+const SKILLCUT_DATA_VER = '?d=9';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
+// 요소 텍스처 공용 폴더(코스튬끼리 같은 그림을 같이 써서 한 벌만 둔다)
+const SKILLCUT_EL = 'l2d/skillcut-el/';
+
+// 재생 데이터는 미리 gzip 으로 압축해 저장한다(저장 용량 약 1/4, 받는 양은 같음). 받은 바이트가 gzip(1f 8b)이면 풀고,
+// 서버가 이미 풀어서 보냈으면 그대로 읽는다.
+async function fetchGzJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(r.status);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('이 브라우저는 압축 풀기를 지원하지 않습니다');
+    const ds = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(ds).text());
+  }
+  return JSON.parse(new TextDecoder().decode(buf));
+}
 // 화면비(가로/세로): 휴대폰 화면이면 9:16, 아니면 인게임 카메라 1:1. 그릴 때마다 지금 화면 기준으로 정한다.
 const skillcutAspect = () => (L2D_MOBILE_MQ.matches ? 9 / 16 : 1);
 
@@ -167,10 +183,7 @@ const CostumeSkillcut = (() => {
   function loadLaps(d) {
     if (!d.lapsFile || d.lapsLoading) return;
     d.lapsLoading = true;
-    fetch(skillcutBase(d.code) + 'laps.json' + SKILLCUT_DATA_VER).then(r => {
-      if (!r.ok) throw new Error(r.status);
-      return r.json();
-    }).then(rest => {
+    fetchGzJson(skillcutBase(d.code) + 'laps.json.gz' + SKILLCUT_DATA_VER).then(rest => {
       Object.entries(rest).forEach(([ei, draws]) => Object.entries(draws).forEach(([di, laps]) => {
         const dr = d.elements[+ei].draws[+di];
         laps.forEach((l, k) => { dr.lapRows[k + 1] = buildRows(l); });
@@ -589,7 +602,7 @@ const CostumeSkillcut = (() => {
     g.skels = data.spines.map(sp => ({ sp, skeleton: new spine.Skeleton(datas[sp.file]), anims: {} }));
     g.fx = createFx(g.ctx.gl);
     elementTextures().forEach(([t, w]) => {
-      g.tex[t] = g.assets.require(base + t + SKILLCUT_DATA_VER);
+      g.tex[t] = g.assets.require(SKILLCUT_EL + t + SKILLCUT_DATA_VER);
       setupTexture(g.fx, g.ctx.gl, g.tex[t], w);
     });
     g.ready = true;
@@ -621,7 +634,7 @@ const CostumeSkillcut = (() => {
       assets.loadBinary(base + f + '.skel');
       assets.loadTextureAtlas(base + f + '.atlas');
     }
-    elementTextures().forEach(([t]) => assets.loadTexture(base + t + SKILLCUT_DATA_VER));
+    elementTextures().forEach(([t]) => assets.loadTexture(SKILLCUT_EL + t + SKILLCUT_DATA_VER));
     gl = { canvas, ctx, renderer, assets, ready: false, skels: [], tex: {} };
   }
 
@@ -697,10 +710,7 @@ const CostumeSkillcut = (() => {
 
   async function loadPlay(c) {
     if (!playCache[c]) {
-      playCache[c] = fetch(skillcutBase(c) + 'play.json' + SKILLCUT_DATA_VER).then(r => {
-        if (!r.ok) throw new Error(r.status);
-        return r.json();
-      });
+      playCache[c] = fetchGzJson(skillcutBase(c) + 'play.json.gz' + SKILLCUT_DATA_VER);
       playCache[c].catch(() => { delete playCache[c]; });
     }
     return playCache[c];
