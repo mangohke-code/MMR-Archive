@@ -48,6 +48,12 @@ const CostumeSkillcut = (() => {
   let data = null;          // 그 코드의 play.json
   let mode = null;          // 'full' | 'idle' | 'cut' | null(꺼짐)
   let T = 0, paused = false, lastNow = 0, raf = 0, loadSeq = 0, lap = 0;
+  // 셰이더 흐름 시간(_TimeParameters.x): 게임은 앱을 켠 뒤 계속 흐르는 시간이라 되감기와 상관없이 이어진다.
+  // 위상은 데이터로 알 수 없어 재생을 시작한 시각에서 출발해 재생하는 동안 계속 흐르게 한다(되감아도 돌아가지 않는다).
+  let flowT = 0;
+  // 확대 · 이동(사용자 요청, 2026-10-13). zoom 1 = 기본 화면(이보다 작게는 못 줄인다), pan = 화면 가운데가 가리키는 곳(NDC -1~1)
+  const ZOOM_MAX = 6;
+  let zoom = 1, panX = 0, panY = 0;
   let layer, box, msg, resizeObs;
   let gl = null;            // { canvas, ctx, renderer, assets, ready, skels: [], tex: {} }
   const playCache = {};
@@ -60,11 +66,14 @@ const CostumeSkillcut = (() => {
 
   // ---- 시간 ----
   // 모드마다 시각의 범위. 진행바 · 처음부터 버튼은 이 범위를 쓴다.
+  // 게임(30fps)은 점프 마커 시각의 프레임을 그린 다음 프레임을 정확히 jump.to 로 그린다. 그래서 한 바퀴는 jump.at 다음 한 프레임까지다.
+  const FRAME = 1 / 30;
+  const loopEnd = () => data.jump.at + FRAME;
   function range() {
     if (!data) return [0, 1];
-    if (mode === 'idle' && data.jump) return [data.jump.to, data.jump.at];
+    if (mode === 'idle' && data.jump) return [data.jump.to, loopEnd()];
     if (mode === 'cut') return [0, data.cutEnd];
-    return [0, data.jump ? data.jump.at : data.length];
+    return [0, data.jump ? loopEnd() : data.length];
   }
 
   // 진행바(setupL2dBar)가 보는 "플레이어" - 바깥 타임라인 시각을 트랙 시간처럼 보여 준다
@@ -84,16 +93,18 @@ const CostumeSkillcut = (() => {
   function advance(dt) {
     if (paused || !data) return;
     T += dt;
+    flowT += dt;
     if (mode === 'cut') {
       // 컷신이 끝나면 바로 idle 반복으로(검은 화면 없이)
       if (T >= data.cutEnd) {
         if (data.jump) { mode = 'idle'; lap = 0; T = data.jump.to; syncButtons(); } else { T = data.cutEnd - 1e-4; paused = true; }
       }
-    } else if (data.jump && T >= data.jump.at) {
+    } else if (data.jump && T >= loopEnd()) {
       // 전체 재생도 반복 구간에 들어서면 idle 반복으로 넘어간다
-      T = data.jump.to + (T - data.jump.at);
-      // 반복 구간은 되감을 때마다 다음 바퀴(바퀴별 데이터가 있을 때). 전체 재생에서 넘어오면 첫 바퀴
-      if (mode === 'full') { mode = 'idle'; lap = 0; syncButtons(); } else lap++;
+      T = data.jump.to + (T - loopEnd());
+      // 반복 구간은 되감을 때마다 다음 바퀴. 전체 재생에서 넘어오면 첫 바퀴.
+      // 바퀴별 데이터(laps.json)를 아직 못 받았으면 첫 바퀴에 머문다(받는 순간 바퀴가 갑자기 바뀌지 않게)
+      if (mode === 'full') { mode = 'idle'; lap = 0; syncButtons(); } else if (!data.lapsFile || data.lapsLoaded) lap++;
     } else if (!data.jump && T >= data.length) {
       T = data.length - 1e-4; paused = true;
     }
@@ -248,8 +259,8 @@ const CostumeSkillcut = (() => {
         if (!o || !activeAt(L ? pick(o.sp.activeLoops, o.sp.activeLoop, li) || [] : o.sp.active, T)) continue;
         poseSpine(o, T);
         const f = frameAt(o.sp, T);
-        cam.setViewport(2 * f.hh * a, 2 * f.hh);
-        cam.position.set(f.cx, f.cy, 0);
+        cam.setViewport(2 * f.hh * a / zoom, 2 * f.hh / zoom);
+        cam.position.set(f.cx + panX * f.hh * a, f.cy + panY * f.hh, 0);
         cam.zoom = 1;
         // Spine 셰이더(Skeleton Alpha Dither): ZWrite Off · ZTest LessEqual. 뼈대가 월드 z 한 평면이라 그 깊이로 검사한다
         c.enable(c.DEPTH_TEST);
@@ -290,15 +301,16 @@ const CostumeSkillcut = (() => {
   //   uvblend  NK_fx_uv_blend                     b3d        NK_fx_blend_3d(불투명)
   //   fresnel  NK_fx_fresnel                      sprite     Sprites/Default
   // 안개: 전역값을 게임 코드가 넣어 데이터로 정할 수 없어 안개 비율 1(안개 없음)로 둔다(사용자 결정 2026-10-13).
-  // _TimeParameters.x(게임 시작 후 시간)는 위상을 데이터로 알 수 없어 타임라인 시각을 쓴다(흐름 속도는 같다).
+  // _TimeParameters.x(게임 시작 후 시간)는 위상을 데이터로 알 수 없어, 재생 시작부터 멈추지 않고 흐르는 시간(flowT)을 쓴다.
   const FX_VS = [
     'attribute vec3 aPos; attribute vec2 aUv; attribute vec4 aCol; attribute vec4 aT1; attribute float aT2; attribute vec3 aNrm;',
-    'uniform float uTan; uniform float uAspect; uniform vec2 uDepth;',
+    'uniform float uTan; uniform float uAspect; uniform vec2 uDepth; uniform vec3 uView;',
     'varying vec2 vUv; varying vec4 vCol; varying vec4 vT1; varying float vT2; varying vec3 vW; varying vec3 vN;',
     'void main() {',
     '  vUv = aUv; vCol = aCol; vT1 = aT1; vT2 = aT2; vW = aPos;',
     '  float l = dot(aNrm, aNrm); vN = l > 0.0 ? aNrm * inversesqrt(l) : aNrm;',
-    '  gl_Position = vec4(aPos.x / (uTan * uAspect), aPos.y / uTan, aPos.z * uDepth.x + uDepth.y, aPos.z);',
+    // 확대 · 이동: 화면 좌표(NDC)를 (NDC − pan) × zoom 으로. w = z 라 X 쪽에서 pan × w 를 뺀다
+    '  gl_Position = vec4((aPos.x / (uTan * uAspect) - uView.y * aPos.z) * uView.x, (aPos.y / uTan - uView.z * aPos.z) * uView.x, aPos.z * uDepth.x + uDepth.y, aPos.z);',
     '}',
   ].join('\n');
   const FX_FS = [
@@ -453,7 +465,7 @@ const CostumeSkillcut = (() => {
     c.linkProgram(prog);
     if (!c.getProgramParameter(prog, c.LINK_STATUS)) throw new Error(c.getProgramInfoLog(prog));
     const u = {};
-    ['uTan', 'uAspect', 'uDepth', 'uMode', 'uAT', 'uTime', 'uColor', 'uOv', 'uLc', 'uGc', 'uRc', 'uRot', 'uNoise',
+    ['uTan', 'uAspect', 'uDepth', 'uView', 'uMode', 'uAT', 'uTime', 'uColor', 'uOv', 'uLc', 'uGc', 'uRc', 'uRot', 'uNoise',
       'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT']
       .concat(...TEX_UNITS.map(t => t.slice(1))).forEach(n => { u[n] = c.getUniformLocation(prog, n); });
     const white = c.createTexture();
@@ -511,9 +523,10 @@ const CostumeSkillcut = (() => {
     c.uniform1f(u.uTan, data.tanHalfFov);
     c.uniform1f(u.uAspect, aspect);
     c.uniform2f(u.uDepth, (f + n) / (f - n), -2 * f * n / (f - n));
+    c.uniform3f(u.uView, zoom, panX, panY);
     c.uniform1f(u.uMode, FX_MODE[m.sh]);
     c.uniform1f(u.uAT, m.at ? 1 : 0);
-    c.uniform1f(u.uTime, T);
+    c.uniform1f(u.uTime, flowT);
     const fl = m.f, col = m.c;
     const bloom = pb && pb.bloom !== undefined ? pb.bloom : fl.bloom === undefined ? 1 : fl.bloom;
     c.uniform4fv(u.uColor, (pb && pb.color) || col.color || [1, 1, 1, 1]);
@@ -659,8 +672,90 @@ const CostumeSkillcut = (() => {
     // 그림 칸에서 쓰는 끌기 · 휠 확대는 숨어 있는 L2D 모델을 움직인다. 컷신 위에서는 막는다.
     ['wheel', 'mousedown', 'touchstart', 'pointerdown', 'dblclick'].forEach(type =>
       layer.addEventListener(type, e => e.stopPropagation(), { passive: true }));
+    wireZoom();
     resizeObs = new ResizeObserver(fitBox);
     resizeObs.observe(layer);
+  }
+
+  // ---- 확대 · 이동 ----
+  // 휠 / 두 손가락으로 확대(가리킨 곳을 붙든 채), 확대한 상태에서 끌어서 이동, 더블클릭(더블탭)으로 처음 크기.
+  // 기본 화면보다 작게는 줄이지 않고, 이동은 기본 화면 밖으로 나가지 않게 막는다.
+  function clampView() {
+    zoom = Math.min(ZOOM_MAX, Math.max(1, zoom));
+    const m = 1 - 1 / zoom;
+    panX = Math.min(m, Math.max(-m, panX));
+    panY = Math.min(m, Math.max(-m, panY));
+    if (box) box.classList.toggle('is-zoomed', zoom > 1.001);
+    if (paused && gl && gl.ready) draw();     // 멈춘 상태에서도 바로 보인다
+  }
+
+  function resetView() {
+    zoom = 1; panX = 0; panY = 0;
+    clampView();
+  }
+
+  // 상자 안 화면 좌표(px) → NDC
+  function ndcAt(clientX, clientY) {
+    const r = box.getBoundingClientRect();
+    return [((clientX - r.left) / r.width) * 2 - 1, 1 - ((clientY - r.top) / r.height) * 2];
+  }
+
+  // (cx, cy) NDC 지점을 붙든 채 배율을 z 로
+  function zoomAt(z, cx, cy) {
+    const qx = cx / zoom + panX, qy = cy / zoom + panY;
+    zoom = Math.min(ZOOM_MAX, Math.max(1, z));
+    panX = qx - cx / zoom;
+    panY = qy - cy / zoom;
+    clampView();
+  }
+
+  function wireZoom() {
+    box.style.touchAction = 'none';
+    box.addEventListener('wheel', e => {
+      e.preventDefault();
+      const [cx, cy] = ndcAt(e.clientX, e.clientY);
+      zoomAt(zoom * Math.exp(-e.deltaY * 0.0015), cx, cy);
+    }, { passive: false });
+    box.addEventListener('dblclick', e => { e.preventDefault(); resetView(); });
+    const pts = new Map();
+    let pinch = null, lastTap = 0;
+    box.addEventListener('pointerdown', e => {
+      box.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: zoom };
+      }
+      if (e.pointerType === 'touch' && pts.size === 1) {
+        const now = performance.now();
+        if (now - lastTap < 300) resetView();
+        lastTap = now;
+      }
+    });
+    box.addEventListener('pointermove', e => {
+      const prev = pts.get(e.pointerId);
+      if (!prev) return;
+      const cur = [e.clientX, e.clientY];
+      pts.set(e.pointerId, cur);
+      if (pts.size >= 2 && pinch) {
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        const [cx, cy] = ndcAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+        zoomAt(pinch.z * d / Math.max(1, pinch.d), cx, cy);
+        return;
+      }
+      if (zoom <= 1.001) return;
+      const r = box.getBoundingClientRect();
+      panX -= ((cur[0] - prev[0]) / r.width) * 2 / zoom;
+      panY += ((cur[1] - prev[1]) / r.height) * 2 / zoom;
+      clampView();
+    });
+    const up = e => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) pinch = null;
+    };
+    box.addEventListener('pointerup', up);
+    box.addEventListener('pointercancel', up);
   }
 
   function showMsg(text) {
@@ -734,6 +829,8 @@ const CostumeSkillcut = (() => {
       if (seq !== loadSeq || !mode) return;   // 그사이 끄거나 다른 버튼을 눌렀다
     }
     T = m === 'idle' && data.jump ? data.jump.to : 0;
+    flowT = T;
+    resetView();
     lap = 0;
     loadLaps(data);
     if (!gl) { showMsg('불러오는 중…'); createGL(); }
@@ -809,6 +906,7 @@ const CostumeSkillcut = (() => {
 
   // 점검용: 시각 t 로 멈추고 한 장 그려 이미지로 돌려준다(그린 직후라 캔버스를 읽을 수 있다)
   function snapshot(t) {
+    flowT = t;
     if (!gl || !gl.ready) return null;
     paused = true;
     T = t;
@@ -825,5 +923,14 @@ const CostumeSkillcut = (() => {
     snapshot,
     // 점검용: 지금 시각 · 모드 · 반복 바퀴
     state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
+    // 점검용: 재생과 똑같이 dt 만큼 진행(되감기 · 바퀴 넘김 포함)한 뒤 한 장 그려 돌려준다
+    step(dt) {
+      if (!gl || !gl.ready) return null;
+      paused = false;
+      advance(dt);
+      paused = true;
+      draw();
+      return gl.canvas.toDataURL('image/jpeg', 0.8);
+    },
   };
 })();

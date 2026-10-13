@@ -8923,6 +8923,9 @@
   #costume-skillcut-layer.hidden { display: none; }
   #costume-skillcut-layer .skillcut-box { position: relative; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
   #costume-skillcut-layer .skillcut-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* 확대 · 이동(skillcut.js wireZoom): 확대했을 때만 끌 수 있다는 표시 */
+  #costume-skillcut-layer .skillcut-box.is-zoomed { cursor: grab; }
+  #costume-skillcut-layer .skillcut-box.is-zoomed:active { cursor: grabbing; }
   #costume-skillcut-layer .skillcut-msg {
     position: absolute;
     inset: 0;
