@@ -301,6 +301,13 @@ def build_code(it, report, texinfo):
                 continue
             tname = te['texture'] if te['state'] == 'texture' else None
             tex[key] = tex_entry(tname, te['scale'] + te['offset'])
+        # 텍스처가 있는 칸은 그 요소에 기록된 머티리얼 값이 우선이다. texEnvs 는 이름으로 찾는데, 한 코스튬 안에
+        # 이름은 같고 값이 다른 머티리얼이 있다(c017_01 fx_c017_00_cut_scene_uv_11 의 _NoiseTex: 본팔로워 fx_aura 는
+        # (2, 0.4, 0, -0.1), 다른 fx_aura 는 (5, 1, 0, -0.06)). 빈 칸(null)은 단색 기본 텍스처라 ST 가 결과에 영향이 없다
+        for te in mat.get('textures') or []:
+            key = TEX_PROPS.get(te['prop'])
+            if key:
+                tex[key] = tex_entry(te['texture'], [te['scale']['x'], te['scale']['y'], te['offset']['x'], te['offset']['y']])
         fl = mat.get('floats') or {}
         co = mat.get('colors') or {}
         m = {'sh': sh, 'tex': tex,
@@ -393,7 +400,7 @@ def build_code(it, report, texinfo):
         if not draws:
             skipped['그리는 칸 없음'] += 1
             continue
-        el = {'name': name, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
+        el = {'name': name, 'src': ei, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
               'order': e.get('sortingOrder') or 0, 'active': act, 'activeLoop': act_loop, 'draws': draws}
         if act_laps:
             el['activeLoops'] = act_laps

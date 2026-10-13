@@ -277,7 +277,7 @@ const CostumeSkillcut = (() => {
     c.clearDepth(1);
     c.clear(c.COLOR_BUFFER_BIT | c.DEPTH_BUFFER_BIT);
 
-    const a = skillcutAspect();
+    const a = forceSize ? forceSize[0] / forceSize[1] : skillcutAspect();   // 점검용 render 는 요청한 크기의 비율
     // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
     const L = looped();
     const li = L ? lapIndex() : 0;
@@ -397,7 +397,8 @@ const CostumeSkillcut = (() => {
   }
 
   const NO_UPDATE = () => {};
-  let useHdr = true;        // 점검용 render({ hdr: false }) 로 8비트(게임 SD · HDR 꺼짐) 화면도 볼 수 있다
+  let useHdr = true;
+  let dbgMode = 0;          // 점검용: 셰이더 중간값을 색으로(1 = 왜곡 뒤 UV, 2 = 노이즈 · 디졸브 · 알파, 3 = 텍스처 알파 · 최종 알파)        // 점검용 render({ hdr: false }) 로 8비트(게임 SD · HDR 꺼짐) 화면도 볼 수 있다
 
   // 월드 z(카메라 앞 거리) → 깊이 버퍼 값(0~1). 요소 정점 셰이더와 같은 투영
   function depthOf(z) {
@@ -437,7 +438,7 @@ const CostumeSkillcut = (() => {
     'uniform vec4 stMain; uniform vec4 stMask; uniform vec4 stDis; uniform vec4 stNoise; uniform vec4 stUvm;',
     // 텍스처마다 셰이더 안에서 wrap 을 흉내 낼지(WebGL1 에서 2의 거듭제곱이 아닌 Repeat · Mirror 텍스처만): (켜짐, wrapU, wrapV)
     'uniform vec3 emMain; uniform vec3 emMask; uniform vec3 emDis; uniform vec3 emNoise; uniform vec3 emUvm;',
-    'uniform float uMode; uniform float uAT; uniform float uTime;',
+    'uniform float uMode; uniform float uAT; uniform float uTime; uniform float uDbg;',
     'uniform vec4 uColor; uniform vec4 uOv; uniform vec4 uLc; uniform vec4 uGc; uniform vec4 uRc;',
     'uniform float uRot; uniform float uNoise; uniform float uCut; uniform float uBloom; uniform float uOvo; uniform float uFogBloom;',
     'uniform float uLo; uniform float uPower; uniform float uGlow;',
@@ -536,6 +537,8 @@ const CostumeSkillcut = (() => {
     '  m = stMain.zw * uTime + m;',
     '  vec4 c = smp(tMain, m, emMain);',
     '  float al = sat(a * c.w);',
+    // 점검용 중간값 출력(render({ dbg }))
+    '  if (uDbg > 0.5) { gl_FragColor = uDbg < 1.5 ? vec4(fract(m), 0.0, 1.0) : uDbg < 2.5 ? vec4(n, dis, sat(a), 1.0) : uDbg < 3.5 ? vec4(c.w, al, 0.0, 1.0) : uDbg < 4.5 ? vec4(fract(vUv * stNoise.xy + uTime * stNoise.zw), 0.0, 1.0) : vec4(stNoise.x / 10.0, stNoise.y / 10.0, uTime / 10.0, 1.0); return; }',
     '  if (uAT > 0.5 && al - uCut < 0.0) discard;',
     '  vec3 rgb = uMode < 0.5 ? vT1.zzz * cdI + c.xyz : c.xyz * cdI + c.xyz;',
     '  vec3 tint = uMode < 0.5 ? vCol.xyz * uColor.xyz : z1 * vCol.xyz * uColor.xyz;',
@@ -580,7 +583,7 @@ const CostumeSkillcut = (() => {
     if (!c.getProgramParameter(prog, c.LINK_STATUS)) throw new Error(c.getProgramInfoLog(prog));
     const u = {};
     ['uTan', 'uAspect', 'uDepth', 'uView', 'uMode', 'uAT', 'uTime', 'uColor', 'uOv', 'uLc', 'uGc', 'uRc', 'uRot', 'uNoise',
-      'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT']
+      'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT', 'uDbg']
       .concat(...TEX_UNITS.map(t => t.slice(1))).forEach(n => { u[n] = c.getUniformLocation(prog, n); });
     const white = c.createTexture();
     c.bindTexture(c.TEXTURE_2D, white);
@@ -634,6 +637,7 @@ const CostumeSkillcut = (() => {
     c.depthMask(!!st.zwrite);
     // Cull Back: 엔진(D3D)은 화면에서 시계 방향 삼각형이 앞면. GPU 캡처로도 확인(c017_01 1.6초 유리 조각: 시계 방향 149개 중 140개가 카메라를 향함)
     if (st.cullBack) { c.enable(c.CULL_FACE); c.cullFace(c.BACK); c.frontFace(c.CW); } else c.disable(c.CULL_FACE);
+    if (dbgMode) { c.disable(c.BLEND); c.depthFunc(c.LESS); c.depthMask(true); }   // 점검용: 가장 가까운 면만
     const n = data.near, f = data.far;
     c.uniform1f(u.uTan, data.tanHalfFov);
     c.uniform1f(u.uAspect, aspect);
@@ -642,6 +646,7 @@ const CostumeSkillcut = (() => {
     c.uniform1f(u.uMode, FX_MODE[m.sh]);
     c.uniform1f(u.uAT, m.at ? 1 : 0);
     c.uniform1f(u.uTime, flowT);
+    c.uniform1f(u.uDbg, dbgMode);
     const fl = m.f, col = m.c;
     const bloom = pb && pb.bloom !== undefined ? pb.bloom : fl.bloom === undefined ? 1 : fl.bloom;
     c.uniform4fv(u.uColor, (pb && pb.color) || col.color || [1, 1, 1, 1]);
@@ -1040,7 +1045,7 @@ const CostumeSkillcut = (() => {
     state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
     // 점검용(엔진 기준 화면과 비교): 처음 재생(lap null) 또는 반복 바퀴 lap 의 시각 t 를, 셰이더 시간 shaderTime 으로,
     // size×size(px) 에 그려 PNG 로 돌려준다
-    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null, hdr = true }) {
+    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null, hdr = true, dbg = 0 }) {
       if (!gl || !gl.ready) return null;
       const keep = { mode, lap, T, flowT, paused };
       mode = lp === null ? 'full' : 'idle';
@@ -1050,6 +1055,7 @@ const CostumeSkillcut = (() => {
       forceSize = [size, size];
       drawFilter = filter;
       useHdr = hdr;
+      dbgMode = dbg;
       try {
         draw();
         return gl.canvas.toDataURL('image/png');
@@ -1057,8 +1063,16 @@ const CostumeSkillcut = (() => {
         forceSize = null;
         drawFilter = null;
         useHdr = true;
+        dbgMode = 0;
         ({ mode, lap, T, flowT, paused } = keep);
       }
+    },
+    // 점검용: 요소 한 드로우의 그 시각 정점 줄(엔진 기록과 대조)
+    rowAt({ t, el, draw = 0 }) {
+      const dr = data && data.elements[el] && data.elements[el].draws[draw];
+      const fr = dr && hold(dr.rows, t);
+      return fr && fr[1] ? { t: fr[0], n: fr[1].n, P: Array.from(fr[1].P || []), U: Array.from(fr[1].U || []), A: Array.from(fr[1].A || []),
+        B: Array.from(fr[1].B || []), C: Array.from(fr[1].C || []), I: Array.from(fr[1].I || []) } : null;
     },
     // 점검용: 그 시각에 그려지는 드로우 목록([0, 요소, 드로우] / [1, Spine]과 이름)
     drawList({ t, lap: lp = null }) {
