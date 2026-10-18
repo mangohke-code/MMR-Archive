@@ -8899,8 +8899,11 @@
   /* ===== 유니크 코스튬 스킬 컷신 (skillcut.js, 사용자 요청 2026-10-12) =====
      켜면 그림 칸(진행바 위)을 덮고, 인게임 카메라 화면비 상자를 가운데 둔다. 상자 밖은 어둡게. */
   #costume-skillcut-controls .skillcut-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-  /* 캐릭터만 보기 중에는 빛 효과 · 화면 덮개 버튼을 흐리게(누르면 캐릭터만이 풀린다) */
-  #costume-skillcut-controls .anim-btn.is-muted { opacity: 0.45; }
+  /* 표시 토글(빛 효과 · 캐릭터만). 캐릭터만이 켜져 있으면 빛 효과는 영향이 없어 흐리게 */
+  #costume-skillcut-controls .skillcut-btns .skillcut-toggle { margin-left: 0; margin-right: 10px; }
+  /* 스위치 그림은 빈 div 라 .l2d-side div:empty { display: none } 에 걸린다 */
+  #costume-skillcut-controls .skillcut-toggle .toggle-switch { display: block; }
+  #costume-skillcut-controls .skillcut-toggle.is-muted { opacity: 0.45; }
   /* 기본 L2D / 스킬 컷신 전환 - 판 맨 위, 두 칸을 반씩 */
   #costume-view-switch { display: flex; gap: 6px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle); }
   #costume-view-switch.hidden { display: none; }

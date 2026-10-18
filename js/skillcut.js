@@ -63,10 +63,9 @@ const CostumeSkillcut = (() => {
   const LIGHT_KEY = 'mmr-skillcut-light';
   const LIGHT_SHADERS = new Set(['add', 'uvadd', 'fresnel']);
   let showLight = (() => { try { return localStorage.getItem(LIGHT_KEY) !== '0'; } catch (e) { return true; } })();
-  // 화면 덮개: 게임 정렬 레이어 ScreenFx(값 4)에 있는 요소(34개 모두 시작 · 전환 페이드 fx_blend_(plane_)white · fx_white_transition 과 끝 암전 black_bg. 이름과 달리 색은 코스튬마다 검정 · 회색 등). 기본 켬
-  const COVER_KEY = 'mmr-skillcut-cover';
-  let showCover = (() => { try { return localStorage.getItem(COVER_KEY) !== '0'; } catch (e) { return true; } })();
-  // 캐릭터만: 요소(이펙트)를 전부 숨기고 Spine 만 그린다. 기본 끔
+  // 캐릭터만: 화면을 가리는 이펙트(요소)를 숨기고 Spine 과 화면 전환 암전만 그린다. 기본 끔
+  // 남기는 것 = 게임 정렬 레이어 ScreenFx(값 4) 요소. 34개 모두 시작 · 전환 페이드(fx_blend_(plane_)white · fx_white_transition,
+  // 이름과 달리 색은 코스튬마다 검정 · 회색 등)와 끝 암전(black_bg)뿐이다
   const CHAR_KEY = 'mmr-skillcut-charonly';
   let charOnly = (() => { try { return localStorage.getItem(CHAR_KEY) === '1'; } catch (e) { return false; } })();
 
@@ -331,8 +330,7 @@ const CostumeSkillcut = (() => {
       } else {
         const e = data.elements[ref[1]], dr = e && e.draws[ref[2]];
         if (!dr || !activeAt(L ? pick(e.activeLoops, e.activeLoop, li) || [] : e.active, T)) continue;
-        if (charOnly) continue;
-        if (!showCover && e.layer === 4) continue;
+        if (charOnly && e.layer !== 4) continue;
         if (!showLight && LIGHT_SHADERS.has(dr.m.sh)) continue;
         const fr = L ? holdIn(pick(dr.lapRows, dr.lrows, li) || [], T, true) : hold(dr.rows, T);
         if (fr && fr[1]) drawElement({ e, dr, fr: fr[1] }, a);
@@ -915,12 +913,12 @@ const CostumeSkillcut = (() => {
     if (wrap) wrap.classList.toggle('is-skillcut', on);
     document.querySelectorAll('#costume-skillcut-controls [data-sc-mode]').forEach(b =>
       b.classList.toggle('active', b.dataset.scMode === mode));
-    // 캐릭터만 켜면 빛 효과 · 화면 덮개는 의미가 없어 흐리게(누르면 캐릭터만이 풀린다)
-    [['data-sc-light', showLight], ['data-sc-cover', showCover], ['data-sc-char', charOnly]].forEach(([attr, on]) =>
+    // 캐릭터만이 켜져 있으면 빛 효과는 보이는 차이가 없어 흐리게
+    [['data-sc-light', showLight], ['data-sc-char', charOnly]].forEach(([attr, on]) =>
       document.querySelectorAll(`#costume-skillcut-controls [${attr}]`).forEach(b => {
         b.classList.toggle('active', on);
-        b.classList.toggle('is-muted', charOnly && attr !== 'data-sc-char');
-        b.setAttribute('aria-pressed', String(on));
+        b.classList.toggle('is-muted', charOnly && attr === 'data-sc-light');
+        b.setAttribute('aria-checked', String(on));
       }));
   }
 
@@ -992,21 +990,15 @@ const CostumeSkillcut = (() => {
       syncButtons();
       if (paused && gl && gl.ready) draw();   // 멈춘 상태에서도 바로 바뀐 모습을 보여 준다
     };
-    // 빛 효과 · 화면 덮개를 누르면 캐릭터만 보기는 풀린다(효과를 보려는 뜻이므로)
-    const leaveCharOnly = () => { if (charOnly) { charOnly = false; save(CHAR_KEY, false); } };
-    sc.querySelectorAll('[data-sc-light]').forEach(b => b.addEventListener('click', () => {
-      if (charOnly) leaveCharOnly(); else { showLight = !showLight; save(LIGHT_KEY, showLight); }
-      toggled();
-    }));
-    sc.querySelectorAll('[data-sc-cover]').forEach(b => b.addEventListener('click', () => {
-      if (charOnly) leaveCharOnly(); else { showCover = !showCover; save(COVER_KEY, showCover); }
-      toggled();
-    }));
-    sc.querySelectorAll('[data-sc-char]').forEach(b => b.addEventListener('click', () => {
-      charOnly = !charOnly;
-      save(CHAR_KEY, charOnly);
-      toggled();
-    }));
+    // 토글 스위치(빛 효과 · 캐릭터만). 키보드는 Enter · Space
+    const wireToggle = (attr, flip) => sc.querySelectorAll(`[${attr}]`).forEach(b => {
+      b.addEventListener('click', () => { flip(); toggled(); });
+      b.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); }
+      });
+    });
+    wireToggle('data-sc-light', () => { showLight = !showLight; save(LIGHT_KEY, showLight); });
+    wireToggle('data-sc-char', () => { charOnly = !charOnly; save(CHAR_KEY, charOnly); });
     // 휴대폰 화면 기준을 넘나들면(창 크기 · 회전) 화면비도 따라 바꾼다
     L2D_MOBILE_MQ.addEventListener('change', fitBox);
   }
