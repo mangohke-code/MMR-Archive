@@ -51,8 +51,6 @@ const CostumeSkillcut = (() => {
   // 셰이더 흐름 시간(_TimeParameters.x): 게임은 앱을 켠 뒤 계속 흐르는 시간이라 되감기와 상관없이 이어진다.
   // 위상은 데이터로 알 수 없어 재생을 시작한 시각에서 출발해 재생하는 동안 계속 흐르게 한다(되감아도 돌아가지 않는다).
   let flowT = 0;
-  let forceSize = null;       // 점검용 render() 가 정한 캔버스 크기(px)
-  let drawFilter = null;      // 점검용 render() 가 고른 드로우만 그린다(ref → true/false)
   // 확대 · 이동(사용자 요청, 2026-10-13). zoom 1 = 기본 화면(이보다 작게는 못 줄인다), pan = 화면 가운데가 가리키는 곳(NDC -1~1)
   const ZOOM_MAX = 6;
   let zoom = 1, panX = 0, panY = 0;
@@ -267,14 +265,14 @@ const CostumeSkillcut = (() => {
   // ---- 그리기 ----
   function draw() {
     const g = gl;
-    const W = forceSize ? forceSize[0] : box.clientWidth, H = forceSize ? forceSize[1] : box.clientHeight;
-    const dpr = forceSize ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    const W = box.clientWidth, H = box.clientHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cw = Math.max(1, Math.round(W * dpr)), ch = Math.max(1, Math.round(H * dpr));
     if (g.canvas.width !== cw || g.canvas.height !== ch) { g.canvas.width = cw; g.canvas.height = ch; }
     const c = g.ctx.gl;
     // 게임(PC · HD 화질)은 HDR 켬: 중간 버퍼가 B10G11R11 부동소수라 드로우마다 0~1 로 잘리지 않고, 마지막에 8비트 화면으로 복사된다
     // (URP 12 MakeRenderTextureGraphicsFormat, 후처리 · 톤매핑 없음). 같은 형식 R11F_G11F_B10F 에 그린 뒤 캔버스로 옮긴다
-    const hdr = useHdr ? hdrTarget(g, cw, ch) : null;
+    const hdr = hdrTarget(g, cw, ch);
     c.bindFramebuffer(c.FRAMEBUFFER, hdr ? hdr.fb : null);
     c.viewport(0, 0, cw, ch);
     c.clearColor(0, 0, 0, 1);
@@ -282,14 +280,13 @@ const CostumeSkillcut = (() => {
     c.clearDepth(1);
     c.clear(c.COLOR_BUFFER_BIT | c.DEPTH_BUFFER_BIT);
 
-    const a = forceSize ? forceSize[0] / forceSize[1] : skillcutAspect();   // 점검용 render 는 요청한 크기의 비율
+    const a = skillcutAspect();
     // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
     const L = looped();
     const li = L ? lapIndex() : 0;
     const row = L ? holdIn(pick(data.orderLoops, data.orderLoop, li) || [], T, true) : hold(data.order, T);
     const r = g.renderer, cam = r.camera;
     for (const ref of (row ? row[1] : [])) {
-      if (drawFilter && !drawFilter(ref)) continue;
       if (ref[0] === 1) {
         const o = g.skels[ref[1]];
         if (!o || !activeAt(L ? pick(o.sp.activeLoops, o.sp.activeLoop, li) || [] : o.sp.active, T)) continue;
@@ -403,8 +400,6 @@ const CostumeSkillcut = (() => {
   }
 
   const NO_UPDATE = () => {};
-  let useHdr = true;
-  let dbgMode = 0;          // 점검용: 셰이더 중간값을 색으로(1 = 왜곡 뒤 UV, 2 = 노이즈 · 디졸브 · 알파, 3 = 텍스처 알파 · 최종 알파)        // 점검용 render({ hdr: false }) 로 8비트(게임 SD · HDR 꺼짐) 화면도 볼 수 있다
 
   // 월드 z(카메라 앞 거리) → 깊이 버퍼 값(0~1). 요소 정점 셰이더와 같은 투영
   function depthOf(z) {
@@ -444,7 +439,7 @@ const CostumeSkillcut = (() => {
     'uniform vec4 stMain; uniform vec4 stMask; uniform vec4 stDis; uniform vec4 stNoise; uniform vec4 stUvm;',
     // 텍스처마다 셰이더 안에서 wrap 을 흉내 낼지(WebGL1 에서 2의 거듭제곱이 아닌 Repeat · Mirror 텍스처만): (켜짐, wrapU, wrapV)
     'uniform vec3 emMain; uniform vec3 emMask; uniform vec3 emDis; uniform vec3 emNoise; uniform vec3 emUvm;',
-    'uniform float uMode; uniform float uAT; uniform float uTime; uniform float uDbg;',
+    'uniform float uMode; uniform float uAT; uniform float uTime;',
     'uniform vec4 uColor; uniform vec4 uOv; uniform vec4 uLc; uniform vec4 uGc; uniform vec4 uRc;',
     'uniform float uRot; uniform float uNoise; uniform float uCut; uniform float uBloom; uniform float uOvo; uniform float uFogBloom;',
     'uniform float uLo; uniform float uPower; uniform float uGlow;',
@@ -543,8 +538,6 @@ const CostumeSkillcut = (() => {
     '  m = stMain.zw * uTime + m;',
     '  vec4 c = smp(tMain, m, emMain);',
     '  float al = sat(a * c.w);',
-    // 점검용 중간값 출력(render({ dbg }))
-    '  if (uDbg > 0.5) { gl_FragColor = uDbg < 1.5 ? vec4(fract(m), 0.0, 1.0) : uDbg < 2.5 ? vec4(n, dis, sat(a), 1.0) : uDbg < 3.5 ? vec4(c.w, al, 0.0, 1.0) : uDbg < 4.5 ? vec4(fract(vUv * stNoise.xy + uTime * stNoise.zw), 0.0, 1.0) : vec4(stNoise.x / 10.0, stNoise.y / 10.0, uTime / 10.0, 1.0); return; }',
     '  if (uAT > 0.5 && al - uCut < 0.0) discard;',
     '  vec3 rgb = uMode < 0.5 ? vT1.zzz * cdI + c.xyz : c.xyz * cdI + c.xyz;',
     '  vec3 tint = uMode < 0.5 ? vCol.xyz * uColor.xyz : z1 * vCol.xyz * uColor.xyz;',
@@ -589,7 +582,7 @@ const CostumeSkillcut = (() => {
     if (!c.getProgramParameter(prog, c.LINK_STATUS)) throw new Error(c.getProgramInfoLog(prog));
     const u = {};
     ['uTan', 'uAspect', 'uDepth', 'uView', 'uMode', 'uAT', 'uTime', 'uColor', 'uOv', 'uLc', 'uGc', 'uRc', 'uRot', 'uNoise',
-      'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT', 'uDbg']
+      'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT']
       .concat(...TEX_UNITS.map(t => t.slice(1))).forEach(n => { u[n] = c.getUniformLocation(prog, n); });
     const white = c.createTexture();
     c.bindTexture(c.TEXTURE_2D, white);
@@ -643,7 +636,6 @@ const CostumeSkillcut = (() => {
     c.depthMask(!!st.zwrite);
     // Cull Back: 엔진(D3D)은 화면에서 시계 방향 삼각형이 앞면. GPU 캡처로도 확인(c017_01 1.6초 유리 조각: 시계 방향 149개 중 140개가 카메라를 향함)
     if (st.cullBack) { c.enable(c.CULL_FACE); c.cullFace(c.BACK); c.frontFace(c.CW); } else c.disable(c.CULL_FACE);
-    if (dbgMode) { c.disable(c.BLEND); c.depthFunc(c.LESS); c.depthMask(true); }   // 점검용: 가장 가까운 면만
     const n = data.near, f = data.far;
     c.uniform1f(u.uTan, data.tanHalfFov);
     c.uniform1f(u.uAspect, aspect);
@@ -652,7 +644,6 @@ const CostumeSkillcut = (() => {
     c.uniform1f(u.uMode, FX_MODE[m.sh]);
     c.uniform1f(u.uAT, m.at ? 1 : 0);
     c.uniform1f(u.uTime, flowT);
-    c.uniform1f(u.uDbg, dbgMode);
     const fl = m.f, col = m.c;
     const bloom = pb && pb.bloom !== undefined ? pb.bloom : fl.bloom === undefined ? 1 : fl.bloom;
     c.uniform4fv(u.uColor, (pb && pb.color) || col.color || [1, 1, 1, 1]);
@@ -1041,75 +1032,11 @@ const CostumeSkillcut = (() => {
     renderPanel();
   }
 
-  // 점검용: 시각 t 로 멈추고 한 장 그려 이미지로 돌려준다(그린 직후라 캔버스를 읽을 수 있다)
-  function snapshot(t) {
-    flowT = t;
-    if (!gl || !gl.ready) return null;
-    paused = true;
-    T = t;
-    draw();
-    return gl.canvas.toDataURL('image/jpeg', 0.8);
-  }
-
   return {
     show,
     stop,
     isActive: () => !!mode,
     isReady: () => !!(gl && gl.ready),
     adapter,
-    snapshot,
-    // 점검용: 지금 시각 · 모드 · 반복 바퀴
-    state: () => ({ T, mode, lap, lapIndex: data ? lapIndex() : 0, lapsLoaded: !!(data && data.lapsLoaded) }),
-    // 점검용(엔진 기준 화면과 비교): 처음 재생(lap null) 또는 반복 바퀴 lap 의 시각 t 를, 셰이더 시간 shaderTime 으로,
-    // size×size(px) 에 그려 PNG 로 돌려준다
-    render({ t, lap: lp = null, shaderTime = t, size = 720, filter = null, hdr = true, dbg = 0 }) {
-      if (!gl || !gl.ready) return null;
-      const keep = { mode, lap, T, flowT, paused };
-      mode = lp === null ? 'full' : 'idle';
-      lap = lp === null ? 0 : lp;
-      T = t;
-      flowT = shaderTime;
-      forceSize = [size, size];
-      drawFilter = filter;
-      useHdr = hdr;
-      dbgMode = dbg;
-      try {
-        draw();
-        return gl.canvas.toDataURL('image/png');
-      } finally {
-        forceSize = null;
-        drawFilter = null;
-        useHdr = true;
-        dbgMode = 0;
-        ({ mode, lap, T, flowT, paused } = keep);
-      }
-    },
-    // 점검용: 요소 한 드로우의 그 시각 정점 줄(엔진 기록과 대조)
-    rowAt({ t, el, draw = 0 }) {
-      const dr = data && data.elements[el] && data.elements[el].draws[draw];
-      const fr = dr && hold(dr.rows, t);
-      return fr && fr[1] ? { t: fr[0], n: fr[1].n, P: Array.from(fr[1].P || []), U: Array.from(fr[1].U || []), A: Array.from(fr[1].A || []),
-        B: Array.from(fr[1].B || []), C: Array.from(fr[1].C || []), I: Array.from(fr[1].I || []) } : null;
-    },
-    // 점검용: 그 시각에 그려지는 드로우 목록([0, 요소, 드로우] / [1, Spine]과 이름)
-    drawList({ t, lap: lp = null }) {
-      const keep = { mode, lap, T };
-      mode = lp === null ? 'full' : 'idle'; lap = lp === null ? 0 : lp; T = t;
-      try {
-        const L = looped(), li = L ? lapIndex() : 0;
-        const row = L ? holdIn(pick(data.orderLoops, data.orderLoop, li) || [], T, true) : hold(data.order, T);
-        return (row ? row[1] : []).map(ref => [ref, ref[0] === 1 ? 'spine:' + data.spines[ref[1]].name
-          : data.elements[ref[1]].name + '#' + ref[2] + ' ' + data.elements[ref[1]].draws[ref[2]].m.sh]);
-      } finally { ({ mode, lap, T } = keep); }
-    },
-    // 점검용: 재생과 똑같이 dt 만큼 진행(되감기 · 바퀴 넘김 포함)한 뒤 한 장 그려 돌려준다
-    step(dt) {
-      if (!gl || !gl.ready) return null;
-      paused = false;
-      advance(dt);
-      paused = true;
-      draw();
-      return gl.canvas.toDataURL('image/jpeg', 0.8);
-    },
   };
 })();

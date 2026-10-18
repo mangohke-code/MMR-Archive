@@ -400,7 +400,7 @@ def build_code(it, report, texinfo):
         if not draws:
             skipped['그리는 칸 없음'] += 1
             continue
-        el = {'name': name, 'src': ei, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
+        el = {'name': name, 'layer': 4 if e.get('sortingLayerID') == OVERLAY_LAYER else 0,
               'order': e.get('sortingOrder') or 0, 'active': act, 'activeLoop': act_loop, 'draws': draws}
         if act_laps:
             el['activeLoops'] = act_laps
