@@ -89,16 +89,18 @@ SHADERS = {
     'NK/Unlit/FX/NK_fx_blend_3d': 'b3d',
     'NK/Unlit/FX/NK_fx_fresnel': 'fresnel',
     'Sprites/Default': 'sprite',
+    'NK/Unlit/FX/NK_fx_uv_glitch_add': 'glitch',     # 모더니아 등장(tools/build_bossfx.py)
 }
-TEX_PROPS = {'_MainTex': 'main', '_MaskTex': 'mask', '_DissolveTex': 'dis', '_NoiseTex': 'noise', '_UVMaskTex': 'uvm'}
+TEX_PROPS = {'_MainTex': 'main', '_MaskTex': 'mask', '_DissolveTex': 'dis', '_NoiseTex': 'noise', '_UVMaskTex': 'uvm',
+             '_GlitchTex': 'glitch'}
 FLOAT_PROPS = {
     '_UVRotation': 'rot', '_NoiseAmount': 'noise', '_CutOut': 'cut', '_BloomIntensity': 'bloom',
     '_OverlayOpacity': 'ovo', '_CustomData_Offset': 'cdO', '_CustomData_Intensity': 'cdI',
     '_CustomData_Dissolve': 'cdD', '_CustomData_Distortion': 'cdT', '_Fog_BloomIntensity': 'fogBloom',
-    '_LightenOpacity': 'lo', '_Power': 'power', '_GlowPower': 'glow', '_ZTest': 'ztest',
+    '_LightenOpacity': 'lo', '_Power': 'power', '_GlowPower': 'glow', '_ZTest': 'ztest', '_GlitchAmount': 'ga',
 }
 COLOR_PROPS = {'_Color': 'color', '_OverlayColor': 'ov', '_LightenColor': 'lc', '_GlowColor': 'gc',
-               '_RendererColor': 'rc'}
+               '_RendererColor': 'rc', '_GlitchOffset': 'go'}
 SHADER_QUEUE = {'b3d': 2450}   # 셰이더 태그 Queue(AlphaTest = 2450). 나머지는 Transparent = 3000
 WRAP = {'Repeat': 0, 'Clamp': 1, 'Mirror': 2, 'MirrorOnce': 3}
 FILTER = {'Point': 0, 'Bilinear': 1, 'Trilinear': 1}
@@ -525,7 +527,9 @@ def build_code(it, report, texinfo):
     lp = pdata.get('loop')
     # 스킬컷 끝 = 검은 판이 켜지는 시각(없으면 컷신 오브젝트들이 꺼지는 시각)
     black = [e for e in pdata['elements'] if e['path'].endswith('/black_bg') and e.get('activeIntervals')]
-    if black:
+    if it.get('cutEnd') is not None:
+        cut_end = it['cutEnd']                            # 보스 연출(tools/build_bossfx.py)이 정해 준다
+    elif black:
         cut_end = black[0]['activeIntervals'][0][0]
     else:
         cut_end = min(s['active'][0][1] for s in spines if s['active'][0][0] < 0.5)
@@ -550,6 +554,7 @@ def build_code(it, report, texinfo):
     }
     if order_loops:
         play['orderLoops'] = order_loops
+    play.update(it.get('playExtra') or {})
     # 2바퀴째부터의 파티클 프레임(용량 대부분)은 laps.json 으로 떼어 재생을 시작한 뒤 받는다.
     # play.json 에는 첫 바퀴만 남긴다(fls = [바퀴0]). laps.json = {요소번호: {드로우번호: [바퀴1, 바퀴2, ...]}}
     rest = {}

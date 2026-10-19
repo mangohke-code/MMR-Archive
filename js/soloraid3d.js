@@ -2446,87 +2446,16 @@ const CAMERA_CLOCK_CLIPS = [
 const isCameraClockClip = (bossKey, name) =>
   CAMERA_CLOCK_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 
-// 연출 도중 2D Spine 으로 넘어가는 구간. 3D 화면 위에 Spine 캔버스를 겹친다.
-//   모더니아 등장(게임 타임라인 mbg004_phase001_appearance, 추출 세션 플레이 모드 실측 2026-10-19):
-//   0~6.1초 Camera_animation(CM vcam, 카메라 mbg004_appearance_sign) -> 6.1초에 Camera_spine(CM vcam)으로 컷.
-//   바깥 타임라인이 FixedLength 10.3667초라 안쪽 모델 타임라인(12.75초)도 거기서 멈추고 Spine 이 꺼진다.
-//   Camera_spine: 월드 (-350, 10, 100), 회전 없음(+z), 원근 세로 화각 60, 구간 내내 고정.
-//   Spine GameObject: 월드 (-350.05, 3, 114.1), 회전 없음, SkeletonDataAsset scale 0.01, 애니 mbg004_appearance.
-//   적용 애니 시각 = 타임라인 시각 - 6.1(실측 매 프레임 일치). 카메라 클립은 6.1초 이후 끝 자세 그대로(Hold).
-const CLIP_SPINE_OVERLAYS = [
-  { boss: /^mbg004/i, re: /^mbg004_empty$/i, start: 6.1, end: 10.3666667,
-    skel: { mbg004: 'mbg004_appearance', mbg004_anmi: 'mbg004_anmi_appearance' }, anim: 'mbg004_appearance',
-    camera: [-350, 10, 100], fov: 60, spine: [-350.05, 3, 114.1], scale: 0.01 },
+// 연출 효과 · 2D Spine 을 스킬 컷신 렌더러(js/skillcut.js createSkillcut, embed)로 3D 화면 위 캔버스에 그린다.
+//   모더니아 등장(게임 타임라인 mbg004_phase001_appearance, 추출 세션 플레이 모드 실측 2026-10-19 · 20):
+//   0~6.1초 Camera_animation(모델은 화면 밖 - 경고 홀로그램 UI · 구름 · 검은 전환 효과만 보인다) -> 6.1초 Camera_spine 으로 컷,
+//   Spine mbg004_appearance. 바깥 타임라인 FixedLength 10.3667초에서 끝난다(안쪽 모델 타임라인 12.75초도 거기서 멈춤).
+//   효과 GPU 기록 · 드로우 순서(동률은 프레임 디버거 실측) · Spine 적용 시각은 tools/build_bossfx.py 가 카메라 공간으로 묶었다.
+//   뒤는 검정(기준 화면과 같음 - 게임에선 전투 맵이 보이는데 뷰어에는 맵이 없다). 카메라 클립은 6.1초 이후 끝 자세 그대로(Hold).
+const CLIP_FX_OVERLAYS = [
+  { boss: /^mbg004/i, re: /^mbg004_empty$/i, end: 10.3666667, code: { mbg004: 'mbg004', mbg004_anmi: 'mbg004_anmi' } },
 ];
-const BOSS_SPINE_BASE = 'img/boss-spine/';
-
-// 3D 캔버스 위에 겹치는 Spine 캔버스. 원근 카메라가 회전 없이 Spine 평면(고정 z)을 보므로
-// 직교 카메라로 정확히 같은 화면이 된다: 세로 절반 = 거리 · tan(화각/2) / scale, 중심 = (카메라 - Spine) / scale
-function createSpineOverlay(container, rule, name) {
-  const canvas = document.createElement('canvas');
-  canvas.className = 'sr3d-spine-overlay';
-  canvas.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none;';
-  container.appendChild(canvas);
-  let ctx = null, renderer = null, skeleton = null, anim = null, failed = false, disposeAssets = null;
-  try {
-    ctx = new spine.ManagedWebGLRenderingContext(canvas, { alpha: false });
-    renderer = new spine.SceneRenderer(canvas, ctx, true);
-    const assets = new spine.AssetManager(ctx, BOSS_SPINE_BASE);
-    assets.loadBinary(name + '.skel');
-    assets.loadTextureAtlas(name + '.atlas');
-    const wait = () => {
-      if (failed || !ctx) return;
-      if (assets.hasErrors()) { failed = true; console.error('[보스 3D] Spine 불러오기 실패', assets.getErrors()); return; }
-      if (!assets.isLoadingComplete()) { setTimeout(wait, 50); return; }
-      const data = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(assets.require(name + '.atlas')))
-        .readSkeletonData(assets.require(name + '.skel'));
-      skeleton = new spine.Skeleton(data);
-      anim = data.findAnimation(rule.anim);
-      requestRedraw();
-    };
-    wait();
-    disposeAssets = () => { try { assets.dispose(); renderer.dispose(); } catch (e) { /* 이미 정리됨 */ } };
-  } catch (e) {
-    failed = true;
-    console.error('[보스 3D] Spine 캔버스를 못 만듦', e);
-  }
-  const dist = rule.spine[2] - rule.camera[2];
-  const half = dist * Math.tan(rule.fov * Math.PI / 360) / rule.scale;
-  const cx = (rule.camera[0] - rule.spine[0]) / rule.scale, cy = (rule.camera[1] - rule.spine[1]) / rule.scale;
-  return {
-    // at: 애니메이션 시각(초). null 이면 숨긴다
-    update(at) {
-      const show = at !== null && skeleton && anim;
-      canvas.style.display = show ? 'block' : 'none';
-      if (!show) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = Math.max(1, Math.round(container.clientWidth * dpr)), h = Math.max(1, Math.round(container.clientHeight * dpr));
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-      skeleton.setToSetupPose();
-      anim.apply(skeleton, at, at, false, null, 1, spine.MixBlend.setup, spine.MixDirection.mixIn);
-      skeleton.updateWorldTransform();
-      const gl = ctx.gl;
-      gl.viewport(0, 0, w, h);
-      // 뒤는 검정(추출 세션 기준 화면과 같음 - 게임에선 전투 맵이 보이는데 뷰어에는 맵이 없다).
-      // 투명으로 두면 가산 슬롯(알파 0)이 페이지 위에서 엉뚱한 색으로 섞인다
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      renderer.camera.setViewport(2 * half * w / h, 2 * half);
-      renderer.camera.position.set(cx, cy, 0);
-      renderer.begin();
-      renderer.drawSkeleton(skeleton, true);
-      renderer.end();
-    },
-    dispose() {
-      failed = true;
-      if (disposeAssets) disposeAssets();
-      const lose = ctx && ctx.gl.getExtension('WEBGL_lose_context');
-      if (lose) lose.loseContext();
-      ctx = null;
-      canvas.remove();
-    },
-  };
-}
+const BOSS_FX_BASE = 'img/boss-fx/';
 
 const APPEARANCE_CLIPS = [
   // 모더니아 등장 - 위 CAMERA_CLOCK_CLIPS 참고
@@ -2678,7 +2607,7 @@ function disposeState(container) {
   const restartBtn = document.getElementById('soloraid-spine-restart');
   if (restartBtn) restartBtn.onclick = null;
 
-  if (state.spineOverlay) { state.spineOverlay.dispose(); state.spineOverlay = null; }
+  if (state.fxPlayer) { state.fxPlayer.unembed(); state.fxPlayer = null; }
   if (state.renderer) {
     state.renderer.dispose();
     // WebGL 문맥은 캔버스가 쓰레기 수거될 때까지 GPU 에 남는다. 목록으로 돌아가거나 보스를 바꿀 때 바로 놓는다.
@@ -3271,14 +3200,14 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       ? pairCameraClips(gltf.animations || [], camNodes)
       : { cams: [], byModel: new Map(), cutsByModel: new Map() };
     const cameraClipNames = new Set(camPairs.cams.map(c => c.name));
-    // Spine 으로 넘어가는 연출(CLIP_SPINE_OVERLAYS)은 카메라 클립(시계)을 타임라인 끝까지 늘린다.
+    // 효과 · Spine 을 겹치는 연출(CLIP_FX_OVERLAYS)은 카메라 클립(시계)을 타임라인 끝까지 늘린다.
     // 늘린 구간은 끝 키 자세 그대로다(유니티 Hold).
-    const spineRule = CLIP_SPINE_OVERLAYS.find(o => o.boss.test(bossKey || ''));
-    const spineName = spineRule && (spineRule.skel[bossKey] || spineRule.skel[bossCode]);
-    if (spineRule && spineName) {
+    const fxRule = CLIP_FX_OVERLAYS.find(o => o.boss.test(bossKey || ''));
+    const fxCode = fxRule && (fxRule.code[bossKey] || fxRule.code[bossCode]);
+    if (fxRule && fxCode) {
       (gltf.animations || []).forEach(c => {
-        const pair = spineRule.re.test(c.name || '') && camPairs.byModel.get(c.name);
-        if (pair && pair.clip && pair.clip.duration < spineRule.end) pair.clip.duration = spineRule.end;
+        const pair = fxRule.re.test(c.name || '') && camPairs.byModel.get(c.name);
+        if (pair && pair.clip && pair.clip.duration < fxRule.end) pair.clip.duration = fxRule.end;
       });
     }
     // 카메라 클립이 붙은 모델 클립을 재생하는 동안 참이 된다
@@ -5335,13 +5264,19 @@ function noFollowClip(bossKey, name) {
       }
       if (composer) composer.render();
       else renderer.render(scene, camera);
-      if (spineName) {
-        // 지금 Spine 구간이면 그 시각으로, 아니면 숨긴다. 캔버스 · 텍스처는 처음 필요할 때 만든다
-        const inClip = cinematic && camIsClock() && currentAction && spineRule.re.test(currentAction.getClip().name || '');
-        const t = inClip ? cinematic.action.time : -1;
-        const at = t >= spineRule.start && t < spineRule.end ? t - spineRule.start : null;
-        if (at !== null && !state.spineOverlay) state.spineOverlay = createSpineOverlay(container, spineRule, spineName);
-        if (state.spineOverlay) state.spineOverlay.update(at);
+      if (fxCode && window.createSkillcut) {
+        // 그 연출을 트는 동안 타임라인 시각으로 그리고, 아니면 숨긴다. 데이터 · 그림은 그 연출을 처음 틀 때 받는다
+        const inClip = cinematic && camIsClock() && currentAction && fxRule.re.test(currentAction.getClip().name || '');
+        if (inClip && !state.fxPlayer) {
+          state.fxPlayer = window.createSkillcut({
+            embedded: true, base: c => BOSS_FX_BASE + c + '/skillcut/', el: BOSS_FX_BASE + 'el/',
+          });
+          state.fxPlayer.embed(container, fxCode);
+        }
+        if (state.fxPlayer) {
+          const t = inClip ? cinematic.action.time : -1;
+          state.fxPlayer.renderAt(Math.max(0, t), inClip && t < fxRule.end);
+        }
       }
       syncBar();
     };

@@ -20,7 +20,7 @@
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
-const SKILLCUT_DATA_VER = '?d=13';
+const SKILLCUT_DATA_VER = '?d=14';
 const SKILLCUT_INDEX = 'l2d/skillcut.json' + SKILLCUT_DATA_VER;
 const skillcutBase = c => 'l2d/' + c + '/skillcut/';
 // 요소 텍스처 공용 폴더(코스튬끼리 같은 그림을 같이 써서 한 벌만 둔다)
@@ -42,7 +42,11 @@ async function fetchGzJson(url) {
 // 화면비(가로/세로): 휴대폰 화면이면 9:16, 아니면 인게임 카메라 1:1. 그릴 때마다 지금 화면 기준으로 정한다.
 const skillcutAspect = () => (L2D_MOBILE_MQ.matches ? 9 / 16 : 1);
 
-const CostumeSkillcut = (() => {
+// 렌더러 한 벌. 코스튬 페이지(CostumeSkillcut)와 솔로 레이드 3D 뷰어(보스 등장 연출, embed)가 따로 만들어 쓴다.
+//   cfg.base(코드) - play.json · skel · atlas 폴더, cfg.el - 요소 텍스처 폴더, cfg.embedded - 남의 컨테이너에 붙여 시각을 밖에서 정한다
+function createSkillcut(cfg = {}) {
+  const baseOf = cfg.base || skillcutBase;
+  const EL = cfg.el || SKILLCUT_EL;
   let index = null;         // 컷신이 있는 코드 목록(index.json)
   let code = null;          // 지금 코스튬 코드(컷신이 있을 때만)
   let data = null;          // 그 코드의 play.json
@@ -59,13 +63,13 @@ const CostumeSkillcut = (() => {
   const playCache = {};
   // 빛 효과(가산 블렌드 셰이더로 그리는 요소) 표시 - 고른 쪽을 기억한다(사용자 요청, 2026-10-13)
   const LIGHT_KEY = 'mmr-skillcut-light';
-  const LIGHT_SHADERS = new Set(['add', 'uvadd', 'fresnel']);
-  let showLight = (() => { try { return localStorage.getItem(LIGHT_KEY) !== '0'; } catch (e) { return true; } })();
+  const LIGHT_SHADERS = new Set(['add', 'uvadd', 'fresnel', 'glitch']);
+  let showLight = cfg.embedded || (() => { try { return localStorage.getItem(LIGHT_KEY) !== '0'; } catch (e) { return true; } })();
   // 캐릭터만: 화면을 가리는 이펙트(요소)를 숨기고 Spine 과 화면 전환 암전만 그린다. 기본 끔
   // 남기는 것 = 게임 정렬 레이어 ScreenFx(값 4) 요소. 34개 모두 시작 · 전환 페이드(fx_blend_(plane_)white · fx_white_transition,
   // 이름과 달리 색은 코스튬마다 검정 · 회색 등)와 끝 암전(black_bg)뿐이다
   const CHAR_KEY = 'mmr-skillcut-charonly';
-  let charOnly = (() => { try { return localStorage.getItem(CHAR_KEY) === '1'; } catch (e) { return false; } })();
+  let charOnly = !cfg.embedded && (() => { try { return localStorage.getItem(CHAR_KEY) === '1'; } catch (e) { return false; } })();
 
   const el = id => document.getElementById(id);
 
@@ -205,7 +209,7 @@ const CostumeSkillcut = (() => {
   function loadLaps(d) {
     if (!d.lapsFile || d.lapsLoading) return;
     d.lapsLoading = true;
-    fetchGzJson(skillcutBase(d.code) + 'laps.json.gz' + SKILLCUT_DATA_VER).then(rest => {
+    fetchGzJson(baseOf(d.code) + 'laps.json.gz' + SKILLCUT_DATA_VER).then(rest => {
       Object.entries(rest).forEach(([ei, draws]) => Object.entries(draws).forEach(([di, laps]) => {
         const dr = d.elements[+ei].draws[+di];
         laps.forEach((l, k) => { dr.lapRows[k + 1] = buildRows(l); });
@@ -280,7 +284,7 @@ const CostumeSkillcut = (() => {
     c.clearDepth(1);
     c.clear(c.COLOR_BUFFER_BIT | c.DEPTH_BUFFER_BIT);
 
-    const a = skillcutAspect();
+    const a = cfg.embedded ? W / H : skillcutAspect();   // 붙인 컨테이너(3D 뷰어)는 그 화면비 그대로(게임 카메라는 세로 화각 고정)
     // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
     const L = looped();
     const li = L ? lapIndex() : 0;
@@ -435,15 +439,15 @@ const CostumeSkillcut = (() => {
     '#else',
     'precision mediump float;',
     '#endif',
-    'uniform sampler2D tMain; uniform sampler2D tMask; uniform sampler2D tDis; uniform sampler2D tNoise; uniform sampler2D tUvm;',
-    'uniform vec4 stMain; uniform vec4 stMask; uniform vec4 stDis; uniform vec4 stNoise; uniform vec4 stUvm;',
+    'uniform sampler2D tMain; uniform sampler2D tMask; uniform sampler2D tDis; uniform sampler2D tNoise; uniform sampler2D tUvm; uniform sampler2D tGlitch;',
+    'uniform vec4 stMain; uniform vec4 stMask; uniform vec4 stDis; uniform vec4 stNoise; uniform vec4 stUvm; uniform vec4 stGlitch;',
     // 텍스처마다 셰이더 안에서 wrap 을 흉내 낼지(WebGL1 에서 2의 거듭제곱이 아닌 Repeat · Mirror 텍스처만): (켜짐, wrapU, wrapV)
-    'uniform vec3 emMain; uniform vec3 emMask; uniform vec3 emDis; uniform vec3 emNoise; uniform vec3 emUvm;',
+    'uniform vec3 emMain; uniform vec3 emMask; uniform vec3 emDis; uniform vec3 emNoise; uniform vec3 emUvm; uniform vec3 emGlitch;',
     'uniform float uMode; uniform float uAT; uniform float uTime;',
     'uniform vec4 uColor; uniform vec4 uOv; uniform vec4 uLc; uniform vec4 uGc; uniform vec4 uRc;',
     'uniform float uRot; uniform float uNoise; uniform float uCut; uniform float uBloom; uniform float uOvo; uniform float uFogBloom;',
     'uniform float uLo; uniform float uPower; uniform float uGlow;',
-    'uniform float cdO; uniform float cdI; uniform float cdD; uniform float cdT;',
+    'uniform float cdO; uniform float cdI; uniform float cdD; uniform float cdT; uniform float uGa; uniform vec2 uGo;',
     'varying vec2 vUv; varying vec4 vCol; varying vec4 vT1; varying float vT2; varying vec3 vW; varying vec3 vN;',
     'float wrap1(float x, float m) {',
     '  if (m < 0.5) return fract(x);',
@@ -465,6 +469,21 @@ const CostumeSkillcut = (() => {
     '  return vec3(r3.x <= 0.5 ? lo.x : hi.x, r3.y <= 0.5 ? lo.y : hi.y, r3.z <= 0.5 ? lo.z : hi.z);',
     '}',
     'void main() {',
+    '  if (uMode > 7.5) {',
+    // NK_fx_uv_glitch_add(모더니아 등장): 시간 해시로 글리치 텍스처를 고르고, 그 값(반올림)만큼 메인 UV 를 _GlitchOffset 사이로 민다.
+    // 메인 텍스처는 _MainTex_ST 배율 없이 원래 UV + 밀림 그대로, _MainTex_ST.zw 는 해시 씨앗으로만 쓴다
+    '    float h = fract(sin(dot(uTime * stMain.zw, vec2(12.9898, 78.233002))) * 43758.546875) * uGa;',
+    '    vec4 g = smp(tGlitch, h * vUv, emGlitch);',
+    '    vec2 off = floor(g.xy + 0.5) * (uGo.y - uGo.x) + uGo.x;',
+    '    vec4 c = smp(tMain, vUv + off, emMain);',
+    '    c = c * smp(tUvm, vUv * stUvm.xy + uTime * stUvm.zw, emUvm);',
+    '    c = c * smp(tMask, vUv * stMask.xy + stMask.zw, emMask);',
+    '    c = c * (vCol * uColor);',
+    '    vec3 r2 = c.w * c.xyz;',
+    '    vec3 o = uOvo * (overlay(r2, uOv.xyz) - r2) + r2;',
+    '    gl_FragColor = vec4(o * uBloom, 1.0);',
+    '    return;',
+    '  }',
     '  if (uMode > 6.5) {',
     // Sprites/Default: 색 = COLOR × _Color × _RendererColor(정점), 출력은 미리 곱한 알파
     '    vec4 c = smp(tMain, vUv, emMain) * (vCol * uColor * uRc);',
@@ -548,7 +567,7 @@ const CostumeSkillcut = (() => {
     '  gl_FragColor = vec4(o, al);',
     '}',
   ].join('\n');
-  const FX_MODE = { add: 0, blend: 1, blendfog: 2, uvadd: 3, uvblend: 4, b3d: 5, fresnel: 6, sprite: 7 };
+  const FX_MODE = { add: 0, blend: 1, blendfog: 2, uvadd: 3, uvblend: 4, b3d: 5, fresnel: 6, sprite: 7, glitch: 8 };
   // 셰이더 패스 상태(디스어셈블의 Blend · ZWrite · Cull). [색 src, 색 dst, 알파 src, 알파 dst]
   const FX_STATE = {
     add: { blend: ['SRC_ALPHA', 'ONE', 'ONE', 'ONE'] },
@@ -559,12 +578,14 @@ const CostumeSkillcut = (() => {
     b3d: { blend: ['ONE', 'ZERO', 'ONE', 'ZERO'], zwrite: true, ztest: 4 },
     fresnel: { blend: ['SRC_ALPHA', 'ONE', 'ONE', 'ONE'], cullBack: true, ztest: 4 },
     sprite: { blend: ['ONE', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ONE_MINUS_SRC_ALPHA'], ztest: 4 },
+    glitch: { blend: ['SRC_ALPHA', 'ONE', 'ONE', 'ONE'], cullBack: true, ztest: 4 },
   };
   // UnityEngine.Rendering.CompareFunction → GL
   const ZFUNC = [null, 'ALWAYS', 'NEVER', 'LESS', 'EQUAL', 'LEQUAL', 'GREATER', 'NOTEQUAL', 'GEQUAL', 'ALWAYS'];
   const zfuncOf = v => ZFUNC[(v | 0) + 1] || 'LEQUAL';
   const TEX_UNITS = [['main', 'tMain', 'stMain', 'emMain'], ['mask', 'tMask', 'stMask', 'emMask'],
-    ['dis', 'tDis', 'stDis', 'emDis'], ['noise', 'tNoise', 'stNoise', 'emNoise'], ['uvm', 'tUvm', 'stUvm', 'emUvm']];
+    ['dis', 'tDis', 'stDis', 'emDis'], ['noise', 'tNoise', 'stNoise', 'emNoise'], ['uvm', 'tUvm', 'stUvm', 'emUvm'],
+    ['glitch', 'tGlitch', 'stGlitch', 'emGlitch']];
   const ATTRS = [['aPos', 3, 'P'], ['aUv', 2, 'U'], ['aCol', 4, 'C'], ['aT1', 4, 'A'], ['aT2', 1, 'B'], ['aNrm', 3, 'N']];
 
   function createFx(c) {
@@ -582,7 +603,7 @@ const CostumeSkillcut = (() => {
     if (!c.getProgramParameter(prog, c.LINK_STATUS)) throw new Error(c.getProgramInfoLog(prog));
     const u = {};
     ['uTan', 'uAspect', 'uDepth', 'uView', 'uMode', 'uAT', 'uTime', 'uColor', 'uOv', 'uLc', 'uGc', 'uRc', 'uRot', 'uNoise',
-      'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT']
+      'uCut', 'uBloom', 'uOvo', 'uFogBloom', 'uLo', 'uPower', 'uGlow', 'cdO', 'cdI', 'cdD', 'cdT', 'uGa', 'uGo']
       .concat(...TEX_UNITS.map(t => t.slice(1))).forEach(n => { u[n] = c.getUniformLocation(prog, n); });
     const white = c.createTexture();
     c.bindTexture(c.TEXTURE_2D, white);
@@ -664,6 +685,8 @@ const CostumeSkillcut = (() => {
     c.uniform1f(u.cdI, fl.cdI || 0);
     c.uniform1f(u.cdD, fl.cdD || 0);
     c.uniform1f(u.cdT, fl.cdT || 0);
+    c.uniform1f(u.uGa, fl.ga || 0);
+    c.uniform2f(u.uGo, (col.go || [0, 0])[0], (col.go || [0, 0])[1]);
     TEX_UNITS.forEach(([key, tu, stu, emu], unit) => {
       const t = m.tex[key];
       const file = pb && pb.tex && pb.tex[key] !== undefined ? pb.tex[key] : t ? t[0] : null;
@@ -722,7 +745,7 @@ const CostumeSkillcut = (() => {
   }
 
   function setupSkeletons() {
-    const g = gl, base = skillcutBase(code);
+    const g = gl, base = baseOf(code);
     const datas = {};
     for (const f of usedFiles()) {
       const atlas = g.assets.require(base + f + '.atlas');
@@ -732,7 +755,7 @@ const CostumeSkillcut = (() => {
     g.skels = data.spines.map(sp => ({ sp, skeleton: new spine.Skeleton(datas[sp.file]), anims: {} }));
     g.fx = createFx(g.ctx.gl);
     elementTextures().forEach(([t, w]) => {
-      g.tex[t] = g.assets.require(SKILLCUT_EL + t + SKILLCUT_DATA_VER);
+      g.tex[t] = g.assets.require(EL + t + SKILLCUT_DATA_VER);
       setupTexture(g.fx, g.ctx.gl, g.tex[t], w);
     });
     g.ready = true;
@@ -755,16 +778,19 @@ const CostumeSkillcut = (() => {
   function createGL() {
     const canvas = document.createElement('canvas');
     canvas.className = 'skillcut-canvas';
-    box.prepend(canvas);
+    if (cfg.embedded) {
+      canvas.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none;';
+      box.appendChild(canvas);
+    } else box.prepend(canvas);
     const ctx = new spine.ManagedWebGLRenderingContext(canvas, { alpha: false, premultipliedAlpha: true, antialias: false, depth: true });
     const renderer = new spine.SceneRenderer(canvas, ctx, true);
     const assets = new spine.AssetManager(ctx);
-    const base = skillcutBase(code);
+    const base = baseOf(code);
     for (const f of usedFiles()) {
       assets.loadBinary(base + f + '.skel');
       assets.loadTextureAtlas(base + f + '.atlas');
     }
-    elementTextures().forEach(([t]) => assets.loadTexture(SKILLCUT_EL + t + SKILLCUT_DATA_VER));
+    elementTextures().forEach(([t]) => assets.loadTexture(EL + t + SKILLCUT_DATA_VER));
     gl = { canvas, ctx, renderer, assets, ready: false, skels: [], tex: {} };
   }
 
@@ -925,7 +951,7 @@ const CostumeSkillcut = (() => {
 
   async function loadPlay(c) {
     if (!playCache[c]) {
-      playCache[c] = fetchGzJson(skillcutBase(c) + 'play.json.gz' + SKILLCUT_DATA_VER);
+      playCache[c] = fetchGzJson(baseOf(c) + 'play.json.gz' + SKILLCUT_DATA_VER);
       playCache[c].catch(() => { delete playCache[c]; });
     }
     return playCache[c];
@@ -1032,11 +1058,54 @@ const CostumeSkillcut = (() => {
     renderPanel();
   }
 
+  // ---- 남의 컨테이너에 붙여 쓰기(솔로 레이드 3D 뷰어 보스 등장 연출) ----
+  // 재생 · 시계는 붙인 쪽이 정한다. 데이터 · 그림은 붙일 때 받기 시작한다.
+  let embedSeq = 0;
+  function embed(container, c) {
+    unembed();
+    const seq = ++embedSeq;
+    box = container;
+    code = c;
+    loadPlay(c).then(d => {
+      if (seq !== embedSeq) return;
+      data = prepare(d);
+      mode = 'full';
+      createGL();
+    }).catch(err => console.error('[보스 연출] 재생 데이터를 못 받음', err));
+  }
+  // 시각 t(타임라인 초)를 그린다. 아직 못 받았으면 false. show=false 면 숨긴다
+  function renderAt(t, show = true) {
+    if (!gl) return false;
+    if (!show) { gl.canvas.style.display = 'none'; return true; }
+    if (!gl.ready) {
+      if (gl.assets.hasErrors()) return false;
+      if (!gl.assets.isLoadingComplete()) return false;
+      setupSkeletons();
+    }
+    T = t;
+    flowT = t + (data.shaderT0 || 0);
+    gl.canvas.style.display = 'block';
+    draw();
+    return true;
+  }
+  function unembed() {
+    embedSeq++;
+    disposeGL();
+    data = null;
+    mode = null;
+    box = null;
+  }
+
   return {
     show,
     stop,
     isActive: () => !!mode,
     isReady: () => !!(gl && gl.ready),
     adapter,
+    embed,
+    renderAt,
+    unembed,
   };
-})();
+}
+const CostumeSkillcut = createSkillcut();
+window.createSkillcut = createSkillcut;
