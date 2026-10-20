@@ -413,8 +413,8 @@ function animateSwap(container, render, duration = 320) {
     { duration, easing: 'ease-out' });
 }
 
-// 폰 폭에서는 판이 그림 위에 겹쳐 뜨는 서랍이다(CSS). 처음에는 둘 다 접고, 하나를 펴면
-// 다른 하나는 접는다 - 둘 다 펴면 손잡이끼리 겹치고 그림이 다 가려진다.
+// 폰 폭에서는 위 그림 · 아래 가로 탭(조작 · 상세 정보)으로 나눈다(CSS). 판을 그림 위에 겹쳐 띄우면
+// 그림이 거의 다 가려졌다(사용자 요청, 2026-10-20). 탭 하나는 늘 열려 있다 - 손잡이 대신 탭이 판을 고른다.
 const L2D_MOBILE_MQ = window.matchMedia('(max-width: 640px)');
 function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
   const wrap = document.getElementById(wrapId);
@@ -432,9 +432,24 @@ function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
     info.setAttribute('aria-expanded', String(open));
     info.title = open ? '정보 접기' : '정보 펴기';
   };
+  const tabs = wrap ? [...wrap.querySelectorAll('.l2d-tabs [data-l2d-tab]')] : [];
+  const setTab = name => {
+    setSide(name === 'side');
+    setInfo(name === 'info');
+    tabs.forEach(t => t.setAttribute('aria-expanded', String(t.dataset.l2dTab === name)));
+  };
+  if (wrap && tabs.length && !wrap.dataset.tabsWired) {
+    wrap.dataset.tabsWired = '1';
+    tabs.forEach(t => t.addEventListener('click', () => setTab(t.dataset.l2dTab)));
+    // 폭이 바뀌면 배치를 다시 맞춘다. 넓은 화면으로 가면 왼쪽 조작판은 기본(펼침)으로 돌린다.
+    L2D_MOBILE_MQ.addEventListener('change', () => {
+      if (L2D_MOBILE_MQ.matches) setTab(wrap.classList.contains('is-info-open') ? 'info' : 'side');
+      else setSide(true);
+    });
+    if (L2D_MOBILE_MQ.matches) setTab('side');
+  }
   if (wrap && btn && !btn.dataset.wired) {
     btn.dataset.wired = '1';
-    if (L2D_MOBILE_MQ.matches) setSide(false);
     btn.addEventListener('click', () => {
       const open = wrap.classList.contains('is-side-closed');
       setSide(open);
@@ -661,7 +676,7 @@ function setupSpinePanZoom(container, wrapEl, getPlayers) {
   // 조작판은 그림 칸과 같은 상자 안에 들어 있다. 판 위에서 끌거나 굴린 것을
   // 그림 옮기기로 받으면 버튼을 누르다가 캐릭터가 따라 움직인다.
   const fromPanel = e =>
-    !!(e.target && e.target.closest && e.target.closest('.l2d-side, .l2d-side-toggle, .l2d-bar'));
+    !!(e.target && e.target.closest && e.target.closest('.l2d-side, .l2d-side-toggle, .l2d-tabs, .l2d-bar'));
 
   const onMouseDown = e => {
     if (fromPanel(e)) return;

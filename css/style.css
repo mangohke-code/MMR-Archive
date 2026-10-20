@@ -2825,6 +2825,9 @@
   /* 재생바는 그림보다 위에 있어야 눌린다 */
   .l2d-bar { position: relative; z-index: 2; }
 
+  /* 폰 폭 전용 가로 탭(조작 · 상세 정보) - 넓은 화면은 손잡이로 판을 여닫는다 */
+  .l2d-tabs { display: none; }
+
   /* 보스 뷰어와 같은 형태 - 판이 그림 칸과 자리를 나눠 갖고, 손잡이로 접는다.
      판 전체가 하나로 굴러가므로 구성요소처럼 긴 목록도 판 스크롤로 훑는다. */
   .l2d-side {
@@ -7734,7 +7737,7 @@
       .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
       .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
       #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn, #soloraid-order-drawer-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
-      #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]) {
+      #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-tabs button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]) {
     color: var(--text-body);
   }
 
@@ -7744,14 +7747,14 @@
         .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
         .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
         #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn, #soloraid-order-drawer-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
-        #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):not([disabled]):hover {
+        #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-tabs button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):not([disabled]):hover {
       color: var(--accent-strong);
       border-color: var(--border-accent);
       box-shadow: var(--btn-shadow-hover);
       transform: translateY(-2px);
     }
     /* 바탕을 따로 칠하던 버튼(재생바 · 서랍 탭 · 손잡이)도 같은 라벤더 바탕으로 */
-    :is(#sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):hover {
+    :is(#sr3d-bar button, #sr3d-rail button, .l2d-tabs button, .l2d-side-toggle, #codex-spine-nav button):not(.active):not([aria-expanded="true"]):not(:disabled):hover {
       background: var(--sheen) 0% 0 / 250% 100% no-repeat, var(--btn-bg-hover);
     }
     /* 탭 줄의 탭은 위치가 움직이면 줄 전체가 출렁여 보여서 떠오르기만 1px 로 */
@@ -7764,7 +7767,7 @@
       .mode-btn, .update-log-more, .costume-scroll-btn, .scroll-btn, .l2d-bar-btn,
       .sr3d-btn:not(.soloraid-anim-btn), #pickup-filter-toggle, #pickup-filter-reset, #pickup-calendar-today,
       #codex-survey-btn, :is(#soloraid-sort-btn, #soloraid-order-btn, #pickup-order-btn, #costume-order-btn, #soloraid-order-drawer-btn), #stage-back-btn, #link-list a, #pickup-calendar-all,
-      #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-side-toggle, #codex-spine-nav button):active {
+      #pickup-calendar-strict, #sr3d-bar button, #sr3d-rail button, .l2d-tabs button, .l2d-side-toggle, #codex-spine-nav button):active {
     transform: translateY(0);
   }
 
@@ -8509,36 +8512,56 @@
     .chapter-nav-item .chapter-label { font-size: 20px; padding: 6px 0; }
     .chapter-nav-item.center .chapter-label { font-size: 22px; }
 
-    /* 유니크 코스튬 · 캐릭터 도감 L2D 뷰어 - 판이 그림 칸을 밀어내서 그림 칸이 0 ~ 46px 이었다.
-       판을 그림 위에 겹쳐 뜨는 서랍으로 바꾼다(처음엔 접혀 있고, 하나를 펴면 다른 하나는 접힌다 - common.js). */
-    .l2d-wrap { position: relative; }
-    /* 판 폭은 반대쪽 손잡이 자리(60px)를 남긴다 - 꽉 채우면 펼친 판의 손잡이가 반대쪽 손잡이와 겹쳤다 */
-    .l2d-wrap > .l2d-side:not(.l2d-side-right) {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      z-index: 6;
-      width: min(264px, calc(100% - 60px));
-      box-shadow: var(--shadow-card-hover);
+    /* 유니크 코스튬 · 캐릭터 도감 L2D 뷰어 - 판을 그림 위에 겹쳐 띄우면 그림이 거의 다 가려졌다. 솔로 레이드와 같이
+       위 그림 · 아래 가로 탭(조작 · 상세 정보)으로 나누고 탭 하나는 늘 열어 둔다(사용자 요청, 2026-10-20 - common.js) */
+    .l2d-wrap { flex-direction: column; }
+    .l2d-wrap .l2d-side-toggle { display: none; }
+    .l2d-wrap > .l2d-stage { order: 1; flex: none; height: 58%; }
+    .l2d-tabs {
+      order: 2;
+      display: flex;
+      gap: 4px;
+      padding: 6px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
     }
-    .l2d-wrap .l2d-side-toggle:not(.is-right) { left: min(264px, calc(100% - 60px)); }
-    /* 접힌 판은 폭 0 - 위 규칙이 접힘 규칙보다 뒤라서 다시 적는다(안 그러면 투명한 판이 그림 위 터치를 막는다) */
-    .l2d-wrap.is-side-closed > .l2d-side:not(.l2d-side-right) { width: 0; box-shadow: none; }
-    #costume-info.l2d-side-right,
-    #codex-detail-info.l2d-side-right {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      right: 0;
-      z-index: 6;
-      box-shadow: var(--shadow-card-hover);
+    .l2d-tabs button {
+      --btn-cut: 10px;
+      flex: 1 1 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 6px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      border: none;
+      border-radius: var(--btn-cut) 0 var(--btn-cut) 0;
+      corner-shape: bevel;
+      color: var(--text-body);
+      background: var(--bg-panel-alt);
     }
+    .l2d-tabs button[aria-expanded="true"] { background: var(--border-accent); color: var(--text-on-accent); }
+    .l2d-wrap > .l2d-side {
+      order: 3;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: auto;
+      border-right: 0;
+    }
+    .l2d-wrap.is-side-closed > .l2d-side:not(.l2d-side-right),
+    .l2d-wrap:not(.is-info-open) > .l2d-side.l2d-side-right { display: none; }
     .l2d-wrap.is-info-open #costume-info.l2d-side-right,
-    .l2d-wrap.is-info-open #codex-detail-info.l2d-side-right { width: calc(100% - 60px); }
+    .l2d-wrap.is-info-open #codex-detail-info.l2d-side-right { width: auto; border-left: 0; }
     #costume-info.l2d-side-right > *:not(.l2d-side-toggle),
     #codex-detail-info.l2d-side-right > *:not(.l2d-side-toggle) { width: auto; }
-    .l2d-wrap.is-info-open .l2d-side-toggle.is-right { right: calc(100% - 60px); }
+    /* 전체화면은 그림만 */
+    body.l2d-immersive .l2d-wrap > :not(.l2d-stage) { display: none; }
+    body.l2d-immersive .l2d-wrap > .l2d-stage { flex: 1 1 auto; height: auto; }
     #costume-name, #codex-detail-name { font-size: 26px; }
     #costume-info .costume-period { font-size: 19px; }
 
