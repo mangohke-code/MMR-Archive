@@ -9,6 +9,7 @@
   function renderMainData(data) {
     renderUpdateLog(data.updateLog || []);
     renderLinks(data.links || []);
+    renderNotice(data.notice || { lines: [] });
 
     const now = new Date();
     const activeEvents = data.events.filter(e => {
@@ -17,6 +18,23 @@
       return start <= now && now <= end;
     });
     renderEventList(activeEvents);
+  }
+
+  // 맨 위 공지 — 메인_공지 표에서 그린다. 보일 줄이 없으면 구역째 감춘다.
+  function renderNotice(notice) {
+    const box = document.getElementById('main-notice');
+    if (!box) return;
+    const list = box.querySelector('.notice-list');
+    const date = box.querySelector('.notice-date');
+    if (list) {
+      list.replaceChildren(...notice.lines.map(t => {
+        const li = document.createElement('li');
+        li.textContent = t;
+        return li;
+      }));
+    }
+    if (date) date.textContent = notice.date || '';
+    box.classList.toggle('hidden', notice.lines.length === 0);
   }
 
   // "외부 링크" — 메인_링크 표에서 그린다. 하나도 없으면 구역째 감춘다.

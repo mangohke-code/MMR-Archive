@@ -781,6 +781,16 @@ function buildMainLinks(rows) {
     .map(r => ({ name: String(r['이름']).trim(), url: String(r['주소']).trim() }));
 }
 
+// 메인_공지 표: 순서 · 내용 · 날짜 · 표시. 표시가 false 인 줄은 뺀다.
+// 머리의 날짜는 보이는 줄 가운데 가장 최근 날짜다.
+function buildMainNotice(rows) {
+  const lines = (rows || [])
+    .filter(r => r && r['표시'] !== false && String(r['내용'] || '').trim())
+    .sort((a, b) => (a['순서'] ?? 0) - (b['순서'] ?? 0));
+  const dates = lines.map(r => r['날짜']).filter(Boolean).sort();
+  return { date: dates.length ? dates[dates.length - 1] : '', lines: lines.map(r => String(r['내용']).trim()) };
+}
+
 function buildMainData(configRows, eventRows, pickupData) {
   const updateLog = configRows
     .map(r => ({ date: r['날짜'], note: r['업데이트_내역'] }))
@@ -1206,6 +1216,11 @@ async function loadAllData() {
     console.warn('[메인 링크] 메인_링크 읽기 실패:', err.message || err);
     return [];
   });
+  // 메인 공지도 같은 이유로 따로 받는다(실패하면 공지 구역만 숨는다)
+  const noticeRowsP = fetchAll('메인_공지', '순서').catch(err => {
+    console.warn('[메인 공지] 메인_공지 읽기 실패:', err.message || err);
+    return [];
+  });
   const [
     pickupRows, costumeRows, souvenirRows, stageRows,
     codexRows, nikkeImgRows, iconRows, chapRows,
@@ -1232,6 +1247,7 @@ async function loadAllData() {
   const pickup = buildPickupData(pickupRows);
   APP_DATA.main = buildMainData(configRows, eventRows, pickup);
   APP_DATA.main.links = buildMainLinks(await linkRowsP);
+  APP_DATA.main.notice = buildMainNotice(await noticeRowsP);
   APP_DATA.pickup = pickup;
   APP_DATA.costume = buildCostumeData(costumeRows);
   APP_DATA.souvenir = buildSouvenirData(souvenirRows);
