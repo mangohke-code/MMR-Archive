@@ -5949,6 +5949,9 @@
 
   #sr3d-rail button i { writing-mode: horizontal-tb; }
 
+  /* 조작 탭은 폰 폭에서만 쓴다(넓은 화면은 왼쪽 조작판이 늘 있다) */
+  #soloraid-drawer-side { display: none; }
+
   /* BGM 은 성격이 다른 서랍이라 나머지와 붙이지 않고 맨 아래에 둔다 */
   #soloraid-drawer-bgm { margin-top: auto; }
 
@@ -8539,29 +8542,45 @@
     #costume-name, #codex-detail-name { font-size: 26px; }
     #costume-info .costume-period { font-size: 19px; }
 
-    /* 솔로 레이드 - 왼쪽 조작판 · 오른쪽 서랍이 3D 칸을 밀어냈다. 둘 다 3D 위에 겹쳐 뜨게 한다
-       (처음엔 조작판이 접혀 있고, 하나를 펴면 다른 하나는 접힌다 - soloraid.js) */
-    #sr3d-side {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      z-index: 14;
-      width: min(300px, calc(100% - 96px));
-      box-shadow: var(--shadow-card-hover);
+    /* 솔로 레이드 - 좌우 판을 3D 위에 겹쳐 띄우면 그림이 거의 다 가려졌다. 폰 폭에서는 위 3D · 아래 가로 탭
+       (조작 · 보스 목록 · 상세 정보 · 프레임 · 전용 BGM)으로 나누고, 탭 하나는 늘 열어 둔다(사용자 요청, 2026-10-20 - soloraid.js) */
+    #sr3d-app { flex-direction: column; }
+    #sr3d-side-toggle { display: none; }
+    #sr3d-stage { order: 1; flex: none; height: 55%; }
+    #sr3d-rail {
+      order: 2;
+      flex-direction: row;
+      gap: 4px;
+      padding: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      border-left: none;
+      border-bottom: 1px solid var(--border-subtle);
     }
-    #sr3d-side-toggle { left: min(300px, calc(100% - 96px)); }
-    #sr3d-app.side-collapsed #sr3d-side-toggle { left: 0; }
+    #sr3d-rail button {
+      flex: 1 1 auto;
+      justify-content: center;
+      writing-mode: horizontal-tb;
+      text-orientation: mixed;
+      gap: 4px;
+      padding: 8px 6px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #soloraid-drawer-side { display: flex; }
+    #soloraid-drawer-bgm { margin-top: 0; }
+    #sr3d-side,
     #sr3d-drawer {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      right: var(--sr3d-rail-w, 46px);
-      z-index: 14;
-      width: min(320px, calc(100% - 60px));
-      box-shadow: var(--shadow-card-hover);
+      order: 3;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: auto;
+      border: none;
     }
-    #sr3d-stage { flex: 1 1 auto; min-width: 0; }
+    body.sr3d-immersive #sr3d-side,
+    body.sr3d-immersive #sr3d-rail,
+    body.sr3d-immersive #sr3d-drawer { display: none; }
+    body.sr3d-immersive #sr3d-stage { flex: 1 1 auto; height: auto; }
     /* 전체화면에서는 나머지 단추가 다 접힌다. 나가기 단추를 손이 닿는 오른쪽 위로 올린다(노치 · 상태바 피함) */
     body.sr3d-immersive #sr3d-immersive {
       top: max(12px, env(safe-area-inset-top));

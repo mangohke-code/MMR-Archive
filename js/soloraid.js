@@ -200,7 +200,10 @@
 
   function wireSoloRaidDrawers() {
     const drawer = document.getElementById('sr3d-drawer');
+    // 폰 폭 전용 '조작' 탭 - 왼쪽 조작판을 아래 탭 칸에 펼친다(넓은 화면에서는 단추가 숨는다)
+    const SIDE_TAB = 'soloraid-drawer-side';
     const panes = {
+      [SIDE_TAB]: null,
       'soloraid-drawer-list': 'sr3d-drawer-list',
       'soloraid-drawer-info': 'sr3d-drawer-info',
       'soloraid-drawer-tiers': 'sr3d-drawer-tiers',
@@ -210,16 +213,19 @@
     let openId = null;
 
     function render() {
+      // 폰 폭: 위 3D · 아래 가로 탭. 탭 칸이 비면 빈 자리만 남으니 하나는 늘 열어 둔다(CSS)
+      const mobile = SR_MOBILE_MQ.matches;
+      if (mobile && !openId) openId = SIDE_TAB;
+      if (!mobile && openId === SIDE_TAB) openId = null;
       Object.entries(panes).forEach(([btnId, paneId]) => {
         const on = btnId === openId;
         const btn = document.getElementById(btnId);
-        const pane = document.getElementById(paneId);
+        const pane = paneId && document.getElementById(paneId);
         if (btn) btn.setAttribute('aria-expanded', String(on));
         if (pane) pane.classList.toggle('hidden', !on);
       });
-      if (drawer) drawer.classList.toggle('hidden', !openId);
-      // 폰 폭에서는 서랍과 왼쪽 조작판이 둘 다 그림 위에 겹쳐 뜬다(CSS). 서랍을 펴면 조작판을 접는다.
-      if (openId && SR_MOBILE_MQ.matches) setSideCollapsed(true);
+      if (drawer) drawer.classList.toggle('hidden', !openId || openId === SIDE_TAB);
+      if (mobile) setSideCollapsed(openId !== SIDE_TAB);
       // 서랍을 접어도 BGM 은 그대로 둔다 — 틀어 놓고 다른 정보를 보는 쪽이 낫다.
       // 소리가 남으면 곤란한 경우(탭 이동·보스 변경)는 각자 자리에서 끊는다.
     }
@@ -228,21 +234,22 @@
       const btn = document.getElementById(btnId);
       if (!btn) return;
       btn.addEventListener('click', () => {
-        openId = openId === btnId ? null : btnId;
+        openId = openId === btnId && !SR_MOBILE_MQ.matches ? null : btnId;
         render();
       });
+    });
+    // 폭이 바뀌면 배치를 다시 맞춘다. 넓은 화면으로 가면 왼쪽 조작판은 기본(펼침)으로 돌린다.
+    SR_MOBILE_MQ.addEventListener('change', () => {
+      if (!SR_MOBILE_MQ.matches) setSideCollapsed(false);
+      render();
     });
 
     const sideBtn = document.getElementById('sr3d-side-toggle');
     if (sideBtn) {
-      // 폰 폭에서는 처음에 조작판을 접어 둔다 - 펴 두면 그림 칸을 다 가린다
-      if (SR_MOBILE_MQ.matches) setSideCollapsed(true);
+      // 넓은 화면 전용(폰 폭에서는 '조작' 탭이 대신한다)
       sideBtn.addEventListener('click', () => {
         const app = document.getElementById('sr3d-app');
-        const on = !app.classList.contains('side-collapsed');
-        setSideCollapsed(on);
-        // 폰 폭에서 조작판을 펴면 오른쪽 서랍은 접는다(둘 다 그림 위에 겹친다)
-        if (!on && SR_MOBILE_MQ.matches && openId) { openId = null; render(); }
+        setSideCollapsed(!app.classList.contains('side-collapsed'));
       });
     }
 
