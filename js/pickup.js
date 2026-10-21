@@ -687,13 +687,10 @@
   let detailImgTurn = 0;               // 그림 요청 차례(늦게 끝난 이전 요청을 거른다)
   const missingFullImg = new Set();    // 전신 이미지가 없다고 확인된 니케 코드
 
-  // 전신 그림은 원본 픽셀 크기 기준이 같다(일반 캐릭터 118장을 같은 비율로 놓고 확인, 2026-10-21).
-  // 그래서 칸에 그림마다 따로 맞추지 않고 모두 같은 비율로 줄인다 - 높이 FULL_REF_H px 그림이 칸 높이에 꽉 찬다.
-  // 팝업 높이는 하나로 두고 그림 칸 폭이 그림 폭을 따라간다(사용자 제안). 더 큰 그림(콜라보 2B · A2 는 해상도가
-  // 두 배 가까이 높다 - 게임 쪽 크기 기준값을 받기 전까지)은 칸 높이에 맞춘다.
+  // 전신 그림은 모두 칸 높이에 꽉 차게 그리고(그림 높이를 전부 같게), 그림 칸 폭이 그림 비율을 따라간다.
+  // 팝업 높이는 하나로 둔다(사용자 요청, 2026-10-21). 예전에는 칸에 맞춰 줄여서 폭이 넓은 그림만 작아 보였다.
   // 크기는 img/nikke-full/sizes.json(tools/nikke_full_sizes.py)에서 미리 읽는다 - 그림을 받기 전에 칸 폭을 정해야
   // 열 때 칸이 툭 바뀌지 않는다. 목록에 없으면 그림을 받은 뒤 맞춘다.
-  const FULL_REF_H = 1024;
   let fullSizes = null;
   function loadFullSizes() {
     if (fullSizes) return;
@@ -704,7 +701,6 @@
   function setFullSize(panel, size) {
     if (!size) { panel.classList.remove('has-full'); return; }
     const [w, h] = size;
-    panel.style.setProperty('--fig-ratio', String(Math.min(h, FULL_REF_H) / FULL_REF_H));
     panel.style.setProperty('--fig-ar', String(w / h));
     panel.classList.add('has-full');
   }
