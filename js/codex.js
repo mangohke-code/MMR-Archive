@@ -490,7 +490,7 @@
             return `
               <div class="codex-card${isUnappeared ? ' is-unappeared' : ''}${clickable ? '' : ' is-empty'}" data-row-idx="${rowIdx}"
                    ${clickable ? `onclick="selectCodexCard(${rowIdx})"` : ''}>
-                <div class="codex-card-portrait">${imgUrl ? `<img src="${imgUrl}" alt="${name}">` : ''}</div>
+                <div class="codex-card-portrait">${imgUrl ? `<img src="${imgUrl}" alt="${name}">` : '<span class="codex-card-noimg">이미지<br>준비 중</span>'}</div>
                 <div class="codex-card-info">
                   <div class="codex-card-name">${name || '???'}</div>
                   ${isUnappeared ? `<span class="codex-card-badge unappeared">미등장</span>` : ''}
