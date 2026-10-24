@@ -3,7 +3,75 @@
       renderMainData(APP_DATA.main);
       renderPickupList(APP_DATA.pickup);
       renderCostumePickupList(APP_DATA.costume);
+      finishMainLayout();
     });
+  }
+
+  // ===== 유형별 판 마무리 (2026-10-25) =====
+  // 판마다 진행 중 · 진행 예정 개수, 위 요약 칸 숫자, 진행 중 카드의 기간 진행 막대를 채우고
+  // 요약 칸 거르기를 건다(누르면 그 유형 판만, 다시 누르면 전체).
+  const MAIN_TYPES = ['ev', 'pu', 'cs'];
+  function finishMainLayout() {
+    const cardCount = sub => (sub && !sub.classList.contains('hidden')
+      ? sub.querySelectorAll('.event-card, .pickup-card').length : 0);
+    MAIN_TYPES.forEach(k => {
+      const panel = document.getElementById('main-panel-' + k);
+      if (!panel) return;
+      const now = panel.querySelector('.main-sub.is-now');
+      const next = panel.querySelector('.main-sub.is-next');
+      const a = cardCount(now), b = cardCount(next);
+      [[now, a], [next, b]].forEach(([sub, c]) => {
+        const em = sub && sub.querySelector('.main-sub-title em');
+        if (em) em.textContent = c;
+      });
+      const tile = document.querySelector(`.main-tile[data-panel="${k}"]`);
+      if (tile) {
+        [['.st.is-now', a], ['.st.is-next', b]].forEach(([sel, c]) => {
+          const st = tile.querySelector(sel);
+          if (!st) return;
+          st.querySelector('em').textContent = c;
+          st.classList.toggle('is-zero', !c);
+        });
+      }
+      if (now) now.querySelectorAll('[data-start][data-end]').forEach(addPeriodBar);
+    });
+    wireMainTiles();
+  }
+
+  // 진행 중 카드 아래 막대: 기간 중 얼마나 지났는지. 종료일에 시각이 없으면 그날 끝까지로 본다.
+  function addPeriodBar(card) {
+    const info = card.querySelector('.event-info, .pickup-card-info');
+    if (!info || info.querySelector('.period-bar')) return;
+    const s = new Date(card.dataset.start);
+    const e = new Date(card.dataset.end);
+    if (!hasTimePart(card.dataset.end)) e.setHours(23, 59, 59, 999);
+    if (isNaN(s) || isNaN(e) || e <= s) return;
+    const pct = Math.max(0, Math.min(100, (Date.now() - s) / (e - s) * 100));
+    info.insertAdjacentHTML('beforeend',
+      `<div class="period-bar"><span class="period-track"><i style="width:${pct.toFixed(1)}%"></i></span>`
+      + `<span class="period-text">${Math.round(pct)}% 지남</span></div>`);
+  }
+
+  let mainTilesWired = false;
+  function wireMainTiles() {
+    if (mainTilesWired) return;
+    mainTilesWired = true;
+    const tiles = [...document.querySelectorAll('.main-tile')];
+    let on = null;
+    tiles.forEach(t => t.addEventListener('click', () => {
+      on = on === t.dataset.panel ? null : t.dataset.panel;
+      tiles.forEach(x => {
+        const sel = x.dataset.panel === on;
+        x.classList.toggle('is-on', sel);
+        x.setAttribute('aria-pressed', String(sel));
+      });
+      MAIN_TYPES.forEach(k => {
+        const p = document.getElementById('main-panel-' + k);
+        if (p) p.classList.toggle('hidden', !!on && on !== k);
+      });
+      const sum = document.getElementById('main-sum');
+      if (sum) sum.classList.toggle('is-filtered', !!on);
+    }));
   }
 
   function renderMainData(data) {
@@ -138,7 +206,7 @@
   // 이벤트 카드 한 장. 진행 예정이면 남은 날 대신 시작까지 남은 날을 단다.
   function eventCard(e, upcoming) {
     return `
-      <div class="event-card">
+      <div class="event-card" data-start="${e['시작일'] || ''}" data-end="${e['종료일'] || ''}">
         <img src="${e['이미지']}" alt="${e['이벤트명']}" onerror="this.style.display='none'">
         <div class="event-info" data-code="${cardCode('EV', e['시작일'])}">
           <div class="event-name">${e['이벤트명']}</div>
@@ -186,7 +254,7 @@
       // 초상화가 자연스러우므로 거기서만 대신 쓴다.
       const imgUrl = p['픽업 배너'] || '';
       return `
-        <div class="pickup-card" data-nikke="${p['니케']}">
+        <div class="pickup-card" data-nikke="${p['니케']}" data-start="${p['시작일'] || ''}" data-end="${p['종료일'] || ''}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img">` : ''}
           <div class="pickup-card-info" data-code="${cardCode('PU', p['시작일'])}">
             <div class="pickup-name-wrap"><div class="pickup-name">${p['니케']}</div></div>
@@ -204,7 +272,7 @@
     const renderRerunCard = p => {
       const imgUrl = p['픽업 배너'] || nikkeImgMap[p['니케']] || '';
       return `
-        <div class="pickup-card rerun" data-nikke="${p['니케']}">
+        <div class="pickup-card rerun" data-nikke="${p['니케']}" data-start="${p['시작일'] || ''}" data-end="${p['종료일'] || ''}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${p['니케']}" class="pickup-img-rerun">` : ''}
           <div class="pickup-card-info" data-code="${cardCode('PU', p['시작일'])}">
             <div class="pickup-name-wrap"><div class="pickup-name">${p['니케']}</div></div>
@@ -298,7 +366,7 @@
       const endDate = c._isRerun ? c['복각 종료일'] : c['종료일'];
       const remaining = formatRemainingDaysMain(startDate, endDate) || formatUntilStartMain(startDate);
       return `
-        <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}">
+        <div class="pickup-card ${c._isRerun ? 'rerun' : ''}" data-nikke="${c['니케']}" data-costume="${c['코스튬명']}" data-is-rerun="${c._isRerun}" data-start="${startDate || ''}" data-end="${endDate || ''}">
           ${imgUrl ? `<img src="${imgUrl}" alt="${c['니케']}" class="${c._isRerun ? 'pickup-img-rerun' : 'pickup-img'}">` : ''}
           <div class="pickup-card-info" data-code="${cardCode('CS', startDate)}">
             <div class="pickup-name-wrap"><div class="pickup-name">${c['니케']} · ${c['코스튬명']}</div></div>

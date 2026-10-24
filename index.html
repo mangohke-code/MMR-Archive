@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=253">
+  <link rel="stylesheet" href="css/style.css?v=254">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -53,65 +53,89 @@
     <div id="tab-main" class="tab-content active">
       <div id="main-container">
 
-        <!-- 공지. 문구는 Supabase 메인_공지 표에서 그린다(main.js renderNotice). 보일 줄이 없으면 구역째 감춘다. -->
-        <section id="main-notice" class="hidden">
-          <div class="notice-head">
-            <span class="notice-badge">공지</span>
-            <span class="notice-date"></span>
-          </div>
-          <ul class="notice-list"></ul>
-        </section>
-
         <!-- 소개글 -->
         <div id="main-intro"></div>
 
-        <!-- 진행 예정 이벤트 (없으면 섹션 자체를 숨김) -->
-        <div id="main-event-upcoming" class="hidden">
-          <div class="section-title">진행 예정 이벤트</div>
-          <div id="event-upcoming-list"></div>
-        </div>
+        <!-- 유형별 판(이벤트 · 픽업 · 코스튬 픽업) + 오른쪽 옆 칸(공지 · 업데이트 내역 · 외부 링크) (2026-10-25)
+             각 판은 진행 중 → 진행 예정 순. 위 요약 칸을 누르면 그 유형 판만, 다시 누르면 전체(main.js finishMainLayout). -->
+        <div id="main-layout">
+          <div id="main-col">
+            <div id="main-sum">
+              <button type="button" class="main-tile" data-panel="ev" aria-pressed="false" style="--type-c: #4f8df5">
+                <span class="main-tile-en">EVENT</span><b>이벤트</b>
+                <span class="main-tile-stats"><span class="st is-now"><i></i><em>0</em>진행 중</span><span class="st is-next"><i class="fa-regular fa-clock"></i><em>0</em>예정</span></span>
+              </button>
+              <button type="button" class="main-tile" data-panel="pu" aria-pressed="false" style="--type-c: #8a6cf0">
+                <span class="main-tile-en">PICKUP</span><b>픽업</b>
+                <span class="main-tile-stats"><span class="st is-now"><i></i><em>0</em>진행 중</span><span class="st is-next"><i class="fa-regular fa-clock"></i><em>0</em>예정</span></span>
+              </button>
+              <button type="button" class="main-tile" data-panel="cs" aria-pressed="false" style="--type-c: #e2679c">
+                <span class="main-tile-en">COSTUME</span><b>코스튬 픽업</b>
+                <span class="main-tile-stats"><span class="st is-now"><i></i><em>0</em>진행 중</span><span class="st is-next"><i class="fa-regular fa-clock"></i><em>0</em>예정</span></span>
+              </button>
+            </div>
 
-        <!-- 진행 예정 픽업 (없으면 섹션 자체를 숨김) -->
-        <div id="main-pickup-upcoming" class="hidden">
-          <div class="section-title">진행 예정 픽업</div>
-          <div id="pickup-upcoming-list"></div>
-        </div>
+            <section class="main-panel" id="main-panel-ev" data-wm="EVENT" style="--type-c: #4f8df5">
+              <div class="main-panel-head"><span class="main-panel-en">EVENT</span><h2>이벤트</h2></div>
+              <div id="main-event" class="main-sub is-now">
+                <div class="main-sub-title">진행 중 <em></em></div>
+                <div id="event-list"></div>
+              </div>
+              <!-- 없으면 숨김 -->
+              <div id="main-event-upcoming" class="main-sub is-next hidden">
+                <div class="main-sub-title">진행 예정 <em></em></div>
+                <div id="event-upcoming-list"></div>
+              </div>
+            </section>
 
-        <!-- 진행 예정 코스튬 픽업 (없으면 섹션 자체를 숨김) -->
-        <div id="main-costume-pickup-upcoming" class="hidden">
-          <div class="section-title">진행 예정 코스튬 픽업</div>
-          <div id="costume-pickup-upcoming-list"></div>
-        </div>
+            <section class="main-panel" id="main-panel-pu" data-wm="PICKUP" style="--type-c: #8a6cf0">
+              <div class="main-panel-head"><span class="main-panel-en">PICKUP</span><h2>픽업</h2></div>
+              <div id="main-pickup" class="main-sub is-now">
+                <div class="main-sub-title">진행 중 <em></em></div>
+                <div id="pickup-list"></div>
+              </div>
+              <div id="main-pickup-upcoming" class="main-sub is-next hidden">
+                <div class="main-sub-title">진행 예정 <em></em></div>
+                <div id="pickup-upcoming-list"></div>
+              </div>
+            </section>
 
-        <!-- 진행중인 이벤트 -->
-        <div id="main-event">
-          <div class="section-title">진행중인 이벤트</div>
-          <div id="event-list"></div>
-        </div>
+            <section class="main-panel" id="main-panel-cs" data-wm="COSTUME" style="--type-c: #e2679c">
+              <div class="main-panel-head"><span class="main-panel-en">COSTUME</span><h2>코스튬 픽업</h2></div>
+              <div id="main-costume-pickup" class="main-sub is-now">
+                <div class="main-sub-title">진행 중 <em></em></div>
+                <div id="costume-pickup-list"></div>
+              </div>
+              <div id="main-costume-pickup-upcoming" class="main-sub is-next hidden">
+                <div class="main-sub-title">진행 예정 <em></em></div>
+                <div id="costume-pickup-upcoming-list"></div>
+              </div>
+            </section>
+          </div>
 
-        <!-- 진행중인 픽업 -->
-        <div id="main-pickup">
-          <div class="section-title">진행중인 픽업</div>
-          <div id="pickup-list"></div>
-        </div>
+          <aside id="main-side">
+            <!-- 공지. 문구는 Supabase 메인_공지 표에서 그린다(main.js renderNotice). 보일 줄이 없으면 구역째 감춘다. -->
+            <section id="main-notice" class="hidden">
+              <div class="notice-head">
+                <span class="notice-badge">공지</span>
+                <span class="notice-date"></span>
+              </div>
+              <ul class="notice-list"></ul>
+            </section>
 
-        <!-- 진행중인 코스튬 픽업 -->
-        <div id="main-costume-pickup">
-          <div class="section-title">진행중인 코스튬 픽업</div>
-          <div id="costume-pickup-list"></div>
-        </div>
+            <!-- 업데이트 내역 (최근 5개) -->
+            <div id="main-update-log">
+              <div class="section-title">업데이트 내역</div>
+              <div id="update-log-list"></div>
+            </div>
 
-        <!-- 업데이트 내역 (최근 5개) -->
-        <div id="main-update-log">
-          <div class="section-title">업데이트 내역</div>
-          <div id="update-log-list"></div>
-        </div>
-
-        <!-- 외부 링크 -->
-        <div id="main-links" class="hidden">
-          <div class="section-title">외부 링크</div>
-          <!-- 링크는 Supabase 메인_링크 표에서 그린다(main.js renderLinks) -->
-          <div id="link-list"></div>
+            <!-- 외부 링크 -->
+            <div id="main-links" class="hidden">
+              <div class="section-title">외부 링크</div>
+              <!-- 링크는 Supabase 메인_링크 표에서 그린다(main.js renderLinks) -->
+              <div id="link-list"></div>
+            </div>
+          </aside>
         </div>
 
       </div>
@@ -811,7 +835,7 @@
 
   <script src="js/config.js?v=2"></script>
   <script src="js/common.js?v=79"></script>
-  <script src="js/main.js?v=25"></script>
+  <script src="js/main.js?v=26"></script>
   <script src="js/pickup.js?v=59"></script>
   <script src="js/skillcut.js?v=44"></script>
   <script src="js/costume.js?v=66"></script>
