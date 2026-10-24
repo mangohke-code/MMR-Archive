@@ -18,6 +18,15 @@
       return start <= now && now <= end;
     });
     renderEventList(activeEvents);
+    // 아직 시작 전인 이벤트 - 진행 예정 픽업과 같은 방식(가까운 순, 없으면 구역째 숨김)
+    const upcomingEvents = data.events
+      .filter(e => new Date(e['시작일']) > now)
+      .sort((a, b) => new Date(a['시작일']) - new Date(b['시작일']));
+    const upcomingBox = document.getElementById('main-event-upcoming');
+    if (upcomingBox) {
+      upcomingBox.classList.toggle('hidden', upcomingEvents.length === 0);
+      document.getElementById('event-upcoming-list').innerHTML = upcomingEvents.map(e => eventCard(e, true)).join('');
+    }
   }
 
   // 맨 위 공지 — 메인_공지 표에서 그린다. 보일 줄이 없으면 구역째 감춘다.
@@ -125,7 +134,12 @@
       container.innerHTML = '<p>진행중인 이벤트가 없습니다.</p>';
       return;
     }
-    container.innerHTML = events.map(e => `
+    container.innerHTML = events.map(e => eventCard(e, false)).join('');
+  }
+
+  // 이벤트 카드 한 장. 진행 예정이면 남은 날 대신 시작까지 남은 날을 단다.
+  function eventCard(e, upcoming) {
+    return `
       <div class="event-card">
         <img src="${e['이미지']}" alt="${e['이벤트명']}" onerror="this.style.display='none'">
         <div class="event-info" data-code="${cardCode('EV', e['시작일'])}">
@@ -136,11 +150,11 @@
           <div class="pickup-badge-row">
             ${e['신규복각'] ? `<span class="badge-pickup-type ${e['신규복각'] === '복각' ? 'rerun' : 'new'}">${e['신규복각']}</span>` : ''}
             ${e['시즌'] ? `<span class="badge badge-season">${e['시즌']}</span>` : ''}
-            ${formatEventRemainingMain(e['시작일'], e['종료일'])}
+            ${upcoming ? formatUntilStartMain(e['시작일']) : formatEventRemainingMain(e['시작일'], e['종료일'])}
           </div>
         </div>
       </div>
-    `).join('');
+    `;
   }
 
   function renderPickupList(data) {

@@ -635,7 +635,7 @@
     color: var(--text-secondary);
   }
 
-  #event-list {
+  #event-list, #event-upcoming-list {
     display: flex;
     gap: 10px;
   }
@@ -8486,7 +8486,7 @@
   /* ===== 폰 폭 (사용자 지적, 2026-10-09) ===== */
   @media (max-width: 640px) {
     /* 메인 - 진행 중 이벤트 카드가 845px 고정이라 화면 밖으로 나갔다 */
-    #event-list { flex-direction: column; }
+    #event-list, #event-upcoming-list { flex-direction: column; }
     .event-card { flex: 1 1 auto; width: 100%; }
     .event-name { font-size: 24px; word-break: keep-all; }
     .event-date { font-size: 16px; }
