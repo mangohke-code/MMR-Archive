@@ -94,8 +94,9 @@
     }
 
     // 내역에 새 니케 · 보스 · 기념품 이름이 그대로 적혀 스포일러가 된다. 처음에는 흐리게 가리고
-    // 가운데 해제 버튼을 둔다(기념품 설명과 같은 방식). 해제는 이 탭을 닫을 때까지 유지한다.
-    if (updateLogRevealed()) return;
+    // 가운데 해제 버튼을 둔다(기념품 설명과 같은 방식). 해제는 지금 보고 있는 화면에서만 유지하고,
+    // 새로고침하면 다시 가린다(사용자 요청, 2026-10-25 - 예전에는 탭을 닫을 때까지 유지했다).
+    if (updateLogRevealed) return;
     container.classList.add('is-spoiler');
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -104,15 +105,12 @@
     btn.addEventListener('click', () => {
       container.classList.remove('is-spoiler');
       btn.remove();
-      try { sessionStorage.setItem(UPDATE_LOG_REVEAL_KEY, '1'); } catch (e) { /* 저장 못 해도 이번 화면은 풀린다 */ }
+      updateLogRevealed = true;   // 같은 화면에서 다시 그려도 풀린 채로 둔다
     });
     container.appendChild(btn);
   }
 
-  const UPDATE_LOG_REVEAL_KEY = 'mmr-update-log-revealed';
-  function updateLogRevealed() {
-    try { return sessionStorage.getItem(UPDATE_LOG_REVEAL_KEY) === '1'; } catch (e) { return false; }
-  }
+  let updateLogRevealed = false;
 
   // 카드 구석에 찍는 기록 번호(예: PU-2026-1008). 시작일에서 만든다. 꾸밈용이라
   // 날짜가 없으면 그냥 안 찍는다.
