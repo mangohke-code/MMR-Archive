@@ -5965,7 +5965,7 @@
   #sr3d-rail button i { writing-mode: horizontal-tb; }
 
   /* 조작 탭은 폰 폭에서만 쓴다(넓은 화면은 왼쪽 조작판이 늘 있다) */
-  #soloraid-drawer-side { display: none; }
+  #sr3d-rail #soloraid-drawer-side { display: none; }
 
   /* BGM 은 성격이 다른 서랍이라 나머지와 붙이지 않고 맨 아래에 둔다 */
   #soloraid-drawer-bgm { margin-top: auto; }
@@ -8621,7 +8621,7 @@
       font-size: 12px;
       white-space: nowrap;
     }
-    #soloraid-drawer-side { display: flex; }
+    #sr3d-rail #soloraid-drawer-side { display: flex; }
     #soloraid-drawer-bgm { margin-top: 0; }
     #sr3d-side,
     #sr3d-drawer {
