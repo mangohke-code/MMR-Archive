@@ -988,6 +988,9 @@
     if (nav) {
       nav.addEventListener('focusin', () => show(true));
       nav.addEventListener('focusout', () => show(false));
+      // 탭을 옮기면 탭 바가 0.26초 동안 줄어든다(compact-nav). 그 도중에 잰 높이가 남으면 툴바가 탭 바보다
+      // 21px 아래에 붙어서 2026 줄을 반쯤 가렸다(사용자 지적, 2026-10-24). 다 줄어든 뒤 다시 잰다.
+      nav.addEventListener('transitionend', e => { if (e.target === nav) schedule(); });
     }
     document.addEventListener('mmr:tab-change', () => { st.shown = false; schedule(); });
     schedule();
