@@ -9242,13 +9242,18 @@
     .main-sub .event-name, .main-sub .pickup-name { font-size: 19px; }
   }
 
-  /* ===== 픽업 기록 · 캐릭터 도감 · 스테이지 정보 바탕 (사용자 요청, 2026-10-26) =====
+  /* ===== 페이지 바탕 (사용자 요청, 2026-10-26 - 픽업 기록 · 캐릭터 도감 · 스테이지 정보에서 시작해 전 페이지로) =====
      내용이 모눈 위에 바로 놓여 밋밋했다. 번짐을 진하게(가운데 하나 더), 5칸마다 굵은 모눈,
-     화면 오른쪽 아래에 페이지 이름을 큰 글자로 옅게 깐다(메인 판 뒤 큰 글자와 같은 말투). 고정된 막이라 글만 흐른다. */
-  body.tab-pickup { --page-wm: 'PICKUP'; }
-  body.tab-codex  { --page-wm: 'CODEX'; }
-  body.tab-stage  { --page-wm: 'STAGE'; }
-  body:is(.tab-pickup, .tab-codex, .tab-stage)::before {
+     화면 오른쪽 아래에 페이지 이름을 큰 글자로 옅게 깐다(메인 판 뒤 큰 글자와 같은 말투). 고정된 막이라 글만 흐른다.
+     메인은 판마다 큰 글자가 이미 있어서 페이지 글자는 뺀다. */
+  body.tab-pickup   { --page-wm: 'PICKUP'; }
+  body.tab-costume  { --page-wm: 'COSTUME'; }
+  body.tab-codex    { --page-wm: 'CODEX'; }
+  body.tab-souvenir { --page-wm: 'SOUVENIR'; }
+  body.tab-soloraid { --page-wm: 'RAID'; }
+  body.tab-stage    { --page-wm: 'STAGE'; }
+  body.tab-contact  { --page-wm: 'CONTACT'; }
+  body::before {
     background:
       radial-gradient(1100px 640px at 100% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
       radial-gradient(900px 600px at 0% 100%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 70%),
@@ -9258,8 +9263,8 @@
       linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 28px 28px,
       linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 28px 28px;
   }
-  body:is(.tab-pickup, .tab-codex, .tab-stage)::after {
-    content: var(--page-wm);
+  body::after {
+    content: var(--page-wm, none);
     position: fixed;
     right: -0.06em;
     bottom: -0.16em;
