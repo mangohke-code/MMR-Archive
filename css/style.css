@@ -9241,3 +9241,32 @@
     .main-panel-head h2 { font-size: 28px; }
     .main-sub .event-name, .main-sub .pickup-name { font-size: 19px; }
   }
+
+  /* ===== 픽업 기록 · 캐릭터 도감 · 스테이지 정보 바탕 (사용자 요청, 2026-10-26) =====
+     내용이 모눈 위에 바로 놓여 밋밋했다. 번짐을 진하게(가운데 하나 더), 5칸마다 굵은 모눈,
+     화면 오른쪽 아래에 페이지 이름을 큰 글자로 옅게 깐다(메인 판 뒤 큰 글자와 같은 말투). 고정된 막이라 글만 흐른다. */
+  body.tab-pickup { --page-wm: 'PICKUP'; }
+  body.tab-codex  { --page-wm: 'CODEX'; }
+  body.tab-stage  { --page-wm: 'STAGE'; }
+  body:is(.tab-pickup, .tab-codex, .tab-stage)::before {
+    background:
+      radial-gradient(1100px 640px at 100% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
+      radial-gradient(900px 600px at 0% 100%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 70%),
+      radial-gradient(800px 520px at 55% 60%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+      linear-gradient(color-mix(in srgb, var(--accent) 13%, transparent) 1px, transparent 1px) 0 0 / 140px 140px,
+      linear-gradient(90deg, color-mix(in srgb, var(--accent) 13%, transparent) 1px, transparent 1px) 0 0 / 140px 140px,
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 28px 28px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 28px 28px;
+  }
+  body:is(.tab-pickup, .tab-codex, .tab-stage)::after {
+    content: var(--page-wm);
+    position: fixed;
+    right: -0.06em;
+    bottom: -0.16em;
+    z-index: -1;
+    pointer-events: none;
+    font: 900 clamp(90px, 17vw, 300px)/1 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    color: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
