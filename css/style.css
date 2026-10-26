@@ -9542,3 +9542,72 @@
     #stage-table td:nth-child(1) { font-size: 16px; }
   }
   #stage-table td:nth-child(1)::before { font-weight: 400; }
+
+  /* ===== 기념품 목록 (사용자 요청, 2026-10-26) =====
+     큰 판 하나 안에 작은 시즌 제목 · 64px 그림만 있어 비어 보였다. 시즌 탭은 얇은 판에 담고, 목록은 판을 걷어
+     시즌마다 왼쪽에 큰 시즌 이름 · 이벤트/기념품 개수(세로 표식), 오른쪽에 이벤트 카드. 기념품은 그림을 키우고 이름을 붙인다. */
+  #souvenir-bottom { background: none; box-shadow: none; border-radius: 0; overflow: visible; display: flex; flex-direction: column; gap: 22px; }
+  #souvenir-season-tabs {
+    --cut: 14px;
+    justify-content: center;
+    padding: 4px 8px;
+    border-bottom: 0;
+    border-radius: var(--cut) 0 var(--cut) 0;
+    corner-shape: bevel;
+    background-color: var(--bg-panel);
+    background-image: linear-gradient(90deg, var(--gold), transparent);
+    background-size: 40% 2px;
+    background-position: left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong), var(--shadow-card);
+  }
+  .souvenir-season-tab { font-size: 17px; padding: 12px 6px; border-bottom-width: 3px; }
+  .souvenir-season-tab.active { font-weight: 700; }
+  #souvenir-item-strip-wrap { padding: 0; }
+  #souvenir-item-strip { gap: 0; }
+
+  .souvenir-season-group { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 28px; padding: 26px 0; }
+  .souvenir-season-group + .souvenir-season-group { border-top: 1px solid; border-image: linear-gradient(90deg, var(--border-strong), transparent) 1; }
+  .souvenir-season-group-title {
+    position: sticky; top: 70px; align-self: start;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+    margin: 0; padding: 4px 20px 4px 0; border-bottom: 0;
+    border-right: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    font-size: 28px; font-weight: 800; letter-spacing: .04em; line-height: 1.15; text-align: right; color: var(--text-heading); word-break: keep-all;
+  }
+  .souvenir-season-count { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+  .souvenir-season-count em { font-style: normal; font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--text-secondary); }
+  .souvenir-season-count em b { font-size: 17px; font-weight: 800; color: var(--accent); margin-left: 3px; }
+  .souvenir-season-group-body { gap: 18px; }
+
+  .souvenir-event-group { gap: 12px; padding: 14px 16px 16px; }
+  .souvenir-event-label { font-size: 16px; font-weight: 700; color: var(--text-heading); padding-bottom: 9px; letter-spacing: .03em; }
+  .souvenir-event-items { gap: 12px; justify-content: flex-start; align-items: flex-start; }
+  .souvenir-strip-item { width: 96px; height: auto; display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: none; overflow: visible; }
+  .souvenir-strip-img { width: 96px; height: 96px; border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-inset);
+    box-shadow: inset 0 0 0 1px var(--border-subtle); transition: box-shadow .2s, transform .15s; }
+  .souvenir-strip-img img { width: 86%; height: 86%; }
+  .souvenir-strip-name { font-size: 13px; line-height: 1.3; text-align: center; color: var(--text-body); word-break: keep-all;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  @media (hover: hover) {
+    .souvenir-strip-item:hover .souvenir-strip-img { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--accent-strong), var(--shadow-card-hover); }
+    .souvenir-strip-item:hover .souvenir-strip-name { color: var(--accent-strong); }
+  }
+  .souvenir-strip-item:hover, .souvenir-strip-item.active { border: 0; box-shadow: none; }
+  .souvenir-strip-item.active .souvenir-strip-img { box-shadow: inset 0 0 0 2px var(--accent), 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .souvenir-strip-item.active .souvenir-strip-name { color: var(--accent-strong); font-weight: 700; }
+
+  @media (max-width: 640px) {
+    .souvenir-season-group { grid-template-columns: 1fr; gap: 12px; padding: 18px 0; }
+    .souvenir-season-group-title { position: static; flex-direction: row; align-items: center; justify-content: space-between;
+      padding: 0 0 8px; border-right: 0; border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); text-align: left; font-size: 22px; }
+    .souvenir-season-count { flex-direction: row; gap: 10px; }
+    .souvenir-season-group-body { gap: 12px; }
+    /* 기념품이 넷인 이벤트(NEVERLAND)가 화면보다 넓었다 - 판 폭을 넘지 않게 하고 기념품은 다음 줄로 */
+    .souvenir-event-group { padding: 12px; max-width: 100%; min-width: 0; flex-shrink: 1; }
+    .souvenir-event-items { gap: 10px; }
+    .souvenir-strip-item { width: 76px; }
+    .souvenir-strip-img { width: 76px; height: 76px; }
+    .souvenir-strip-name { font-size: 12px; }
+    .souvenir-season-tab { font-size: 15px; padding: 10px 4px; }
+  }

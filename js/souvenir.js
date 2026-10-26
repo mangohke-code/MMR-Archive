@@ -120,9 +120,15 @@
 
     const sortedSeasons = Object.keys(bySeason).sort((a, b) => souvenirSeasonRank(a) - souvenirSeasonRank(b));
 
+    // 시즌 머리: 큰 시즌 이름 + 이벤트 · 기념품 개수(2026-10-26 - 왼쪽 세로 표식)
+    const seasonCount = season => {
+      const groups = bySeason[season];
+      return `<div class="souvenir-season-count"><em>이벤트 <b>${groups.length}</b></em>`
+        + `<em>기념품 <b>${groups.reduce((n, [, items]) => n + items.length, 0)}</b></em></div>`;
+    };
     strip.innerHTML = sortedSeasons.map(season => `
       <div class="souvenir-season-group">
-        <div class="souvenir-season-group-title">${season}</div>
+        <div class="souvenir-season-group-title"><span>${season}</span>${seasonCount(season)}</div>
         <div class="souvenir-season-group-body">
           ${bySeason[season].map(([event, items]) => `
             <div class="souvenir-event-group">
@@ -135,6 +141,7 @@
                     <div class="souvenir-strip-img">
                       ${item['이미지'] ? `<img src="${item['이미지']}" alt="${item['이름']}">` : ''}
                     </div>
+                    <div class="souvenir-strip-name">${item['이름'] || ''}</div>
                   </div>
                 `).join('')}
               </div>
