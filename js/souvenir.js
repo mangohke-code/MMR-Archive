@@ -198,7 +198,7 @@
 
     document.getElementById('souvenir-detail-name').textContent = item['이름'] || '';
     document.getElementById('souvenir-detail-event-name').textContent = item['이벤트'] || '';
-    document.getElementById('souvenir-detail-season').textContent = item['시즌'] ? ` · ${item['시즌']}` : '';
+    document.getElementById('souvenir-detail-season').textContent = item['시즌'] || '';
     document.getElementById('souvenir-detail-method').textContent = item['획득 방법'] || '-';
 
     const rawDesc = item['설명'] || '-';

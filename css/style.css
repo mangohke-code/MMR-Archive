@@ -9611,3 +9611,123 @@
     .souvenir-strip-name { font-size: 12px; }
     .souvenir-season-tab { font-size: 15px; padding: 10px 4px; }
   }
+
+  /* ===== 픽업 기록 다듬기 (사용자 요청, 2026-10-26) ===== */
+
+  /* 몰아보기 분류: 툴바 아래 줄로 펼친다(보기 단추 사이에 끼워 넣던 것) */
+  #pickup-toolbar > #pickup-group-selector {
+    flex-basis: 100%;
+    order: 99;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 10px 0 2px;
+    border: 0;
+    animation: pk-group-open .22s ease;
+  }
+  @keyframes pk-group-open { from { opacity: 0; transform: translateY(-6px); } }
+  .pk-group-label { margin-right: 6px; font-size: 14px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
+  #pickup-toolbar > #pickup-group-selector .pickup-group-btn { font-size: 15px; padding: 7px 0; }
+
+  /* 타임라인: 왼쪽 세로 줄 위에 월 표식, 이벤트마다 옅은 띠 */
+  .year-divider { gap: 14px; }
+  .year-label { font-size: 34px; font-weight: 800; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+  .year-count { flex: none; font-size: 13px; font-weight: 600; padding: 3px 11px; border-radius: 6px 0 6px 0; corner-shape: bevel; color: var(--text-secondary);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent); }
+  .year-count b { font-size: 16px; font-weight: 800; color: var(--accent); margin-left: 2px; }
+  .month-row { position: relative; margin-bottom: 1.5rem; }
+  .month-row::before { content: ''; position: absolute; left: 31px; top: 40px; bottom: -1.5rem; width: 2px; z-index: -1;
+    background: linear-gradient(color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--accent) 12%, transparent)); }
+  .month-col { width: 74px; padding-top: 4px; }
+  .month-label { display: inline-block; min-width: 62px; padding: 6px 0; text-align: center; font-size: 17px; font-weight: 800; color: var(--text-heading);
+    border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-panel);
+    box-shadow: inset 0 0 0 1px var(--border-strong), inset 0 -2px 0 var(--gold), var(--shadow-card); }
+  .events-col { gap: 12px; }
+  .event-line { padding: 10px 16px 12px; border-bottom: 0; border-radius: 14px 0 14px 0; corner-shape: bevel;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), color-mix(in srgb, var(--accent) 2%, transparent) 60%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
+  .event-label-col { width: 150px; }
+  .event-label-name { font-size: 19px; font-weight: 800; color: var(--text-heading); white-space: normal; word-break: keep-all; }
+
+  /* 몰아보기 카드: 표준 작은 카드(비닐 막 · 안쪽 선 · 금색 밑단), 한정 · 복각은 안쪽 선 색으로 */
+  .group-nikke-item {
+    gap: 12px;
+    padding: 8px 12px 8px 8px;
+    border: 0;
+    background-color: var(--vinyl, var(--bg-panel));
+    background-image: var(--sheen), linear-gradient(90deg, var(--gold), transparent);
+    background-size: 250% 100%, 40% 2px;
+    background-position: var(--sheen-x) 0, left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card);
+    transition: transform .15s, box-shadow .15s, --sheen-x .35s ease-out;
+    cursor: pointer;
+  }
+  .group-nikke-item.is-rerun { box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--status-rerun-border), var(--shadow-card); }
+  .group-nikke-item.is-limited, .group-nikke-item.is-limited.is-rerun { box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--status-limited-border), var(--shadow-card); }
+  @media (hover: hover) {
+    .group-nikke-item:hover { --sheen-x: 0%; transform: translateY(-2px);
+      box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--accent-strong), var(--shadow-card-hover); }
+    .group-nikke-item:hover .group-nikke-name { color: var(--accent-strong); }
+  }
+  .group-nikke-portrait { width: 70px; height: 70px; border: 0; border-radius: 8px 0 8px 0; corner-shape: bevel; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .group-nikke-name { font-size: 17px; font-weight: 700; color: var(--text-heading); }
+  /* 표: 빈 칸은 '-' 대신 옅은 점, 줄에 마우스를 올리면 그 줄이 옅게 물든다 */
+  #pickup-group-table td.group-cell-empty { font-size: 0; }
+  #pickup-group-table td.group-cell-empty::after { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  @media (hover: hover) { #pickup-group-table tbody tr:not(.group-year-row):hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); } }
+  #pickup-group-table .period-date-label { font-size: 15px; font-weight: 700; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+  #pickup-group-table th, #pickup-group-header-table th { font-size: 16px; color: var(--text-heading); border-bottom: 2px solid var(--gold); }
+
+  /* ===== 기념품 정보창 (사용자 요청, 2026-10-26) =====
+     그림 칸은 라벤더 빛이 번진 모눈 위에(픽업 상세와 같은 말투), 이벤트 · 시즌은 칩, 획득 방법 · 설명은 안쪽 칸에 이름표를 달아 나눈다 */
+  #souvenir-detail { gap: 28px; padding: 24px; min-height: 0; max-height: none; align-items: stretch; }
+  #souvenir-detail-img-wrap {
+    width: 280px; height: 280px; border-radius: 16px 0 16px 0; corner-shape: bevel;
+    background:
+      radial-gradient(60% 55% at 50% 45%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 20px 20px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 20px,
+      var(--bg-inset);
+    box-shadow: inset 0 0 0 1px var(--border-strong), inset 0 -2px 0 var(--gold);
+  }
+  #souvenir-detail-img { width: 84%; height: 84%; filter: drop-shadow(0 10px 16px rgba(30, 20, 70, 0.28)); }
+  #souvenir-detail-info { gap: 16px; }
+  #souvenir-detail-fixed { gap: 12px; }
+  #souvenir-detail-name { font-size: 32px; font-weight: 800; line-height: 1.25; color: var(--text-heading); }
+  #souvenir-detail-event { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0; }
+  #souvenir-detail-event-name, #souvenir-detail-season { display: inline-flex; align-items: center; margin: 0; padding: 4px 12px; font-size: 15px; font-weight: 600;
+    border-radius: 6px 0 6px 0; corner-shape: bevel; }
+  #souvenir-detail-event-name { color: var(--text-heading); background: color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+  #souvenir-detail-season { color: var(--text-secondary); background: color-mix(in srgb, var(--gold) 14%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent); }
+  #souvenir-detail-season:empty { display: none; }
+  /* 한글 이름표라 고정폭 글꼴은 쓰지 않는다(대체 글꼴로 바뀌고 자간이 벌어졌다) */
+  .souvenir-detail-label { font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
+  #souvenir-detail-method-wrap { margin: 0; padding: 12px 14px; flex-direction: column; align-items: flex-start; gap: 4px;
+    border-radius: 10px 0 10px 0; corner-shape: bevel; background: var(--bg-inset); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  #souvenir-detail-method { font-size: 18px; font-weight: 700; color: var(--accent-strong); }
+  #souvenir-detail-desc-wrap { gap: 8px; height: auto; padding: 12px 14px 14px; position: relative;
+    border-radius: 10px 0 10px 0; corner-shape: bevel; background: var(--bg-inset); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .souvenir-desc-head { display: flex; align-items: center; gap: 10px; }
+  #souvenir-detail-desc { font-size: 16px; line-height: 1.8; color: var(--text-body); max-height: 220px; }
+  #souvenir-spoiler-btn { font-size: 13px; font-weight: 600; padding: 4px 12px; border: 0; border-radius: 6px 0 6px 0; corner-shape: bevel;
+    color: var(--text-on-accent); background: var(--btn-on-bg); box-shadow: var(--btn-on-shadow); }
+
+  @media (max-width: 640px) {
+    #pickup-toolbar > #pickup-group-selector .pickup-group-btn { flex: 1 1 0; min-width: 0; width: auto; font-size: 13px; padding: 6px 2px; }
+    .pk-group-label { flex-basis: 100%; margin: 0 0 2px; }
+    .year-label { font-size: 26px; }
+    .month-row::before { left: 23px; }
+    .month-col { width: 56px; }
+    .month-label { min-width: 48px; font-size: 14px; padding: 4px 0; }
+    .event-line { padding: 8px 10px 10px; }
+    .event-label-name { font-size: 17px; }
+    #souvenir-detail { padding: 16px; gap: 16px; }
+    #souvenir-detail-img-wrap { width: 100%; max-width: 240px; height: auto; aspect-ratio: 1; }
+    #souvenir-detail-name { font-size: 24px; }
+  }

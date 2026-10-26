@@ -475,6 +475,7 @@
       <div class="timeline-year">
         <div class="year-divider">
           <span class="year-label">${year}</span>
+          <span class="year-count">픽업 <b>${Object.values(byYear[year]).reduce((n, e) => n + e.nikkes.length, 0)}</b></span>
           <div class="year-line"></div>
         </div>
         ${Object.keys(byMonth).sort((a, b) => pickupOrder(Number(a), Number(b))).map(month => `
@@ -1032,6 +1033,8 @@
         document.getElementById('pickup-group-view').classList.toggle('hidden', currentView !== 'group');
         document.getElementById('pickup-calendar-view').classList.toggle('hidden', currentView !== 'calendar');
         document.getElementById('pickup-group-selector').classList.toggle('hidden', currentView !== 'group');
+        // 툴바 높이가 바뀌었다 - 고정 툴바 아래에 붙는 것들(월 이름 · 표 머리) 위치를 다시 잰다
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 
         if (currentView === 'group') {
           syncGroupFilterVisibility();
