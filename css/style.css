@@ -9818,3 +9818,15 @@
   .costume-portrait-costume { display: block; max-width: 124px; font-size: 12px; font-weight: 600; text-align: center;
     color: var(--text-secondary); }
   .costume-portrait-costume:empty { display: none; }
+  /* 코스튬명: 니케 이름과의 사이에 가운데가 진한 짧은 금색 선, 코스튬명은 라벤더(사용자 선택 C3, 2026-10-26) */
+  .costume-portrait-costume { position: relative; padding-top: 7px; color: var(--accent); }
+  .costume-portrait-costume::before { content: ''; position: absolute; top: 0; left: 50%; width: 22px; height: 2px; transform: translateX(-50%);
+    background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+  /* 마우스 올림이 복각 카드만 달라 보였다(사용자 지적, 2026-10-26): 복각 날짜 띠가 불투명 바탕이라 반사가 안 지나가고,
+     올려도 띠는 복각 색 그대로였다. 띠를 반투명으로 바꾸고, 올리면 두 카드 모두 같은 라벤더 띠 · 같은 반사로. */
+  .costume-portrait-item.is-rerun .costume-portrait-date { background: color-mix(in srgb, var(--status-rerun-text) 12%, transparent); }
+  .costume-portrait-date { transition: background .15s, color .15s; }
+  @media (hover: hover) {
+    .costume-portrait-item:hover .costume-portrait-date,
+    .costume-portrait-item.is-rerun:hover .costume-portrait-date { color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  }
