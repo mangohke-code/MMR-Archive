@@ -149,9 +149,15 @@
       return;
     }
     container.innerHTML = yearOrder.map(year => `
-      <div class="costume-year-section">
+      <div class="costume-year-section" data-wm="${year}">
         <div class="costume-year-divider">
           <span class="costume-year-label">${year}</span>
+          <span class="costume-year-count">${(() => {
+            // 연도 머리에 신규 · 복각 개수(2026-10-26 - 구역이 밋밋하다는 지적)
+            const rerun = byYear[year].filter(c => c._isRerun).length;
+            const fresh = byYear[year].length - rerun;
+            return `<em>신규 <b>${fresh}</b></em>` + (rerun ? `<em class="is-rerun">복각 <b>${rerun}</b></em>` : '');
+          })()}</span>
           <div class="costume-year-line"></div>
         </div>
         <div class="costume-portrait-row">
