@@ -51,10 +51,10 @@
       `;
     };
 
-    // 맨 위: 프롤로그(챕터 0)와 가장 최근 챕터를 크게 나란히. 나머지는 아래 그리드(최근 챕터는 위로 옮긴다)
+    // 맨 위: 프롤로그(챕터 0)와 가장 최근 챕터를 크게 나란히. 아래 그리드에는 챕터 0 만 빼고 전부(최근 챕터도 같이 - 사용자 요청, 2026-10-26)
     const latest = latestOpenChapter(chapters);
     const zeroChapters = chapters.filter(ch => String(ch) === '0');
-    const restChapters = chapters.filter(ch => String(ch) !== '0' && String(ch) !== String(latest));
+    const restChapters = chapters.filter(ch => String(ch) !== '0');
     const feature = (ch, en, ko) => `
       <div class="chapter-feature">
         <div class="chapter-feature-cap"><b>${en}</b><span>${ko}</span></div>

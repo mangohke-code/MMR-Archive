@@ -131,8 +131,8 @@
         <div class="souvenir-season-group-title"><span>${season}</span>${seasonCount(season)}</div>
         <div class="souvenir-season-group-body">
           ${bySeason[season].map(([event, items]) => `
-            <div class="souvenir-event-group">
-              <div class="souvenir-event-label">${event}</div>
+            <div class="souvenir-event-group" style="--n:${items.length}">
+              <div class="souvenir-event-label" title="${event}">${event}</div>
               <div class="souvenir-event-items">
                 ${items.map(item => `
                   <div class="souvenir-strip-item"
