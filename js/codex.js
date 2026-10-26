@@ -508,9 +508,12 @@
           `;
         }).join('');
 
+        // 소속 구역 머리: 기업 아이콘(IMG_아이콘 '기업' 에 있으면) · 이름 · 인원 수(2026-10-26 - 구역 구분이 안 된다는 지적)
+        const affilIcon = ((typeof APP_DATA !== 'undefined' && APP_DATA.iconImg && APP_DATA.iconImg['기업']) || {})[affil] || '';
+        const affilCount = squadEntries.reduce((n, s) => n + s.members.length, 0);
         return `
           <div class="codex-affil-group ${isChinaServer ? 'china-server' : ''}">
-            <div class="codex-affil-title">${affil}</div>
+            <div class="codex-affil-title">${affilIcon ? `<img class="codex-affil-icon" src="${affilIcon}" alt="">` : ''}<span>${affil}</span><em class="codex-affil-count">${affilCount}명</em></div>
             <div class="codex-affil-body">${squadsHtml}</div>
           </div>
         `;
