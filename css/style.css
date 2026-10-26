@@ -9835,7 +9835,6 @@
      아래 '복각' 글자 말고는 일반 카드와 차이가 안 보였다. 복각 카드는
      · 날짜 띠를 복각 색으로 꽉 채우고(흰 글씨 + 되감기 표시)
      · 카드 바탕을 복각 색으로 옅게 물들이고 테두리를 복각 색 2px 로
-     · 그림 왼쪽 위에 '복각' 꼬리표
      마우스 올림은 두 카드 모두 같은 움직임(떠오름 · 반사 · 테두리 진해짐)이고 색만 각자 제 색을 쓴다. */
   .costume-portrait-item.is-rerun {
     background-color: color-mix(in srgb, var(--status-rerun-text) 7%, var(--vinyl, var(--bg-panel)));
@@ -9848,25 +9847,6 @@
     box-shadow: none;
   }
   .costume-portrait-item.is-rerun .costume-portrait-date::before { content: '↻ '; font-weight: 800; }
-  .costume-portrait-item.is-rerun .costume-portrait-img::after {
-    content: '복각';
-    position: absolute;
-    left: 0;
-    top: 0;
-    z-index: 2;
-    padding: 3px 9px 3px 8px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: .04em;
-    color: #fff;
-    background: var(--status-rerun-text);
-    border-radius: 0 0 8px 0;
-    corner-shape: bevel;
-    box-shadow: 0 2px 6px rgba(20, 20, 60, .25);
-  }
-  /* 지금 보고 있는 카드는 '표시 중' 이 그림 가운데를 쓴다 - 꼬리표는 그대로 왼쪽 위 */
-  .costume-portrait-item.is-rerun.active .costume-portrait-img::after { content: '표시 중'; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    padding: 4px 12px; border-radius: 6px 0 6px 0; background: var(--accent); }
   @media (hover: hover) {
     .costume-portrait-item.is-rerun:hover {
       box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 2px var(--status-rerun-text), var(--shadow-card-hover);
