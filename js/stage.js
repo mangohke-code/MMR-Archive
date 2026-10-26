@@ -20,6 +20,19 @@
     renderChapterGrid(data);
   }
 
+  // 챕터 이름표: 작은 CHAPTER · 큰 번호 · 금색 줄 · 이름 (2026-10-26, 사선 띠 대신 그림 아래쪽 번짐 위에)
+  function chapterLabelHtml(ch, chapName) {
+    const no = String(ch).padStart(2, '0');
+    return `<div class="chapter-label is-l1"><span class="cl-ch">CHAPTER</span><span class="cl-no">${no}</span>`
+      + `<span class="cl-name">${chapName || ''}</span></div>`;
+  }
+
+  // 스테이지 정보가 있는 가장 최근 챕터(맨 위에 크게 둔다)
+  function latestOpenChapter(chapters) {
+    const open = chapters.filter(ch => String(ch) !== '0' && hasStageData(ch));
+    return open.length ? open[open.length - 1] : null;
+  }
+
   function renderChapterGrid(data) {
     const chapters = getDisplayChapterList();
 
@@ -32,14 +45,21 @@
         <div class="chapter-card ${locked ? 'is-locked' : ''}" data-chapter="${ch}">
           <div class="chapter-img">
             ${imgUrl ? `<img src="${imgUrl}" alt="챕터 ${ch}" onerror="this.style.display='none'">` : ''}
-            <div class="chapter-label">CHAPTER.${ch}<br>${chapName}</div>
+            ${chapterLabelHtml(ch, chapName)}
           </div>
         </div>
       `;
     };
 
+    // 맨 위: 프롤로그(챕터 0)와 가장 최근 챕터를 크게 나란히. 나머지는 아래 그리드(최근 챕터는 위로 옮긴다)
+    const latest = latestOpenChapter(chapters);
     const zeroChapters = chapters.filter(ch => String(ch) === '0');
-    const restChapters = chapters.filter(ch => String(ch) !== '0');
+    const restChapters = chapters.filter(ch => String(ch) !== '0' && String(ch) !== String(latest));
+    const feature = (ch, en, ko) => `
+      <div class="chapter-feature">
+        <div class="chapter-feature-cap"><b>${en}</b><span>${ko}</span></div>
+        ${makeCard(ch)}
+      </div>`;
 
     // 맨 뒤에 예고 카드 한 장. 다음 챕터 자리를 비워 두는 표시라 누르지는 않는다.
     const comingSoon = `
@@ -50,7 +70,9 @@
       </div>
     `;
 
-    document.getElementById('chapter-grid-zero').innerHTML = zeroChapters.map(makeCard).join('');
+    document.getElementById('chapter-grid-zero').innerHTML =
+      zeroChapters.map(ch => feature(ch, 'PROLOGUE', '이야기의 시작')).join('')
+      + (latest !== null ? feature(latest, 'LATEST', '가장 최근 챕터') : '');
     document.getElementById('chapter-grid').innerHTML = restChapters.map(makeCard).join('') + comingSoon;
   }
 
@@ -67,7 +89,10 @@
     detail.classList.add('fade-in');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    document.getElementById('stage-chapter-title').textContent = `챕터 ${chapter}`;
+    const chapImg = allChapImgData.find(c => String(c['챕터']) === String(chapter));
+    document.getElementById('stage-chapter-title').innerHTML =
+      `<span class="sct-en">CHAPTER</span><b class="sct-no">${String(chapter).padStart(2, '0')}</b>`
+      + `<span class="sct-name">${(chapImg && chapImg['명칭']) || ''}</span><span class="sct-meta"></span>`;
     applyModeTheme();
     renderChapterNav(direction);
     renderStageTable();
@@ -114,7 +139,7 @@
       const locked = !hasStageData(ch);
       return `
         ${imgUrl ? `<img src="${imgUrl}" alt="챕터 ${ch}">` : ''}
-        <div class="chapter-label">CHAPTER.${ch}<br>${chapName}</div>
+        ${chapterLabelHtml(ch, chapName)}
         ${locked ? `<div class="chapter-lock"><i class="fas fa-lock"></i></div>` : ''}
       `;
     };
@@ -172,6 +197,11 @@
       return bp !== null && bp !== undefined && bp !== '';
     });
     const tbody = document.getElementById('stage-table-body');
+    const meta = document.querySelector('#stage-chapter-title .sct-meta');
+    if (meta) {
+      const ex = data.filter(s => String(s['스테이지'] ?? '').includes('EX')).length;
+      meta.innerHTML = `<em>스테이지 <b>${data.length - ex}</b></em>` + (ex ? `<em class="is-ex">EX <b>${ex}</b></em>` : '');
+    }
 
     tbody.innerHTML = data.map(s => {
       const bp = currentMode === 'normal' ? s['노말전투력'] : s['하드전투력'];

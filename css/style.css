@@ -9387,3 +9387,99 @@
     .costume-year-section::after { font-size: 72px; top: -8px; }
     .costume-year-label { font-size: 26px; }
   }
+
+  /* ===== 스테이지 정보 (사용자 결정, 2026-10-26 - 시안 V3 최신 강조 + 이름표 L1) =====
+     챕터 선택: 맨 위에 프롤로그(챕터 0) · 가장 최근 챕터를 크게, 나머지는 그리드.
+     이름표: 가운데를 가로지르던 사선 띠를 걷고 그림 아래쪽 어두운 번짐 위에 CHAPTER · 큰 번호 · 금색 줄 · 이름(그림이 더 보인다). */
+  #chapter-grid-zero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-bottom: 56px; }
+  #chapter-grid-zero .chapter-card { width: auto; }
+  #chapter-grid-zero .chapter-img { height: 300px; }
+  .chapter-feature { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .chapter-feature-cap { display: flex; align-items: baseline; gap: 14px; }
+  .chapter-feature-cap b { font: 800 17px ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .3em; color: var(--accent); }
+  .chapter-feature-cap span { font-size: 16px; color: var(--text-secondary); }
+  .chapter-feature + .chapter-feature .chapter-feature-cap b { color: var(--gold); }
+
+  .chapter-card:not(.is-soon) .chapter-label.is-l1,
+  .chapter-nav-item .chapter-label.is-l1 {
+    top: auto; bottom: 0; left: 0; right: 0; transform: none; width: auto;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; align-items: end;
+    padding: 44px 16px 14px; text-align: left; letter-spacing: 0; line-height: 1.1; white-space: nowrap;
+    border: 0; background: linear-gradient(0deg, rgba(14, 10, 32, 0.9), rgba(14, 10, 32, 0.55) 55%, transparent);
+    box-shadow: none; text-shadow: none; color: #fff;
+  }
+  .chapter-label.is-l1 .cl-ch { grid-column: 1; grid-row: 1; font: 700 13px ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .24em;
+    color: color-mix(in srgb, var(--accent) 55%, #fff); }
+  .chapter-label.is-l1 .cl-no { grid-column: 1; grid-row: 2; font: 800 46px/0.9 ui-monospace, 'Cascadia Mono', Consolas, monospace; color: #fff; }
+  .chapter-label.is-l1 .cl-name { grid-column: 2; grid-row: 1 / 3; align-self: end; padding: 0 0 3px 12px; overflow: hidden; text-overflow: ellipsis;
+    font-size: 23px; font-weight: 700; letter-spacing: .04em; border-left: 2px solid var(--gold); }
+  /* 큰 카드(맨 위 두 장 · 상세 가운데) */
+  #chapter-grid-zero .chapter-label.is-l1, .chapter-nav-item.center .chapter-label.is-l1 { padding: 70px 22px 18px; column-gap: 16px; }
+  #chapter-grid-zero .chapter-label.is-l1 .cl-ch, .chapter-nav-item.center .chapter-label.is-l1 .cl-ch { font-size: 15px; }
+  #chapter-grid-zero .chapter-label.is-l1 .cl-no, .chapter-nav-item.center .chapter-label.is-l1 .cl-no { font-size: 72px; }
+  #chapter-grid-zero .chapter-label.is-l1 .cl-name, .chapter-nav-item.center .chapter-label.is-l1 .cl-name { font-size: 32px; padding-left: 16px; }
+  .chapter-nav-item.side .chapter-label.is-l1 .cl-no { font-size: 40px; }
+  .chapter-nav-item.side .chapter-label.is-l1 .cl-name { font-size: 20px; }
+
+  /* ── 스테이지 상세 ── */
+  #stage-detail-header { gap: 14px; margin-bottom: 16px; align-items: center; }
+  #stage-chapter-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; font-size: inherit; }
+  #stage-chapter-title .sct-en { font: 700 15px ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .26em; color: var(--accent); }
+  #stage-chapter-title .sct-no { font: 800 44px/1 ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text-heading); }
+  #stage-chapter-title .sct-name { font-size: 30px; font-weight: 800; color: var(--text-heading); padding-left: 14px; border-left: 3px solid var(--gold); }
+  #stage-chapter-title .sct-meta { display: inline-flex; gap: 6px; align-self: center; margin-left: 4px; }
+  #stage-chapter-title .sct-meta em { font-style: normal; font-size: 13px; font-weight: 600; padding: 4px 11px; border-radius: 6px 0 6px 0; corner-shape: bevel;
+    color: var(--text-secondary); background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent); }
+  #stage-chapter-title .sct-meta em b { font-size: 16px; font-weight: 800; color: var(--accent); margin-left: 2px; }
+  #stage-chapter-title .sct-meta em.is-ex { background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border); }
+  #stage-chapter-title .sct-meta em.is-ex b { color: var(--status-warn-text); }
+  #stage-back-btn { font-size: 15px; padding: 8px 14px; }
+  #stage-detail .mode-btn { font-size: 17px; padding: 9px 24px; }
+
+  /* 표: 표준 판에 담는다. 머리글은 노말(푸른) · 하드(붉은) 색을 그대로 쓴다 */
+  #stage-table-wrap {
+    --cut: 20px;
+    padding: 10px 18px 14px;
+    border-radius: var(--cut) 0 var(--cut) 0;
+    corner-shape: bevel;
+    background-color: var(--bg-panel);
+    background-image:
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(90deg, var(--gold), transparent);
+    background-size: 14px 1.5px, 1.5px 14px, 40% 2px;
+    background-position: right 10px top 10px, right 10px top 10px, left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong), var(--shadow-card);
+  }
+  #stage-table { font-size: 18px; }
+  #stage-table th { font-size: 15px; font-weight: 700; letter-spacing: .04em; padding: 14px 14px 12px; border-bottom-width: 2px; }
+  #stage-table td { padding: 13px 14px; }
+  #stage-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+  @media (hover: hover) { #stage-table tbody tr:hover td { background: color-mix(in srgb, var(--accent) 10%, transparent); } }
+  #stage-table td:nth-child(1) { font: 700 18px ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text-heading); }
+  #stage-table td:nth-child(2) { font-variant-numeric: tabular-nums; font-weight: 600; }
+  #stage-table .stage-row-ex td { background: color-mix(in srgb, var(--status-warn-bg) 70%, transparent); }
+  #stage-table .stage-row-ex td:nth-child(1) { color: var(--status-warn-text); }
+  .stage-code-icon { width: 30px; height: 30px; }
+
+  @media (max-width: 640px) {
+    #chapter-grid-zero { grid-template-columns: 1fr; gap: 22px; margin-bottom: 30px; }
+    #chapter-grid-zero .chapter-card { width: auto; }
+    #chapter-grid-zero .chapter-img { height: auto; aspect-ratio: 16 / 9; }
+    .chapter-feature-cap b { font-size: 14px; }
+    .chapter-feature-cap span { font-size: 14px; }
+    .chapter-card:not(.is-soon) .chapter-label.is-l1 { padding: 30px 10px 9px; column-gap: 8px; }
+    .chapter-label.is-l1 .cl-ch { font-size: 10px; letter-spacing: .16em; }
+    .chapter-label.is-l1 .cl-no { font-size: 32px; }
+    .chapter-label.is-l1 .cl-name { font-size: 17px; padding-left: 8px; }
+    #chapter-grid-zero .chapter-label.is-l1, .chapter-nav-item.center .chapter-label.is-l1 { padding: 40px 14px 12px; }
+    #chapter-grid-zero .chapter-label.is-l1 .cl-ch, .chapter-nav-item.center .chapter-label.is-l1 .cl-ch { font-size: 12px; }
+    #chapter-grid-zero .chapter-label.is-l1 .cl-no, .chapter-nav-item.center .chapter-label.is-l1 .cl-no { font-size: 48px; }
+    #chapter-grid-zero .chapter-label.is-l1 .cl-name, .chapter-nav-item.center .chapter-label.is-l1 .cl-name { font-size: 24px; }
+    #stage-chapter-title { gap: 8px; }
+    #stage-chapter-title .sct-no { font-size: 32px; }
+    #stage-chapter-title .sct-name { font-size: 22px; padding-left: 10px; }
+    #stage-chapter-title .sct-meta { flex-basis: 100%; margin-left: 0; }
+    #stage-table-wrap { padding: 4px 12px 10px; }
+    #stage-table tbody tr:nth-child(even) td, #stage-table .stage-row-ex td { background: none; }
+  }
