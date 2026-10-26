@@ -9483,3 +9483,62 @@
     #stage-table-wrap { padding: 4px 12px 10px; }
     #stage-table tbody tr:nth-child(even) td, #stage-table .stage-row-ex td { background: none; }
   }
+
+  /* ===== 스테이지 상세 머리 줄 정리 (사용자 지적, 2026-10-26) =====
+     뒤로 가기 · 제목 · 개수 칩 · 난이도 단추가 글자 기준선 · 가운데 · 높이가 제각각이라 흩어져 보였다.
+     한 줄 판 안에 [목록] | 큰 번호 + CHAPTER/이름 | 개수 칩 · 노말/하드 붙은 단추 로 나란히, 모두 세로 가운데. */
+  #stage-detail-header {
+    --cut: 16px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    border-radius: var(--cut) 0 var(--cut) 0;
+    corner-shape: bevel;
+    background-color: var(--bg-panel);
+    background-image: linear-gradient(90deg, var(--gold), transparent);
+    background-size: 40% 2px;
+    background-position: left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong), var(--shadow-card);
+  }
+  #stage-back-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; font-size: 15px; }
+  #stage-chapter-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  #stage-chapter-title .sct-no { font: 800 48px/1 ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text-heading);
+    padding-right: 14px; border-right: 3px solid var(--gold); }
+  #stage-chapter-title .sct-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  #stage-chapter-title .sct-en { font: 700 13px ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: .26em; color: var(--accent); }
+  #stage-chapter-title .sct-name { font-size: 26px; font-weight: 800; line-height: 1.1; color: var(--text-heading); padding: 0; border: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #stage-chapter-meta { display: flex; gap: 6px; }
+  #stage-chapter-meta em { font-style: normal; display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px;
+    font-size: 14px; font-weight: 600; border-radius: 6px 0 6px 0; corner-shape: bevel; color: var(--text-secondary);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent); }
+  #stage-chapter-meta em b { font-size: 17px; font-weight: 800; color: var(--accent); }
+  #stage-chapter-meta em.is-ex { background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border); }
+  #stage-chapter-meta em.is-ex b { color: var(--status-warn-text); }
+  /* 노말 · 하드: 붙은 단추 한 덩어리 */
+  #stage-mode-btns { gap: 0; }
+  #stage-detail #stage-mode-btns .mode-btn { height: 44px; padding: 0 24px; font-size: 17px; }
+  #stage-detail #stage-mode-btns .mode-btn:first-child { border-radius: 10px 0 0 0; }
+  #stage-detail #stage-mode-btns .mode-btn:last-child { border-radius: 0 0 10px 0; margin-left: -1px; }
+
+  /* 스테이지 칸: 고정폭 글꼴이면 한글(EX스테이지)이 어색한 대체 글꼴로 바뀌었다 - 본문 글꼴 + 같은 폭 숫자 */
+  #stage-table td:nth-child(1) { font-family: inherit; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+  @media (max-width: 640px) {
+    #stage-detail-header { grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; padding: 10px 12px; }
+    #stage-back-btn { height: 38px; padding: 0 12px; }
+    #stage-back-btn span { display: none; }
+    #stage-chapter-title { gap: 10px; }
+    #stage-chapter-title .sct-no { font-size: 34px; padding-right: 10px; }
+    #stage-chapter-title .sct-en { font-size: 11px; }
+    #stage-chapter-title .sct-name { font-size: 20px; }
+    #stage-chapter-meta { grid-column: 1 / -1; order: 1; }
+    #stage-mode-btns { grid-column: 1 / -1; order: 2; }
+    #stage-detail #stage-mode-btns .mode-btn { flex: 1; height: 40px; }
+    #stage-table td:nth-child(1) { font-size: 16px; }
+  }
+  #stage-table td:nth-child(1)::before { font-weight: 400; }

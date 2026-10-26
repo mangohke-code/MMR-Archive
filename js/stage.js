@@ -91,8 +91,8 @@
 
     const chapImg = allChapImgData.find(c => String(c['챕터']) === String(chapter));
     document.getElementById('stage-chapter-title').innerHTML =
-      `<span class="sct-en">CHAPTER</span><b class="sct-no">${String(chapter).padStart(2, '0')}</b>`
-      + `<span class="sct-name">${(chapImg && chapImg['명칭']) || ''}</span><span class="sct-meta"></span>`;
+      `<b class="sct-no">${String(chapter).padStart(2, '0')}</b>`
+      + `<span class="sct-text"><span class="sct-en">CHAPTER</span><span class="sct-name">${(chapImg && chapImg['명칭']) || ''}</span></span>`;
     applyModeTheme();
     renderChapterNav(direction);
     renderStageTable();
@@ -197,7 +197,7 @@
       return bp !== null && bp !== undefined && bp !== '';
     });
     const tbody = document.getElementById('stage-table-body');
-    const meta = document.querySelector('#stage-chapter-title .sct-meta');
+    const meta = document.getElementById('stage-chapter-meta');
     if (meta) {
       const ex = data.filter(s => String(s['스테이지'] ?? '').includes('EX')).length;
       meta.innerHTML = `<em>스테이지 <b>${data.length - ex}</b></em>` + (ex ? `<em class="is-ex">EX <b>${ex}</b></em>` : '');
