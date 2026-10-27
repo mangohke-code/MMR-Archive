@@ -432,7 +432,35 @@
     // 종료일에 시간 정보가 없으면 그날 전체를 포함해서 "진행중" 으로 본다
     if (!hasTimePart(end)) e.setHours(23, 59, 59, 999);
     if (now < s || now > e) return '';
-    return `<span class="pickup-remaining-badge">${remainingText(end, 'end', now)}</span>`;
+    return countdownBadge(end, 'end', 'pickup-remaining-badge');
+  }
+
+  // 시:분까지 들어 있는 값(이벤트·코스튬)은 남은 시간을 초 단위로 센다.
+  // 날짜만 있는 값(픽업 기록)은 그날 몇 시에 끝나는지 몰라서 D-n 그대로 둔다.
+  function countdownBadge(target, kind, cls) {
+    if (!hasTimePart(target)) return `<span class="${cls}">${remainingText(target, kind)}</span>`;
+    startCountdownTicker();
+    return `<span class="${cls} is-countdown" data-countdown="${target}" data-kind="${kind}">${countdownText(target, kind)}</span>`;
+  }
+
+  function countdownText(target, kind, now = Date.now()) {
+    const label = kind === 'start' ? '시작' : '종료';
+    let s = Math.max(0, Math.floor((new Date(target) - now) / 1000));
+    const d = Math.floor(s / 86400);
+    s %= 86400;
+    const hms = [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60].map(n => String(n).padStart(2, '0')).join(':');
+    return `${label}까지 ${d ? d + '일 ' : ''}${hms}`;
+  }
+
+  let countdownTimer = null;
+  function startCountdownTicker() {
+    if (countdownTimer) return;
+    countdownTimer = setInterval(() => {
+      const now = Date.now();
+      document.querySelectorAll('[data-countdown]').forEach(el => {
+        el.textContent = countdownText(el.dataset.countdown, el.dataset.kind, now);
+      });
+    }, 1000);
   }
 
   // 진행 예정 픽업/코스튬 픽업 카드에 시작까지 남은 일수를 D-n 배지로 표시.
@@ -441,7 +469,7 @@
     if (!start) return '';
     const now = new Date();
     if (now >= new Date(start)) return '';
-    return `<span class="pickup-remaining-badge is-upcoming">${remainingText(start, 'start', now)}</span>`;
+    return countdownBadge(start, 'start', 'pickup-remaining-badge is-upcoming');
   }
 
   // 진행중인 이벤트 카드에 종료까지 남은 일수를 D-n 배지로 표시.
@@ -451,7 +479,7 @@
     if (!start || !end) return '';
     const now = new Date();
     if (now < new Date(start) || now > new Date(end)) return '';
-    return `<span class="pickup-remaining-badge">${remainingText(end, 'end', now)}</span>`;
+    return countdownBadge(end, 'end', 'pickup-remaining-badge');
   }
 
   function formatDate(date) {

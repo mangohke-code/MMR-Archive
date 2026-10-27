@@ -9887,3 +9887,36 @@
   .costume-portrait-badges:has(.is-upcoming) { background: color-mix(in srgb, var(--status-warn-text) 16%, transparent); color: var(--status-warn-text); }
   .costume-portrait-badges:has(.costume-rerun-badge) { background: color-mix(in srgb, var(--status-rerun-text) 14%, transparent); color: var(--status-rerun-text); }
   .costume-portrait-badges .costume-rerun-badge::before { content: '↻ '; }
+
+  /* ===== 메인 남은 시간 초 단위 (사용자 요청, 2026-10-27) =====
+     시각이 있는 이벤트 · 코스튬은 1초마다 다시 적는다. 숫자 폭이 바뀌어 배지가 떨지 않게 고정폭 숫자로 */
+  .pickup-remaining-badge.is-countdown { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ===== 모바일 기념품 이름 (사용자 지적, 2026-10-27)
+     76px 칸에 띄어쓰기 없는 이름은 keep-all 때문에 줄이 안 바뀌고 옆으로 잘렸고, 두 줄 넘는 이름은 말줄임 없이 잘렸다.
+     폰에서는 줄 수를 묶지 않고, 끊을 데가 없으면 글자 단위로라도 내린다 */
+  @media (max-width: 640px) {
+    .souvenir-strip-name, .souvenir-event-label {
+      display: block; -webkit-line-clamp: unset; overflow: visible; overflow-wrap: anywhere;
+    }
+    /* 한 칸짜리 상자는 76px 라 영어 이벤트 이름(CHAINSAW)이 글자 중간에서 끊겼다. 상자 폭에 바닥을 둔다 */
+    .souvenir-event-group { min-width: 150px; }
+    /* 1fr 은 내용 폭보다 줄지 않아서 기념품 넷인 상자가 화면 밖으로 밀었다 */
+    .souvenir-season-group { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* ===== 모바일 픽업 기록 카드 (사용자 요청, 2026-10-27)
+     속성 아이콘 칸은 숨긴다(카드를 누르면 뜨는 상세 창에 다 나온다). 그림만 남겨 두 장씩 놓는다 */
+  @media (max-width: 540px) {
+    .nikke-grid { gap: 8px; }
+    .nikke-card { width: calc(50% - 4px); margin-top: 10px; }
+    .nikke-attrs { display: none; }
+    .nikke-card-top { padding-top: 12px; }
+    .nikke-img { width: 100%; height: auto; aspect-ratio: 1; border-right: 0; }
+    .nikke-card-bottom { padding: 6px 0 8px; }
+    .nikke-name { font-size: 16px; padding: 0 8px; }
+    .nikke-date { padding: 0 8px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; }
+    .nikke-date > span { margin-left: 0; font-size: 12px; padding: 0 5px; }
+    .nikke-top-badges { top: 4px; right: 8px; min-width: 0; }
+    .nikke-badge-limited, .nikke-badge-collab, .nikke-badge-rerun { font-size: 11.5px; padding: 1px 6px; }
+  }
