@@ -9853,3 +9853,37 @@
     }
     .costume-portrait-item.is-rerun:hover .costume-portrait-name { color: var(--status-rerun-text); }
   }
+
+  /* ===== 유니크 코스튬 카드 아래 띠 (사용자 선택 B2, 2026-10-27) =====
+     아래 배지들을 위쪽 날짜 띠와 짝을 이루는 띠 하나로 바꾼다. 모든 카드가 같은 높이의 띠 자리를 갖고,
+       진행 중   → 진한 띠 '픽업 중 · 종료까지 D-5' (복각이면 '복각 중 · …')
+       시작 전   → 옅은 주황 띠 '시작까지 D-10'
+       지난 복각 → 옅은 복각 색 띠 '복각'
+       그 밖     → 빈 띠 자리(색 없음) */
+  .costume-portrait-item { padding-bottom: 0; }
+  .costume-portrait-badges {
+    align-self: stretch;
+    margin: 2px -10px 0;
+    min-height: 30px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    border-radius: 0 0 var(--card-cut, 14px) 0;
+    corner-shape: bevel;
+  }
+  /* 옛 배지 규칙(.costume-remaining-badge.is-on-portrait 등)이 상자를 다시 그려서 우선순위를 높인다 */
+  .costume-portrait-list .costume-portrait-item .costume-portrait-badges > * {
+    all: unset;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .costume-portrait-badges .costume-active-badge + .costume-remaining-badge::before { content: '\00a0· '; }
+  .costume-portrait-badges:has(.costume-active-badge),
+  .costume-portrait-badges:has(.costume-remaining-badge:not(.is-upcoming)) { background: var(--status-special-text); color: #fff; }
+  .costume-portrait-badges:has(.is-upcoming) { background: color-mix(in srgb, var(--status-warn-text) 16%, transparent); color: var(--status-warn-text); }
+  .costume-portrait-badges:has(.costume-rerun-badge) { background: color-mix(in srgb, var(--status-rerun-text) 14%, transparent); color: var(--status-rerun-text); }
+  .costume-portrait-badges .costume-rerun-badge::before { content: '↻ '; }
