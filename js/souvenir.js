@@ -100,22 +100,18 @@
       : allSouvenirData.filter(d => d['시즌'] === souvenirActiveSeason);
     const strip = document.getElementById('souvenir-item-strip');
 
-    // 이벤트별 그룹핑
-    const byEvent = {};
-    data.forEach(item => {
-      const event = item['이벤트'] || '기타';
-      if (!byEvent[event]) byEvent[event] = [];
-      byEvent[event].push(item);
-    });
-
-    // 이벤트 그룹을 다시 시즌별로 묶어서 행(row)으로 구분 — 캐릭터 도감 탭의 소속별
-    // 구분과 같은 느낌
+    // 시즌별로 먼저 나누고 그 안에서 이벤트별로 묶는다 — 캐릭터 도감 탭의 소속별 구분과 같은 느낌.
+    // 같은 이벤트 이름이 두 시즌에 걸칠 수 있다(검은 나비는 주년, 4주년 기념 케이크는 기념일 케이크인데
+    // 둘 다 이벤트가 "4주년"). 예전에는 이벤트로 먼저 묶고 첫 기념품의 시즌을 따라가서 나비가 케이크 쪽에 붙었다.
     const bySeason = {};
-    Object.entries(byEvent).forEach(([event, items]) => {
-      const season = items[0]['시즌'] || '기타';
-      if (!bySeason[season]) bySeason[season] = [];
-      bySeason[season].push([event, items]);
+    data.forEach(item => {
+      const season = item['시즌'] || '기타';
+      const event = item['이벤트'] || '기타';
+      if (!bySeason[season]) bySeason[season] = {};
+      if (!bySeason[season][event]) bySeason[season][event] = [];
+      bySeason[season][event].push(item);
     });
+    Object.keys(bySeason).forEach(season => { bySeason[season] = Object.entries(bySeason[season]); });
     Object.values(bySeason).forEach(groups => groups.sort(compareSouvenirEvents));
 
     const sortedSeasons = Object.keys(bySeason).sort((a, b) => souvenirSeasonRank(a) - souvenirSeasonRank(b));
