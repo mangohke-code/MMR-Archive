@@ -68,7 +68,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(HERE)
 # 2026-10-30 다 올린 뒤 리소스/코스튬/완료/_스킬컷 으로 옮겼다(사용자 요청). 새로 뽑으면 이 폴더에 넣는다.
 SRC = os.path.join(os.path.dirname(WEB), '리소스', '코스튬', '완료', '_스킬컷')
-L2D = os.path.join(WEB, 'l2d')
+# SKILLCUT_OUT 으로 다른 폴더에 써 볼 수 있다 - 저장소가 l2d 를 일부만 받아 두는(sparse) 상태라, 전체를 다시 만들어
+# 올라가 있는 것과 대조할 때는 빈 폴더에 쓰고 새 것만 옮긴다.
+L2D = os.environ.get('SKILLCUT_OUT') or os.path.join(WEB, 'l2d')
 # 요소 텍스처는 코스튬끼리 같은 그림을 많이 같이 써서(fx_gra_04 는 34개 전부, fx_c271_cut_scene_blen 은 8개) 한 폴더에 한 벌만 둔다
 EL_DIR = os.path.join(L2D, 'skillcut-el')
 EL_SEEN = {}          # 사이트 파일 이름 → 원본 PNG md5 (이름이 같아도 내용이 다르면 해시를 붙여 나눈다)
@@ -476,7 +478,10 @@ def build_code(it, report, texinfo):
             continue
         sp = play_spines[sr['path']]
         skel = (sp.get('files') or {}).get('skel')
-        sc = DATA_SCALE.get(sr['path']) or skel_scale.get(skel) or REF_CHECKED_SCALE.get(skel)
+        # 2026-10-30 추출본부터 재생 데이터 spines[] 에 skeletonDataScale(엔진 표본)이 실려 온다 - _skillcut_frames.json
+        # 에 없는 새 코스튬(c019_01 · c471_01)도 이걸로 받는다. 예전 값과 같은 0.01 이다.
+        sc = (DATA_SCALE.get(sr['path']) or skel_scale.get(skel) or sp.get('skeletonDataScale')
+              or REF_CHECKED_SCALE.get(skel))
         if not sc:
             raise SystemExit(f'{code}: Spine {sr["path"]} 의 스켈레톤 데이터 크기(dataScale)를 모른다')
         spines[si]['mw'] = world_mat(sr.get('world'), sr['path'], sc)
