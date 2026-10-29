@@ -83,6 +83,8 @@ const PHASE_MODE_OVERRIDES = {
   // 통째로 사라진다. 해파리는 페이즈 태그가 없어서 양쪽에 다 남는다(맞다 -
   // 1페 등장·전환·사망 세 연출에 다 나온다).
   eba002: { mode: 'exclusive' },
+  // 승리의 여신(시즌 43) - 1 · 2페이즈 몸이 리그부터 다르다(repack 이 두 파일을 합친다).
+  xbg006: { mode: 'exclusive' },
   // 니힐리스타 - 1페이즈가 끝나면 팔 · 무기 · 발칸 · 프로텍터가 꺼지고(MonsterPhaseDataV2, 전환 연출
   // 활성 트랙 0~0.017초), 2페이즈는 2phase 머리 · 날개가 켜진다. 1phase_head_01(오른쪽 머리)은 양쪽에 남는다.
   mba002: { mode: 'exclusive' },
@@ -1616,6 +1618,12 @@ const MANUAL_SEQUENCES = [
     key: 'xba003_2phase_change',
     steps: [/^xba003_12phase_appeanrance$/i, /^xbga03_2phase_appearance$/i],
   },
+  // 승리의 여신 1 -> 2페이즈 전환 - 한 타임라인(xbg006_2phase_appearance_model)의 두 컷.
+  // a(1페 몸, 0~3.133초) 다음 b(2페 몸, 3.133~6.967초). 카메라도 컷마다 하나씩 있다.
+  {
+    key: 'xbg006_2phase_change', boss: /^xbg006/i,
+    steps: [/^xbg006_2phase_appearance_a$/i, /^xbg006_2phase_appearance_b$/i],
+  },
   // 베히모스 1페이즈 등장 — take1 에서 크레인 부품 75개가 흩어져 날아오고
   // take2 에서 전부 제자리로 모인다. 둘이 이어져야 조립 연출로 읽힌다.
   {
@@ -1804,6 +1812,8 @@ const CLIP_PHASE_OVERRIDES = [
   // 울트라 - 1페이즈로 등장해서 2페이즈에서 죽는다
   { re: /^bbg006_intro_take3$/i, boss: /^bbg006/i, phase: '1' },
   { re: /^bbg006_outro_take1$/i, boss: /^bbg006/i, phase: '2' },
+  // 승리의 여신 - 1 -> 2 전환(묶음 첫 컷 appearance_a)은 넘어가기 전 페이즈에 둔다
+  { re: /^xbg006_2phase_appearance_a$/i, boss: /^xbg006/i, phase: '1' },
 ];
 
 // 원래 페이즈 말고 다른 페이즈 목록에도 같이 내는 클립.
@@ -1893,6 +1903,7 @@ const HIDDEN_CLIPS = [
   { boss: /^eba004/i, re: /^eba004_(appearance|death)_acc$/i },
   { boss: /^xba001/i, re: /^xba001_appearance_bg_\d$/i },
   { boss: /^ebg003/i, re: /^ebg003_1phase_intro_01_parts_0[12]$/i },
+  { boss: /^xbg006/i, re: /^xbg006_(1phase_cinefrag_appearance|2phase_appearance_a_neck)$/i },
   // 니힐리스타 · 백빙룡 - 0.07초짜리 빈 동작(empty)
   { boss: /^mba002/i, re: /^mba002_phase0[12]_empty$/i },
   // 백빙룡 - 게임이 안 쓰는 동작(inGameUse []): 1페이즈 동작 전부 · jump · 니힐리스타 전환 앞 컷
@@ -2072,6 +2083,10 @@ const SIMUL_CLIPS = [
   // 2페 스킬02 - 셋이 2.33~5.00초에 같이 돈다(2.667초).
   { boss: /^bbg008/i, main: /^bbg008_2phase_skill_fire_02$/i,
     with: [/^bbg008_2phase_skill_leftfire_02$/i, /^bbg008_2phase_skill_rightfire_02$/i] },
+  // 승리의 여신 - 맵 연출 부속 리그. 1페 등장 파편(cinefrag, 13.6초)과 2페 전환 a컷의 목(neck, 3.133초)이
+  // 각 연출과 같은 길이로 같이 돈다.
+  { boss: /^xbg006/i, main: /^xbg006_1phase_appearance$/i, with: [/^xbg006_1phase_cinefrag_appearance$/i] },
+  { boss: /^xbg006/i, main: /^xbg006_2phase_appearance_a$/i, with: [/^xbg006_2phase_appearance_a_neck$/i] },
 ];
 
 // 게임이 대기 위에 덧입혀 트는 동작 — 레이어 정보가 없는 예전 파일에서만 이 이름으로 짐작한다.
