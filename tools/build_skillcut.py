@@ -1,6 +1,6 @@
 """유니크 코스튬 스킬 컷신을 사이트용으로 묶는다 (사용자 요청, 2026-10-12).
 
-입력 (추출 세션이 만든 것, 리소스/코스튬/):
+입력 (추출 세션이 만든 것, 리소스/코스튬/완료/_스킬컷/):
     _skillcut_playback.json          코드별 재생 데이터(바깥 타임라인 30fps, Spine 런타임 · BoneFollower 적용)
     _skillcut_particles/<코드>.json   Spine 이 아닌 렌더러(스프라이트 · 메시 · 파티클)마다 GPU 가 실제로 받은 꼭짓점 입력
                                      (gpu: 월드 좌표 · COLOR · TEXCOORD0~2 · 삼각형), 머티리얼, propertyBlock
@@ -66,7 +66,8 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(HERE)
-SRC = os.path.join(os.path.dirname(WEB), '리소스', '코스튬')
+# 2026-10-30 다 올린 뒤 리소스/코스튬/완료/_스킬컷 으로 옮겼다(사용자 요청). 새로 뽑으면 이 폴더에 넣는다.
+SRC = os.path.join(os.path.dirname(WEB), '리소스', '코스튬', '완료', '_스킬컷')
 L2D = os.path.join(WEB, 'l2d')
 # 요소 텍스처는 코스튬끼리 같은 그림을 많이 같이 써서(fx_gra_04 는 34개 전부, fx_c271_cut_scene_blen 은 8개) 한 폴더에 한 벌만 둔다
 EL_DIR = os.path.join(L2D, 'skillcut-el')
