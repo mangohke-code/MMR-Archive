@@ -507,9 +507,27 @@
     return '<span class="event-label-unknown" data-tooltip="이벤트 이름 미공개">?</span>';
   }
 
+  // 니케마다 처음 픽업된 날. 복각끼리는 이 순서로 놓는다(사용자 요청, 2026-10-30).
+  // 걸러 낸 목록이 아니라 전체 기록에서 센다 - 필터로 원래 픽업이 빠져도 순서가 바뀌지 않게.
+  let firstPickupCache = null;
+  function firstPickupTime(name) {
+    if (!firstPickupCache) {
+      firstPickupCache = {};
+      (APP_DATA.pickup || []).forEach(p => {
+        const t = new Date(p['시작일']).getTime();
+        if (isNaN(t)) return;
+        if (!(p['니케'] in firstPickupCache) || t < firstPickupCache[p['니케']]) firstPickupCache[p['니케']] = t;
+      });
+    }
+    const t = firstPickupCache[name];
+    return t === undefined ? Infinity : t;
+  }
+
   function renderEventLine(eventName, eventData) {
+    // 신규 먼저(받은 순서 그대로), 복각은 그 니케의 첫 픽업이 이른 순
     const nikkes = [...eventData.nikkes]
-      .sort((a, b) => (a['복각'] ? 1 : 0) - (b['복각'] ? 1 : 0));
+      .sort((a, b) => (a['복각'] ? 1 : 0) - (b['복각'] ? 1 : 0)
+        || (a['복각'] && b['복각'] ? firstPickupTime(a['니케']) - firstPickupTime(b['니케']) : 0));
 
     return `
       <div class="event-line">
