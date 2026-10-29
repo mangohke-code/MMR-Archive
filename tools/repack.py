@@ -187,6 +187,16 @@ JOBS = [
     # 부속 _mbg004_rifle_var 는 보스 프리팹 밖 리그(outsidePrefab)이고 동작 둘 다 inGameUse [] 라 넣지 않는다.
     ('추출프로그램 업데이트 이후/mbg004_모더니아.glb', 'mbg004'),
     ('추출프로그램 업데이트 이후/mbg004_모더니아 A.N.M.I.glb', 'mbg004_anmi'),
+    # 승리의 여신 A.N.M.I.(시즌 43, full_xbg006_anmi_1). 2026-10-30 추출본. 애니힐리오처럼 1·2페이즈를 한 파일로 합친다.
+    #   본 파일      2페이즈 몸(동작 16 · 카메라 2 - 2페 등장 b컷 · 사망)
+    #   _1phase_var  1페이즈 몸(동작 14 · 카메라 2 - 1페 등장 · 2페 등장 a컷). 좌우 부품 생성 · 파괴는 레이어 1(left) · 2(right)
+    #   _1phase_cinefrag_appearance_var  1페 등장 맵 연출의 파편 리그(13.6초 = 1phase_appearance, 시작할 때 꺼져 있음)
+    #   _2phase_appearance_a_neck_var    2페 등장 a컷의 목 리그(3.133초 = 2phase_appearance_a, placement z +90.8)
+    # 1 · 2페이즈 몸은 뼈(root · root2 · parts_col_01~14 · socket_*) 이름이 겹치지만 로더가 뒤엣것에 번호를 붙여 따로 묶는다(리버렐리오와 같다).
+    (['S43 승리의 여신/xbg006_승리의 여신 A.N.M.I.glb',
+      'S43 승리의 여신/xbg006_승리의 여신 A.N.M.I_xbg006_1phase_var.glb',
+      'S43 승리의 여신/xbg006_승리의 여신 A.N.M.I_xbg006_1phase_cinefrag_appearance_var.glb',
+      'S43 승리의 여신/xbg006_승리의 여신 A.N.M.I_xbg006_2phase_appearance_a_neck_var.glb'], 'xbg006_anmi'),
 ]
 
 # 합치기 전에 이름을 갈아 둘 것. { 원본 상대경로: { 옛 이름: 새 이름 } }
