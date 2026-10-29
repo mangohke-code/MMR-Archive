@@ -1028,7 +1028,10 @@ const PHASE_CAM_DIST = [
   { boss: /^eba005/i, phase: '2', scale: 0.75 },
   // 승리의 여신 - 1페이즈는 거상(뼈 범위 폭 194 · 높이 201), 2페이즈는 기는 몸(폭 57 · 높이 39)이라 약 0.28 배다.
   // 화면 맞춤이 큰 쪽(1페)으로 잡혀서 2페이즈가 4분의 1 크기로 보였다(사용자 지적, 2026-10-30).
-  { boss: /^xbg006/i, phase: '2', scale: 0.3 },
+  // 추적은 "몸 뼈 평균의 변위"를 따라가는데, 1페 거상은 뼈가 상체에 몰려 평균이 높아서 2페로 넘기면 시선이 몸보다
+  // 0.39 아래(바닥 밑 -0.27)로 갔다. 2페 대기에서 몸 범위 0.03 ~ 0.22 의 가운데(0.12)로 올린다(사용자 지적, 2026-10-30).
+  // 거리 0.26 - 화면 채움이 1페(세로 52%)와 비슷하게 가로 49% · 세로 42%(0.3 에서는 42% · 37%).
+  { boss: /^xbg006/i, phase: '2', scale: 0.26, y: 0.39 },
   // 니힐리스타 · 백빙룡 - 날개 뼈(깃털 · 미사일)가 좌우 ±55 까지 뻗어 있어 정규화 상자가 몸(±19)의
   // 세 배로 잡힌다. 1페이즈는 날개가 꺼져 있어도 뼈는 남아서 가로 12% 로 보였다.
   { boss: /^mba002$/i, phase: '1', scale: 0.35 },
@@ -4044,6 +4047,14 @@ function noFollowClip(bossKey, name) {
     if (focusMesh && rigCenter(focusMesh, followBase, focusBone)) {
       followReady = true;
       followSpread = rigSpread(focusMesh, followBase, focusBone);
+    }
+    // [내 PC 전용] 화면을 못 볼 때 카메라 · 시선 · 몸 위치를 숫자로 읽는 손잡이. 올라간 사이트에는 안 생긴다.
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      window.__sr3d = {
+        THREE, camera, controls, normGroup, scene: gltf.scene, meshes,
+        get focusMesh() { return focusMesh; }, get phase() { return currentPhase; },
+        get clip() { return state.currentClip; }, followBase, initialTarget,
+      };
     }
 
     // 우클릭 팬이 안 먹히던 원인 — 추적이 매 프레임 시점을 원래 자리로 끌어당겨서
