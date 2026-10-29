@@ -9920,3 +9920,77 @@
     .nikke-top-badges { top: 4px; right: 8px; min-width: 0; }
     .nikke-badge-limited, .nikke-badge-collab, .nikke-badge-rerun { font-size: 11.5px; padding: 1px 6px; }
   }
+
+  /* ===== 문의 게시판 (사용자 요청, 2026-10-30) =====
+     제목 · 이메일을 없애고 내용 칸 하나. 보내기 줄 왼쪽에 비공개 고르기, 아래에 공개 문의 목록(상태 · 운영자 답변) */
+  #contact-page, #contact-board { max-width: 760px; }
+  #contact-page { --card-cut: 16px; border-radius: var(--card-cut) 0 var(--card-cut) 0; corner-shape: bevel; border: 0; }
+  #contact-intro { margin-bottom: 14px; font-size: 14.5px; }
+  #contact-body { min-height: 150px; font-size: 15px; }
+  #contact-actions { justify-content: flex-start; margin-top: 12px; }
+  #contact-count { margin: 0 0 0 auto; font-size: 12.5px; }
+  #contact-private-wrap {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; cursor: pointer; user-select: none;
+    font-size: 14px; color: var(--text-secondary);
+    border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-panel-alt);
+    box-shadow: inset 0 0 0 1px var(--border-subtle); transition: box-shadow .15s, color .15s, background .15s;
+  }
+  #contact-private-wrap input { margin: 0; accent-color: var(--accent); width: 15px; height: 15px; }
+  @media (hover: hover) { #contact-private-wrap:hover { box-shadow: inset 0 0 0 1px var(--accent-strong); color: var(--text-heading); } }
+  #contact-private-wrap.is-on { color: var(--accent-strong); font-weight: 700; background: color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: inset 0 0 0 1px var(--accent); }
+  #contact-private-note { margin-top: 8px; }
+  #contact-status { margin: 8px 0 0; min-height: 1em; }
+  #contact-status:empty { display: none; }
+  #contact-confirm dd.cc-public.is-empty { color: var(--accent-strong); }
+
+  #contact-board { margin: 28px auto 0; }
+  #contact-board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 2px 8px;
+    border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  #contact-board-title { margin: 0; font-size: 22px; font-weight: 800; color: var(--text-heading); letter-spacing: .02em; }
+  #contact-board-count { font-size: 14px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  #contact-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .contact-item {
+    --card-cut: 12px;
+    padding: 14px 18px 16px;
+    border-radius: var(--card-cut) 0 var(--card-cut) 0; corner-shape: bevel;
+    background-color: var(--vinyl, var(--bg-panel));
+    background-image: linear-gradient(90deg, var(--gold), transparent);
+    background-size: 40% 2px; background-position: left bottom; background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card);
+  }
+  .contact-item-head { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .contact-no { font-weight: 800; color: var(--accent); }
+  .contact-state {
+    margin-left: auto; padding: 2px 9px; font-size: 12.5px; font-weight: 700; white-space: nowrap;
+    border-radius: 6px 0 6px 0; corner-shape: bevel;
+    color: var(--text-secondary); background: var(--bg-panel-alt); box-shadow: inset 0 0 0 1px var(--border-subtle);
+  }
+  .contact-state.is-new   { color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .contact-state.is-doing { color: var(--status-warn-text); background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border); }
+  .contact-state.is-done  { color: var(--status-new-text); background: var(--status-new-bg); box-shadow: inset 0 0 0 1px var(--status-new-border); }
+  .contact-item-body { margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: var(--text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .contact-answer {
+    margin-top: 12px; padding: 10px 14px 12px;
+    border-radius: 8px 0 8px 0; corner-shape: bevel;
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-inset));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+  .contact-answer-head { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .contact-answer-head b { color: var(--accent-strong); font-weight: 800; }
+  .contact-answer-head b::before { content: '↳ '; color: var(--gold); }
+  .contact-answer p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.6; color: var(--text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .contact-empty { padding: 26px 0; text-align: center; font-size: 14px; color: var(--text-muted); }
+  #contact-more {
+    display: block; margin: 16px auto 0; padding: 8px 28px; font: inherit; font-size: 14px; cursor: pointer;
+    color: var(--text-body); background: var(--bg-panel-alt); border: 0;
+    border-radius: 8px 0 8px 0; corner-shape: bevel; box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+  #contact-more[hidden] { display: none; }
+  @media (hover: hover) { #contact-more:hover { color: var(--accent-strong); box-shadow: inset 0 0 0 1px var(--accent-strong); } }
+  @media (max-width: 540px) {
+    #contact-actions { flex-wrap: wrap; }
+    #contact-send { margin-left: auto; }
+    .contact-item { padding: 12px 14px 14px; }
+    #contact-board-title { font-size: 20px; }
+  }
