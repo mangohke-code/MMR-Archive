@@ -743,6 +743,8 @@ const DEFAULT_OFF_MESHES = [
   { boss: /^ebg003/i, re: /_map[ab](_\d+)?$/i },
   // 니힐리스타 2페 전환 가운데 컷의 눈 리그 - 그 컷(2phase_eye)에서만 켠다
   { boss: /^mba002$/i, re: /_eye(_\d+)?$/i },
+  // 승리의 여신 맵 연출 부속 리그 - 1페 등장 파편 · 2페 전환 a컷 목. 맵 프리팹에서 꺼진 채 시작한다(activeAtStart false).
+  { boss: /^xbg006/i, re: /^(xbg006_(wing_frag|fragment|core_frag)|neckk002)(_\d+)?$/i },
 ];
 
 // 페이즈마다 어떤 파츠가 꺼지는지 직접 적는 자리. 메쉬 이름의 phase 태그로는
@@ -780,6 +782,9 @@ const FIT_SKIP_MESHES = [
   { boss: /^xbg001/i, re: /^(xcg001_|crys_long|black_wall_du)/i },
   { boss: /^ebg003/i, re: /_map[ab](_\d+)?$/i },
   { boss: /^mba002$/i, re: /_eye(_\d+)?$/i },
+  // 승리의 여신 등장 파편 리그는 쉬는 자세에서 z 3115~3539 · 폭 779 로 몸(1페 194)보다 넓어서 기준 뭉치를 빼앗았다 -
+  // 대기 화면이 보스가 아니라 빈 곳을 비췄다(사용자 지적 '대기 포커싱이 전혀 없다', 2026-10-30).
+  { boss: /^xbg006/i, re: /^(xbg006_(wing_frag|fragment|core_frag)|neckk002)(_\d+)?$/i },
 ];
 
 // phase 를 적은 줄은 그 페이즈에서만 꺼진다. 안 적은 줄은 예전처럼 늘 꺼진다.
@@ -2281,6 +2286,11 @@ const CLIP_SOLO_PARTS = [
   { boss: /^eba004/i, clip: /^eba004_death$/i, show: /_accdead(_\d+)?$/i },
   { boss: /^xba001/i, clip: /^xba001_appearance_take[12]$/i, show: /_bgvar(_\d+)?$/i },
   { boss: /^ebg003/i, clip: /^ebg003_1phase_intro_01$/i, show: /_map[ab](_\d+)?$/i },
+  // 승리의 여신 - 1페 등장은 파편 리그를, 2페 전환은 양쪽 몸을 다 켠다(a컷은 목 리그까지). 언제 보이는지는
+  // 파일의 meshActivation 이 정한다.
+  { boss: /^xbg006/i, clip: /^xbg006_1phase_appearance$/i, show: /^xbg006_(wing_frag|fragment|core_frag)(_\d+)?$/i },
+  { boss: /^xbg006/i, clip: /^xbg006_2phase_appearance_a$/i, show: /./, hide: /^xbg006_(wing_frag|fragment|core_frag)(_\d+)?$/i },
+  { boss: /^xbg006/i, clip: /^xbg006_2phase_appearance_b$/i, show: /./, hide: /^(xbg006_(wing_frag|fragment|core_frag)|neckk002)(_\d+)?$/i },
   // 니힐리스타 2페 전환 - 양쪽 페이즈 파츠를 다 켜 두고 1페 팔은 활성 트랙(0~0.017초)이 끈다. 눈은 가운데 컷만.
   { boss: /^mba002$/i, clip: /^mba002_phase02_appearance_0[13]$/i, show: /./, hide: /_eye(_\d+)?$/i },
   { boss: /^mba002$/i, clip: /^2phase_eye$/i, show: /./ },
@@ -3136,6 +3146,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       // 재질별로 갈린 메쉬는 뒤에 _1 _2 가 붙는다. 그것까지 받아야 한다.
       { boss: /^xba003/i, re: /^xba003_1phase_magiccarpet_skin(_\d+)?$/i, phase: '2' },
       { boss: /^xba003/i, re: /^xba003_turret\d+(_\d+)?$/i, phase: '2' },
+      // 승리의 여신 2페 몸의 점액 조각 8개(headsnot · spinesnot · fore/upper L·R snot)는 이름에 페이즈 태그가 없다.
+      // 2페 리그(xbg006_2phase_var) 소속이다. foreＬsnot 의 Ｌ 은 전각 글자라 \w 로 안 잡힌다.
+      { boss: /^xbg006/i, re: /^xbg006_.*snot\d*_skin(_\d+)?$/i, phase: '2' },
       // 크리스탈 체임버 - 페이즈 태그가 붙은 메쉬는 2phase_weapon 하나뿐인데, 뼈 크기로 보면 1·2페이즈
       // 대기 모두에서 보인다(페이즈로 숨는 파츠가 없다). 태그를 무시해야 페이즈 칩도 대기 동작
       // (1phase_idle_01 / 2phase_idle_01)으로 1·2 가 다 잡힌다 — 그대로면 "2" 하나뿐이라 칩이 안 나온다.
