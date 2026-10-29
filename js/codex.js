@@ -719,12 +719,17 @@
   }
 
   // 한 스켈레톤에 두 캐릭터가 같이 든 경우 - 그 칸 캐릭터의 애니메이션만 쓴다.
-  //   c992(온리 원 두 번째 모델) - special · angry_02 · delight_02 가 별 동공의 온리 원이고,
-  //   idle · angry · delight · pain · sleep(빨간 눈)은 라피다(사용자 확인, 2026-10-30).
-  //   셋 다 idle 과 같은 몸 트랙에 눈 부착물만 더 켜는 2.4초 동작이라 special 을 대기로 쓴다.
-  //   base - 대기(기본 버튼), expr - 표정 버튼으로 낼 것
+  //   c992(온리 원 두 번째 모델) - 온리 원은 동공이 별 모양이다(사용자 확인, 2026-10-30). 별 동공(special_*_eye)을
+  //   켜는 동작은 special · angry_02 · delight_02 셋뿐이고, 나머지 idle · angry · delight · pain(빨간 눈)은 라피다.
+  //   special 은 idle 눈 위에 별을 얹은 것이라 사실상 idle_02 - 대기(기본 버튼)로 쓴다. pain_02 는 없다.
+  //   sleep 은 감은 눈(2eye_*)이라 동공이 안 보여서 그대로 둔다.
+  //   base - 대기(기본 버튼), replace - 버튼 자리는 그대로 두고 틀 동작만 바꾼다, hide - 버튼에서 뺄 것
   const CODEX_ANIM_SUBSET = {
-    c992_00: { base: 'special', expr: /^(angry|delight)_02$/ },
+    c992_00: {
+      base: 'special',
+      replace: { angry: 'angry_02', delight: 'delight_02' },
+      hide: /^(pain|special|angry_02|delight_02)$/,
+    },
   };
   function codexAnimSubset(skelUrl) {
     const m = /([a-z]\d{3,4}_\d{2})\.skel/i.exec(skelUrl || '');
@@ -824,6 +829,7 @@
               motionId: 'codex-anim-toggle',
               exprId:   'codex-expression',
               base:     subset ? subset.base : undefined,
+              replace:  subset ? subset.replace : undefined,
               onPick:   name => {
                 try {
                   player2.setAnimation(name, true);
@@ -834,9 +840,9 @@
                 }
               },
             };
-            // 두 캐릭터가 같이 든 스켈레톤은 이 칸 캐릭터의 표정만 낸다(대기는 기본 버튼이 맡는다)
+            // 두 캐릭터가 같이 든 스켈레톤은 이 칸 캐릭터 것이 아닌 동작을 버튼에서 뺀다
             const animData = subset
-              ? { animations: player2.skeleton.data.animations.filter(a => subset.expr.test(a.name)) }
+              ? { animations: player2.skeleton.data.animations.filter(a => !subset.hide.test(a.name)) }
               : player2.skeleton.data;
             renderCostumeAnimControls(animData, animOpts);
             markCostumeAnimActive(idleOf(player2.skeleton.data), animOpts);

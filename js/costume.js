@@ -690,8 +690,10 @@
           || (motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM));
         const rows = groupExpressionsByVariant(expressions);
         const cols = expressionColumnCount(rows);
+        // opts.replace - 버튼 자리는 그대로 두고 실제로 틀 동작만 바꾼다({ angry: 'angry_02' })
+        const play = name => (opts && opts.replace && opts.replace[name]) || name;
         const cell = name => name
-          ? `<button class="anim-btn expr-btn" data-anim="${name}">${name}</button>`
+          ? `<button class="anim-btn expr-btn" data-anim="${play(name)}">${name}</button>`
           : `<span class="expr-empty"></span>`;
         exprBox.classList.remove('hidden');
         // 평소에는 버튼만 놓고 접어 둔다. 모델을 가리지 않게 하려는 것이다.
