@@ -1031,7 +1031,8 @@ const PHASE_CAM_DIST = [
   // 추적은 "몸 뼈 평균의 변위"를 따라가는데, 1페 거상은 뼈가 상체에 몰려 평균이 높아서 2페로 넘기면 시선이 몸보다
   // 0.39 아래(바닥 밑 -0.27)로 갔다. 2페 대기에서 몸 범위 0.03 ~ 0.22 의 가운데(0.12)로 올린다(사용자 지적, 2026-10-30).
   // 거리 0.26 - 화면 채움이 1페(세로 52%)와 비슷하게 가로 49% · 세로 42%(0.3 에서는 42% · 37%).
-  { boss: /^xbg006/i, phase: '2', scale: 0.26, y: 0.39 },
+  // x - 시선이 0.041 오른쪽이었다(오른쪽 날개만 0.17 까지 뻗어 뼈 중심이 쏠림, 몸통은 x 0). 격자 가운데(0)로(사용자 요청).
+  { boss: /^xbg006/i, phase: '2', scale: 0.26, x: -0.041, y: 0.39 },
   // 니힐리스타 · 백빙룡 - 날개 뼈(깃털 · 미사일)가 좌우 ±55 까지 뻗어 있어 정규화 상자가 몸(±19)의
   // 세 배로 잡힌다. 1페이즈는 날개가 꺼져 있어도 뼈는 남아서 가로 12% 로 보였다.
   { boss: /^mba002$/i, phase: '1', scale: 0.35 },
@@ -1063,6 +1064,10 @@ const PHASE_LIFT = [
   // 추적 카메라가 리그를 따라가며 맞춘다 - 여기에 시선 이동까지 얹으면 두 번 움직여 2페이즈가 화면 아래로 쏠렸다.
   { boss: /^ebg003/i, phase: '1', y: -0.21 },
   { boss: /^ebg003/i, phase: '2', y: -0.04 },
+  // 승리의 여신 2페이즈 - 대기 · 전환 b컷 · 사망 모두 시작할 때 몸 아래끝(스킨 정점)이 격자보다 0.028 ~ 0.033 떠 있었다
+  // (정규화가 1페 거상 뼈로 잡혀서). 한꺼번에 내린다(사용자 요청, 2026-10-30). 사망 후반 -0.72 까지 내려가는 건 몸이
+  // 땅으로 고꾸라지는 원래 동작이다.
+  { boss: /^xbg006/i, phase: '2', y: -0.028 },
 ];
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -4060,7 +4065,7 @@ function noFollowClip(bossKey, name) {
     // [내 PC 전용] 화면을 못 볼 때 카메라 · 시선 · 몸 위치를 숫자로 읽는 손잡이. 올라간 사이트에는 안 생긴다.
     if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
       window.__sr3d = {
-        THREE, camera, controls, normGroup, scene: gltf.scene, meshes,
+        THREE, camera, controls, normGroup, scene: gltf.scene, meshes, clips: gltf.animations,
         get focusMesh() { return focusMesh; }, get phase() { return currentPhase; },
         get clip() { return state.currentClip; }, followBase, initialTarget,
       };
