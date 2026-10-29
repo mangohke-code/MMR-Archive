@@ -1099,6 +1099,12 @@ const CINE_ANCHOR = [
   //   연출 자세에 따라 크게 달라져 사망 첫 프레임이 1.7 앞 · 0.6 위에 떴다. 몸 뿌리 root2 로 맞춘다.
   { boss: /^bbg009/i, re: /^bbg009_(bh_)?appearance$/i, at: 1, bone: /^root2$/ },
   { boss: /^bbg009/i, re: /^bbg009_(bh_)?death$/i, at: 0, bone: /^root2$/ },
+  //   mesh - 추적 기준 메쉬 대신 이 메쉬의 몸 중심으로 잰다(기준점은 대기 때 몸 중심 그대로).
+  // 승리의 여신 1페 연출 둘 - 클립이 root · root2 크기를 8.005 로 키우고 root2 를 3243(등장) · 1839(2페 전환 a컷) 떨어진
+  // 곳에 둔다(추출 세션 엔진 실측, 2026-10-30). 연출 카메라도 그 자리를 찍는다(카메라도 gltf.scene 안이라 같이 옮겨진다).
+  // 기본 맞춤은 추적 기준 메쉬로 재는데, 전환 묶음은 2페이즈 목록이라 기준이 2페 몸(이 컷에서 안 움직임)이 되어
+  // a컷이 안 옮겨졌다. 1페 몸으로 잰다. root2 로 맞추면 8배 몸의 가운데가 root2 보다 165 ~ 260 뒤라 격자 뒤로 쏠린다.
+  { boss: /^xbg006/i, re: /^xbg006_(1phase_appearance|2phase_appearance_a)$/i, at: 0.5, mesh: /^xbg006_1phase_body_skin$/i },
 ];
 // 연출 동작 하나만 모델을 바닥 격자 아래로 내리는 경우, 그 동작 동안 모델과 연출 카메라를 같이 올린다(applyCineShift).
 // y 는 gltf.scene 단위(파일 단위)다. 화면 구도는 그대로고 바닥 격자만 모델 밑으로 간다.
@@ -1106,6 +1112,9 @@ const CINE_ANCHOR = [
 //   그만큼 (8.651 x 0.9) 격자 아래에 묻혀 있었다(사용자 지적, 2026-10-04).
 const CINE_LIFT = [
   { boss: /^xbg001/i, re: /^xbg001_1phase_intro_take3$/i, y: 7.786 },
+  // 승리의 여신 1페 연출 둘 - root2 높이가 -45.8 이라 8배 몸 발이 격자 아래에서 시작한다. 발을 격자에 올린다
+  // (a컷은 그 뒤 -1104 까지 가라앉는 것이 원래 연출이다).
+  { boss: /^xbg006/i, re: /^xbg006_(1phase_appearance|2phase_appearance_a)$/i, y: 45.8 },
 ];
 
 const CLIP_CAM_DIST = [
@@ -4349,9 +4358,9 @@ function noFollowClip(bossKey, name) {
     }
     // 연출의 한 프레임(at 0~1)에서 몸 중심을 모델 공간(normGroup 기준)으로 잰다(CINE_ANCHOR).
     const cineAnchorCache = new Map();
-    function cineAnchorOf(clip, at, boneRe) {
+    function cineAnchorOf(clip, at, boneRe, meshRe) {
       if (!focusMesh) return null;
-      const key = clip.name + '@' + at + (boneRe ? '@' + boneRe.source : '');
+      const key = clip.name + '@' + at + (boneRe ? '@' + boneRe.source : '') + (meshRe ? '#' + meshRe.source : '');
       if (cineAnchorCache.has(key)) return cineAnchorCache.get(key);
       const saved = capturePose(gltf.scene);
       let result = null;
@@ -4369,6 +4378,9 @@ function noFollowClip(bossKey, name) {
           // 차가운 심판자 파일은 root2 가 스킨 뼈 목록에 없는 일반 노드다 - 이름으로만 찾는다
           gltf.scene.traverse(o => { if (!bone && boneRe.test(o.name || '')) bone = o; });
           if (bone) { bone.getWorldPosition(v); ok = true; }
+        } else if (meshRe) {
+          const mm = meshes.find(m => m.isSkinnedMesh && m.skeleton && meshRe.test(m.name || ''));
+          ok = !!(mm && rigCenter(mm, v, null));
         } else {
           ok = !!rigCenter(focusMesh, v, focusBone);
         }
@@ -4397,7 +4409,7 @@ function noFollowClip(bossKey, name) {
       const lift = CINE_LIFT.find(o => o.boss.test(bossKey || '') && o.re.test(name));
       const anchor = CINE_ANCHOR.find(o => o.boss.test(bossKey || '') && o.re.test(name));
       if (anchor) {
-        const c = cineAnchorOf(clip, anchor.at, anchor.bone);
+        const c = cineAnchorOf(clip, anchor.at, anchor.bone, anchor.mesh);
         if (!c) return;
         normGroup.updateMatrixWorld(true);
         // 뼈를 지정했으면 대기 첫 프레임의 그 뼈 자리, 아니면 추적 기준(대기 때 몸 중심)
