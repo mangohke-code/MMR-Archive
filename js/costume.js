@@ -685,7 +685,9 @@
         exprBox.innerHTML = '';
         exprBox.classList.add('hidden');
       } else {
-        const base = motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM);
+        // opts.base - 대기를 idle 말고 다른 이름으로 쓰는 스켈레톤(도감의 온리 원 c992 = special)
+        const base = (opts && opts.base)
+          || (motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM));
         const rows = groupExpressionsByVariant(expressions);
         const cols = expressionColumnCount(rows);
         const cell = name => name

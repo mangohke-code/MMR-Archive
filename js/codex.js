@@ -718,7 +718,22 @@
     if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
   }
 
+  // 한 스켈레톤에 두 캐릭터가 같이 든 경우 - 그 칸 캐릭터의 애니메이션만 쓴다.
+  //   c992(온리 원 두 번째 모델) - special · angry_02 · delight_02 가 별 동공의 온리 원이고,
+  //   idle · angry · delight · pain · sleep(빨간 눈)은 라피다(사용자 확인, 2026-10-30).
+  //   셋 다 idle 과 같은 몸 트랙에 눈 부착물만 더 켜는 2.4초 동작이라 special 을 대기로 쓴다.
+  //   base - 대기(기본 버튼), expr - 표정 버튼으로 낼 것
+  const CODEX_ANIM_SUBSET = {
+    c992_00: { base: 'special', expr: /^(angry|delight)_02$/ },
+  };
+  function codexAnimSubset(skelUrl) {
+    const m = /([a-z]\d{3,4}_\d{2})\.skel/i.exec(skelUrl || '');
+    return (m && CODEX_ANIM_SUBSET[m[1].toLowerCase()]) || null;
+  }
+
   function loadCodexSpine(skelUrl, atlasUrl) {
+    const subset = codexAnimSubset(skelUrl);
+    const idleOf = data => (subset ? subset.base : pickSpineAnimation(data));
     const wrap = document.getElementById('codex-spine-player');
     wrap.innerHTML = '';
     if (codexSpinePlayer) {
@@ -759,7 +774,7 @@
         codexSpinePlayer = new spine.SpinePlayer('codex-spine-inner', {
           skelUrl:   skelUrl,
           atlasUrl:  atlasUrl,
-          animation: pickSpineAnimation(data),
+          animation: idleOf(data),
           backgroundColor: '#00000000',
           showControls: false,
           preserveDrawingBuffer: false,
@@ -808,6 +823,7 @@
             const animOpts = {
               motionId: 'codex-anim-toggle',
               exprId:   'codex-expression',
+              base:     subset ? subset.base : undefined,
               onPick:   name => {
                 try {
                   player2.setAnimation(name, true);
@@ -818,8 +834,12 @@
                 }
               },
             };
-            renderCostumeAnimControls(player2.skeleton.data, animOpts);
-            markCostumeAnimActive('idle', animOpts);
+            // 두 캐릭터가 같이 든 스켈레톤은 이 칸 캐릭터의 표정만 낸다(대기는 기본 버튼이 맡는다)
+            const animData = subset
+              ? { animations: player2.skeleton.data.animations.filter(a => subset.expr.test(a.name)) }
+              : player2.skeleton.data;
+            renderCostumeAnimControls(animData, animOpts);
+            markCostumeAnimActive(idleOf(player2.skeleton.data), animOpts);
 
             codexPanZoom = setupSpinePanZoom(playerDiv2, wrapEl, () => [player2]);
 
@@ -831,7 +851,7 @@
                 codexPanZoom.reset();
                 try {
                   player2.animationState.clearListeners();
-                  player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
+                  player2.setAnimation(idleOf(player2.skeleton.data), true);
                 } catch (err) {
                   console.error('[캐릭터 도감 L2D] 초기화 실패:', err);
                 }
@@ -846,7 +866,7 @@
                 player2.animationState.addListener({
                   complete: () => {
                     try {
-                      player2.setAnimation(pickSpineAnimation(player2.skeleton.data), true);
+                      player2.setAnimation(idleOf(player2.skeleton.data), true);
                     } catch (err) {
                       console.error('[캐릭터 도감 L2D] 대기 애니메이션 복귀 실패:', err);
                     }
