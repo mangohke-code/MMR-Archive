@@ -1030,9 +1030,13 @@ const PHASE_CAM_DIST = [
   // 화면 맞춤이 큰 쪽(1페)으로 잡혀서 2페이즈가 4분의 1 크기로 보였다(사용자 지적, 2026-10-30).
   // 추적은 "몸 뼈 평균의 변위"를 따라가는데, 1페 거상은 뼈가 상체에 몰려 평균이 높아서 2페로 넘기면 시선이 몸보다
   // 0.39 아래(바닥 밑 -0.27)로 갔다. 2페 대기에서 몸 범위 0.03 ~ 0.22 의 가운데(0.12)로 올린다(사용자 지적, 2026-10-30).
-  // 거리 0.26 - 화면 채움이 1페(세로 52%)와 비슷하게 가로 49% · 세로 42%(0.3 에서는 42% · 37%).
-  // x - 시선이 0.041 오른쪽이었다(오른쪽 날개만 0.17 까지 뻗어 뼈 중심이 쏠림, 몸통은 x 0). 격자 가운데(0)로(사용자 요청).
-  { boss: /^xbg006/i, phase: '2', scale: 0.26, x: -0.041, y: 0.39 },
+  // 예전에는 거리 배수 · x · y 로 맞췄는데, y 가 "1페 기준점 + 변위" 에 기대고 있어서 화면을 건드리거나 시점 초기화를
+  // 누르면 기준이 2페 몸으로 다시 잡히면서 y 0.39 가 통째로 더해져 시선이 위로 튀고 그대로 남았다(사용자 지적, 2026-10-30).
+  // home 으로 2페 기본 시점을 절대값으로 정한다(PHASE_SCALE 2배 · PHASE_LIFT 뒤 값, 정규화 단위).
+  //   target - 2페 대기 몸(날개 포함) 높이 0 ~ 0.42 · 좌우 · 앞뒤 가운데 0
+  //   camY 0.04 - 마더웨일처럼 격자 바로 위에서 약 8도 올려다본다(격자가 수평에 가깝게 보이게, 사용자 요청)
+  //   dist 1.0 - 몸 높이가 화면 세로 약 52%(1페와 같은 채움)
+  { boss: /^xbg006/i, phase: '2', home: { target: [0, 0.18, 0], camY: 0.04, dist: 1.0 } },
   // 니힐리스타 · 백빙룡 - 날개 뼈(깃털 · 미사일)가 좌우 ±55 까지 뻗어 있어 정규화 상자가 몸(±19)의
   // 세 배로 잡힌다. 1페이즈는 날개가 꺼져 있어도 뼈는 남아서 가로 12% 로 보였다.
   { boss: /^mba002$/i, phase: '1', scale: 0.35 },
@@ -1054,6 +1058,13 @@ const UNDERGROUND_HIDE = [
   { boss: /^mbg001/i, re: /^(2phase_broken_\d+|launcher_cap_\d+)$/i },
 ];
 
+// 페이즈마다 모델 크기를 따로 주는 보스. 정규화 그룹(normGroup)을 이 배수로 키운다(원점 기준). 높이는 아래 PHASE_LIFT 로 다시 맞춘다.
+//   승리의 여신 - 정규화가 1페 거상(높이 약 1)으로 잡혀서 2페 몸(폭 0.25 · 높이 0.21)이 격자(폭 2)에 비해 너무 작았다
+//   (사용자 지적, 2026-10-30). 2배로 키운다.
+const PHASE_SCALE = [
+  { boss: /^xbg006/i, phase: '2', scale: 2 },
+];
+
 // 페이즈마다 모델 높이를 따로 주는 보스. 정규화 그룹(normGroup)을 이만큼 올린다(정규화 단위).
 // 모델 항목이 하나인데 페이즈 버튼으로 모습이 바뀌는 보스라 CATALOG_FIT_BASE(모델 항목 단위)로는 못 준다.
 //   니힐리스타 - 2페이즈(날개 달린 모습)는 바닥에서 띄운다. 백빙룡(같은 모습)의 y 0.15 와 맞춘다(사용자 요청, 2026-10-04).
@@ -1064,10 +1075,10 @@ const PHASE_LIFT = [
   // 추적 카메라가 리그를 따라가며 맞춘다 - 여기에 시선 이동까지 얹으면 두 번 움직여 2페이즈가 화면 아래로 쏠렸다.
   { boss: /^ebg003/i, phase: '1', y: -0.21 },
   { boss: /^ebg003/i, phase: '2', y: -0.04 },
-  // 승리의 여신 2페이즈 - 대기 · 전환 b컷 · 사망 모두 시작할 때 몸 아래끝(스킨 정점)이 격자보다 0.028 ~ 0.033 떠 있었다
-  // (정규화가 1페 거상 뼈로 잡혀서). 한꺼번에 내린다(사용자 요청, 2026-10-30). 사망 후반 -0.72 까지 내려가는 건 몸이
-  // 땅으로 고꾸라지는 원래 동작이다.
-  { boss: /^xbg006/i, phase: '2', y: -0.028 },
+  // 승리의 여신 2페이즈 - 대기 · 전환 b컷 · 사망 모두 시작할 때 몸 아래끝(스킨 정점)이 격자보다 떠 있었다(정규화가 1페 거상
+  // 뼈로 잡혀서). PHASE_SCALE 2배 뒤 기준으로 한꺼번에 내린다 - 대기 첫 프레임 아래끝 0(사용자 요청, 2026-10-30).
+  // 사망 후반 몸이 땅으로 고꾸라지는 건 원래 동작이다.
+  { boss: /^xbg006/i, phase: '2', y: -0.019 },
 ];
 
 // 클립 하나만 눈높이가 따로 필요한 경우. 그 클립을 재생하는 동안 카메라와 시선을
@@ -3807,8 +3818,9 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
           btn.addEventListener('click', () => {
             currentPhase = btn.dataset.phase;
             refreshFocusMesh();
-            applyPhaseCamDist(currentPhase);
+            applyPhaseScale(currentPhase);
             applyPhaseLift(currentPhase);
+            applyPhaseCamDist(currentPhase);
             phaseToggleEl.querySelectorAll('.soloraid-phase-btn').forEach(b => {
               b.classList.toggle('active', b.dataset.phase === currentPhase);
             });
@@ -3936,6 +3948,56 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     homeTarget = controls.target.clone();
     initialTarget = controls.target.clone();
 
+    // 페이즈 기본 시점을 절대값으로 정하는 보스(PHASE_CAM_DIST 의 home). 페이즈마다 몸이 아예 다른 리그라
+    // "1페 기준점 + 변위" 로는 맞출 수 없을 때 쓴다 - 시선 · 카메라 자리 · 추적 기준(그 페이즈 대기 첫 프레임의 몸 중심)을
+    // 그 페이즈 것으로 다시 잡아서, 화면을 건드리거나 시점 초기화를 눌러도 같은 자리로 돌아온다.
+    // 다른 페이즈로 넘어가면 처음 값으로 되돌린다.
+    let phaseHomeSaved = null;
+    function idleCenterWorld(phase) {
+      const idle = findIdleClipForPhase(phase);
+      if (!idle || !focusMesh) return null;
+      const saved = capturePose(gltf.scene);
+      const v = new THREE.Vector3();
+      let ok = false;
+      try {
+        const probe = new THREE.AnimationMixer(gltf.scene);
+        restorePose(poseFor(idle.name));
+        probe.clipAction(idle).play();
+        probe.setTime(0);
+        normGroup.updateMatrixWorld(true);
+        ok = !!rigCenter(focusMesh, v, focusBone);
+        probe.stopAllAction();
+        probe.uncacheRoot(gltf.scene);
+      } finally {
+        restorePose(saved);
+        gltf.scene.updateMatrixWorld(true);
+      }
+      return ok ? v : null;
+    }
+    function applyPhaseHome(h, phase, initial) {
+      if (!phaseHomeSaved) {
+        phaseHomeSaved = { cam: homeCamPos.clone(), target: homeTarget.clone(), initial: initialTarget.clone(),
+          base: initial ? null : followBase.clone() };
+      }
+      const t = new THREE.Vector3(h.target[0], h.target[1], h.target[2]);
+      const dy = h.camY - t.y;
+      const c = new THREE.Vector3(t.x, h.camY, t.z + Math.sqrt(Math.max(h.dist * h.dist - dy * dy, 1e-4)));
+      homeTarget.copy(t); homeCamPos.copy(c); initialTarget.copy(t);
+      if (!initial) { const b = idleCenterWorld(phase); if (b) followBase.copy(b); }
+      if (initial || followEnabled) {
+        controls.target.copy(t); camera.position.copy(c); controls.update();
+      }
+    }
+    function restorePhaseHome(initial) {
+      if (!phaseHomeSaved) return;
+      homeCamPos.copy(phaseHomeSaved.cam); homeTarget.copy(phaseHomeSaved.target); initialTarget.copy(phaseHomeSaved.initial);
+      if (phaseHomeSaved.base) followBase.copy(phaseHomeSaved.base);
+      phaseHomeSaved = null;
+      if (initial || followEnabled) {
+        controls.target.copy(homeTarget); camera.position.copy(homeCamPos); controls.update();
+      }
+    }
+
     // 페이즈마다 기본 거리가 다른 보스. 시선은 그대로 두고 거리만 늘였다 줄인다.
     let phaseCamScale = 1;
     const phaseCamShift = { x: 0, y: 0 };
@@ -3943,6 +4005,8 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       if (!homeCamPos || !homeTarget) return;
       const rule = PHASE_CAM_DIST.find(
         o => o.boss.test(bossKey || '') && o.phase === String(phase));
+      if (rule && rule.home) { applyPhaseHome(rule.home, phase, initial); return; }
+      restorePhaseHome(initial);
       // x · y: 시선을 옆 · 위아래로 옮긴다. 추적은 리그 중심을 따라가므로 모델을 옮겨도 소용없고
       // 기준점(initialTarget)을 옮겨야 한다.
       const wantX = (rule && rule.x) || 0;
@@ -3974,7 +4038,17 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
         controls.update();
       }
     }
-    applyPhaseCamDist(currentPhase, true);
+    // 페이즈마다 모델 크기가 다른 보스(PHASE_SCALE). 정규화 그룹을 그 배수로 키운다(원점 기준).
+    let phaseScaleK = 1;
+    function applyPhaseScale(phase) {
+      const rule = PHASE_SCALE.find(
+        o => o.boss.test(bossKey || '') && o.phase === String(phase));
+      const want = (rule && rule.scale) || 1;
+      if (want === phaseScaleK) return;
+      normGroup.scale.multiplyScalar(want / phaseScaleK);
+      normGroup.updateMatrixWorld(true);
+      phaseScaleK = want;
+    }
 
     // 페이즈마다 모델 높이가 다른 보스(PHASE_LIFT). 시점은 그대로 두고 모델만 올린다.
     let phaseLift = 0;
@@ -3986,7 +4060,10 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
       normGroup.position.y += want - phaseLift;
       phaseLift = want;
     }
+    // 크기 · 높이를 먼저 바꾸고 시점을 잡는다 - 절대값 시점(home)의 추적 기준이 바뀐 모델에서 잰 몸 중심이어야 한다.
+    applyPhaseScale(currentPhase);
     applyPhaseLift(currentPhase);
+    applyPhaseCamDist(currentPhase, true);
 
     // 클립 하나만 눈높이가 다른 경우(온리 원 take01). 기준점까지 같이 올려서
     // 추적도, 시점 초기화도 올라간 자리를 기준으로 돌게 한다.
