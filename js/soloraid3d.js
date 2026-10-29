@@ -302,6 +302,10 @@ const MESH_RENAME = [
   { boss: /^xbg003/i,
     re: /^(xbg003_(?:ziz_skin|behamoth_skin|leviathan_skin|2phase_wings_skin))(_\d+)?$/i,
     bySuffix: {} },
+  // 승리의 여신 - 노드가 이름을 먼저 차지해서 메쉬마다 _1 이 붙고, 재질별 프리미티브(몸 2 · 3개, break_l 2개)가
+  // _2 · _3 으로 갈려 한 파츠가 여러 줄로 나왔다. 꼬리표를 떼고 한 메쉬의 프리미티브는 한 파츠로 묶는다.
+  // 그래야 PART_LABELS 의 이름표(지지용 모듈 · 위협용 외장)가 걸린다.
+  { boss: /^xbg006/i, re: /^(xbg006_(?:.+_skin|wing_frag|fragment|core_frag))(_\d+)?$/i, bySuffix: {}, merge: true },
   // 사치스러운 거미 - 노드와 메쉬가 같은 이름을 나눠 가져서 메쉬 쪽에 _1 이 붙는다.
   // 이름이 겹치는 메쉬는 없으니 꼬리표만 뗀다.
   { boss: /^bbg001/i, re: /^(bbg001_(?:body|legs_01|weapon_01))(_\d+)?$/i, bySuffix: {} },
@@ -603,6 +607,16 @@ const PART_LABELS = {
     'r_pauldrons_skin': '견갑 R',
     'l_coverts_skin': '날개 견갑 L',
     'r_coverts_skin': '날개 견갑 R',
+  },
+  // 승리의 여신 - 로케일 parts_name_goddessofvictory01~04(지지용 모듈 L · R, 위협용 외장 L · R).
+  // 파츠 ↔ 이름 대응표는 클라이언트에 없다(추출 세션 확인, 2026-10-30). 번호 순서 = partsType 순서
+  // (13 · 14 = 1페 break_l · r, 15 · 16 = 2페 left · right_wings)로 이었다 - 인게임 확인 전까지 추정이다.
+  // 좌우는 break_l · left_wings 둘 다 x 음수 쪽이라 서로는 맞는다.
+  xbg006: {
+    '1phase_break_l_skin': '지지용 모듈 L',
+    '1phase_break_r_skin': '지지용 모듈 R',
+    '2phase_left_wings_skin': '위협용 외장 L',
+    '2phase_right_wings_skin': '위협용 외장 R',
   },
   // 미러 컨테이너 - 1페이즈 파츠는 좌우와 번호가 로케일과 그대로 맞는다.
   // 2페이즈 넷(dl/dr/ul/ur)은 "유리 구두 I~IV" 와 개수만 맞고 순서를 모른다 - 비워 둔다.
