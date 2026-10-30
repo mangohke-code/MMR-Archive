@@ -8,9 +8,12 @@
 //   예) 크리스마스 캐릭터가 9월 코인 러시(바니걸 이벤트)에 다시 나온 것은 뺀다.
 //   0.5주년 · 1주년 … N주년은 한 계열(주년)로 본다.
 // 계열마다 "회차"(그 계열 신규가 나온 이벤트 묶음, 60일 안이면 한 회차)를 세워 다음 회차 복각을 본다.
-//   확신 높음 - 3회 이상 연속으로 앞 회차 신규 전원이 다음 회차에 복각
-//   확신 중간 - 2회 이상, 앞 회차 신규의 절반 이상이 복각 / 주년(정주년에 1~2.5년 전 주년 캐릭터가 복각)
-//   확신 낮음 - 그 밖에 한 번이라도 맞은 적이 있는 것
+// 가능성 5단계(사용자 요청, 2026-10-31)
+//   매우 높음 - 3회 이상 연속으로 앞 회차 신규 전원이 다음 회차에 복각
+//   높음     - 2회 이상 연속 전원 복각, 전체 80% 이상
+//   중간     - 2회 이상 비교, 절반 이상 복각 / 주년(정주년 복각 사례 2번 이상)
+//   낮음     - 절반 미만이지만 맞은 적이 있음 / 주년(사례 1번)
+//   매우 낮음 - 비교가 한 번뿐이거나 4분의 1 미만
 // 일반 시즌은 상시 캐릭터라 복각 픽업이 없다. 콜라보는 같은 작품이 다시 와야 복각이라 예측에서 뺀다(사용자 결정).
 (function () {
   const DAY = 86400000;
@@ -68,7 +71,7 @@
   }
 
   function seasonal(f, occs, A, today) {
-    if (occs.length < 2) return { family: f, none: '회차가 한 번뿐이라 비교할 앞뒤가 없어요' };
+    if (occs.length < 2) return { family: f, none: '첫 회차' };
     const pairs = [];
     for (let i = 0; i + 1 < occs.length; i++) {
       const a = occs[i], b = occs[i + 1];
@@ -80,11 +83,14 @@
     }
     const total = pairs.reduce((n, p) => n + p.rows.length, 0);
     const hits = pairs.reduce((n, p) => n + p.rows.filter(r => r.hit).length, 0);
-    if (!hits) return { family: f, none: '같은 시즌 복각 사례가 없어요' };
+    if (!hits) return { family: f, none: '같은 시즌 복각 없음' };
     let streak = 0;
     for (let i = pairs.length - 1; i >= 0 && pairs[i].rows.every(r => r.hit); i--) streak++;
     const rate = hits / total;
-    const conf = streak >= 3 && rate === 1 ? 'high' : (pairs.length >= 2 && rate >= 0.5 ? 'mid' : 'low');
+    const conf = streak >= 3 && rate === 1 ? 'vhigh'
+      : streak >= 2 && rate >= 0.8 ? 'high'
+      : pairs.length >= 2 && rate >= 0.5 ? 'mid'
+      : pairs.length >= 2 && rate >= 0.25 ? 'low' : 'vlow';
     const last = occs[occs.length - 1];
     const cands = last.names.filter(n => !(A.valid[n] || []).length);
     if (!cands.length) return null;
@@ -99,7 +105,7 @@
         const n = p.rows.filter(r => r.hit).length;
         return { label: String(p.to.date.getFullYear()), text: `${n}/${p.rows.length}`, ok: n === p.rows.length };
       }),
-      summary: `${pairs.length}번 중 ${pairs.filter(p => p.rows.every(r => r.hit)).length}번 전원 복각(${hits}/${total}명)`,
+      summary: `전원 복각 ${pairs.filter(p => p.rows.every(r => r.hit)).length}/${pairs.length}회 · ${hits}/${total}명`,
     };
   }
 
@@ -119,10 +125,10 @@
       }));
       if (rows.length) why.push({ text: `${o.date.getFullYear()} ${o.season} ${o.event}`, rows });
     });
-    if (!lags.length) return { family: '주년', none: '같은 계열 복각 사례가 없어요' };
+    if (!lags.length) return { family: '주년', none: '같은 시즌 복각 없음' };
     const half = occs.filter(o => !isFullAnniv(o.season));
     const halfHit = half.some(o => Object.values(A.valid).some(rs => rs.some(r => Math.abs(r.date - o.date) < 60 * DAY)));
-    if (!halfHit && half.length) why.push({ text: `반주년(${half.map(o => o.season).join(' · ')})에는 복각 없음`, rows: [] });
+    if (!halfHit && half.length) why.push({ text: '반주년 복각 없음', rows: [] });
     const date = nextDate(full, today);
     const lo = Math.min(...lags) - 60, hi = Math.max(...lags) + 60, mid = median(lags);
     const cands = [];
@@ -136,18 +142,22 @@
     // 지난 정주년은 한 번에 2~3명씩 복각됐다. 간격이 가장 가까운 넷만 후보로 내고 나머지는 근거에 적는다.
     const MAX = 4;
     const rest = cands.slice(MAX);
-    if (rest.length) why.push({ text: `간격이 더 먼 후보: ${rest.map(c => c.name).join(', ')}`, rows: [] });
+    if (rest.length) why.push({ text: `기타 후보: ${rest.map(c => c.name).join(', ')}`, rows: [] });
+    // 몇 주년인지 - 마지막 정주년 번호 + 1
+    const lastNo = parseInt(full[full.length - 1].season, 10);
+    const cases = why.filter(w => w.rows.length).length;
     return {
-      family: '주년', conf: why.filter(w => w.rows.length).length >= 2 ? 'mid' : 'low', date, cands: cands.slice(0, MAX), why,
+      family: '주년', title: isFinite(lastNo) ? `${lastNo + 1}주년` : '주년',
+      conf: cases >= 2 ? 'mid' : 'low', date, cands: cands.slice(0, MAX), why,
       track: full.map(o => {
         const n = why.find(w => w.rows.length && w.text.startsWith(`${o.date.getFullYear()} ${o.season}`));
         return { label: o.season, text: n ? `${n.rows.length}명` : '0명', ok: !!n };
       }),
-      summary: `정주년 ${why.filter(w => w.rows.length).length}번, 첫 픽업 뒤 ${Math.min(...lags)}~${Math.max(...lags)}일에 복각(가운데 ${Math.round(mid)}일). 후보는 그 간격에 가까운 순`,
+      summary: `복각 간격 ${Math.min(...lags)}~${Math.max(...lags)}일 · 중앙 ${Math.round(mid)}일 기준 순`,
     };
   }
 
-  const CONF_LABEL = { high: '가능성 높음', mid: '가능성 중간', low: '가능성 낮음' };
+  const CONF_LABEL = { vhigh: '매우 높음', high: '높음', mid: '중간', low: '낮음', vlow: '매우 낮음' };
 
   function render() {
     const host = document.getElementById('predict-list');
@@ -178,7 +188,7 @@
         </div>
         <article class="predict-card is-${c.conf}">
           <div class="predict-head">
-            <span class="predict-fam">${esc(c.family)}</span>
+            <span class="predict-fam">${esc(c.title || c.family)}</span>
             <span class="predict-conf is-${c.conf}">${CONF_LABEL[c.conf]}</span>
           </div>
           <div class="predict-cands">
@@ -201,17 +211,16 @@
           </details>
         </article>
       </li>`;
-    }).join('')}</ol>` : '<p class="predict-empty">지금 예측할 복각이 없어요.</p>';
+    }).join('')}</ol>` : '<p class="predict-empty">예측 없음</p>';
 
     const notes = document.getElementById('predict-notes');
     if (notes) {
       notes.innerHTML = `
-        <summary>계산 방법 · 예측하지 않은 시즌</summary>
+        <summary>제외 항목</summary>
         <ul>
-          <li>캐릭터가 처음 픽업된 시즌과 <b>복각된 이벤트의 시즌이 같을 때만</b> 복각으로 셌어요. 시즌이 다른 이벤트(예: 크리스마스 캐릭터가 9월 코인 러시)에 나온 복각 ${A.skipped.length}건은 뺐어요.</li>
-          <li>0.5주년 ~ N주년은 한 계열(주년)로 봤어요. 일반 시즌은 상시 캐릭터라, 콜라보는 같은 작품이 돌아와야 복각이라 예측하지 않아요.</li>
-          <li>가능성 높음: 3번 이상 연속 앞 회차 신규 전원 복각 · 중간: 규칙은 보이지만 사례가 적거나 후보가 갈림 · 낮음: 그 밖에 맞은 적이 있는 것</li>
-          ${none.length ? `<li>예측하지 않은 시즌: ${none.map(n => `<b>${esc(n.family)}</b>(${esc(n.none)})`).join(' · ')}</li>` : ''}
+          <li>시즌 불일치 복각 ${A.skipped.length}건</li>
+          <li>콜라보 · 일반</li>
+          ${none.map(n => `<li>${esc(n.family)} - ${esc(n.none)}</li>`).join('')}
         </ul>`;
     }
 

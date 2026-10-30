@@ -952,7 +952,7 @@
     if (stickyState) return;
     const root = document.documentElement;
     const body = document.body;
-    stickyState = { shown: false, hideTimer: null, lastY: window.scrollY, raf: 0 };
+    stickyState = { shown: false, hideTimer: null, lastY: window.scrollY, raf: 0, settleUntil: 0 };
     const st = stickyState;
 
     function apply() {
@@ -967,7 +967,11 @@
       const auto = window.scrollY > navH + 40;
       body.classList.toggle('pk-nav-auto', auto);
       body.classList.toggle('pk-nav-show', auto && st.shown);
-      const barTop = !auto || st.shown ? navH : 0;
+      // 탭을 옮긴 직후에는 탭 바가 줄어드는 중이라(메인에서 오면 0.26초) 그 높이로 붙이면 툴바가 내려갔다가
+      // 다 줄어든 뒤 올라왔다(사용자 지적, 2026-10-31). 그동안은 붙이지 않고, 끝난 뒤 다시 잰다.
+      const settling = performance.now() < st.settleUntil;
+      if (settling) setTimeout(schedule, st.settleUntil - performance.now() + 10);
+      const barTop = settling ? 0 : (!auto || st.shown ? navH : 0);
       root.style.setProperty('--pk-bar-top', barTop + 'px');
       root.style.setProperty('--pk-stick', (barTop + barH) + 'px');
     }
@@ -1011,7 +1015,7 @@
       // 21px 아래에 붙어서 2026 줄을 반쯤 가렸다(사용자 지적, 2026-10-24). 다 줄어든 뒤 다시 잰다.
       nav.addEventListener('transitionend', e => { if (e.target === nav) schedule(); });
     }
-    document.addEventListener('mmr:tab-change', () => { st.shown = false; schedule(); });
+    document.addEventListener('mmr:tab-change', () => { st.shown = false; st.settleUntil = performance.now() + 320; schedule(); });
     schedule();
   }
 
