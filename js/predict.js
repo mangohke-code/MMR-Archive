@@ -114,8 +114,9 @@
     const last = occs[occs.length - 1];
     const cands = last.names.filter(n => !(A.valid[n] || []).length);
     if (!cands.length) return null;
+    const date = nextDate(occs, today);
     return {
-      family: f, conf: grade(pairs), date: nextDate(occs, today), exact: regular(occs), cands: cands.map(n => ({ name: n, from: last })),
+      family: f, conf: grade(pairs), date, exact: regular(occs), span: regular(occs) ? '' : monthSpan(occs, date), cands: cands.map(n => ({ name: n, from: last })),
       why: pairs.map(p => ({
         text: `${p.from.date.getFullYear()} ${p.from.event} 신규 → ${p.to.date.getFullYear()} ${p.to.event}`,
         rows: p.rows,
@@ -269,10 +270,22 @@
         date: first ? new Date(lastOcc.date.getTime() + 7 * DAY) : nextDate(occs, today),
         exact: first ? true : regular(occs),
       };
-    }).sort((a, b) => a.date - b.date);
+    }).map(c => Object.assign(c, { span: c.exact ? '' : monthSpan(c.occs, c.date) }))
+      .sort((a, b) => a.date - b.date);
   }
 
-  // 왼쪽 날짜 칸 - 연도 · 월.일 · D-day, 날짜가 들쭉날쭉한 계열은 연도 · 월만
+  // 날짜가 들쭉날쭉한 계열의 시기 - 최근 3회차 중 예상일 45일 안에 든 날짜를 예상 연도로 옮겨 초(1~10일) · 중순 · 말로 묶는다
+  function monthSpan(occs, date) {
+    const part = d => (d.getDate() <= 10 ? '초' : d.getDate() <= 20 ? '중순' : '말');
+    const near = occs.slice(-3).map(o => new Date(date.getFullYear(), o.date.getMonth(), o.date.getDate()))
+      .filter(d => Math.abs(d - date) <= 45 * DAY).sort((a, b) => a - b);
+    if (!near.length) return '';
+    const lo = near[0], hi = near[near.length - 1];
+    if (lo.getMonth() !== hi.getMonth()) return `${lo.getMonth() + 1}월 ${part(lo)}~${hi.getMonth() + 1}월 ${part(hi)}`;
+    return part(lo) === part(hi) ? part(lo) : `${part(lo)}~${part(hi)}`;
+  }
+
+  // 왼쪽 날짜 칸 - 연도 · 월.일 · D-day, 날짜가 들쭉날쭉한 계열은 연도 · 월 · 시기(초 · 중순 · 말)
   function dateBlock(c, today) {
     const md = d => `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
     const dday = Math.ceil((c.date - today) / DAY);
@@ -280,7 +293,8 @@
         <div class="predict-date">
           <span class="predict-date-y">${c.date.getFullYear()}</span>
           ${c.exact ? `<b class="predict-date-md">${md(c.date)}</b>
-          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>`}
+          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>
+          ${c.span ? `<em class="predict-date-d is-span">${esc(c.span)}</em>` : ''}`}
         </div>`;
   }
 
@@ -311,8 +325,14 @@
     const host = document.getElementById('predict-pickup');
     if (!host) return;
     const cards = pickupForecast(APP_DATA.pickup, today);
-    const pick = p => [p['기업'], p['버스트'] && `${p['버스트']}버스트`, p['우월코드'], p['총기'], p['유형']]
-      .filter(Boolean).join(' ');
+    // 자세히 - "이름 = {기업, 버스트, 우월코드, 총기, 유형}", 예측과 맞는 값은 초록 체크
+    const detail = (c, p) => `${esc(p['니케'])} = {${ATTRS.map(([label, get], i) => {
+      const raw = label === '기업' ? String(p['기업'] || '') : get(p);
+      if (!raw) return '';
+      const a = c.attrs[i];
+      const hit = a.conf !== 'vlow' && a.value && !a.exclude && get(p) === a.value;
+      return `<span${hit ? ' class="is-hit"' : ''}>${hit ? '✓ ' : ''}${esc(fmtVal(label, raw))}</span>`;
+    }).filter(Boolean).join(', ')}}`;
     // 속성 칸 - 이름 · 단계 문구, 도넛(가운데 비율), 아이콘 · 값. 근거 없음이면 값 대신 "-"
     const attrCell = a => {
       const sure = a.conf !== 'vlow' && a.value;
@@ -346,8 +366,8 @@
           </div>` : ''}
           <details class="predict-why">
             <summary>자세히</summary>
-            <ul>${c.occs.map(o => `<li><span>${o.date.getFullYear()} ${esc(o.season)} ${esc(o.event)}</span><span class="predict-hits">${o.rows.map(p =>
-              `<i>${esc(p['니케'])} · ${esc(pick(p))}</i>`).join('')}</span></li>`).join('')}</ul>
+            <ul>${c.occs.map(o => `<li><span>${o.date.getFullYear()} ${esc(o.season)} ${esc(o.event)}</span><span class="predict-hits is-list">${o.rows.map(p =>
+              `<i>${detail(c, p)}</i>`).join('')}</span></li>`).join('')}</ul>
           </details>
         </article>
       </li>`).join('')}</ol>` : '<p class="predict-empty">예측 없음</p>';

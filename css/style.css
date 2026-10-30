@@ -10116,6 +10116,10 @@
   .predict-pane[hidden] { display: none; }
   .predict-count { padding: 3px 10px; font-size: 12.5px; font-weight: 800; white-space: nowrap; color: var(--text-secondary);
     border-radius: 6px 0 6px 0; corner-shape: bevel; background: var(--bg-panel-alt); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .predict-hits.is-list { flex-direction: column; }
+  .predict-hits.is-list i { color: var(--text-secondary); }
+  .predict-hits.is-list .is-hit { color: var(--status-new-text); font-weight: 800; }
+  .predict-date-d.is-span { white-space: nowrap; }
   .predict-count.is-first { color: var(--accent-strong); box-shadow: inset 0 0 0 1px var(--accent); }
   .predict-attrs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; }
   .predict-attr { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 8px 6px;
