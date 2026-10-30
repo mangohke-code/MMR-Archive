@@ -225,10 +225,40 @@
           ? { label, value: vals.join(' / '), hits: top, total, conf: shareLevel(top, total) }
           : { label, value: '', conf: 'vlow' };
       });
-      // 몇 주년인지 - 마지막 회차 번호 + 1 (3.5주년 -> 4.5주년)
-      const lastNo = parseFloat(occs[occs.length - 1].season);
-      const title = (f === '주년' || f === '반주년') && isFinite(lastNo) ? `${lastNo + 1}주년` : f;
-      return { family: f, title, date: nextDate(occs, today), exact: regular(occs), count: occs.length, attrs, occs };
+      // 같은 이벤트 둘째부터 - 첫째와 같은 값이었나 / 다른 값이었나. 4분의 3 이상 한쪽이면 "같음" · "다름"으로 본다.
+      // 예) 여름은 기업 · 총기를 나눠 내고 바니걸은 기업을 몰아 낸다(사용자 지적, 2026-10-31).
+      const byEv = {};
+      all.forEach(p => (byEv[p['이벤트']] = byEv[p['이벤트']] || []).push(p));
+      const pairs = ATTRS.map(([label, get]) => {
+        let same = 0, total = 0;
+        Object.values(byEv).forEach(ps => ps.slice(1).forEach(p => {
+          const a = get(ps[0]), b = get(p);
+          if (a && b) { total++; if (a === b) same++; }
+        }));
+        if (total < 3) return null;
+        if (same / total >= 0.75) return { label, same: true, hits: same, total };
+        if ((total - same) / total >= 0.75) return { label, same: false, hits: total - same, total };
+        return null;
+      });
+      // 마지막 회차에 첫째만 들어와 있으면(3주 안) 그 회차의 둘째를 짐작한다 - 같음이면 첫째 값, 다름이면 첫째 값 제외
+      const lastOcc = occs[occs.length - 1];
+      const first = lastOcc.rows.length === 1 && lastOcc.date >= new Date(today.getTime() - 21 * DAY)
+        && Object.values(byEv).some(ps => ps.length >= 2) ? lastOcc.rows[0] : null;
+      if (first) {
+        attrs.forEach((a, i) => {
+          const pr = pairs[i], v = ATTRS[i][1](first);
+          if (pr && v) Object.assign(a, { value: pr.same ? v : `${v} 제외`, hits: pr.hits, total: pr.total, conf: shareLevel(pr.hits, pr.total) });
+        });
+      }
+      // 몇 주년인지 - 마지막 회차 번호 + 1 (3.5주년 -> 4.5주년), 둘째를 짐작할 때는 진행 중인 회차 번호
+      const lastNo = parseFloat(lastOcc.season);
+      const title = (f === '주년' || f === '반주년') && isFinite(lastNo) ? `${lastNo + (first ? 0 : 1)}주년` : f;
+      return {
+        family: f, title, count: occs.length, attrs, occs, first,
+        pairs: pairs.filter(Boolean),
+        date: first ? new Date(lastOcc.date.getTime() + 7 * DAY) : nextDate(occs, today),
+        exact: first ? true : regular(occs),
+      };
     }).sort((a, b) => a.date - b.date);
   }
 
@@ -257,6 +287,7 @@
           <div class="predict-head">
             <span class="predict-fam">${esc(c.title)}</span>
             <span class="predict-count">기록 ${c.count}회</span>
+            ${c.first ? `<span class="predict-count is-first">둘째 · 첫째 ${esc(c.first['니케'])}</span>` : ''}
           </div>
           <dl class="predict-attrs">
             ${c.attrs.map(a => `
@@ -265,6 +296,10 @@
                 <dd>${a.value ? `${esc(a.value)}<small>${a.hits}/${a.total}</small>` : '-'}</dd>
               </div>`).join('')}
           </dl>
+          ${c.pairs.length ? `<div class="predict-track">
+            <span class="predict-track-label">같은 이벤트 둘째</span>
+            ${c.pairs.map(pr => `<span class="predict-chip${pr.hits === pr.total ? ' is-ok' : ''}">${esc(pr.label)} ${pr.same ? '같음' : '다름'} <b>${pr.hits}/${pr.total}</b></span>`).join('')}
+          </div>` : ''}
           <details class="predict-why">
             <summary>자세히</summary>
             <ul>${c.occs.map(o => `<li><span>${o.date.getFullYear()} ${esc(o.season)} ${esc(o.event)}</span><span class="predict-hits">${o.rows.map(p =>
