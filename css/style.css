@@ -10011,3 +10011,84 @@
   .codex-card-name.is-scroll-wrap, .codex-card-appear.is-scroll-wrap {
     mask-image: linear-gradient(to right, transparent 0px, black 6px, black calc(100% - 6px), transparent 100%);
   }
+
+  /* ===== 픽업 기록 서브 메뉴 · 복각 예측 페이지 (사용자 요청, 2026-10-31) ===== */
+  .tab-btn[hidden] { display: none !important; }
+  .tab-submenu {
+    position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 4px; padding: 6px;
+    border-radius: 10px 0 10px 0; corner-shape: bevel;
+    background: var(--bg-panel);
+    box-shadow: inset 0 0 0 1px var(--border-strong), var(--shadow-card-hover);
+  }
+  .tab-submenu[hidden] { display: none; }
+  .tab-submenu button {
+    padding: 8px 14px; border: 0; cursor: pointer; text-align: left; white-space: nowrap;
+    font: inherit; font-size: 14px; font-weight: 600; color: var(--text-body); background: transparent;
+    border-radius: 6px 0 6px 0; corner-shape: bevel;
+  }
+  @media (hover: hover) { .tab-submenu button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-strong); } }
+  .tab-submenu button.is-current { background: var(--btn-on-bg); color: var(--text-on-accent); }
+  body.tab-predict { --page-wm: 'FORECAST'; }
+
+  #predict-page { max-width: 1180px; margin: 0 auto; padding: 0 0 40px; }
+  .predict-intro { margin: 6px 0 18px; font-size: 15px; color: var(--text-secondary); }
+  .predict-intro b { color: var(--accent-strong); }
+  #predict-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; align-items: start; }
+  .predict-card {
+    --card-cut: 16px; --hud-len: 10px; --hud-gap: 6px;
+    position: relative; display: flex; flex-direction: column; gap: 12px; padding: 18px 20px 20px;
+    border-radius: var(--card-cut) 0 var(--card-cut) 0; corner-shape: bevel;
+    background-color: var(--vinyl);
+    background-image:
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(var(--hud), var(--hud)), linear-gradient(var(--hud), var(--hud)),
+      linear-gradient(90deg, var(--gold), transparent);
+    background-size: var(--hud-len) 1.5px, 1.5px var(--hud-len), var(--hud-len) 1.5px, 1.5px var(--hud-len), 40% 2px;
+    background-position: right var(--hud-gap) top var(--hud-gap), right var(--hud-gap) top var(--hud-gap),
+      left var(--hud-gap) bottom calc(var(--hud-gap) + 2px), left var(--hud-gap) bottom calc(var(--hud-gap) + 2px), left bottom;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--vinyl-line), var(--shadow-card);
+  }
+  .predict-card.is-high { box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--status-new-border), var(--shadow-card); }
+  .predict-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .predict-fam { font-size: 20px; font-weight: 800; color: var(--text-heading); letter-spacing: .02em; }
+  .predict-conf { padding: 3px 10px; font-size: 13px; font-weight: 800; white-space: nowrap; border-radius: 6px 0 6px 0; corner-shape: bevel; }
+  .predict-conf.is-high { color: var(--status-new-text); background: var(--status-new-bg); box-shadow: inset 0 0 0 1px var(--status-new-border); }
+  .predict-conf.is-mid { color: var(--status-warn-text); background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border); }
+  .predict-conf.is-low { color: var(--text-secondary); background: var(--bg-panel-alt); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .predict-when { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+  .predict-when em { font-style: normal; font-size: 13px; color: var(--text-muted); }
+  .predict-when b { font-size: 18px; color: var(--accent-strong); }
+  .predict-when span { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+  .predict-cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .predict-cand {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none;
+    cursor: pointer; font: inherit; color: inherit; text-align: center;
+  }
+  .predict-cand-img {
+    width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 8px 0 8px 0; corner-shape: bevel;
+    background: var(--bg-inset); box-shadow: inset 0 0 0 1px var(--border-subtle); transition: box-shadow .15s, transform .15s;
+  }
+  .predict-cand-img img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; display: block; }
+  @media (hover: hover) {
+    .predict-cand:hover .predict-cand-img { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--accent-strong), var(--shadow-card-hover); }
+    .predict-cand:hover .predict-cand-name { color: var(--accent-strong); }
+  }
+  .predict-cand-name { font-size: 13.5px; font-weight: 700; line-height: 1.3; color: var(--text-heading); word-break: keep-all; }
+  .predict-cand-from { font-size: 12px; color: var(--text-muted); }
+  .predict-why summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); }
+  .predict-why ul { margin: 8px 0 0; padding: 0 0 0 18px; font-size: 13px; line-height: 1.7; color: var(--text-body); }
+  .predict-hits i { font-style: normal; margin-right: 8px; white-space: nowrap; }
+  .predict-hits i.is-hit { color: var(--status-new-text); }
+  .predict-hits i.is-miss { color: var(--status-limited-text); }
+  .predict-empty { padding: 30px 0; text-align: center; color: var(--text-muted); }
+  #predict-notes { margin-top: 26px; padding: 14px 18px; font-size: 13.5px; line-height: 1.7; color: var(--text-secondary);
+    border-radius: 10px 0 10px 0; corner-shape: bevel; background: var(--bg-panel-alt); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .predict-note-title { font-weight: 800; color: var(--text-heading); margin-bottom: 4px; }
+  #predict-notes ul { margin: 0; padding-left: 18px; }
+  #predict-notes b { color: var(--text-heading); }
+  @media (max-width: 640px) {
+    #predict-list { grid-template-columns: 1fr; }
+    .predict-card { padding: 14px 14px 16px; }
+    .predict-cands { grid-template-columns: repeat(3, 1fr); }
+  }

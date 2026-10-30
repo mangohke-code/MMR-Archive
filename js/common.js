@@ -60,7 +60,14 @@ function switchTab(tabName, pushHistory = true) {
 
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+  const tabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  tabBtn.classList.add('active');
+  // 서브 페이지(복각 예측)는 탭 줄에 안 보이므로 부모 탭(픽업 기록)을 켜 둔다
+  if (tabBtn.dataset.parent) {
+    const parentBtn = document.querySelector(`.tab-btn[data-tab="${tabBtn.dataset.parent}"]`);
+    if (parentBtn) parentBtn.classList.add('active');
+  }
+  closeTabSubmenu();
   document.getElementById(`tab-${tabName}`).classList.add('active');
 
   // 솔로 레이드는 3D 뷰어가 화면을 꽉 채우는 전용 배치를 쓴다. 헤더/푸터를 접고
@@ -97,6 +104,41 @@ function switchTab(tabName, pushHistory = true) {
   // 탭이 바뀐 것을 알린다. 솔로 레이드의 전용 BGM 처럼, 안 보이는 곳에서 계속
   // 돌면 안 되는 것들이 이걸 듣고 멈춘다.
   document.dispatchEvent(new CustomEvent('mmr:tab-change', { detail: { tab: tabName } }));
+}
+
+// ===== 탭 서브 메뉴 =====
+// 서브 페이지가 있는 탭(픽업 기록 -> 픽업 기록 · 복각 예측)은 누르면 그 단추 바로 아래에 고르는 메뉴를 띄운다.
+// 메뉴 항목은 data-sub 에 적힌 탭 이름 순서대로, 이름표는 그 탭 단추의 글자를 쓴다.
+function closeTabSubmenu() {
+  const menu = document.getElementById('tab-submenu');
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+  document.querySelectorAll('.tab-btn[data-sub]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+
+function toggleTabSubmenu(btn) {
+  const menu = document.getElementById('tab-submenu');
+  if (!menu) { switchTab(btn.dataset.tab); return; }
+  if (!menu.hidden && menu.dataset.owner === btn.dataset.tab) { closeTabSubmenu(); return; }
+  const current = currentTabName();
+  menu.innerHTML = btn.dataset.sub.split(/\s+/).map(name => {
+    const src = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+    const label = src ? src.textContent.trim() : name;
+    return `<button type="button" role="menuitem" data-go="${name}"${name === current ? ' class="is-current"' : ''}>${label}</button>`;
+  }).join('');
+  menu.dataset.owner = btn.dataset.tab;
+  // 탭 줄은 CSS zoom 으로 줄어들어(compact-nav) 그 안에 두면 화면 좌표가 그 배율만큼 어긋난다 - body 로 꺼내 둔다
+  if (menu.parentElement !== document.body) document.body.appendChild(menu);
+  menu.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.go)));
+  // 탭 줄은 화면 위에 붙어 있으므로 단추 자리 바로 아래에 고정으로 띄운다
+  const r = btn.getBoundingClientRect();
+  menu.style.left = `${Math.round(r.left)}px`;
+  menu.style.top = `${Math.round(r.bottom + 4)}px`;
+  menu.style.minWidth = `${Math.round(r.width)}px`;
+  menu.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  const first = menu.querySelector('.is-current') || menu.querySelector('button');
+  if (first) first.focus({ preventScroll: true });
 }
 
 // 뒤로 가기는 탭을 바꾸지 않는다. 탭 이동이 기록을 안 쌓으므로, 기록에 적힌
@@ -1281,12 +1323,19 @@ async function loadAllData() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  // 탭 버튼 이벤트
+  // 탭 버튼 이벤트. 서브 페이지가 있는 탭(data-sub)은 누르면 아래로 고르는 메뉴가 펼쳐진다.
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      switchTab(this.dataset.tab);
+      if (this.dataset.sub) toggleTabSubmenu(this);
+      else switchTab(this.dataset.tab);
     });
   });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#tab-submenu, .tab-btn[data-sub]')) closeTabSubmenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTabSubmenu(); });
+  window.addEventListener('scroll', closeTabSubmenu, { passive: true });
+  window.addEventListener('resize', closeTabSubmenu);
 
   // 새로고침·북마크로 들어온 경우 주소에 적힌 탭을 되살린다. 여기서 history 를
   // 밀면 뒤로가기가 한 번 헛돌므로 replaceState 로 현재 항목에 덮어쓴다.
