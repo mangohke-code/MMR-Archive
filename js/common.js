@@ -103,7 +103,10 @@ function switchTab(tabName, pushHistory = true) {
 
   // 탭이 바뀐 것을 알린다. 솔로 레이드의 전용 BGM 처럼, 안 보이는 곳에서 계속
   // 돌면 안 되는 것들이 이걸 듣고 멈춘다.
-  document.dispatchEvent(new CustomEvent('mmr:tab-change', { detail: { tab: tabName } }));
+  // prev - 옮기기 전 탭(메인에서 오면 탭 바가 줄어드는 중이라 그걸 기다려야 하는 곳이 있다)
+  document.dispatchEvent(new CustomEvent('mmr:tab-change', {
+    detail: { tab: tabName, prev: prevTab ? prevTab.replace(/^tab-/, '') : null },
+  }));
 }
 
 // ===== 탭 서브 메뉴 =====
@@ -117,7 +120,7 @@ function closeTabSubmenu() {
   document.querySelectorAll('.tab-btn[data-sub]').forEach(b => b.setAttribute('aria-expanded', 'false'));
 }
 
-function toggleTabSubmenu(btn) {
+function toggleTabSubmenu(btn, focusFirst = false) {
   const menu = document.getElementById('tab-submenu');
   if (!menu) { switchTab(btn.dataset.tab); return; }
   if (!menu.hidden && menu.dataset.owner === btn.dataset.tab) { closeTabSubmenu(); return; }
@@ -130,7 +133,11 @@ function toggleTabSubmenu(btn) {
   menu.dataset.owner = btn.dataset.tab;
   // 탭 줄은 CSS zoom 으로 줄어들어(compact-nav) 그 안에 두면 화면 좌표가 그 배율만큼 어긋난다 - body 로 꺼내 둔다
   if (menu.parentElement !== document.body) document.body.appendChild(menu);
-  menu.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.go)));
+  // 지금 보는 페이지를 고르면 다시 옮기지 않고 닫기만 한다
+  menu.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.go === currentTabName()) closeTabSubmenu();
+    else switchTab(b.dataset.go);
+  }));
   // 탭 줄은 화면 위에 붙어 있으므로 단추 자리 바로 아래에 고정으로 띄운다.
   // 메인에서 넘어오면 탭 줄이 0.26초 동안 줄어들어(zoom) 단추 자리가 움직이므로 그동안 따라간다.
   const place = () => {
@@ -148,8 +155,10 @@ function toggleTabSubmenu(btn) {
   menu.dataset.openedAt = String(Date.now());
   menu.hidden = false;
   btn.setAttribute('aria-expanded', 'true');
-  const first = menu.querySelector('.is-current') || menu.querySelector('button');
-  if (first) first.focus({ preventScroll: true });
+  if (focusFirst) {
+    const first = menu.querySelector('.is-current') || menu.querySelector('button');
+    if (first) first.focus({ preventScroll: true });
+  }
 }
 
 // 뒤로 가기는 탭을 바꾸지 않는다. 탭 이동이 기록을 안 쌓으므로, 기록에 적힌
@@ -1334,17 +1343,38 @@ async function loadAllData() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  // 탭 버튼 이벤트. 서브 페이지가 있는 탭(data-sub)은 누르면 첫 페이지(픽업 기록)로 가면서 아래로 고르는 메뉴도
-  // 같이 펼친다(사용자 요청, 2026-10-31). 메뉴가 열린 채로 다시 누르면 닫기만 한다.
+  // 탭 버튼 이벤트. 서브 페이지가 있는 탭(data-sub)은
+  //   마우스 - 올리면 아래로 고르는 메뉴가 펼쳐지고, 단추와 메뉴 밖으로 나가면 접힌다. 누르면 첫 페이지(픽업 기록)로 간다.
+  //   터치   - 누르면 첫 페이지로 가면서 메뉴도 펼친다. 펼친 채로 다시 누르면 닫는다.
+  // 이미 그 페이지면 다시 옮기지 않는다 - 옮길 때마다 픽업 기록 툴바가 다시 붙으면서 위아래로 흔들렸다(사용자 지적, 2026-10-31).
+  const canHover = matchMedia('(hover: hover)').matches;
+  let submenuLeaveTimer = null;
+  const keepSubmenu = () => clearTimeout(submenuLeaveTimer);
+  const leaveSubmenu = () => { clearTimeout(submenuLeaveTimer); submenuLeaveTimer = setTimeout(closeTabSubmenu, 220); };
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
+    btn.addEventListener('click', function (e) {
       if (!this.dataset.sub) { switchTab(this.dataset.tab); return; }
       const menu = document.getElementById('tab-submenu');
-      if (menu && !menu.hidden && menu.dataset.owner === this.dataset.tab) { closeTabSubmenu(); return; }
-      switchTab(this.dataset.tab);
-      toggleTabSubmenu(this);
+      const open = menu && !menu.hidden && menu.dataset.owner === this.dataset.tab;
+      if (!canHover && open) { closeTabSubmenu(); return; }
+      if (currentTabName() !== this.dataset.tab) switchTab(this.dataset.tab);
+      // 키보드(Enter · Space)로 누른 것이면 메뉴 첫 항목으로 초점을 옮긴다(e.detail 0)
+      if (!menu || menu.hidden) toggleTabSubmenu(this, e.detail === 0);
     });
+    if (canHover && btn.dataset.sub) {
+      btn.addEventListener('mouseenter', function () {
+        keepSubmenu();
+        const menu = document.getElementById('tab-submenu');
+        if (menu && menu.hidden) toggleTabSubmenu(this);
+      });
+      btn.addEventListener('mouseleave', leaveSubmenu);
+    }
   });
+  const submenuEl = document.getElementById('tab-submenu');
+  if (submenuEl && canHover) {
+    submenuEl.addEventListener('mouseenter', keepSubmenu);
+    submenuEl.addEventListener('mouseleave', leaveSubmenu);
+  }
   document.addEventListener('click', e => {
     if (!e.target.closest('#tab-submenu, .tab-btn[data-sub]')) closeTabSubmenu();
   });

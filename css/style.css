@@ -10045,12 +10045,12 @@
     content: ''; position: absolute; left: 121px; top: 18px; width: 14px; height: 14px; border-radius: 50%;
     background: var(--bg-page); box-shadow: inset 0 0 0 3px var(--accent);
   }
-  /* 가능성 5단계 색 - 매우 높음 빨강 · 높음 노랑 · 중간 초록 · 낮음 회색 · 매우 낮음 파랑(사용자 지정) */
+  /* 가능성 5단계 색 - 매우 높음 빨강 · 높음 노랑 · 중간 초록 · 낮음 파랑 · 매우 낮음 회색(사용자 지정, 2026-10-31 낮음 · 매우 낮음 맞바꿈) */
   .predict-row.is-vhigh { --lv: var(--status-limited-text); --lv-bg: var(--status-limited-bg); --lv-line: var(--status-limited-border); }
   .predict-row.is-high { --lv: var(--status-warn-text); --lv-bg: var(--status-warn-bg); --lv-line: var(--status-warn-border); }
   .predict-row.is-mid { --lv: var(--status-new-text); --lv-bg: var(--status-new-bg); --lv-line: var(--status-new-border); }
-  .predict-row.is-low { --lv: var(--text-secondary); --lv-bg: var(--bg-panel-alt); --lv-line: var(--border-strong); }
-  .predict-row.is-vlow { --lv: var(--status-rerun-text); --lv-bg: var(--status-rerun-bg); --lv-line: var(--status-rerun-border); }
+  .predict-row.is-low { --lv: var(--status-rerun-text); --lv-bg: var(--status-rerun-bg); --lv-line: var(--status-rerun-border); }
+  .predict-row.is-vlow { --lv: var(--text-secondary); --lv-bg: var(--bg-panel-alt); --lv-line: var(--border-strong); }
   .predict-row::before { box-shadow: inset 0 0 0 3px var(--lv, var(--accent)); }
   .predict-row.is-next::before { background: var(--lv, var(--accent)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv, var(--accent)) 25%, transparent); }
   .predict-date { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-top: 4px; font-variant-numeric: tabular-nums; }

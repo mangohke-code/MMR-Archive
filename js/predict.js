@@ -3,18 +3,22 @@
 // 픽업 기록에서 "시즌이 맞는 복각"만 골라 다음에 누가 언제 복각될지 짐작한다. 매번 픽업 기록에서 다시 계산하므로
 // 새 픽업이 들어오면 예측도 따라 바뀐다(맞은 예측은 후보에서 빠진다).
 //
+// 복각 대상 - 한정(콜라보 · 여름 · 크리스마스, common.js LIMITED_SEASONS) 또는 필그림 · 오버스펙(기업 끝 "(오)") 캐릭터만.
+//   메이드 · 바니걸 · 할로윈처럼 상시 기업 캐릭터는 복각 픽업이 없다(사용자 지적, 2026-10-31 - 데이터도 그렇다).
 // 시즌이 맞는 복각 - 캐릭터가 처음 픽업된 시즌과 복각된 이벤트의 시즌이 같은 계열일 때만 센다.
 //   이벤트의 시즌은 그 이벤트의 신규 픽업 시즌이다(픽업 기록 화면과 같은 기준, pickup.js eventSeason).
 //   예) 크리스마스 캐릭터가 9월 코인 러시(바니걸 이벤트)에 다시 나온 것은 뺀다.
 //   0.5주년 · 1주년 … N주년은 한 계열(주년)로 본다.
-// 계열마다 "회차"(그 계열 신규가 나온 이벤트 묶음, 60일 안이면 한 회차)를 세워 다음 회차 복각을 본다.
-// 가능성 5단계(사용자 요청, 2026-10-31)
-//   매우 높음 - 3회 이상 연속으로 앞 회차 신규 전원이 다음 회차에 복각
+// 계열마다 "회차"(그 계열 신규가 나온 이벤트 묶음, 60일 안이면 한 회차)를 세워 비교한다.
+//   시즌 계열 - 앞 회차 신규가 다음 회차에 복각됐나
+//   주년      - 정주년마다, 첫 픽업 뒤 지난 복각 간격 안에 든 주년 캐릭터 중 몇이 복각됐나(반주년에는 복각이 없었다)
+// 가능성 5단계(사용자 요청, 2026-10-31) - 비교마다 "복각 수 / 후보 수"
+//   매우 높음 - 3회 이상 연속 전원 복각
 //   높음     - 2회 이상 연속 전원 복각, 전체 80% 이상
-//   중간     - 2회 이상 비교, 절반 이상 복각 / 주년(정주년 복각 사례 2번 이상)
-//   낮음     - 절반 미만이지만 맞은 적이 있음 / 주년(사례 1번)
-//   매우 낮음 - 비교가 한 번뿐이거나 4분의 1 미만
-// 일반 시즌은 상시 캐릭터라 복각 픽업이 없다. 콜라보는 같은 작품이 다시 와야 복각이라 예측에서 뺀다(사용자 결정).
+//   중간     - 2회 이상 비교, 절반 이상
+//   낮음     - 2회 이상 비교, 4분의 1 이상
+//   매우 낮음 - 그 밖
+// 콜라보는 같은 작품이 다시 와야 복각이라 예측에서 뺀다(사용자 결정).
 (function () {
   const DAY = 86400000;
   const SKIP_FAMILIES = new Set(['', '일반', '콜라보']);
@@ -23,29 +27,33 @@
   const day = v => { const d = new Date(String(v).slice(0, 10) + 'T00:00:00+09:00'); return isNaN(d) ? null : d; };
   const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const median = a => { const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const limitedSeasons = typeof LIMITED_SEASONS !== 'undefined' ? LIMITED_SEASONS : ['콜라보', '여름', '크리스마스'];
+  const isEligible = p => limitedSeasons.includes(p.season)
+    || /^필그림/.test(String(p.company || '')) || /\(오\)$/.test(String(p.company || ''));
 
   function analyze(pickups) {
     const list = pickups.filter(p => p['시작일'] && p['니케'])
-      .map(p => ({ name: p['니케'], season: p['시즌'], event: p['이벤트'], date: day(p['시작일']), rerun: !!p['복각'] }))
+      .map(p => ({ name: p['니케'], season: p['시즌'], event: p['이벤트'], company: p['기업'], date: day(p['시작일']), rerun: !!p['복각'] }))
       .filter(p => p.date)
       .sort((a, b) => a.date - b.date);
     const evSeason = {};
     list.forEach(p => { if (!p.rerun && p.event && !(p.event in evSeason)) evSeason[p.event] = p.season; });
     const first = {};
     list.forEach(p => { if (!first[p.name]) first[p.name] = p; });
+    const eligible = n => !!first[n] && isEligible(first[n]);
 
-    // 시즌이 맞는 복각 / 시즌이 안 맞아서 뺀 복각(예측하지 않는 계열 - 콜라보 - 의 복각은 어느 쪽에도 안 센다)
+    // 시즌이 맞는 복각 / 시즌이 안 맞아서 뺀 복각(콜라보 복각은 어느 쪽에도 안 센다)
     const valid = {}, skipped = [];
-    list.filter(p => p.rerun).forEach(p => {
-      const f0 = fam(first[p.name] && first[p.name].season);
+    list.filter(p => p.rerun && eligible(p.name)).forEach(p => {
+      const f0 = fam(first[p.name].season);
       const fe = fam(evSeason[p.event]);
       if (f0 !== fe) skipped.push(p);
       else if (f0 && !SKIP_FAMILIES.has(f0)) (valid[p.name] = valid[p.name] || []).push(p);
     });
 
-    // 계열별 회차
+    // 계열별 회차(복각 대상 캐릭터만)
     const occ = {};
-    list.filter(p => !p.rerun).forEach(p => {
+    list.filter(p => !p.rerun && isEligible(p)).forEach(p => {
       const f = fam(p.season);
       if (SKIP_FAMILIES.has(f)) return;
       const arr = occ[f] = occ[f] || [];
@@ -70,6 +78,19 @@
     return next;
   }
 
+  // 비교 목록([{hits, total}])으로 가능성 단계를 정한다
+  function grade(rows) {
+    const total = rows.reduce((n, r) => n + r.total, 0);
+    const hits = rows.reduce((n, r) => n + r.hits, 0);
+    const rate = total ? hits / total : 0;
+    let streak = 0;
+    for (let i = rows.length - 1; i >= 0 && rows[i].hits === rows[i].total; i--) streak++;
+    return streak >= 3 && rate === 1 ? 'vhigh'
+      : streak >= 2 && rate >= 0.8 ? 'high'
+      : rows.length >= 2 && rate >= 0.5 ? 'mid'
+      : rows.length >= 2 && rate >= 0.25 ? 'low' : 'vlow';
+  }
+
   function seasonal(f, occs, A, today) {
     if (occs.length < 2) return { family: f, none: '첫 회차' };
     const pairs = [];
@@ -77,60 +98,56 @@
       const a = occs[i], b = occs[i + 1];
       const rows = a.names.map(n => {
         const hit = (A.valid[n] || []).find(r => r.date >= new Date(b.date - 30 * DAY) && r.date <= new Date(b.date.getTime() + 60 * DAY));
-        return { name: n, hit: !!hit, date: hit && hit.date };
+        return { name: n, hit: !!hit };
       });
-      pairs.push({ from: a, to: b, rows });
+      pairs.push({ from: a, to: b, rows, hits: rows.filter(r => r.hit).length, total: rows.length });
     }
-    const total = pairs.reduce((n, p) => n + p.rows.length, 0);
-    const hits = pairs.reduce((n, p) => n + p.rows.filter(r => r.hit).length, 0);
+    const total = pairs.reduce((n, p) => n + p.total, 0);
+    const hits = pairs.reduce((n, p) => n + p.hits, 0);
     if (!hits) return { family: f, none: '같은 시즌 복각 없음' };
-    let streak = 0;
-    for (let i = pairs.length - 1; i >= 0 && pairs[i].rows.every(r => r.hit); i--) streak++;
-    const rate = hits / total;
-    const conf = streak >= 3 && rate === 1 ? 'vhigh'
-      : streak >= 2 && rate >= 0.8 ? 'high'
-      : pairs.length >= 2 && rate >= 0.5 ? 'mid'
-      : pairs.length >= 2 && rate >= 0.25 ? 'low' : 'vlow';
     const last = occs[occs.length - 1];
     const cands = last.names.filter(n => !(A.valid[n] || []).length);
     if (!cands.length) return null;
     return {
-      family: f, conf, date: nextDate(occs, today), cands: cands.map(n => ({ name: n, from: last })),
+      family: f, conf: grade(pairs), date: nextDate(occs, today), cands: cands.map(n => ({ name: n, from: last })),
       why: pairs.map(p => ({
         text: `${p.from.date.getFullYear()} ${p.from.event} 신규 → ${p.to.date.getFullYear()} ${p.to.event}`,
-        rows: p.rows.map(r => ({ name: r.name, hit: r.hit })),
+        rows: p.rows,
       })),
-      // 지난 기록 칩 - 회차(해)마다 앞 회차 신규 중 몇 명이 복각됐나
-      track: pairs.map(p => {
-        const n = p.rows.filter(r => r.hit).length;
-        return { label: String(p.to.date.getFullYear()), text: `${n}/${p.rows.length}`, ok: n === p.rows.length };
-      }),
-      summary: `전원 복각 ${pairs.filter(p => p.rows.every(r => r.hit)).length}/${pairs.length}회 · ${hits}/${total}명`,
+      // 지난 기록 칩 - 회차(해)마다 "복각 / 앞 회차 신규"
+      track: pairs.map(p => ({ label: String(p.to.date.getFullYear()), text: `${p.hits}/${p.total}`, ok: p.hits === p.total })),
+      summary: `전원 복각 ${pairs.filter(p => p.hits === p.total).length}/${pairs.length}회 · ${hits}/${total}명`,
     };
   }
 
-  // 주년 - 반주년에는 복각이 없었고, 정주년에 1~2.5년 전 주년 캐릭터가 복각됐다.
+  // 주년 - 정주년마다 "첫 픽업 뒤 지난 복각 간격 안에 든 주년 캐릭터" 를 후보로 놓고 몇이 복각됐나를 본다.
   function anniversary(occs, A, today) {
     const full = occs.filter(o => isFullAnniv(o.season));
     if (!full.length) return null;
+    const near = (a, b) => Math.abs(a - b) < 60 * DAY;
+    // 지난 복각 간격(첫 픽업 -> 정주년 복각)
     const lags = [];
-    const why = [];
-    full.forEach(o => {
-      const rows = [];
-      Object.entries(A.valid).forEach(([n, rs]) => rs.forEach(r => {
-        if (Math.abs(r.date - o.date) < 60 * DAY && fam(A.first[n].season) === '주년') {
-          lags.push(Math.round((r.date - A.first[n].date) / DAY));
-          rows.push({ name: n, hit: true, note: `${A.first[n].season} · ${Math.round((r.date - A.first[n].date) / DAY)}일 뒤` });
-        }
-      }));
-      if (rows.length) why.push({ text: `${o.date.getFullYear()} ${o.season} ${o.event}`, rows });
-    });
+    Object.entries(A.valid).forEach(([n, rs]) => rs.forEach(r => {
+      if (fam(A.first[n].season) === '주년' && full.some(o => near(r.date, o.date))) lags.push(Math.round((r.date - A.first[n].date) / DAY));
+    }));
     if (!lags.length) return { family: '주년', none: '같은 시즌 복각 없음' };
-    const half = occs.filter(o => !isFullAnniv(o.season));
-    const halfHit = half.some(o => Object.values(A.valid).some(rs => rs.some(r => Math.abs(r.date - o.date) < 60 * DAY)));
-    if (!halfHit && half.length) why.push({ text: '반주년 복각 없음', rows: [] });
-    const date = nextDate(full, today);
     const lo = Math.min(...lags) - 60, hi = Math.max(...lags) + 60, mid = median(lags);
+    const lagOf = (n, d) => Math.round((d - A.first[n].date) / DAY);
+    const rerunBy = (n, d) => (A.valid[n] || []).some(r => r.date < new Date(d.getTime() - 60 * DAY));
+    // 정주년마다 후보(간격 안 · 그전까지 복각 안 됨)와 그 자리 복각
+    const comps = [];
+    full.forEach(o => {
+      const pool = [];
+      occs.forEach(src => src.names.forEach(n => {
+        if (src.date >= o.date) return;
+        const lag = lagOf(n, o.date);
+        if (lag >= lo && lag <= hi && !rerunBy(n, o.date)) pool.push(n);
+      }));
+      if (!pool.length) return;
+      const rows = pool.map(n => ({ name: n, hit: (A.valid[n] || []).some(r => near(r.date, o.date)), note: A.first[n].season }));
+      comps.push({ occ: o, rows, hits: rows.filter(r => r.hit).length, total: rows.length });
+    });
+    const date = nextDate(full, today);
     const cands = [];
     occs.forEach(o => o.names.forEach(n => {
       if ((A.valid[n] || []).length) return;
@@ -141,18 +158,16 @@
     cands.sort((a, b) => a.score - b.score);
     // 지난 정주년은 한 번에 2~3명씩 복각됐다. 간격이 가장 가까운 넷만 후보로 내고 나머지는 근거에 적는다.
     const MAX = 4;
+    const why = comps.map(c => ({ text: `${c.occ.date.getFullYear()} ${c.occ.season} ${c.occ.event}`, rows: c.rows }));
+    if (occs.some(o => !isFullAnniv(o.season))) why.push({ text: '반주년 복각 없음', rows: [] });
     const rest = cands.slice(MAX);
     if (rest.length) why.push({ text: `기타 후보: ${rest.map(c => c.name).join(', ')}`, rows: [] });
     // 몇 주년인지 - 마지막 정주년 번호 + 1
     const lastNo = parseInt(full[full.length - 1].season, 10);
-    const cases = why.filter(w => w.rows.length).length;
     return {
       family: '주년', title: isFinite(lastNo) ? `${lastNo + 1}주년` : '주년',
-      conf: cases >= 2 ? 'mid' : 'low', date, cands: cands.slice(0, MAX), why,
-      track: full.map(o => {
-        const n = why.find(w => w.rows.length && w.text.startsWith(`${o.date.getFullYear()} ${o.season}`));
-        return { label: o.season, text: n ? `${n.rows.length}명` : '0명', ok: !!n };
-      }),
+      conf: grade(comps), date, cands: cands.slice(0, MAX), why,
+      track: comps.map(c => ({ label: c.occ.season, text: `${c.hits}/${c.total}`, ok: c.hits === c.total })),
       summary: `복각 간격 ${Math.min(...lags)}~${Math.max(...lags)}일 · 중앙 ${Math.round(mid)}일 기준 순`,
     };
   }
@@ -219,7 +234,7 @@
         <summary>제외 항목</summary>
         <ul>
           <li>시즌 불일치 복각 ${A.skipped.length}건</li>
-          <li>콜라보 · 일반</li>
+          <li>콜라보</li>
           ${none.map(n => `<li>${esc(n.family)} - ${esc(n.none)}</li>`).join('')}
         </ul>`;
     }

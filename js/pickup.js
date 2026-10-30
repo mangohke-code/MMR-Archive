@@ -1015,7 +1015,12 @@
       // 21px 아래에 붙어서 2026 줄을 반쯤 가렸다(사용자 지적, 2026-10-24). 다 줄어든 뒤 다시 잰다.
       nav.addEventListener('transitionend', e => { if (e.target === nav) schedule(); });
     }
-    document.addEventListener('mmr:tab-change', () => { st.shown = false; st.settleUntil = performance.now() + 320; schedule(); });
+    document.addEventListener('mmr:tab-change', e => {
+      st.shown = false;
+      // 탭 바가 줄어드는 건 메인에서 넘어올 때뿐이다. 다른 때까지 붙이기를 미루면 툴바가 0 -> 탭 바 높이로 다시 움직였다.
+      if (e.detail && e.detail.prev === 'main') st.settleUntil = performance.now() + 320;
+      schedule();
+    });
     schedule();
   }
 
