@@ -10013,7 +10013,7 @@
     mask-image: linear-gradient(to right, transparent 0px, black 6px, black calc(100% - 6px), transparent 100%);
   }
 
-  /* ===== 픽업 기록 서브 메뉴 · 복각 예측 페이지 (사용자 요청, 2026-10-31) ===== */
+  /* ===== 픽업 기록 서브 메뉴 · 픽업 예측 페이지 (사용자 요청, 2026-10-31) ===== */
   .tab-btn[hidden] { display: none !important; }
   .tab-submenu {
     position: fixed; z-index: 1500; display: flex; flex-direction: column; gap: 4px; padding: 6px;
@@ -10031,7 +10031,7 @@
   .tab-submenu button.is-current { background: var(--btn-on-bg); color: var(--text-on-accent); }
   body.tab-predict { --page-wm: 'FORECAST'; }
 
-  /* 복각 예측 - 세로 시간줄(사용자 지적 '글만 많고 순서가 안 보인다', 2026-10-31).
+  /* 픽업 예측 - 세로 시간줄(사용자 지적 '글만 많고 순서가 안 보인다', 2026-10-31).
      왼쪽 날짜 칸 · 가운데 줄과 점 · 오른쪽 카드. 가까운 예측이 위. */
   #predict-page { max-width: 1040px; margin: 0 auto; padding: 0 0 40px; }
   .predict-timeline { list-style: none; margin: 14px 0 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: 22px; }
@@ -10047,11 +10047,11 @@
     background: var(--bg-page); box-shadow: inset 0 0 0 3px var(--accent);
   }
   /* 가능성 5단계 색 - 매우 높음 빨강 · 높음 노랑 · 중간 초록 · 낮음 파랑 · 매우 낮음 회색(사용자 지정, 2026-10-31 낮음 · 매우 낮음 맞바꿈) */
-  .predict-row.is-vhigh { --lv: var(--status-limited-text); --lv-bg: var(--status-limited-bg); --lv-line: var(--status-limited-border); }
-  .predict-row.is-high { --lv: var(--status-warn-text); --lv-bg: var(--status-warn-bg); --lv-line: var(--status-warn-border); }
-  .predict-row.is-mid { --lv: var(--status-new-text); --lv-bg: var(--status-new-bg); --lv-line: var(--status-new-border); }
-  .predict-row.is-low { --lv: var(--status-rerun-text); --lv-bg: var(--status-rerun-bg); --lv-line: var(--status-rerun-border); }
-  .predict-row.is-vlow { --lv: var(--text-secondary); --lv-bg: var(--bg-panel-alt); --lv-line: var(--border-strong); }
+  .predict-row.is-vhigh, .predict-attr.is-vhigh { --lv: var(--status-limited-text); --lv-bg: var(--status-limited-bg); --lv-line: var(--status-limited-border); }
+  .predict-row.is-high, .predict-attr.is-high { --lv: var(--status-warn-text); --lv-bg: var(--status-warn-bg); --lv-line: var(--status-warn-border); }
+  .predict-row.is-mid, .predict-attr.is-mid { --lv: var(--status-new-text); --lv-bg: var(--status-new-bg); --lv-line: var(--status-new-border); }
+  .predict-row.is-low, .predict-attr.is-low { --lv: var(--status-rerun-text); --lv-bg: var(--status-rerun-bg); --lv-line: var(--status-rerun-border); }
+  .predict-row.is-vlow, .predict-attr.is-vlow { --lv: var(--text-secondary); --lv-bg: var(--bg-panel-alt); --lv-line: var(--border-strong); }
   .predict-row::before { box-shadow: inset 0 0 0 3px var(--lv, var(--accent)); }
   .predict-row.is-next::before { background: var(--lv, var(--accent)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv, var(--accent)) 25%, transparent); }
   .predict-date { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-top: 4px; font-variant-numeric: tabular-nums; }
@@ -10111,7 +10111,20 @@
   #predict-notes summary { cursor: pointer; font-weight: 800; color: var(--text-heading); }
   #predict-notes ul { margin: 8px 0 0; padding-left: 18px; }
   #predict-notes b { color: var(--text-heading); }
+  /* 픽업 / 복각 보기 전환 · 신규 속성 칸 */
+  #predict-view-btns { display: flex; gap: 4px; margin-top: 12px; }
+  .predict-pane[hidden] { display: none; }
+  .predict-count { padding: 3px 10px; font-size: 12.5px; font-weight: 800; white-space: nowrap; color: var(--text-secondary);
+    border-radius: 6px 0 6px 0; corner-shape: bevel; background: var(--bg-panel-alt); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .predict-attrs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .predict-attr { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 8px 10px;
+    border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--lv-bg); box-shadow: inset 3px 0 0 var(--lv), inset 0 0 0 1px var(--lv-line); }
+  .predict-attr dt { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+  .predict-attr dd { margin: 0; font-size: 15px; font-weight: 800; line-height: 1.3; color: var(--text-heading); word-break: keep-all; overflow-wrap: anywhere; }
+  .predict-attr dd small { margin-left: 6px; font-size: 12.5px; font-weight: 800; color: var(--lv); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .predict-attr.is-vlow dd { color: var(--text-secondary); }
   @media (max-width: 640px) {
+    .predict-attrs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .predict-timeline::before { left: 7px; }
     .predict-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-left: 28px; }
     .predict-row::before { left: 1px; top: 8px; }

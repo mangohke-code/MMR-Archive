@@ -62,7 +62,7 @@ function switchTab(tabName, pushHistory = true) {
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
   const tabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
   tabBtn.classList.add('active');
-  // 서브 페이지(복각 예측)는 탭 줄에 안 보이므로 부모 탭(픽업 기록)을 켜 둔다
+  // 서브 페이지(픽업 예측)는 탭 줄에 안 보이므로 부모 탭(픽업 기록)을 켜 둔다
   if (tabBtn.dataset.parent) {
     const parentBtn = document.querySelector(`.tab-btn[data-tab="${tabBtn.dataset.parent}"]`);
     if (parentBtn) parentBtn.classList.add('active');
@@ -110,7 +110,7 @@ function switchTab(tabName, pushHistory = true) {
 }
 
 // ===== 탭 서브 메뉴 =====
-// 서브 페이지가 있는 탭(픽업 기록 -> 픽업 기록 · 복각 예측)은 누르면 그 단추 바로 아래에 고르는 메뉴를 띄운다.
+// 서브 페이지가 있는 탭(픽업 기록 -> 픽업 기록 · 픽업 예측)은 누르면 그 단추 바로 아래에 고르는 메뉴를 띄운다.
 // 메뉴 항목은 data-sub 에 적힌 탭 이름 순서대로, 이름표는 그 탭 단추의 data-menu-label(없으면 단추 글자)을 쓴다.
 // 대분류 단추는 "픽업" 이고 그 안의 첫 페이지 이름은 "픽업 기록" 이라 둘을 가른다.
 function closeTabSubmenu() {

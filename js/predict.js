@@ -1,4 +1,4 @@
-// ===== 복각 예측 (픽업 기록 탭 아래 서브 페이지, 사용자 요청 2026-10-31) =====
+// ===== 픽업 예측 - 신규 픽업 속성 · 복각 (픽업 기록 탭 아래 서브 페이지, 사용자 요청 2026-10-31) =====
 //
 // 픽업 기록에서 "시즌이 맞는 복각"만 골라 다음에 누가 언제 복각될지 짐작한다. 매번 픽업 기록에서 다시 계산하므로
 // 새 픽업이 들어오면 예측도 따라 바뀐다(맞은 예측은 후보에서 빠진다).
@@ -11,7 +11,7 @@
 //   0.5주년 · 1주년 … N주년은 한 계열(주년)로 본다.
 // 계열마다 "회차"(그 계열 신규가 나온 이벤트 묶음, 60일 안이면 한 회차)를 세워 비교한다.
 //   시즌 계열 - 앞 회차 신규가 다음 회차에 복각됐나
-//   주년      - 정주년마다, 첫 픽업 뒤 지난 복각 간격 안에 든 주년 캐릭터 중 몇이 복각됐나(반주년에는 복각이 없었다)
+//   주년      - 주년마다, 첫 픽업 뒤 지난 복각 간격 안에 든 주년 캐릭터 중 몇이 복각됐나(반주년에는 복각이 없었다)
 // 가능성 5단계(사용자 요청, 2026-10-31) - 비교마다 "복각 수 / 후보 수"
 //   매우 높음 - 3회 이상 연속 전원 복각
 //   높음     - 2회 이상 연속 전원 복각, 전체 80% 이상
@@ -78,10 +78,10 @@
     return next;
   }
 
-  // 날짜가 해마다 맞아떨어졌나 - 전부 같은 달 · 날이거나 회차 간격이 모두 52주. 아니면(여름) 달만 보인다.
+  // 날짜가 해마다 맞아떨어졌나 - 3회 이상, 전부 같은 달 · 날이거나 회차 간격이 모두 52주. 아니면(여름) 달만 보인다.
   function regular(occs) {
     const md = d => d.getMonth() * 100 + d.getDate();
-    return occs.every((o, i) => !i || md(o.date) === md(occs[i - 1].date) || Math.round((o.date - occs[i - 1].date) / DAY) === 364);
+    return occs.length >= 3 && occs.every((o, i) => !i || md(o.date) === md(occs[i - 1].date) || Math.round((o.date - occs[i - 1].date) / DAY) === 364);
   }
 
   // 비교 목록([{hits, total}])으로 가능성 단계를 정한다
@@ -126,12 +126,12 @@
     };
   }
 
-  // 주년 - 정주년마다 "첫 픽업 뒤 지난 복각 간격 안에 든 주년 캐릭터" 를 후보로 놓고 몇이 복각됐나를 본다.
+  // 주년 - 주년마다 "첫 픽업 뒤 지난 복각 간격 안에 든 주년 캐릭터" 를 후보로 놓고 몇이 복각됐나를 본다.
   function anniversary(occs, A, today) {
     const full = occs.filter(o => isFullAnniv(o.season));
     if (!full.length) return null;
     const near = (a, b) => Math.abs(a - b) < 60 * DAY;
-    // 지난 복각 간격(첫 픽업 -> 정주년 복각)
+    // 지난 복각 간격(첫 픽업 -> 주년 복각)
     const lags = [];
     Object.entries(A.valid).forEach(([n, rs]) => rs.forEach(r => {
       if (fam(A.first[n].season) === '주년' && full.some(o => near(r.date, o.date))) lags.push(Math.round((r.date - A.first[n].date) / DAY));
@@ -140,7 +140,7 @@
     const lo = Math.min(...lags) - 60, hi = Math.max(...lags) + 60, mid = median(lags);
     const lagOf = (n, d) => Math.round((d - A.first[n].date) / DAY);
     const rerunBy = (n, d) => (A.valid[n] || []).some(r => r.date < new Date(d.getTime() - 60 * DAY));
-    // 정주년마다 후보(간격 안 · 그전까지 복각 안 됨)와 그 자리 복각
+    // 주년마다 후보(간격 안 · 그전까지 복각 안 됨)와 그 자리 복각
     const comps = [];
     full.forEach(o => {
       const pool = [];
@@ -162,13 +162,13 @@
     }));
     if (!cands.length) return null;
     cands.sort((a, b) => a.score - b.score);
-    // 지난 정주년은 한 번에 2~3명씩 복각됐다. 간격이 가장 가까운 넷만 후보로 내고 나머지는 근거에 적는다.
+    // 지난 주년은 한 번에 2~3명씩 복각됐다. 간격이 가장 가까운 넷만 후보로 내고 나머지는 근거에 적는다.
     const MAX = 4;
     const why = comps.map(c => ({ text: `${c.occ.date.getFullYear()} ${c.occ.season} ${c.occ.event}`, rows: c.rows }));
     if (occs.some(o => !isFullAnniv(o.season))) why.push({ text: '반주년 복각 없음', rows: [] });
     const rest = cands.slice(MAX);
     if (rest.length) why.push({ text: `기타 후보: ${rest.map(c => c.name).join(', ')}`, rows: [] });
-    // 몇 주년인지 - 마지막 정주년 번호 + 1
+    // 몇 주년인지 - 마지막 주년 번호 + 1
     const lastNo = parseInt(full[full.length - 1].season, 10);
     return {
       family: '주년', title: isFinite(lastNo) ? `${lastNo + 1}주년` : '주년',
@@ -178,12 +178,109 @@
     };
   }
 
+  // ===== 신규 픽업 예측 (사용자 요청, 2026-10-31) =====
+  // 시즌마다 지난 신규 캐릭터의 기업 · 버스트 · 우월코드 · 총기 · 유형 중 가장 많았던 값과 그 비율을 보인다.
+  // 일반 이벤트와 콜라보는 뺀다(콜라보는 기업 간 협업이라 정기 규칙이 없다, 사용자 결정).
+  // 필그림과 오버스펙(기업 끝 "(오)")은 한 범주로 센다 - 일반 기업과는 확률 · 성능이 다르다(사용자 지적).
+  // 주년과 반주년은 따로 본다.
+  const PICK_SKIP = new Set(['', '일반', '콜라보']);
+  const pickFam = s => (/^\d+주년$/.test(s) ? '주년' : /^\d+\.5주년$/.test(s) ? '반주년' : s);
+  const corpOf = c => (/^필그림/.test(c) || /\(오\)$/.test(c) ? '필그림 · 오버스펙' : c);
+  const ATTRS = [
+    ['기업', p => corpOf(String(p['기업'] || ''))],
+    ['버스트', p => (p['버스트'] ? `${p['버스트']}버스트` : '')],
+    ['우월코드', p => p['우월코드'] || ''],
+    ['총기', p => p['총기'] || ''],
+    ['유형', p => p['유형'] || ''],
+  ];
+  // 쏠림 단계 - 전원 같으면 매우 높음. 3명 미만 기록은 매우 낮음으로 본다.
+  const shareLevel = (hits, total) => {
+    const r = total ? hits / total : 0;
+    return total < 3 ? 'vlow' : r === 1 ? 'vhigh' : r >= 0.75 ? 'high' : r >= 0.5 ? 'mid' : r >= 0.3 ? 'low' : 'vlow';
+  };
+
+  function pickupForecast(pickups, today) {
+    const list = pickups.filter(p => p['시작일'] && p['니케'] && !p['복각'])
+      .map(p => ({ p, f: pickFam(String(p['시즌'] || '')), date: day(p['시작일']) }))
+      .filter(x => x.date && !PICK_SKIP.has(x.f))
+      .sort((a, b) => a.date - b.date);
+    // 회차 - 같은 계열 신규가 60일 안이면 한 회차
+    const occ = {};
+    list.forEach(x => {
+      const arr = occ[x.f] = occ[x.f] || [];
+      const last = arr[arr.length - 1];
+      if (last && x.date - last.date < 60 * DAY) { last.rows.push(x.p); return; }
+      arr.push({ date: x.date, season: x.p['시즌'], event: x.p['이벤트'], rows: [x.p] });
+    });
+    return Object.entries(occ).map(([f, occs]) => {
+      const all = occs.flatMap(o => o.rows);
+      const attrs = ATTRS.map(([label, get]) => {
+        const cnt = {};
+        all.forEach(p => { const v = get(p); if (v) cnt[v] = (cnt[v] || 0) + 1; });
+        const total = Object.values(cnt).reduce((a, b) => a + b, 0);
+        const top = Math.max(0, ...Object.values(cnt));
+        const vals = Object.keys(cnt).filter(k => cnt[k] === top);
+        // 셋 이상 동률이면 쏠림이 없는 것으로 본다
+        return vals.length && vals.length <= 2
+          ? { label, value: vals.join(' / '), hits: top, total, conf: shareLevel(top, total) }
+          : { label, value: '', conf: 'vlow' };
+      });
+      // 몇 주년인지 - 마지막 회차 번호 + 1 (3.5주년 -> 4.5주년)
+      const lastNo = parseFloat(occs[occs.length - 1].season);
+      const title = (f === '주년' || f === '반주년') && isFinite(lastNo) ? `${lastNo + 1}주년` : f;
+      return { family: f, title, date: nextDate(occs, today), exact: regular(occs), count: occs.length, attrs, occs };
+    }).sort((a, b) => a.date - b.date);
+  }
+
+  // 왼쪽 날짜 칸 - 연도 · 월.일 · D-day, 날짜가 들쭉날쭉한 계열은 연도 · 월만
+  function dateBlock(c, today) {
+    const md = d => `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    const dday = Math.ceil((c.date - today) / DAY);
+    return `
+        <div class="predict-date">
+          <span class="predict-date-y">${c.date.getFullYear()}</span>
+          ${c.exact ? `<b class="predict-date-md">${md(c.date)}</b>
+          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>`}
+        </div>`;
+  }
+
+  function renderPickup(today) {
+    const host = document.getElementById('predict-pickup');
+    if (!host) return;
+    const cards = pickupForecast(APP_DATA.pickup, today);
+    const pick = p => [p['기업'], p['버스트'] && `${p['버스트']}버스트`, p['우월코드'], p['총기'], p['유형']]
+      .filter(Boolean).join(' ');
+    host.innerHTML = cards.length ? `<ol class="predict-timeline">${cards.map((c, i) => `
+      <li class="predict-row${i === 0 ? ' is-next' : ''}">
+        ${dateBlock(c, today)}
+        <article class="predict-card">
+          <div class="predict-head">
+            <span class="predict-fam">${esc(c.title)}</span>
+            <span class="predict-count">기록 ${c.count}회</span>
+          </div>
+          <dl class="predict-attrs">
+            ${c.attrs.map(a => `
+              <div class="predict-attr is-${a.conf}">
+                <dt>${esc(a.label)}</dt>
+                <dd>${a.value ? `${esc(a.value)}<small>${a.hits}/${a.total}</small>` : '-'}</dd>
+              </div>`).join('')}
+          </dl>
+          <details class="predict-why">
+            <summary>자세히</summary>
+            <ul>${c.occs.map(o => `<li><span>${o.date.getFullYear()} ${esc(o.season)} ${esc(o.event)}</span><span class="predict-hits">${o.rows.map(p =>
+              `<i>${esc(p['니케'])} · ${esc(pick(p))}</i>`).join('')}</span></li>`).join('')}</ul>
+          </details>
+        </article>
+      </li>`).join('')}</ol>` : '<p class="predict-empty">예측 없음</p>';
+  }
+
   const CONF_LABEL = { vhigh: '매우 높음', high: '높음', mid: '중간', low: '낮음', vlow: '매우 낮음' };
 
   function render() {
     const host = document.getElementById('predict-list');
     if (!host || typeof APP_DATA === 'undefined' || !APP_DATA.pickup) return;
     const today = new Date();
+    renderPickup(today);
     const A = analyze(APP_DATA.pickup);
     const imgOf = {};
     (APP_DATA.nikkeImg || []).forEach(n => { if (n['이름']) imgOf[n['이름']] = n['이미지']; });
@@ -196,17 +293,11 @@
     });
     cards.sort((a, b) => a.date - b.date);
 
-    // 세로 시간줄 - 왼쪽에 예상 날짜(크게) · D-day(날짜가 들쭉날쭉한 계열은 달만), 오른쪽에 후보 그림. 가까운 것부터 위에서 아래로.
-    const md = d => `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    // 세로 시간줄 - 왼쪽에 예상 날짜, 오른쪽에 후보 그림. 가까운 것부터 위에서 아래로.
     host.innerHTML = cards.length ? `<ol class="predict-timeline">${cards.map((c, i) => {
-      const dday = Math.ceil((c.date - today) / DAY);
       return `
       <li class="predict-row is-${c.conf}${i === 0 ? ' is-next' : ''}">
-        <div class="predict-date">
-          <span class="predict-date-y">${c.date.getFullYear()}</span>
-          ${c.exact ? `<b class="predict-date-md">${md(c.date)}</b>
-          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>`}
-        </div>
+        ${dateBlock(c, today)}
         <article class="predict-card is-${c.conf}">
           <div class="predict-head">
             <span class="predict-fam">${esc(c.title || c.family)}</span>
@@ -249,6 +340,12 @@
       if (typeof jumpToPickupNikke === 'function') jumpToPickupNikke(btn.dataset.nikke);
     }));
   }
+
+  // 픽업 / 복각 보기 전환
+  document.querySelectorAll('#predict-view-btns .pickup-view-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#predict-view-btns .pickup-view-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.predict-pane').forEach(p => { p.hidden = p.id !== `predict-${btn.dataset.pview}`; });
+  }));
 
   let rendered = false;
   document.addEventListener('mmr:tab-change', e => {

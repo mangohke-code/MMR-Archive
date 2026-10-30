@@ -668,7 +668,7 @@
     // 타임라인 뷰로 전환
     if (currentView !== 'timeline') {
       currentView = 'timeline';
-      document.querySelectorAll('.pickup-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'timeline'));
+      document.querySelectorAll('#pickup-view-btns .pickup-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'timeline'));
       document.getElementById('pickup-timeline').classList.remove('hidden');
       document.getElementById('pickup-group-view').classList.add('hidden');
       document.getElementById('pickup-group-selector').classList.add('hidden');
@@ -1047,13 +1047,13 @@
 
   function initPickupToolbar() {
     // 보기 전환
-    document.querySelectorAll('.pickup-view-btn').forEach(btn => {
+    document.querySelectorAll('#pickup-view-btns .pickup-view-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         // 보던 연도를 기억했다가 새 보기에서 같은 연도로 옮긴다. 그대로 두면 스크롤 높이만 남아서 보기마다
         // 길이가 달라 엉뚱한 연도(오래된순에서 2025 -> 2026)로 가고 연도 단추도 어긋났다(사용자 지적, 2026-10-10).
         const keepYear = window.scrollY > 0 ? currentNavYear : null;
         currentView = btn.dataset.view;
-        document.querySelectorAll('.pickup-view-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#pickup-view-btns .pickup-view-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
         document.getElementById('pickup-timeline').classList.toggle('hidden', currentView !== 'timeline');
