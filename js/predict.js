@@ -78,6 +78,12 @@
     return next;
   }
 
+  // 날짜가 해마다 맞아떨어졌나 - 전부 같은 달 · 날이거나 회차 간격이 모두 52주. 아니면(여름) 달만 보인다.
+  function regular(occs) {
+    const md = d => d.getMonth() * 100 + d.getDate();
+    return occs.every((o, i) => !i || md(o.date) === md(occs[i - 1].date) || Math.round((o.date - occs[i - 1].date) / DAY) === 364);
+  }
+
   // 비교 목록([{hits, total}])으로 가능성 단계를 정한다
   function grade(rows) {
     const total = rows.reduce((n, r) => n + r.total, 0);
@@ -109,7 +115,7 @@
     const cands = last.names.filter(n => !(A.valid[n] || []).length);
     if (!cands.length) return null;
     return {
-      family: f, conf: grade(pairs), date: nextDate(occs, today), cands: cands.map(n => ({ name: n, from: last })),
+      family: f, conf: grade(pairs), date: nextDate(occs, today), exact: regular(occs), cands: cands.map(n => ({ name: n, from: last })),
       why: pairs.map(p => ({
         text: `${p.from.date.getFullYear()} ${p.from.event} 신규 → ${p.to.date.getFullYear()} ${p.to.event}`,
         rows: p.rows,
@@ -166,7 +172,7 @@
     const lastNo = parseInt(full[full.length - 1].season, 10);
     return {
       family: '주년', title: isFinite(lastNo) ? `${lastNo + 1}주년` : '주년',
-      conf: grade(comps), date, cands: cands.slice(0, MAX), why,
+      conf: grade(comps), date, exact: regular(full), cands: cands.slice(0, MAX), why,
       track: comps.map(c => ({ label: c.occ.season, text: `${c.hits}/${c.total}`, ok: c.hits === c.total })),
       summary: `복각 간격 ${Math.min(...lags)}~${Math.max(...lags)}일 · 중앙 ${Math.round(mid)}일 기준 순`,
     };
@@ -190,7 +196,7 @@
     });
     cards.sort((a, b) => a.date - b.date);
 
-    // 세로 시간줄 - 왼쪽에 예상 날짜(크게) · D-day, 오른쪽에 후보 그림. 가까운 것부터 위에서 아래로.
+    // 세로 시간줄 - 왼쪽에 예상 날짜(크게) · D-day(날짜가 들쭉날쭉한 계열은 달만), 오른쪽에 후보 그림. 가까운 것부터 위에서 아래로.
     const md = d => `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
     host.innerHTML = cards.length ? `<ol class="predict-timeline">${cards.map((c, i) => {
       const dday = Math.ceil((c.date - today) / DAY);
@@ -198,8 +204,8 @@
       <li class="predict-row is-${c.conf}${i === 0 ? ' is-next' : ''}">
         <div class="predict-date">
           <span class="predict-date-y">${c.date.getFullYear()}</span>
-          <b class="predict-date-md">${md(c.date)}</b>
-          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>
+          ${c.exact ? `<b class="predict-date-md">${md(c.date)}</b>
+          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>`}
         </div>
         <article class="predict-card is-${c.conf}">
           <div class="predict-head">

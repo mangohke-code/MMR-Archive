@@ -633,6 +633,7 @@
 
   .update-log-note {
     color: var(--text-secondary);
+    white-space: pre-line; /* 표 칸 안의 줄바꿈을 그대로 */
   }
 
   #event-list, #event-upcoming-list {
@@ -10054,10 +10055,10 @@
   .predict-row::before { box-shadow: inset 0 0 0 3px var(--lv, var(--accent)); }
   .predict-row.is-next::before { background: var(--lv, var(--accent)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lv, var(--accent)) 25%, transparent); }
   .predict-date { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-top: 4px; font-variant-numeric: tabular-nums; }
-  .predict-date-y { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: .04em; }
+  .predict-date-y { font-size: 17px; font-weight: 700; color: var(--text-muted); letter-spacing: .04em; }
   .predict-date-md { font-size: 28px; font-weight: 800; line-height: 1.1; color: var(--text-heading); }
   .predict-row.is-next .predict-date-md { color: var(--accent-strong); }
-  .predict-date-d { margin-top: 4px; padding: 1px 8px; font-style: normal; font-size: 12.5px; font-weight: 800; color: var(--accent-strong);
+  .predict-date-d { margin-top: 6px; padding: 2px 10px; font-style: normal; font-size: 16px; font-weight: 800; color: var(--accent-strong);
     border-radius: 5px 0 5px 0; corner-shape: bevel; background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .predict-card {
     --card-cut: 14px; --hud-len: 10px; --hud-gap: 6px;
