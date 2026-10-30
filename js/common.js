@@ -108,7 +108,8 @@ function switchTab(tabName, pushHistory = true) {
 
 // ===== 탭 서브 메뉴 =====
 // 서브 페이지가 있는 탭(픽업 기록 -> 픽업 기록 · 복각 예측)은 누르면 그 단추 바로 아래에 고르는 메뉴를 띄운다.
-// 메뉴 항목은 data-sub 에 적힌 탭 이름 순서대로, 이름표는 그 탭 단추의 글자를 쓴다.
+// 메뉴 항목은 data-sub 에 적힌 탭 이름 순서대로, 이름표는 그 탭 단추의 data-menu-label(없으면 단추 글자)을 쓴다.
+// 대분류 단추는 "픽업" 이고 그 안의 첫 페이지 이름은 "픽업 기록" 이라 둘을 가른다.
 function closeTabSubmenu() {
   const menu = document.getElementById('tab-submenu');
   if (!menu || menu.hidden) return;
@@ -123,7 +124,7 @@ function toggleTabSubmenu(btn) {
   const current = currentTabName();
   menu.innerHTML = btn.dataset.sub.split(/\s+/).map(name => {
     const src = document.querySelector(`.tab-btn[data-tab="${name}"]`);
-    const label = src ? src.textContent.trim() : name;
+    const label = src ? (src.dataset.menuLabel || src.textContent.trim()) : name;
     return `<button type="button" role="menuitem" data-go="${name}"${name === current ? ' class="is-current"' : ''}>${label}</button>`;
   }).join('');
   menu.dataset.owner = btn.dataset.tab;

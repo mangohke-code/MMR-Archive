@@ -10015,7 +10015,7 @@
   /* ===== 픽업 기록 서브 메뉴 · 복각 예측 페이지 (사용자 요청, 2026-10-31) ===== */
   .tab-btn[hidden] { display: none !important; }
   .tab-submenu {
-    position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 4px; padding: 6px;
+    position: fixed; z-index: 1500; display: flex; flex-direction: column; gap: 4px; padding: 6px;
     border-radius: 10px 0 10px 0; corner-shape: bevel;
     background: var(--bg-panel);
     box-shadow: inset 0 0 0 1px var(--border-strong), var(--shadow-card-hover);
