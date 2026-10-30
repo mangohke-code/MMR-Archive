@@ -348,6 +348,16 @@
       }
       if (step !== 'list') showCodexList(false);
     });
+
+    // 카드 글자 흐름은 칸 폭으로 정하므로, 탭에 들어올 때 · 창 크기가 바뀔 때 다시 잰다
+    document.addEventListener('mmr:tab-change', e => {
+      if (e.detail && e.detail.tab === 'codex') syncCodexCardScroll();
+    });
+    let codexResizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(codexResizeTimer);
+      codexResizeTimer = setTimeout(syncCodexCardScroll, 200);
+    });
   }
 
   // 설문 화면 <-> 목록 화면
@@ -355,6 +365,7 @@
     document.getElementById('codex-survey').classList.toggle('hidden', on);
     document.getElementById('codex-main').classList.toggle('hidden', !on);
     if (on) pushInTabState('list');
+    if (on) syncCodexCardScroll();
   }
 
   function closeCodexDetail() {
@@ -492,9 +503,9 @@
                    ${clickable ? `onclick="selectCodexCard(${rowIdx})"` : ''}>
                 <div class="codex-card-portrait">${imgUrl ? `<img src="${imgUrl}" alt="${name}">` : '<span class="codex-card-noimg">이미지<br>준비 중</span>'}</div>
                 <div class="codex-card-info">
-                  <div class="codex-card-name">${name || '???'}</div>
+                  <div class="codex-card-name"><span class="codex-card-scroll">${name || '???'}</span></div>
                   ${isUnappeared ? `<span class="codex-card-badge unappeared">미등장</span>` : ''}
-                  ${appear ? `<div class="codex-card-appear">${appear}</div>` : ''}
+                  ${appear ? `<div class="codex-card-appear"><span class="codex-card-scroll">${appear}</span></div>` : ''}
                 </div>
               </div>
             `;
@@ -518,6 +529,16 @@
           </div>
         `;
       }).join('');
+    syncCodexCardScroll();
+  }
+
+  // 카드 이름 · 등장이 칸을 넘치면 좌우로 흐르게 한다(픽업 카드와 같은 장치, 사용자 요청 2026-10-30 - D.E.E.P. 의
+  // 등장 FOOTSTEP, WALK, RUN 이 말줄임으로 잘렸다). 목록이 숨어 있으면 폭이 0 이라 못 재므로 보일 때마다 다시 잰다.
+  function syncCodexCardScroll() {
+    const container = document.getElementById('codex-content');
+    if (!container || !container.offsetParent) return;
+    requestAnimationFrame(() =>
+      syncNameScrollAnimations(container, '.codex-card-name, .codex-card-appear', '.codex-card-scroll', 0));
   }
 
   // ===== 상세 패널 =====

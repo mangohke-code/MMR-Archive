@@ -572,7 +572,8 @@ document.addEventListener('mmr:tab-change', () => setL2dImmersive(false));
 // wrap(overflow:hidden)과 그 안의 name 요소 실제 폭 차이를 재서, 넘치는 경우에만
 // 그 넘치는 만큼을 --scroll-distance로 넣고 애니메이션 클래스를 붙인다.
 // 읽기(scrollWidth/clientWidth)와 쓰기(style)를 분리해서 레이아웃 스래싱을 피한다.
-function syncNameScrollAnimations(root, wrapSelector, nameSelector) {
+// minOverflow - 이만큼(px) 넘쳐야 흐르게 한다. 기본 1(반올림 오차는 흘리지 않는다). 도감 카드는 말줄임 없이 잘리므로 0.
+function syncNameScrollAnimations(root, wrapSelector, nameSelector, minOverflow = 1) {
   const wraps = root.querySelectorAll(wrapSelector);
   const toAnimate = [];
   wraps.forEach(wrap => {
@@ -582,7 +583,7 @@ function syncNameScrollAnimations(root, wrapSelector, nameSelector) {
     wrap.classList.remove('is-scroll-wrap');
     nameEl.style.removeProperty('--scroll-distance');
     const overflow = nameEl.scrollWidth - wrap.clientWidth;
-    if (overflow > 1) toAnimate.push({ wrap, nameEl, overflow });
+    if (overflow > minOverflow) toAnimate.push({ wrap, nameEl, overflow });
   });
   toAnimate.forEach(({ wrap, nameEl, overflow }) => {
     nameEl.style.setProperty('--scroll-distance', `-${overflow}px`);

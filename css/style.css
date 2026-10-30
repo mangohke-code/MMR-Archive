@@ -10002,3 +10002,12 @@
   #codex-spine-wrap.is-still .l2d-side-toggle,
   #codex-spine-wrap.is-still .l2d-bar,
   #codex-spine-wrap.is-still .l2d-tabs [data-l2d-tab="side"] { display: none; }
+
+  /* ===== 캐릭터 도감 카드 이름 · 등장 흐르기 (사용자 요청, 2026-10-30) =====
+     말줄임 대신 넘치는 글자만 좌우로 왕복한다(픽업 카드와 같은 장치 - common.js syncNameScrollAnimations). */
+  .codex-card-name, .codex-card-appear { text-overflow: clip; min-width: 0; }
+  .codex-card-scroll { display: inline-block; width: max-content; max-width: none; white-space: nowrap; will-change: transform; }
+  .codex-card-scroll.is-scrolling { animation: scrolling 5s ease-in-out infinite; }
+  .codex-card-name.is-scroll-wrap, .codex-card-appear.is-scroll-wrap {
+    mask-image: linear-gradient(to right, transparent 0px, black 6px, black calc(100% - 6px), transparent 100%);
+  }
