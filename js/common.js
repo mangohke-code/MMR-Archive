@@ -1159,8 +1159,6 @@ function logVisit() {
         if (host && host !== location.hostname) 유입 = host;
       }
     } catch (e) { /* 잘못된 referrer 는 무시 */ }
-    // 테스트 주소(?t=코드, index.html 머리의 OPEN 목록)로 들어온 방문은 유입 자리에 표시를 남겨 따로 센다
-    if (window.MMR_TEST_CODE) 유입 = 'test:' + window.MMR_TEST_CODE;
 
     // IP 없이 지역/언어를 가늠하기 위한 값. 브라우저가 알려주는 설정일 뿐이라
     // 개인을 식별하지 않는다. 못 읽으면 그냥 비워 둔다.

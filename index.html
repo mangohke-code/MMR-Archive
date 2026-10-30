@@ -6,25 +6,6 @@
   <title>M.M.R. Archive</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <script>
-    // 다른 사람에게 돌리는 테스트 주소(?t=코드). OPEN 에 있는 코드로 들어온 방문은 방문 기록 유입에 'test:코드' 로 남는다
-    // (common.js). 테스트가 끝나면 코드를 CLOSED 로 옮긴다 - 그 주소로는 사이트를 안 열고 안내만 띄운다(일반 주소는 그대로).
-    (function () {
-      var OPEN = ['q8r3vx'];
-      var CLOSED = [];
-      var code = null;
-      try { code = new URLSearchParams(location.search).get('t'); } catch (e) { /* 무시 */ }
-      if (!code) return;
-      if (CLOSED.indexOf(code) >= 0) {
-        document.write('<style>html,body{margin:0;height:100%;background:#f4f3fa;color:#3a3550;font:16px/1.6 sans-serif}'
-          + 'body{display:flex;align-items:center;justify-content:center;text-align:center}</style>'
-          + '<p>종료된 테스트 주소예요.</p>');
-        window.stop();
-        return;
-      }
-      if (OPEN.indexOf(code) >= 0) window.MMR_TEST_CODE = code;
-    })();
-  </script>
-  <script>
     (function () {
       if (localStorage.getItem('nikke-theme') === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
@@ -861,7 +842,7 @@
   </div>
 
   <script src="js/config.js?v=2"></script>
-  <script src="js/common.js?v=81"></script>
+  <script src="js/common.js?v=82"></script>
   <script src="js/main.js?v=27"></script>
   <script src="js/pickup.js?v=61"></script>
   <script src="js/skillcut.js?v=44"></script>
