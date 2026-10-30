@@ -565,6 +565,7 @@
         squad:  String(row['스쿼드1'] || '').trim(),
         skel:   String(row['skel1']   || '').trim(),
         atlas:  String(row['atlas1']  || '').trim(),
+        image:  String(row['이미지1'] || '').trim(),
       });
     } else {
       for (let i = 0; i < keys.length; i++) {
@@ -581,6 +582,7 @@
           squad:  String(row[`스쿼드${n}`] || '').trim(),
           skel:   String(row[`skel${n}`]   || '').trim(),
           atlas:  String(row[`atlas${n}`]  || '').trim(),
+          image:  String(row[`이미지${n}`] || '').trim(),
         });
       }
     }
@@ -679,9 +681,24 @@
       loadCodexSpine(skel, atlas);
     } else {
       clearSpinePlayer();
+      // L2D 가 없는 캐릭터(애니힐리오 등)는 그림만 띄운다. 가장 늦은 버전부터 그림이 있는 것을 쓴다.
+      const still = versions.slice().reverse().find(v => v.image);
+      if (still) showCodexStill(still.image, still.name);
     }
 
     syncAppearHighlight();
+  }
+
+  // L2D 대신 그림 한 장. 조작판 · 재생 막대는 쓸 데가 없어서 감춘다(.is-still).
+  function showCodexStill(src, alt) {
+    const player = document.getElementById('codex-spine-player');
+    player.innerHTML = '';
+    const img = document.createElement('img');
+    img.className = 'codex-still';
+    img.src = src;
+    img.alt = alt || '';
+    player.appendChild(img);
+    document.getElementById('codex-spine-wrap').classList.add('is-still');
   }
 
   function selectSpineByAppear(spineIdx) {
@@ -714,8 +731,12 @@
     }
     if (codexPanZoom) { codexPanZoom.destroy(); codexPanZoom = null; }
     document.getElementById('codex-spine-player').innerHTML = '';
-    const toggle = document.getElementById('codex-parts-toggle');
-    if (toggle) { toggle.innerHTML = ''; toggle.classList.add('hidden'); }
+    // 앞 캐릭터의 동작 · 표정 · 파츠 버튼이 L2D 없는 캐릭터에 남지 않게 다 비운다
+    ['codex-parts-toggle', 'codex-anim-toggle', 'codex-expression'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
+    });
+    document.getElementById('codex-spine-wrap').classList.remove('is-still');
   }
 
   // 한 스켈레톤에 두 캐릭터가 같이 든 경우 - 그 칸 캐릭터의 애니메이션만 쓴다.
@@ -741,6 +762,7 @@
     const idleOf = data => (subset ? subset.base : pickSpineAnimation(data));
     const wrap = document.getElementById('codex-spine-player');
     wrap.innerHTML = '';
+    document.getElementById('codex-spine-wrap').classList.remove('is-still');
     if (codexSpinePlayer) {
       disposeSpinePlayer(codexSpinePlayer);
       codexSpinePlayer = null;
