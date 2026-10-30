@@ -131,11 +131,21 @@ function toggleTabSubmenu(btn) {
   // 탭 줄은 CSS zoom 으로 줄어들어(compact-nav) 그 안에 두면 화면 좌표가 그 배율만큼 어긋난다 - body 로 꺼내 둔다
   if (menu.parentElement !== document.body) document.body.appendChild(menu);
   menu.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.go)));
-  // 탭 줄은 화면 위에 붙어 있으므로 단추 자리 바로 아래에 고정으로 띄운다
-  const r = btn.getBoundingClientRect();
-  menu.style.left = `${Math.round(r.left)}px`;
-  menu.style.top = `${Math.round(r.bottom + 4)}px`;
-  menu.style.minWidth = `${Math.round(r.width)}px`;
+  // 탭 줄은 화면 위에 붙어 있으므로 단추 자리 바로 아래에 고정으로 띄운다.
+  // 메인에서 넘어오면 탭 줄이 0.26초 동안 줄어들어(zoom) 단추 자리가 움직이므로 그동안 따라간다.
+  const place = () => {
+    if (menu.hidden && menu.dataset.owner !== btn.dataset.tab) return;
+    const r = btn.getBoundingClientRect();
+    menu.style.left = `${Math.round(r.left)}px`;
+    menu.style.top = `${Math.round(r.bottom + 4)}px`;
+    menu.style.minWidth = `${Math.round(r.width)}px`;
+  };
+  place();
+  const until = performance.now() + 400;
+  const follow = () => { place(); if (!menu.hidden && performance.now() < until) requestAnimationFrame(follow); };
+  requestAnimationFrame(follow);
+  // 탭을 옮기면 맨 위로 굴러가는데, 그 스크롤에 메뉴가 닫히지 않게 잠깐 무시한다
+  menu.dataset.openedAt = String(Date.now());
   menu.hidden = false;
   btn.setAttribute('aria-expanded', 'true');
   const first = menu.querySelector('.is-current') || menu.querySelector('button');
@@ -1324,18 +1334,26 @@ async function loadAllData() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  // 탭 버튼 이벤트. 서브 페이지가 있는 탭(data-sub)은 누르면 아래로 고르는 메뉴가 펼쳐진다.
+  // 탭 버튼 이벤트. 서브 페이지가 있는 탭(data-sub)은 누르면 첫 페이지(픽업 기록)로 가면서 아래로 고르는 메뉴도
+  // 같이 펼친다(사용자 요청, 2026-10-31). 메뉴가 열린 채로 다시 누르면 닫기만 한다.
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      if (this.dataset.sub) toggleTabSubmenu(this);
-      else switchTab(this.dataset.tab);
+      if (!this.dataset.sub) { switchTab(this.dataset.tab); return; }
+      const menu = document.getElementById('tab-submenu');
+      if (menu && !menu.hidden && menu.dataset.owner === this.dataset.tab) { closeTabSubmenu(); return; }
+      switchTab(this.dataset.tab);
+      toggleTabSubmenu(this);
     });
   });
   document.addEventListener('click', e => {
     if (!e.target.closest('#tab-submenu, .tab-btn[data-sub]')) closeTabSubmenu();
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTabSubmenu(); });
-  window.addEventListener('scroll', closeTabSubmenu, { passive: true });
+  window.addEventListener('scroll', () => {
+    const menu = document.getElementById('tab-submenu');
+    if (menu && Date.now() - Number(menu.dataset.openedAt || 0) < 500) return;
+    closeTabSubmenu();
+  }, { passive: true });
   window.addEventListener('resize', closeTabSubmenu);
 
   // 새로고침·북마크로 들어온 경우 주소에 적힌 탭을 되살린다. 여기서 history 를

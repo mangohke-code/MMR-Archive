@@ -18,7 +18,6 @@
   const fam = s => (/주년$/.test(String(s || '')) ? '주년' : String(s || ''));
   const isFullAnniv = s => /^\d+주년$/.test(String(s || ''));
   const day = v => { const d = new Date(String(v).slice(0, 10) + 'T00:00:00+09:00'); return isNaN(d) ? null : d; };
-  const fmt = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const median = a => { const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
@@ -95,6 +94,11 @@
         text: `${p.from.date.getFullYear()} ${p.from.event} 신규 → ${p.to.date.getFullYear()} ${p.to.event}`,
         rows: p.rows.map(r => ({ name: r.name, hit: r.hit })),
       })),
+      // 지난 기록 칩 - 회차(해)마다 앞 회차 신규 중 몇 명이 복각됐나
+      track: pairs.map(p => {
+        const n = p.rows.filter(r => r.hit).length;
+        return { label: String(p.to.date.getFullYear()), text: `${n}/${p.rows.length}`, ok: n === p.rows.length };
+      }),
       summary: `${pairs.length}번 중 ${pairs.filter(p => p.rows.every(r => r.hit)).length}번 전원 복각(${hits}/${total}명)`,
     };
   }
@@ -135,11 +139,15 @@
     if (rest.length) why.push({ text: `간격이 더 먼 후보: ${rest.map(c => c.name).join(', ')}`, rows: [] });
     return {
       family: '주년', conf: why.filter(w => w.rows.length).length >= 2 ? 'mid' : 'low', date, cands: cands.slice(0, MAX), why,
+      track: full.map(o => {
+        const n = why.find(w => w.rows.length && w.text.startsWith(`${o.date.getFullYear()} ${o.season}`));
+        return { label: o.season, text: n ? `${n.rows.length}명` : '0명', ok: !!n };
+      }),
       summary: `정주년 ${why.filter(w => w.rows.length).length}번, 첫 픽업 뒤 ${Math.min(...lags)}~${Math.max(...lags)}일에 복각(가운데 ${Math.round(mid)}일). 후보는 그 간격에 가까운 순`,
     };
   }
 
-  const CONF_LABEL = { high: '확신 높음', mid: '확신 중간', low: '확신 낮음' };
+  const CONF_LABEL = { high: '가능성 높음', mid: '가능성 중간', low: '가능성 낮음' };
 
   function render() {
     const host = document.getElementById('predict-list');
@@ -157,39 +165,52 @@
     });
     cards.sort((a, b) => a.date - b.date);
 
-    host.innerHTML = cards.length ? cards.map(c => {
+    // 세로 시간줄 - 왼쪽에 예상 날짜(크게) · D-day, 오른쪽에 후보 그림. 가까운 것부터 위에서 아래로.
+    const md = d => `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    host.innerHTML = cards.length ? `<ol class="predict-timeline">${cards.map((c, i) => {
       const dday = Math.ceil((c.date - today) / DAY);
       return `
-      <article class="predict-card is-${c.conf}">
-        <div class="predict-head">
-          <span class="predict-fam">${c.date.getFullYear()} ${esc(c.family)}</span>
-          <span class="predict-conf is-${c.conf}">${CONF_LABEL[c.conf]}</span>
+      <li class="predict-row is-${c.conf}${i === 0 ? ' is-next' : ''}">
+        <div class="predict-date">
+          <span class="predict-date-y">${c.date.getFullYear()}</span>
+          <b class="predict-date-md">${md(c.date)}</b>
+          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>
         </div>
-        <div class="predict-when"><em>예상 시기</em><b>${fmt(c.date)} 전후</b>${dday >= 0 ? `<span>D-${dday}</span>` : '<span>지남</span>'}</div>
-        <div class="predict-cands">
-          ${c.cands.map(x => `
-            <button type="button" class="predict-cand" data-nikke="${esc(x.name)}" title="픽업 기록에서 보기">
-              <span class="predict-cand-img">${imgOf[x.name] ? `<img src="${esc(imgOf[x.name])}" alt="" loading="lazy">` : ''}</span>
-              <span class="predict-cand-name">${esc(x.name)}</span>
-              <span class="predict-cand-from">${x.from.date.getFullYear()} ${esc(x.from.season)} 신규</span>
-            </button>`).join('')}
-        </div>
-        <details class="predict-why">
-          <summary>근거 · ${esc(c.summary)}</summary>
-          <ul>${c.why.map(w => `<li><span>${esc(w.text)}</span>${w.rows.length ? ` <span class="predict-hits">${w.rows.map(r =>
-            `<i class="${r.hit ? 'is-hit' : 'is-miss'}">${r.hit ? '✓' : '✗'} ${esc(r.name)}${r.note ? ` (${esc(r.note)})` : ''}</i>`).join('')}</span>` : ''}</li>`).join('')}</ul>
-        </details>
-      </article>`;
-    }).join('') : '<p class="predict-empty">지금 예측할 복각이 없어요.</p>';
+        <article class="predict-card is-${c.conf}">
+          <div class="predict-head">
+            <span class="predict-fam">${esc(c.family)}</span>
+            <span class="predict-conf is-${c.conf}">${CONF_LABEL[c.conf]}</span>
+          </div>
+          <div class="predict-cands">
+            ${c.cands.map(x => `
+              <button type="button" class="predict-cand" data-nikke="${esc(x.name)}" title="픽업 기록에서 보기">
+                <span class="predict-cand-img">${imgOf[x.name] ? `<img src="${esc(imgOf[x.name])}" alt="" loading="lazy">` : ''}</span>
+                <span class="predict-cand-name">${esc(x.name)}</span>
+                <span class="predict-cand-from">${x.from.date.getFullYear()} ${esc(x.from.season)}</span>
+              </button>`).join('')}
+          </div>
+          <div class="predict-track">
+            <span class="predict-track-label">지난 기록</span>
+            ${(c.track || []).map(t => `<span class="predict-chip${t.ok ? ' is-ok' : ''}">${esc(t.label)} <b>${esc(t.text)}</b></span>`).join('')}
+          </div>
+          <details class="predict-why">
+            <summary>자세히</summary>
+            <p class="predict-why-sum">${esc(c.summary)}</p>
+            <ul>${c.why.map(w => `<li><span>${esc(w.text)}</span>${w.rows.length ? `<span class="predict-hits">${w.rows.map(r =>
+              `<i class="${r.hit ? 'is-hit' : 'is-miss'}">${r.hit ? '✓' : '✗'} ${esc(r.name)}${r.note ? ` (${esc(r.note)})` : ''}</i>`).join('')}</span>` : ''}</li>`).join('')}</ul>
+          </details>
+        </article>
+      </li>`;
+    }).join('')}</ol>` : '<p class="predict-empty">지금 예측할 복각이 없어요.</p>';
 
     const notes = document.getElementById('predict-notes');
     if (notes) {
       notes.innerHTML = `
-        <div class="predict-note-title">계산 방법</div>
+        <summary>계산 방법 · 예측하지 않은 시즌</summary>
         <ul>
           <li>캐릭터가 처음 픽업된 시즌과 <b>복각된 이벤트의 시즌이 같을 때만</b> 복각으로 셌어요. 시즌이 다른 이벤트(예: 크리스마스 캐릭터가 9월 코인 러시)에 나온 복각 ${A.skipped.length}건은 뺐어요.</li>
           <li>0.5주년 ~ N주년은 한 계열(주년)로 봤어요. 일반 시즌은 상시 캐릭터라, 콜라보는 같은 작품이 돌아와야 복각이라 예측하지 않아요.</li>
-          <li>확신 높음: 3번 이상 연속 앞 회차 신규 전원 복각 · 중간: 규칙은 보이지만 사례가 적거나 후보가 갈림 · 낮음: 그 밖에 맞은 적이 있는 것</li>
+          <li>가능성 높음: 3번 이상 연속 앞 회차 신규 전원 복각 · 중간: 규칙은 보이지만 사례가 적거나 후보가 갈림 · 낮음: 그 밖에 맞은 적이 있는 것</li>
           ${none.length ? `<li>예측하지 않은 시즌: ${none.map(n => `<b>${esc(n.family)}</b>(${esc(n.none)})`).join(' · ')}</li>` : ''}
         </ul>`;
     }
