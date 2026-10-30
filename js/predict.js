@@ -184,20 +184,25 @@
   // 필그림과 오버스펙(기업 끝 "(오)")은 한 범주로 센다 - 일반 기업과는 확률 · 성능이 다르다(사용자 지적).
   // 주년과 반주년은 따로 본다.
   const PICK_SKIP = new Set(['', '일반', '콜라보']);
+  const PILGRIM = '필그림 · 오버스펙';
   const pickFam = s => (/^\d+주년$/.test(s) ? '주년' : /^\d+\.5주년$/.test(s) ? '반주년' : s);
-  const corpOf = c => (/^필그림/.test(c) || /\(오\)$/.test(c) ? '필그림 · 오버스펙' : c);
+  const corpOf = c => (/^필그림/.test(c) || /\(오\)$/.test(c) ? PILGRIM : c);
   const ATTRS = [
     ['기업', p => corpOf(String(p['기업'] || ''))],
-    ['버스트', p => (p['버스트'] ? `${p['버스트']}버스트` : '')],
+    ['버스트', p => String(p['버스트'] || '')],
     ['우월코드', p => p['우월코드'] || ''],
     ['총기', p => p['총기'] || ''],
     ['유형', p => p['유형'] || ''],
   ];
-  // 쏠림 단계 - 전원 같으면 매우 높음. 3명 미만 기록은 매우 낮음으로 본다.
+  // 쏠림 단계 - 전원 같으면 매우 높음, 4분의 3 이상이면 높음, 그 밖은 근거 없음.
+  // 게임사는 안 겹치게 내려는 쪽과 일관되게 내려는 쪽이 함께 있어서, 절반 남짓 쏠림은 예측 근거가 못 된다(사용자 지적, 2026-10-31).
+  // 3명 미만 기록도 근거 없음.
+  const PICK_LV = { vhigh: '매우 높음', high: '높음', vlow: '근거 없음' };
   const shareLevel = (hits, total) => {
     const r = total ? hits / total : 0;
-    return total < 3 ? 'vlow' : r === 1 ? 'vhigh' : r >= 0.75 ? 'high' : r >= 0.5 ? 'mid' : r >= 0.3 ? 'low' : 'vlow';
+    return total < 3 ? 'vlow' : r === 1 ? 'vhigh' : r >= 0.75 ? 'high' : 'vlow';
   };
+  const fmtVal = (label, v) => (label === '버스트' ? `${v}버스트` : v);
 
   function pickupForecast(pickups, today) {
     const list = pickups.filter(p => p['시작일'] && p['니케'] && !p['복각'])
@@ -214,16 +219,15 @@
     });
     return Object.entries(occ).map(([f, occs]) => {
       const all = occs.flatMap(o => o.rows);
+      // 속성마다 값 분포(도넛)와 가장 많은 값 - 동률이면 고르지 않는다
       const attrs = ATTRS.map(([label, get]) => {
         const cnt = {};
         all.forEach(p => { const v = get(p); if (v) cnt[v] = (cnt[v] || 0) + 1; });
-        const total = Object.values(cnt).reduce((a, b) => a + b, 0);
-        const top = Math.max(0, ...Object.values(cnt));
-        const vals = Object.keys(cnt).filter(k => cnt[k] === top);
-        // 셋 이상 동률이면 쏠림이 없는 것으로 본다
-        return vals.length && vals.length <= 2
-          ? { label, value: vals.join(' / '), hits: top, total, conf: shareLevel(top, total) }
-          : { label, value: '', conf: 'vlow' };
+        const dist = Object.entries(cnt).map(([v, n]) => ({ label: fmtVal(label, v), n })).sort((x, y) => y.n - x.n);
+        const total = dist.reduce((n, d) => n + d.n, 0);
+        const top = Object.keys(cnt).filter(k => cnt[k] === (dist[0] || {}).n);
+        const one = top.length === 1;
+        return { label, value: one ? top[0] : '', hits: one ? cnt[top[0]] : 0, total, conf: one ? shareLevel(cnt[top[0]], total) : 'vlow', dist };
       });
       // 같은 이벤트 둘째부터 - 첫째와 같은 값이었나 / 다른 값이었나. 4분의 3 이상 한쪽이면 "같음" · "다름"으로 본다.
       // 예) 여름은 기업 · 총기를 나눠 내고 바니걸은 기업을 몰아 낸다(사용자 지적, 2026-10-31).
@@ -247,7 +251,13 @@
       if (first) {
         attrs.forEach((a, i) => {
           const pr = pairs[i], v = ATTRS[i][1](first);
-          if (pr && v) Object.assign(a, { value: pr.same ? v : `${v} 제외`, hits: pr.hits, total: pr.total, conf: shareLevel(pr.hits, pr.total) });
+          if (!pr || !v) return;
+          const same = { label: '첫째와 같음', n: pr.same ? pr.hits : pr.total - pr.hits };
+          const diff = { label: '첫째와 다름', n: pr.total - same.n };
+          Object.assign(a, {
+            value: v, exclude: !pr.same, hits: pr.hits, total: pr.total, conf: shareLevel(pr.hits, pr.total),
+            dist: (pr.same ? [same, diff] : [diff, same]).filter(d => d.n),
+          });
         });
       }
       // 몇 주년인지 - 마지막 회차 번호 + 1 (3.5주년 -> 4.5주년), 둘째를 짐작할 때는 진행 중인 회차 번호
@@ -274,12 +284,51 @@
         </div>`;
   }
 
+  // 속성 아이콘 - 아이콘 표(APP_DATA.iconImg). 필그림 · 오버스펙은 필그림 아이콘
+  const iconOf = (label, v) => {
+    const icons = ((typeof APP_DATA !== 'undefined' && APP_DATA.iconImg) || {})[label] || {};
+    return icons[label === '기업' && v === PILGRIM ? '필그림' : v] || '';
+  };
+
+  // 값 분포 도넛 - 가장 많은 값은 단계 색, 나머지는 회색 농도 차례. 조각 사이 2px 틈, 마우스를 올리면 값 · 수
+  function donut(dist, total) {
+    if (!total) return '';
+    const R = 18, C = 2 * Math.PI * R, GAP = dist.length > 1 ? 2 : 0;
+    let off = 0;
+    const segs = dist.map((d, i) => {
+      const len = C * d.n / total;
+      const seg = `<circle cx="24" cy="24" r="${R}" class="${i ? 'is-rest' : 'is-top'}" style="--o:${Math.max(0.6 - i * 0.12, 0.18)}"`
+        + ` stroke-dasharray="${Math.max(len - GAP, 0.6).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}">`
+        + `<title>${esc(d.label)} ${d.n}/${total}</title></circle>`;
+      off += len;
+      return seg;
+    });
+    return `<svg class="predict-donut" viewBox="0 0 48 48" role="img" aria-label="${esc(dist.map(d => `${d.label} ${d.n}`).join(', '))}">`
+      + `<g transform="rotate(-90 24 24)">${segs.join('')}</g></svg>`;
+  }
+
   function renderPickup(today) {
     const host = document.getElementById('predict-pickup');
     if (!host) return;
     const cards = pickupForecast(APP_DATA.pickup, today);
     const pick = p => [p['기업'], p['버스트'] && `${p['버스트']}버스트`, p['우월코드'], p['총기'], p['유형']]
       .filter(Boolean).join(' ');
+    // 속성 칸 - 이름 · 단계 문구, 도넛(가운데 비율), 아이콘 · 값. 근거 없음이면 값 대신 "-"
+    const attrCell = a => {
+      const sure = a.conf !== 'vlow' && a.value;
+      const icon = sure ? iconOf(a.label, a.value) : '';
+      return `
+            <div class="predict-attr is-${a.conf}">
+              <dt>${esc(a.label)}</dt>
+              <dd>
+                <span class="predict-donut-wrap">${donut(a.dist, a.total)}${sure ? `<b>${a.hits}/${a.total}</b>` : ''}</span>
+                <span class="predict-attr-val">${sure
+                  ? `${icon ? `<img class="${a.label === '우월코드' ? 'is-code' : ''}" src="${esc(icon)}" alt="">` : ''}<span>${esc(fmtVal(a.label, a.value))}${a.exclude ? ' 제외' : ''}</span>`
+                  : '-'}</span>
+                <span class="predict-attr-lv">${PICK_LV[a.conf]}</span>
+              </dd>
+            </div>`;
+    };
     host.innerHTML = cards.length ? `<ol class="predict-timeline">${cards.map((c, i) => `
       <li class="predict-row${i === 0 ? ' is-next' : ''}">
         ${dateBlock(c, today)}
@@ -289,12 +338,7 @@
             <span class="predict-count">기록 ${c.count}회</span>
             ${c.first ? `<span class="predict-count is-first">둘째 · 첫째 ${esc(c.first['니케'])}</span>` : ''}
           </div>
-          <dl class="predict-attrs">
-            ${c.attrs.map(a => `
-              <div class="predict-attr is-${a.conf}">
-                <dt>${esc(a.label)}</dt>
-                <dd>${a.value ? `${esc(a.value)}<small>${a.hits}/${a.total}</small>` : '-'}</dd>
-              </div>`).join('')}
+          <dl class="predict-attrs">${c.attrs.map(attrCell).join('')}
           </dl>
           ${c.pairs.length ? `<div class="predict-track">
             <span class="predict-track-label">같은 이벤트 둘째</span>
