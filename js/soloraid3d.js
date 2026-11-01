@@ -4159,6 +4159,10 @@ function noFollowClip(bossKey, name) {
     controls.addEventListener('start', () => { userDragging = true; });
     controls.addEventListener('end', () => {
       userDragging = false;
+      // 인게임 카메라가 도는 연출 중에는 시점이 연출 것이라 기준점을 바꾸지 않는다. 그때 controls.target 은
+      // 연출 카메라 시선 앞자리라, 그대로 기준점으로 삼으면 연출이 끝나고 대기로 넘어갈 때 카메라가 엉뚱한 데로
+      // 간다(모더니아 등장 중 화면을 건드리면, 사용자 지적 2026-11-02).
+      if (cinematic && cinematic.node && followEnabled) return;
       initialTarget.copy(controls.target);
       if (focusMesh) rigCenter(focusMesh, followBase, focusBone);
     });
