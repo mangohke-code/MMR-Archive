@@ -249,6 +249,14 @@
       const lastOcc = occs[occs.length - 1];
       const first = lastOcc.rows.length === 1 && lastOcc.date >= new Date(today.getTime() - 21 * DAY)
         && Object.values(byEv).some(ps => ps.length >= 2) ? lastOcc.rows[0] : null;
+      // 가장 많은 값이어도 최근 회차(둘째를 짐작 중이면 그 앞 회차)에 안 나왔으면 근거 없음 - 배정이 바뀐 것으로 본다.
+      // 예) 바니걸 기업 테트라 3연속 뒤 2026 미실리스 -> 테트라 6/8 이어도 다음은 알 수 없다(사용자 지적, 2026-11-02)
+      const recent = first ? occs[occs.length - 2] : lastOcc;
+      if (recent) {
+        attrs.forEach((a, i) => {
+          if (a.value && !recent.rows.some(p => ATTRS[i][1](p) === a.value)) a.conf = 'vlow';
+        });
+      }
       if (first) {
         attrs.forEach((a, i) => {
           const pr = pairs[i], v = ATTRS[i][1](first);
