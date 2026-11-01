@@ -27,6 +27,7 @@
   let openedAt = Date.now();
   let loaded = 0;          // 목록에 그린 개수
   let total = null;        // 보이는 문의 전체 개수
+  let privTotal = null;    // 비공개 문의 개수(숨김 제외)
   let loading = false;
   let boardStarted = false;
 
@@ -95,7 +96,8 @@
 
     try { localStorage.setItem(LAST_KEY, String(Date.now())); } catch (e) { /* 무시 */ }
     done(priv);
-    if (!priv) reloadBoard();
+    // 비공개도 개수가 바뀌므로 목록을 다시 부른다
+    reloadBoard();
   }
 
   // 보낼 내용을 보여 주고 보낼지 묻는다. 확인 창은 처음 한 번만 만든다.
@@ -179,11 +181,17 @@
     loading = true;
     $('contact-more').disabled = true;
     let res;
+    // 첫 쪽을 부를 때 비공개 개수도 같이 센다(표는 못 읽으니 개수만 돌려주는 함수, 사용자 요청 2026-10-31)
+    const privReq = loaded ? null : Promise.resolve(supabaseClient.rpc('문의_비공개_개수')).catch(e => ({ error: e }));
     try {
       res = await supabaseClient.from('문의').select(COLS, { count: 'exact' })
         .order('작성일', { ascending: false }).range(loaded, loaded + PAGE - 1);
     } catch (e) {
       res = { error: e };
+    }
+    if (privReq) {
+      const pr = await privReq;
+      privTotal = pr && !pr.error && pr.data !== null && isFinite(pr.data) ? Number(pr.data) : null;
     }
     loading = false;
     $('contact-more').disabled = false;
@@ -198,7 +206,10 @@
     if (!loaded && !rows.length) list.innerHTML = '<li class="contact-empty">아직 올라온 문의가 없어요.</li>';
     else list.insertAdjacentHTML('beforeend', rows.map(itemHtml).join(''));
     loaded += rows.length;
-    $('contact-board-count').textContent = total ? `${total}건` : '';
+    $('contact-board-count').textContent = [
+      total !== null ? `공개 ${total}건` : '',
+      privTotal !== null ? `비공개 ${privTotal}건` : '',
+    ].filter(Boolean).join(' · ');
     $('contact-more').hidden = total === null ? rows.length < PAGE : loaded >= total;
   }
 
