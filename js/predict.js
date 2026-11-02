@@ -412,7 +412,7 @@
           </div>
           <div class="predict-cands">
             ${c.cands.map(x => `
-              <button type="button" class="predict-cand" data-nikke="${esc(x.name)}" title="픽업 기록에서 보기">
+              <button type="button" class="predict-cand" data-nikke="${esc(x.name)}" title="정보 보기">
                 <span class="predict-cand-img">${imgOf[x.name] ? `<img src="${esc(imgOf[x.name])}" alt="" loading="lazy">` : ''}</span>
                 <span class="predict-cand-name">${esc(x.name)}</span>
                 <span class="predict-cand-from">${x.from.date.getFullYear()} ${esc(x.from.season)}</span>
@@ -444,7 +444,9 @@
     }
 
     host.querySelectorAll('.predict-cand').forEach(btn => btn.addEventListener('click', () => {
-      if (typeof jumpToPickupNikke === 'function') jumpToPickupNikke(btn.dataset.nikke);
+      // 바로 옮기지 않고 정보창부터 - 창의 "픽업 기록에서 보기" 로 옮긴다(사용자 요청, 2026-11-02)
+      if (typeof openPickupDetail === 'function') openPickupDetail(btn.dataset.nikke, undefined, btn, { jump: true });
+      else if (typeof jumpToPickupNikke === 'function') jumpToPickupNikke(btn.dataset.nikke);
     }));
   }
 

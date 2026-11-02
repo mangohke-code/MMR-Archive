@@ -779,7 +779,23 @@
       + `<span class="pk-attr-val${codeCls}">${iconHtml}${escHtml(text)}</span></div>`;
   }
 
-  function openPickupDetail(name, start, sourceEl) {
+  // 상세 창을 닫고 픽업 기록의 그 니케 자리로. 닫기가 기록을 한 칸 물리고(history.back) 그때 브라우저가 스크롤을
+  // 되돌리므로, 물린 다음에 옮긴다. 물릴 기록이 없으면 잠깐 뒤에 옮긴다.
+  function jumpFromDetail(name) {
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener('popstate', go);
+      requestAnimationFrame(() => jumpToPickupNikke(name));
+    };
+    window.addEventListener('popstate', go);
+    closePickupDetail();
+    setTimeout(go, 400);
+  }
+
+  // opts.jump - 다른 탭(픽업 예측)에서 열 때. 바로 옮기지 않고 창 아래 "픽업 기록에서 보기" 단추로 옮긴다.
+  function openPickupDetail(name, start, sourceEl, opts) {
     const all = allPickupData.filter(x => x['니케'] === name);
     if (!all.length) return;
     const p = all.find(x => x['시작일'] === start) || all[all.length - 1];
@@ -822,7 +838,10 @@
       ${history.length > 1 ? `<div class="pk-detail-section">
         <div class="pk-detail-label">픽업 이력</div>
         <ul class="pk-hist">${historyHtml}</ul>
-      </div>` : ''}`;
+      </div>` : ''}
+      ${opts && opts.jump ? '<button type="button" class="pk-detail-jump">픽업 기록에서 보기<i class="fas fa-arrow-right" aria-hidden="true"></i></button>' : ''}`;
+    const jumpBtn = el.querySelector('.pk-detail-jump');
+    if (jumpBtn) jumpBtn.addEventListener('click', () => jumpFromDetail(name));
 
     // 전신 이미지 -> 없으면 카드 그림.
     // 그림 칸은 팝업마다 같은 <img> 를 쓴다. src 만 바꾸면 새 그림이 다 받아질 때까지 앞서 연 니케 그림이
