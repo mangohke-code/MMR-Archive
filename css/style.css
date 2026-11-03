@@ -4804,6 +4804,10 @@
     border-bottom-color: var(--stage-hard-border);
   }
 
+  /* 하드는 스토리가 없다 */
+  #stage-detail[data-mode="hard"] #stage-table th:nth-child(5),
+  #stage-detail[data-mode="hard"] #stage-table td:nth-child(5) { display: none; }
+
 
   #stage-table-wrap {
     overflow-x: auto;
