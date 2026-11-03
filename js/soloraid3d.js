@@ -2621,6 +2621,38 @@ function requestRedraw() { lastRedrawRequest = performance.now(); }
 // 끌기 중일 때만(버튼을 누른 채 움직일 때). 그냥 마우스를 올려 두는 건 화면을 안 바꾼다.
 window.addEventListener('pointermove', e => { if (e.buttons) requestRedraw(); }, { capture: true, passive: true });
 
+// ── 성능 설정(사용자 요청, 2026-11-03) ───────────────────────────
+// 뷰어는 모니터 주사율만큼 그린다(144Hz 면 초당 144장). 뷰어를 보는 동안 다른 창의 영상이 끊겨서
+// 초당 장수 상한과 그리는 해상도 배율을 고르게 한다. 이 브라우저에 기억한다. 기본은 초당 60장 · 2배.
+const PERF_KEY = 'mmr-sr3d-perf';
+const PERF_FPS = [30, 60, 0];          // 0 = 상한 없음(모니터 주사율)
+const PERF_RES = [1, 1.5, 2];
+const perf = { fps: 60, res: 2 };
+try {
+  const v = JSON.parse(localStorage.getItem(PERF_KEY) || '{}');
+  if (PERF_FPS.includes(v.fps)) perf.fps = v.fps;
+  if (PERF_RES.includes(v.res)) perf.res = v.res;
+} catch (e) { /* 저장소를 못 쓰면 기본값 */ }
+const pixelRatioFor = () => Math.min(window.devicePixelRatio || 1, perf.res);
+
+function bindPerfButtons(id, key) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  const sync = () => box.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('active', Number(b.dataset.v) === perf[key]));
+  box.addEventListener('click', e => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    perf[key] = Number(b.dataset.v);
+    try { localStorage.setItem(PERF_KEY, JSON.stringify(perf)); } catch (err) { /* 무시 */ }
+    sync();
+    if (key === 'res') liveStates.forEach(st => st.applyPixelRatio && st.applyPixelRatio());
+    requestRedraw();
+  });
+  sync();
+}
+bindPerfButtons('sr3d-fps', 'fps');
+bindPerfButtons('sr3d-res', 'res');
+
 // 솔로 레이드 탭을 벗어나면 뷰어를 재우고, 돌아오면 깨운다.
 document.addEventListener('mmr:tab-change', ev => {
   const on = !!(ev.detail && ev.detail.tab === 'soloraid');
@@ -2774,7 +2806,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     requestRedraw();
   });
   resizeObserver.observe(container);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(pixelRatioFor());
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -2829,6 +2861,12 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
   }
 
   const state = { renderer, scene, camera, controls, rafId: null, paused: false, resizeObserver };
+  // 성능 설정에서 해상도 배율을 바꾸면 - 후처리 사슬(블룸 포함)도 같은 배율로
+  state.applyPixelRatio = () => {
+    const r = pixelRatioFor();
+    renderer.setPixelRatio(r);
+    if (composer) composer.setPixelRatio(r);
+  };
   container.__soloRaidModel3D = state;
   liveStates.add(state);
   watchTheme();
@@ -5435,7 +5473,7 @@ function noFollowClip(bossKey, name) {
       syncBar();
     };
 
-    function animate() {
+    function animate(now) {
       if (container.__soloRaidModel3D !== state) return; // dispose됨
       state.rafId = requestAnimationFrame(animate);
       // 다른 탭에 가 있는 동안은 한 프레임도 그리지 않는다. 안 보이는 곳에서
@@ -5445,6 +5483,13 @@ function noFollowClip(bossKey, name) {
       // 다른 창의 유튜브가 버퍼링에 걸리고 다른 프로그램이 버벅였다(사용자 지적, 2026-10-04).
       // hasFocus 는 페이지 안 iframe(전용 BGM 유튜브)에 포커스가 있어도 true 라 BGM 을 눌러도 안 멈춘다.
       if (state.offscreen || !document.hasFocus()) { clock.getDelta(); return; }
+      // 초당 장수 상한(성능 설정). 사이 프레임은 건너뛰고, 흐른 시간은 clock 이 다음 그림에 몰아 넘긴다.
+      // 1ms 여유 - 60Hz 모니터에서 16.6ms 로 들어온 프레임을 버려 30장으로 떨어지지 않게.
+      if (perf.fps && now) {
+        const gap = 1000 / perf.fps, el = now - (state.lastDraw || 0);
+        if (el < gap - 1) return;
+        state.lastDraw = el >= gap ? now - (el % gap) : now;
+      }
       state.step(clock.getDelta(), true);
     }
     animate();
