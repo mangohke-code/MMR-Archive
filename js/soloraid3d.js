@@ -2642,6 +2642,11 @@ function pixelRatioFor(cssHeight) {
   if (!perf.res || !cssHeight) return native;
   return Math.max(0.25, Math.min(native, perf.res / cssHeight));
 }
+// 지금 실제로 그리는 초당 장수를 프레임 제목 옆에. 안 그리는 동안(일시정지 · 다른 창 보는 중)은 멈춤
+function showFpsNow(fps) {
+  const el = document.getElementById('sr3d-fps-now');
+  if (el) el.textContent = fps ? `${fps}fps` : '멈춤';
+}
 // 지금 실제로 그리는 해상도를 해상도 제목 옆에
 function showResNow(renderer) {
   const el = document.getElementById('sr3d-res-now');
@@ -5477,6 +5482,7 @@ function noFollowClip(bossKey, name) {
       }
       if (composer) composer.render();
       else renderer.render(scene, camera);
+      state.drawn = (state.drawn || 0) + 1;   // 프레임 표시용(animate 가 1초마다 센다)
       if (fxCode && window.createSkillcut) {
         // 그 연출을 트는 동안 타임라인 시각으로 그리고, 아니면 숨긴다. 데이터 · 그림은 그 연출을 처음 틀 때 받는다
         const inClip = cinematic && camIsClock() && currentAction && fxRule.re.test(currentAction.getClip().name || '');
@@ -5497,6 +5503,15 @@ function noFollowClip(bossKey, name) {
     function animate(now) {
       if (container.__soloRaidModel3D !== state) return; // dispose됨
       state.rafId = requestAnimationFrame(animate);
+      // 1초마다 실제로 그린 장수를 프레임 제목 옆에(성능 설정)
+      if (now) {
+        if (!state.fpsAt) state.fpsAt = now;
+        if (now - state.fpsAt >= 1000) {
+          showFpsNow(Math.round((state.drawn || 0) * 1000 / (now - state.fpsAt)));
+          state.drawn = 0;
+          state.fpsAt = now;
+        }
+      }
       // 다른 탭에 가 있는 동안은 한 프레임도 그리지 않는다. 안 보이는 곳에서
       // 계속 돌면 배터리와 GPU 만 먹는다. getDelta 는 버려서 돌아왔을 때
       // 그동안 흐른 시간이 한꺼번에 밀려들지 않게 한다.
@@ -5506,6 +5521,8 @@ function noFollowClip(bossKey, name) {
       if (state.offscreen || !document.hasFocus()) { clock.getDelta(); return; }
       // 초당 장수 상한(성능 설정). 사이 프레임은 건너뛰고, 흐른 시간은 clock 이 다음 그림에 몰아 넘긴다.
       // 1ms 여유 - 60Hz 모니터에서 16.6ms 로 들어온 프레임을 버려 30장으로 떨어지지 않게.
+      // (Claude 앱 안 브라우저는 그리지 않은 프레임 뒤 rAF 를 1초씩 멈춰서 상한을 걸면 장수가 크게 떨어져 보인다.
+      // 일반 브라우저는 rAF 가 모니터 주사율대로 계속 와서 그렇지 않다 - 타이머로 우회해도 그 환경에선 같았다.)
       if (perf.fps && now) {
         const gap = 1000 / perf.fps, el = now - (state.lastDraw || 0);
         if (el < gap - 1) return;

@@ -5431,7 +5431,7 @@
   /* 보기 토글 3개는 글자 길이가 제각각이라 flex-wrap 으로는 2+1 로 어정쩡하게
      갈린다("단면 표시"만 아래로 떨어졌다). 3등분 그리드로 고정한다. */
   /* 성능 설정 - 지금 실제로 그리는 해상도 */
-  #sr3d-res-now { margin-left: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  #sr3d-fps-now, #sr3d-res-now { margin-left: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .sr3d-row.sr3d-grid3 {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
