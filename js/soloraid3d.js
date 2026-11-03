@@ -2623,17 +2623,31 @@ window.addEventListener('pointermove', e => { if (e.buttons) requestRedraw(); },
 
 // ── 성능 설정(사용자 요청, 2026-11-03) ───────────────────────────
 // 뷰어는 모니터 주사율만큼 그린다(144Hz 면 초당 144장). 뷰어를 보는 동안 다른 창의 영상이 끊겨서
-// 초당 장수 상한과 그리는 해상도 배율을 고르게 한다. 이 브라우저에 기억한다. 기본은 초당 60장 · 2배.
+// 초당 장수 상한과 그리는 해상도를 고르게 한다. 이 브라우저에 기억한다. 기본은 초당 60장 · 원본.
+// 해상도는 3D 칸을 그리는 세로 점 수의 상한이다(720p · 1080p). 배율로 고르게 했더니 1080p · 4K 처럼 감이
+// 안 왔다(사용자 지적, 2026-11-03). 원본은 칸 크기 x 디스플레이 배율(최대 2배) 그대로. 상한이 그보다 낮으면
+// 작게 그려서 늘려 보인다 - 100% 배율 모니터에서도 부담이 준다.
 const PERF_KEY = 'mmr-sr3d-perf';
 const PERF_FPS = [30, 60, 0];          // 0 = 상한 없음(모니터 주사율)
-const PERF_RES = [1, 1.5, 2];
-const perf = { fps: 60, res: 2 };
+const PERF_RES = [720, 1080, 0];       // 0 = 원본
+const perf = { fps: 60, res: 0 };
 try {
   const v = JSON.parse(localStorage.getItem(PERF_KEY) || '{}');
   if (PERF_FPS.includes(v.fps)) perf.fps = v.fps;
   if (PERF_RES.includes(v.res)) perf.res = v.res;
 } catch (e) { /* 저장소를 못 쓰면 기본값 */ }
-const pixelRatioFor = () => Math.min(window.devicePixelRatio || 1, perf.res);
+// 칸 높이(CSS 픽셀)에 맞춘 그리기 배율
+function pixelRatioFor(cssHeight) {
+  const native = Math.min(window.devicePixelRatio || 1, 2);
+  if (!perf.res || !cssHeight) return native;
+  return Math.max(0.25, Math.min(native, perf.res / cssHeight));
+}
+// 지금 실제로 그리는 해상도를 해상도 제목 옆에
+function showResNow(renderer) {
+  const el = document.getElementById('sr3d-res-now');
+  const c = renderer && renderer.domElement;
+  if (el && c && c.width) el.textContent = `${c.width}×${c.height}`;
+}
 
 function bindPerfButtons(id, key) {
   const box = document.getElementById(id);
@@ -2797,17 +2811,23 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
     if (!w || !h) return;
     // 세 번째 인자를 false 로 두면 CSS 크기를 안 고쳐서, 버퍼만 줄고 화면에서는
     // 예전 폭 그대로 남아 옆 칸을 덮는다. 기본값(true)으로 둬야 한다.
+    // 해상도 상한(성능 설정)이 칸 높이에 따라 배율이 달라지므로 크기와 함께 다시 맞춘다.
+    const ratio = pixelRatioFor(h);
+    renderer.setPixelRatio(ratio);
+    if (composer) composer.setPixelRatio(ratio);
     renderer.setSize(w, h);
     if (composer) composer.setSize(w, h);
     if (bloomPass) bloomPass.setSize(w, h);
+    showResNow(renderer);
     st.camera.aspect = w / h;
     st.camera.updateProjectionMatrix();
     // 캔버스 크기가 바뀌면 그려 둔 그림이 지워진다 - 일시정지 중이어도 다시 그린다
     requestRedraw();
   });
   resizeObserver.observe(container);
-  renderer.setPixelRatio(pixelRatioFor());
+  renderer.setPixelRatio(pixelRatioFor(height));
   container.appendChild(renderer.domElement);
+  showResNow(renderer);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
@@ -2861,11 +2881,12 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
   }
 
   const state = { renderer, scene, camera, controls, rafId: null, paused: false, resizeObserver };
-  // 성능 설정에서 해상도 배율을 바꾸면 - 후처리 사슬(블룸 포함)도 같은 배율로
+  // 성능 설정에서 해상도를 바꾸면 - 후처리 사슬(블룸 포함)도 같은 배율로
   state.applyPixelRatio = () => {
-    const r = pixelRatioFor();
+    const r = pixelRatioFor(container.clientHeight);
     renderer.setPixelRatio(r);
     if (composer) composer.setPixelRatio(r);
+    showResNow(renderer);
   };
   container.__soloRaidModel3D = state;
   liveStates.add(state);
