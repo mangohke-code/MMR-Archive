@@ -17,8 +17,6 @@
 팬 사이트로서 정보 제공 목적으로만 사용하며, 이 프로젝트는 그에 대한 어떠한 권리도 주장하지
 않습니다.
 
-**저작권자 또는 정당한 권리자의 요청이 있을 경우, 해당 자료를 즉시 삭제합니다.**
-
 ### Copyright Notice (English)
 
 This is an **unofficial fan-made site** and is **not affiliated with, endorsed by, or
@@ -28,8 +26,6 @@ All game assets contained in this repository and on the site — including image
 names, dialogue, and animation data — are the property of **SHIFT UP CORP.** and
 **Level Infinite**. They are used here for informational, non-commercial fan purposes only,
 and this project claims no ownership of them.
-
-**Any material will be removed immediately upon request from the copyright holder.**
 
 ---
 
