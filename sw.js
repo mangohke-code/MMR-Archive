@@ -12,7 +12,7 @@
  * 파일 이름은 그대로 두고 그림만 바꾼 경우에는 아래 CACHE 의 숫자를 올려야 한다.
  * 올리면 예전 캐시를 통째로 버리고 처음부터 다시 담는다.
  */
-const CACHE = 'mmr-img-v1';
+const CACHE = 'mmr-img-v2';
 const IMG_RE = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
 
 self.addEventListener('install', (e) => {

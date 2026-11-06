@@ -618,7 +618,7 @@
       const atlas = String(row[`atlas${n}`] || '').trim();
       if (!skel || !atlas) continue;
       const owner = versions[versions.length - 1];
-      if (owner) extraSpines.push({ ...owner, skel, atlas });
+      if (owner) extraSpines.push({ ...owner, skel, atlas, image: String(row[`이미지${n}`] || '').trim() });
     }
 
     // 스파인 목록 (skel/atlas 있는 버전만)
@@ -668,33 +668,16 @@
       .map(v => `<span>${v.squad}</span>`)
       .join(' <span class="detail-arrow">→</span> ');
 
-    // 등장 시점 — 클릭으로 스파인 전환
-    // 프리티처럼 같은 등장 시기에 모델이 둘인 경우가 있다. 그 줄 아래에 모델 번호 버튼을
-    // 달아서 같은 자리에서 바꿔 볼 수 있게 한다.
+    // 등장 시점. 모습 전환은 왼쪽 조작판(renderVersionPicker)에서 한다.
     const appearsEl = document.getElementById('codex-detail-appears');
-    appearsEl.innerHTML = versions.map(v => {
-      const mine = currentSpineList
-        .map((s, idx) => ({ s, idx }))
-        .filter(({ s }) => s.appear === v.appear && s.num === v.num);
-      const hasSpine = mine.length > 0;
-      const firstIdx = hasSpine ? mine[0].idx : -1;
-      const picker = mine.length > 1
-        ? `<div class="detail-appear-models">` + mine.map(({ idx }, k) =>
-            `<button class="detail-model-btn" data-spine-idx="${idx}"
-                     onclick="event.stopPropagation(); selectSpineByAppear(${idx})">모델 ${k + 1}</button>`
-          ).join('') + `</div>`
-        : '';
-      return `
-        <div class="detail-appear-item ${hasSpine ? 'has-spine' : ''}"
-             data-spine-idx="${firstIdx}"
-             onclick="${hasSpine ? `selectSpineByAppear(${firstIdx})` : ''}">
-          <span class="detail-appear-num">등장${v.num}</span>
-          <span class="detail-appear-val">${v.appear || '미등장'}</span>
-          ${hasSpine ? '<span class="detail-appear-spine-icon">▶</span>' : ''}
-        </div>
-        ${picker}
-      `;
-    }).join('');
+    appearsEl.innerHTML = versions.map(v => `
+      <div class="detail-appear-item">
+        <span class="detail-appear-num">등장${v.num}</span>
+        <span class="detail-appear-val">${v.appear || '미등장'}</span>
+      </div>
+    `).join('');
+
+    renderVersionPicker();
 
     // 스파인 로드 (최신 버전)
     if (currentSpineList.length > 0) {
@@ -706,8 +689,31 @@
       const still = versions.slice().reverse().find(v => v.image);
       if (still) showCodexStill(still.image, still.name);
     }
+  }
 
-    syncAppearHighlight();
+  // 등장 시기마다 다른 모습 고르기. 같은 등장 시기에 모델이 둘이면(프리티 · 도로시) 모델 번호를 붙인다.
+  function renderVersionPicker() {
+    const box = document.getElementById('codex-version');
+    if (currentSpineList.length < 2) {
+      box.innerHTML = '';
+      box.classList.add('hidden');
+      return;
+    }
+    const label = s => {
+      const same = currentSpineList.filter(o => o.appear === s.appear);
+      const model = same.length > 1 ? `모델 ${same.indexOf(s) + 1}` : '';
+      return [s.appear, model].filter(Boolean).join(' ');
+    };
+    box.classList.remove('hidden');
+    box.innerHTML = currentSpineList.map((s, i) => `
+      <button class="anim-btn variation-btn${i === currentSpineIdx ? ' active' : ''}" data-spine-idx="${i}">
+        <span class="variation-portrait">${s.image ? `<img src="${s.image}" alt="">` : '<i class="fas fa-user"></i>'}</span>
+        <span class="variation-label">${label(s)}</span>
+      </button>`
+    ).join('');
+    box.querySelectorAll('.variation-btn').forEach(btn => {
+      btn.addEventListener('click', () => selectSpineVersion(Number(btn.dataset.spineIdx)));
+    });
   }
 
   // L2D 대신 그림 한 장. 조작판 · 재생 막대는 쓸 데가 없어서 감춘다(.is-still).
@@ -722,25 +728,12 @@
     document.getElementById('codex-spine-wrap').classList.add('is-still');
   }
 
-  function selectSpineByAppear(spineIdx) {
+  function selectSpineVersion(spineIdx) {
     if (spineIdx < 0 || spineIdx >= currentSpineList.length) return;
     currentSpineIdx = spineIdx;
     const { skel, atlas } = currentSpineList[currentSpineIdx];
     loadCodexSpine(skel, atlas);
-    syncAppearHighlight();
-  }
-
-  function syncAppearHighlight() {
-    const cur = currentSpineList[currentSpineIdx];
-    document.querySelectorAll('.detail-appear-item').forEach(el => {
-      // 모델이 여럿인 줄은 그 줄에 딸린 어느 모델이든 보고 있으면 켠다
-      const idx = Number(el.dataset.spineIdx);
-      const mine = cur && currentSpineList[idx]
-        && currentSpineList[idx].appear === cur.appear
-        && currentSpineList[idx].num === cur.num;
-      el.classList.toggle('active', !!mine && el.classList.contains('has-spine'));
-    });
-    document.querySelectorAll('.detail-model-btn').forEach(el => {
+    document.querySelectorAll('#codex-version .variation-btn').forEach(el => {
       el.classList.toggle('active', Number(el.dataset.spineIdx) === currentSpineIdx);
     });
   }
@@ -867,6 +860,9 @@
             rebuildSkin();
             renderPartsToggle('codex-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
 
+            // 지금 고른 동작·표정. 시점 초기화는 이걸 유지하고, 모델 클릭은 표정만 푼다.
+            let currentAnim = idleOf(player2.skeleton.data);
+
             // 표정·동작 고르기. 코스튬 페이지와 같은 UI 를 그대로 쓴다.
             const animOpts = {
               motionId: 'codex-anim-toggle',
@@ -875,8 +871,10 @@
               replace:  subset ? subset.replace : undefined,
               onPick:   name => {
                 try {
+                  player2.animationState.clearListeners();
                   player2.setAnimation(name, true);
                   player2.play();
+                  currentAnim = name;
                   markCostumeAnimActive(name, animOpts);
                 } catch (err) {
                   console.error('[캐릭터 도감 L2D] 애니메이션 적용 실패:', name, err);
@@ -900,7 +898,7 @@
                 codexPanZoom.reset();
                 try {
                   player2.animationState.clearListeners();
-                  player2.setAnimation(idleOf(player2.skeleton.data), true);
+                  player2.setAnimation(currentAnim, true);
                 } catch (err) {
                   console.error('[캐릭터 도감 L2D] 초기화 실패:', err);
                 }
@@ -910,12 +908,19 @@
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               try {
-                if (!player2.skeleton.data.findAnimation('action')) return;
+                const motion = costumeMotionOf(currentAnim, animOpts);
+                const changed = motion !== currentAnim;
+                currentAnim = motion;
+                markCostumeAnimActive(motion, animOpts);
+                if (!player2.skeleton.data.findAnimation('action')) {
+                  if (changed) player2.setAnimation(motion, true);
+                  return;
+                }
                 player2.setAnimation('action', false);
                 player2.animationState.addListener({
                   complete: () => {
                     try {
-                      player2.setAnimation(idleOf(player2.skeleton.data), true);
+                      player2.setAnimation(currentAnim, true);
                     } catch (err) {
                       console.error('[캐릭터 도감 L2D] 대기 애니메이션 복귀 실패:', err);
                     }

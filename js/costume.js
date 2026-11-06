@@ -460,6 +460,9 @@
   // 실제로 36개 스켈레톤을 훑어보니 그런 이름이 여럿 있었다.
   const COSTUME_MOTION_RE = /^(idle|action)([_\d]|$)/;
 
+  // 동작이긴 해도 버튼으로는 안 둔다. action 은 모델을 눌렀을 때의 반응으로 그대로 재생된다.
+  const COSTUME_UNLISTED_MOTION_RE = /^(action|idle_alt)/;
+
   const COSTUME_DEFAULT_ANIM = 'idle';
 
   // 지금 모든 레이어가 함께 재생 중인 애니메이션. 추가 파츠 레이어는 본체보다 늦게
@@ -522,9 +525,12 @@
 
   function classifyCostumeAnimations(skeletonData) {
     const names = skeletonData.animations.map(a => a.name).filter(n => !COSTUME_HIDDEN_ANIM_RE.test(n));
+    const allMotions = names.filter(n => COSTUME_MOTION_RE.test(n));
     return {
-      motions: names.filter(n => COSTUME_MOTION_RE.test(n)),
+      motions: allMotions.filter(n => !COSTUME_UNLISTED_MOTION_RE.test(n)),
       expressions: names.filter(n => !COSTUME_MOTION_RE.test(n)),
+      // idle 없이 action 만 든 스켈레톤은 버튼이 없어도 "기본"이 돌아갈 동작이 있어야 한다
+      firstMotion: allMotions[0],
     };
   }
 
@@ -662,17 +668,33 @@
     const motionId = (opts && opts.motionId) || 'costume-anim-toggle';
     const exprId   = (opts && opts.exprId)   || 'costume-expression';
     const onPick   = (opts && opts.onPick)   || applyCostumeAnimation;
-    const { motions, expressions } = classifyCostumeAnimations(skeletonData);
+    const { motions, expressions, firstMotion } = classifyCostumeAnimations(skeletonData);
+
+    // 동작에 번호 변형이 있으면(도로시 idle / idle_2) 표정과 같은 열에 맞춘다. 왼쪽 열 = 기본형,
+    // 오른쪽 열 = 변형이라 어느 표정이 어느 동작과 같은 모습인지 세로로 읽힌다.
+    // 변형이 없는 코스튬은 맞출 열이 없으니 예전처럼 나란히 둔다.
+    const motionRows = groupExpressionsByVariant(motions);
+    const exprRows = groupExpressionsByVariant(expressions);
+    const motionSplit = motionRows.some(r => r.slots.length > 1);
+    const cols = Math.max(expressionColumnCount(exprRows), expressionColumnCount(motionRows));
 
     const motionBox = document.getElementById(motionId);
     if (motionBox) {
+      motionBox.classList.toggle('is-columns', motionSplit);
       if (motions.length <= 1) {
         motionBox.innerHTML = '';
         motionBox.classList.add('hidden');
       } else {
+        const motionBtn = n => `<button class="anim-btn" data-anim="${n}">${n}</button>`;
         motionBox.classList.remove('hidden');
-        motionBox.innerHTML = motions.map(n =>
-          `<button class="anim-btn" data-anim="${n}">${n}</button>`).join('');
+        motionBox.style.setProperty('--expr-cols', cols);
+        motionBox.innerHTML = motionSplit
+          ? motionRows.map(r => {
+              let cells = '';
+              for (let i = 0; i < cols; i++) cells += r.slots[i] ? motionBtn(r.slots[i]) : `<span class="expr-empty"></span>`;
+              return cells;
+            }).join('')
+          : motions.map(motionBtn).join('');
         motionBox.querySelectorAll('.anim-btn').forEach(btn => {
           btn.addEventListener('click', () => onPick(btn.dataset.anim));
         });
@@ -687,14 +709,23 @@
       } else {
         // opts.base - 대기를 idle 말고 다른 이름으로 쓰는 스켈레톤(도감의 온리 원 c992 = special)
         const base = (opts && opts.base)
-          || (motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || COSTUME_DEFAULT_ANIM));
-        const rows = groupExpressionsByVariant(expressions);
-        const cols = expressionColumnCount(rows);
+          || (motions.includes(COSTUME_DEFAULT_ANIM) ? COSTUME_DEFAULT_ANIM : (motions[0] || firstMotion || COSTUME_DEFAULT_ANIM));
+        // 대기 동작에 변형이 있으면 "기본" 도 열마다 둔다. 하나뿐이면 어느 열에서든 왼쪽 모습으로 돌아간다.
+        const baseRow = opts && opts.base ? null : motionRows.find(r => r.base === base);
+        const baseSlots = baseRow && baseRow.slots.length > 1 ? baseRow.slots : null;
         // opts.replace - 버튼 자리는 그대로 두고 실제로 틀 동작만 바꾼다({ angry: 'angry_02' })
         const play = name => (opts && opts.replace && opts.replace[name]) || name;
-        const cell = name => name
-          ? `<button class="anim-btn expr-btn" data-anim="${play(name)}">${name}</button>`
+        // 표정은 대기 동작의 얼굴만 바꾼 것이라 같은 열의 대기 동작이 곧 그 표정의 동작이다.
+        // 그 열에 변형이 없으면 기본 대기로 본다.
+        const motionOf = col => (baseSlots && baseSlots[col]) || base;
+        const cell = (name, col) => name
+          ? `<button class="anim-btn expr-btn" data-anim="${play(name)}" data-motion="${motionOf(col)}">${name}</button>`
           : `<span class="expr-empty"></span>`;
+        const baseCell = name => name
+          ? `<button class="anim-btn expr-btn expr-base" data-anim="${name}" data-motion="${name}">기본${name.slice(baseRow.base.length)}</button>`
+          : `<span class="expr-empty"></span>`;
+        let baseCells = '';
+        if (baseSlots) for (let i = 0; i < cols; i++) baseCells += baseCell(baseSlots[i]);
         exprBox.classList.remove('hidden');
         // 평소에는 버튼만 놓고 접어 둔다. 모델을 가리지 않게 하려는 것이다.
         exprBox.classList.add('is-collapsed');
@@ -702,11 +733,12 @@
             `<button class="expr-toggle" type="button" aria-expanded="false">`
           + `<span>표정</span><i class="fas fa-chevron-down"></i></button>`
           + `<div class="expr-panel">`
-          + `<button class="anim-btn expr-btn expr-base" data-anim="${base}">기본</button>`
+          + (baseSlots ? '' : `<button class="anim-btn expr-btn expr-base" data-anim="${base}" data-motion="${base}">기본</button>`)
           + `<div class="expr-grid" style="--expr-cols:${cols}">`
-          + rows.map(r => {
+          + baseCells
+          + exprRows.map(r => {
               let cells = '';
-              for (let i = 0; i < cols; i++) cells += cell(r.slots[i]);
+              for (let i = 0; i < cols; i++) cells += cell(r.slots[i], i);
               return cells;
             }).join('')
           + `</div></div>`;
@@ -724,18 +756,27 @@
     }
   }
 
+  // 표정을 풀었을 때 돌아갈 동작. 표정이 아니면 그대로다.
+  function costumeMotionOf(name, opts) {
+    const exprId = (opts && opts.exprId) || 'costume-expression';
+    const btn = document.querySelector(`#${exprId} .expr-btn[data-anim="${name}"]`);
+    return btn ? btn.dataset.motion : name;
+  }
+
   function markCostumeAnimActive(name, opts) {
     const motionId = (opts && opts.motionId) || 'costume-anim-toggle';
     const exprId   = (opts && opts.exprId)   || 'costume-expression';
-    document.querySelectorAll(`#${motionId} .anim-btn`).forEach(b => {
-      b.classList.toggle('active', b.dataset.anim === name);
-    });
     // 표정 줄은 "기본" 버튼도 같은 data-anim 을 쓰므로 첫 일치만 켠다
-    let marked = false;
+    let picked = null;
     document.querySelectorAll(`#${exprId} .expr-btn`).forEach(b => {
-      const hit = !marked && b.dataset.anim === name;
+      const hit = !picked && b.dataset.anim === name;
       b.classList.toggle('active', hit);
-      if (hit) marked = true;
+      if (hit) picked = b;
+    });
+    // 표정을 골라도 그 표정이 속한 동작은 켜 둔다
+    const motion = picked ? picked.dataset.motion : name;
+    document.querySelectorAll(`#${motionId} .anim-btn`).forEach(b => {
+      b.classList.toggle('active', b.dataset.anim === motion);
     });
   }
 
@@ -929,8 +970,15 @@
 
         player2.canvas.addEventListener('click', () => {
           try {
-            if (!reactions.length) return;
-            // 클릭하면 반응을 한 번 보여주고 원래 보던 동작으로 돌아온다. 반응이 여럿이면
+            // 모델을 누르면 표정은 풀린다. 고른 동작(idle / idle_02)은 그대로 둔다.
+            const motion = costumeMotionOf(costumeCurrentAnim);
+            if (!reactions.length) {
+              if (motion !== costumeCurrentAnim) applyCostumeAnimation(motion);
+              return;
+            }
+            costumeCurrentAnim = motion;
+            markCostumeAnimActive(motion);
+            // 클릭하면 반응을 한 번 보여주고 고른 동작으로 돌아온다. 반응이 여럿이면
             // 누를 때마다 다음 것으로 넘어간다.
             const name = reactions[costumeReactionIndex % reactions.length];
             costumeReactionIndex++;
@@ -938,7 +986,9 @@
             activeSpinePlayers.forEach(p => playReactionOn(p, name));
             player2.animationState.clearListeners();
             player2.animationState.addListener({
-              complete: () => {
+              complete: entry => {
+                // 위 트랙(배경 · 얼굴)은 반복하면서 계속 complete 를 낸다. 반응 자체가 끝날 때만 돌아간다.
+                if (entry.trackIndex !== 0) return;
                 applyCostumeAnimation(costumeCurrentAnim);
                 player2.animationState.clearListeners();
               }
