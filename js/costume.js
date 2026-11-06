@@ -970,12 +970,9 @@
 
         player2.canvas.addEventListener('click', () => {
           try {
-            // 모델을 누르면 표정은 풀린다. 고른 동작(idle / idle_02)은 그대로 둔다.
+            if (!reactions.length) return;
+            // 반응이 있으면 표정은 풀린다. 고른 동작(idle / idle_02)은 그대로 둔다.
             const motion = costumeMotionOf(costumeCurrentAnim);
-            if (!reactions.length) {
-              if (motion !== costumeCurrentAnim) applyCostumeAnimation(motion);
-              return;
-            }
             costumeCurrentAnim = motion;
             markCostumeAnimActive(motion);
             // 클릭하면 반응을 한 번 보여주고 고른 동작으로 돌아온다. 반응이 여럿이면

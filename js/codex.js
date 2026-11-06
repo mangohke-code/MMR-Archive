@@ -860,7 +860,7 @@
             rebuildSkin();
             renderPartsToggle('codex-parts-toggle', partSkins, enabledParts, rebuildSkin, { style: 'button' });
 
-            // 지금 고른 동작·표정. 시점 초기화는 이걸 유지하고, 모델 클릭은 표정만 푼다.
+            // 지금 고른 동작·표정. 시점 초기화는 이걸 유지하고, 모델 클릭 반응은 표정만 푼다.
             let currentAnim = idleOf(player2.skeleton.data);
 
             // 표정·동작 고르기. 코스튬 페이지와 같은 UI 를 그대로 쓴다.
@@ -908,14 +908,9 @@
             player2.animationState.data.defaultMix = 0;
             player2.canvas.addEventListener('click', () => {
               try {
-                const motion = costumeMotionOf(currentAnim, animOpts);
-                const changed = motion !== currentAnim;
-                currentAnim = motion;
-                markCostumeAnimActive(motion, animOpts);
-                if (!player2.skeleton.data.findAnimation('action')) {
-                  if (changed) player2.setAnimation(motion, true);
-                  return;
-                }
+                if (!player2.skeleton.data.findAnimation('action')) return;
+                currentAnim = costumeMotionOf(currentAnim, animOpts);
+                markCostumeAnimActive(currentAnim, animOpts);
                 player2.setAnimation('action', false);
                 player2.animationState.addListener({
                   complete: () => {
