@@ -99,11 +99,18 @@
       const wrap = row.querySelector('.costume-portrait-scroll-wrap');
       if (!wrap) return;
       const needsScroll = wrap.scrollWidth > wrap.clientWidth + 1;
+      // 화살표를 카드 전체 높이·위치에 맞춘다. 코스튬명이 두 줄인 해는 카드가 더 길다.
+      const card = wrap.querySelector('.costume-portrait-item');
+      const cardH = card ? card.offsetHeight : 0;
+      // 위치는 카드 대신 스크롤 칸으로 잰다(카드는 마우스를 올리면 떠올라서 값이 흔들린다).
+      const top = cardH ? Math.round(wrap.getBoundingClientRect().top - row.getBoundingClientRect().top
+                                     + parseFloat(getComputedStyle(wrap).paddingTop)) : 0;
       // 숨길 때도 자리는 남긴다(보이지만 않게). 자리째 빼면 화살표가 있는 연도만 첫 코스튬이 오른쪽으로 밀려
       // 연도끼리 첫 칸이 세로로 안 맞았다(사용자 지적, 2026-10-10).
       row.querySelectorAll('.costume-scroll-btn').forEach(btn => {
         btn.classList.toggle('is-idle', !needsScroll);
         btn.tabIndex = needsScroll ? 0 : -1;
+        if (cardH) { btn.style.height = cardH + 'px'; btn.style.marginTop = top + 'px'; }
       });
     });
   }

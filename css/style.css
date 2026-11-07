@@ -3417,7 +3417,11 @@
   .costume-scroll-btn {
     flex: 0 0 auto;
     width: 28px;
-    height: 32px;
+    /* 카드 전체와 같은 높이·위치(사용자 요청, 2026-11-07). 실제 값은 costume.js 가 카드를 재서 넣는다.
+       아래 값은 재기 전 자리(목록 위 여백 6px, 카드 높이 355px). */
+    height: 355px;
+    align-self: flex-start;
+    margin-top: 6px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-strong);
     background: var(--bg-page);
