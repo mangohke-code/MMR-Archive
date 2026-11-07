@@ -19,14 +19,20 @@
   const MIN_OPEN_MS = 3000;          // 탭을 열고 이보다 빨리 보내면 사람이 아닌 걸로 본다
   const COOLDOWN_MS = 60 * 1000;     // 한 번 보내면 1분은 쉰다
   const LAST_KEY = 'mmr_contact_last';
-  const PAGE = 10;                   // 목록을 한 번에 이만큼씩
-  const COLS = '번호,내용,작성일,상태,답변,답변일';
+  const PAGE = 12;                   // 목록을 한 번에 이만큼씩(카드 1 · 2 · 3열에서 줄이 딱 맞는다)
+  const FETCH = 1000;                // 받아 올 때 한 번에 이만큼씩(DB 응답 상한)
+  const ORDER_KEY = 'mmr-contact-oldest-first';
+  const COLS = '내용,작성일,상태,답변,답변일';
   // 상태 → 칩 모양. DB 의 문의_상태 형식과 같은 값
   const STATUS_CLASS = { '접수': 'is-new', '처리 중': 'is-doing', '처리 완료': 'is-done' };
 
   let openedAt = Date.now();
-  let loaded = 0;          // 목록에 그린 개수
-  let total = null;        // 보이는 문의 전체 개수
+  let rows = [];           // 공개 문의 전부(최신부터, 번호 no 를 붙여서)
+  let shown = PAGE;        // 지금 보여 주는 개수
+  let statusFilter = '';   // 고른 상태. 빈 값이면 전체
+  let oldestFirst = (() => {
+    try { return localStorage.getItem(ORDER_KEY) === '1'; } catch (e) { return false; }
+  })();
   let privTotal = null;    // 비공개 문의 개수(숨김 제외)
   let loading = false;
   let boardStarted = false;
@@ -97,7 +103,7 @@
     try { localStorage.setItem(LAST_KEY, String(Date.now())); } catch (e) { /* 무시 */ }
     done(priv);
     // 비공개도 개수가 바뀌므로 목록을 다시 부른다
-    reloadBoard();
+    loadBoard();
   }
 
   // 보낼 내용을 보여 주고 보낼지 묻는다. 확인 창은 처음 한 번만 만든다.
@@ -157,6 +163,8 @@
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  // r.no - 화면에 보이는 번호. DB 번호는 비공개 · 삭제로 비거나 건너뛰고 고칠 수도 없어서,
+  // 보이는 공개 문의를 오래된 것부터 1번으로 센다. 숨기거나 지우면 뒤 번호가 당겨진다.
   function itemHtml(r) {
     const st = r['상태'] || '접수';
     const answer = r['답변'] ? `
@@ -167,7 +175,7 @@
     return `
       <li class="contact-item">
         <div class="contact-item-head">
-          <span class="contact-no">#${esc(r['번호'])}</span>
+          <span class="contact-no">#${r.no}</span>
           <time>${fmtDate(r['작성일'])}</time>
           <span class="contact-state ${STATUS_CLASS[st] || ''}">${esc(st)}</span>
         </div>
@@ -176,55 +184,84 @@
       </li>`;
   }
 
-  async function loadMore() {
+  // 카드를 빈틈 없이 쌓는다. 격자의 줄을 아주 낮게 두고 카드마다 제 높이만큼 줄을 차지하게
+  // 하면, 다음 카드가 가장 짧은 열 밑으로 들어간다. 폭이 바뀌어 높이가 달라지면 다시 잰다.
+  const cardSizer = new ResizeObserver(entries => {
+    const style = getComputedStyle($('contact-list'));
+    const row = parseFloat(style.gridAutoRows);
+    const gap = parseFloat(style.columnGap);
+    entries.forEach(e => {
+      const h = e.target.offsetHeight;
+      if (h) e.target.style.gridRowEnd = `span ${Math.ceil((h + gap) / row)}`;
+    });
+  });
+
+  function sizeCards() {
+    $('contact-list').querySelectorAll('li').forEach(li => cardSizer.observe(li));
+  }
+
+  // 공개 문의를 전부 받아 둔다. 번호는 전체 기준이라 필터 · 정렬을 바꿔도 그대로여야 한다.
+  async function loadBoard() {
     if (loading) return;
     loading = true;
-    $('contact-more').disabled = true;
-    let res;
-    // 첫 쪽을 부를 때 비공개 개수도 같이 센다(표는 못 읽으니 개수만 돌려주는 함수, 사용자 요청 2026-10-31)
-    const privReq = loaded ? null : Promise.resolve(supabaseClient.rpc('문의_비공개_개수')).catch(e => ({ error: e }));
+    // 비공개 개수도 같이 센다(표는 못 읽으니 개수만 돌려주는 함수, 사용자 요청 2026-10-31)
+    const privReq = Promise.resolve(supabaseClient.rpc('문의_비공개_개수')).catch(e => ({ error: e }));
+    const all = [];
+    let failed = false;
     try {
-      res = await supabaseClient.from('문의').select(COLS, { count: 'exact' })
-        .order('작성일', { ascending: false }).range(loaded, loaded + PAGE - 1);
+      for (;;) {
+        const res = await supabaseClient.from('문의').select(COLS)
+          .order('작성일', { ascending: false }).range(all.length, all.length + FETCH - 1);
+        if (res.error) throw res.error;
+        all.push(...res.data);
+        if (res.data.length < FETCH) break;
+      }
     } catch (e) {
-      res = { error: e };
+      failed = true;
     }
-    if (privReq) {
-      const pr = await privReq;
-      privTotal = pr && !pr.error && pr.data !== null && isFinite(pr.data) ? Number(pr.data) : null;
-    }
+    const pr = await privReq;
+    privTotal = pr && !pr.error && pr.data !== null && isFinite(pr.data) ? Number(pr.data) : null;
     loading = false;
-    $('contact-more').disabled = false;
-    const list = $('contact-list');
-    if (res.error) {
-      if (!loaded) list.innerHTML = '<li class="contact-empty">목록을 불러오지 못했어요.</li>';
+    if (failed) {
+      cardSizer.disconnect();
+      $('contact-list').innerHTML = '<li class="contact-empty">목록을 불러오지 못했어요.</li>';
+      sizeCards();
       $('contact-more').hidden = true;
       return;
     }
-    const rows = res.data || [];
-    if (typeof res.count === 'number') total = res.count;
-    if (!loaded && !rows.length) list.innerHTML = '<li class="contact-empty">아직 올라온 문의가 없어요.</li>';
-    else list.insertAdjacentHTML('beforeend', rows.map(itemHtml).join(''));
-    loaded += rows.length;
-    $('contact-board-count').textContent = [
-      total !== null ? `공개 ${total}건` : '',
-      privTotal !== null ? `비공개 ${privTotal}건` : '',
-    ].filter(Boolean).join(' · ');
-    $('contact-more').hidden = total === null ? rows.length < PAGE : loaded >= total;
+    rows = all.map((r, i) => ({ ...r, no: all.length - i }));
+    shown = PAGE;
+    renderBoard();
   }
 
-  function reloadBoard() {
-    loaded = 0;
-    total = null;
-    $('contact-list').innerHTML = '';
-    loadMore();
+  function renderBoard() {
+    const picked = rows.filter(r => !statusFilter || (r['상태'] || '접수') === statusFilter);
+    if (oldestFirst) picked.reverse();
+    const list = $('contact-list');
+    cardSizer.disconnect();
+    list.innerHTML = picked.length
+      ? picked.slice(0, shown).map(r => itemHtml(r)).join('')
+      : `<li class="contact-empty">${rows.length ? '해당하는 문의가 없어요.' : '아직 올라온 문의가 없어요.'}</li>`;
+    sizeCards();
+    $('contact-board-count').textContent = [
+      statusFilter ? `${statusFilter} ${picked.length}건` : '',
+      `공개 ${rows.length}건`,
+      privTotal !== null ? `비공개 ${privTotal}건` : '',
+    ].filter(Boolean).join(' · ');
+    $('contact-more').hidden = picked.length <= shown;
+  }
+
+  function syncOrderBtn() {
+    const btn = $('contact-order-btn');
+    btn.querySelector('span').textContent = oldestFirst ? '오래된순' : '최신순';
+    btn.querySelector('i').className = 'fas ' + (oldestFirst ? 'fa-arrow-up-short-wide' : 'fa-arrow-down-wide-short');
   }
 
   // 문의 탭을 처음 열 때 한 번만 불러온다
   function startBoard() {
     if (boardStarted) return;
     boardStarted = true;
-    loadMore();
+    loadBoard();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -234,7 +271,25 @@
     $('contact-body').addEventListener('input', sync);
     $('contact-private').addEventListener('change', sync);
     $('contact-send').addEventListener('click', send);
-    $('contact-more').addEventListener('click', loadMore);
+    $('contact-more').addEventListener('click', () => { shown += PAGE; renderBoard(); });
+
+    $('contact-filter').addEventListener('click', e => {
+      const btn = e.target.closest('.filter-chip');
+      if (!btn) return;
+      statusFilter = btn.dataset.status;
+      $('contact-filter').querySelectorAll('.filter-chip').forEach(b => b.classList.toggle('active', b === btn));
+      shown = PAGE;
+      renderBoard();
+    });
+
+    syncOrderBtn();
+    $('contact-order-btn').addEventListener('click', () => {
+      oldestFirst = !oldestFirst;
+      try { localStorage.setItem(ORDER_KEY, oldestFirst ? '1' : '0'); } catch (e) { /* 기억 못 해도 동작은 한다 */ }
+      syncOrderBtn();
+      shown = PAGE;
+      renderBoard();
+    });
 
     // 푸터의 "문의" 링크. 탭을 옮기고 맨 위로 올린다.
     document.querySelectorAll('.contact-open-btn').forEach(a => a.addEventListener('click', e => {
