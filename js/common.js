@@ -564,17 +564,30 @@ function setupL2dBar(barId, getPlayer, opts) {
     try { return (p && p.animationState && p.animationState.tracks[0]) || null; } catch (e) { return null; }
   };
 
-  bar.querySelector('[data-act="restart"]').addEventListener('click', () => {
-    const e = entryOf();
-    if (e) e.trackTime = 0;
-  });
+  const allPlayers = p => new Set([p, ...(opts && opts.layers ? opts.layers() : [])]);
+
+  // 시간을 옮긴다. 멈춰 있으면 플레이어가 자세를 다시 계산하지 않으므로 직접 적용한다.
+  const seekPlayers = time => {
+    const p = getPlayer();
+    if (!p) return;
+    allPlayers(p).forEach(q => {
+      const e = q.animationState && q.animationState.tracks[0];
+      if (!e) return;
+      e.trackTime = time;
+      if (q.paused && q.skeleton) {
+        q.animationState.apply(q.skeleton);
+        q.skeleton.updateWorldTransform();
+      }
+    });
+  };
+
+  bar.querySelector('[data-act="restart"]').addEventListener('click', () => seekPlayers(0));
 
   playBtn.addEventListener('click', () => {
     const p = getPlayer();
     if (!p) return;
     const resume = p.paused;
-    const players = new Set([p, ...(opts && opts.layers ? opts.layers() : [])]);
-    players.forEach(q => { if (resume) q.play(); else q.pause(); });
+    allPlayers(p).forEach(q => { if (resume) q.play(); else q.pause(); });
     syncPlayIcon();
   });
 
@@ -592,7 +605,7 @@ function setupL2dBar(barId, getPlayer, opts) {
     if (!e || !e.animation) return;
     const r = line.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
-    e.trackTime = ratio * e.animation.duration;
+    seekPlayers(ratio * e.animation.duration);
   };
   line.addEventListener('mousedown', ev => {
     seekTo(ev);
