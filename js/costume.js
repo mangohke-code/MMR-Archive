@@ -381,6 +381,7 @@
       atlasUrl: atlasUrl,
       backgroundColor: '#00000000',
       showControls: false,
+      ...spineLoadingConfig('costume-spine-wrap'),
       success: function(probePlayer) {
         callback(spineViewportBox(probePlayer));
         disposeSpinePlayer(probePlayer);
@@ -464,6 +465,9 @@
   const COSTUME_UNLISTED_MOTION_RE = /^(action|idle_alt)/;
 
   const COSTUME_DEFAULT_ANIM = 'idle';
+
+  // 원본에 똑같은 표정이 두 벌 든 코스튬은 뒤엣것을 버튼에서 뺀다(스타라이트 no2 = no, 럭셔리 래빗 smile = delight)
+  const COSTUME_HIDDEN_EXPRESSIONS = { c017_01: ['no2'], c200_01: ['smile'] };
 
   // 지금 모든 레이어가 함께 재생 중인 애니메이션. 추가 파츠 레이어는 본체보다 늦게
   // 준비될 수 있어서, 준비되는 시점에 이 값을 보고 같은 동작으로 맞춘다 — 본체는 표정을
@@ -792,6 +796,7 @@
       animation: knownAnimation || undefined,
       backgroundColor: '#00000000',
       showControls: false,
+      ...spineLoadingConfig('costume-spine-wrap'),
       preserveDrawingBuffer: false,
       antialias: true,
       viewport: viewportConfig,
@@ -816,6 +821,7 @@
   function clearCostumeSpinePlayer() {
     const wrap = document.getElementById('costume-spine-player');
     if (wrap) wrap.innerHTML = '';
+    setL2dLoading('costume-spine-wrap', false);
 
     const partsToggle = document.getElementById('costume-parts-toggle');
     if (partsToggle) { partsToggle.innerHTML = ''; partsToggle.classList.add('hidden'); }
@@ -857,6 +863,7 @@
       return;
     }
 
+    setL2dLoading('costume-spine-wrap', true);
     const wrap = document.getElementById('costume-spine-player');
     const wrapEl = document.getElementById('costume-spine-wrap');   // 팬 · 줌 손잡이(setupSpinePanZoom)가 쓴다
 
@@ -916,8 +923,14 @@
       // null 을 넘겨서 로드한 뒤 실제로 있는 것 중에서 고르게 한다(pickSpineAnimation).
       createSpineLayer(stageDiv, 'main', skelUrl, atlasUrl, null, viewportConfig, (player2, layerDiv) => {
         spinePlayer = player2;
+        setL2dLoading('costume-spine-wrap', false);
 
-        renderCostumeAnimControls(player2.skeleton.data);
+        const skelCode = (/([a-z]\d{3,4}_\d{2})\.skel/i.exec(skelUrl) || [])[1];
+        const hiddenExprs = COSTUME_HIDDEN_EXPRESSIONS[skelCode];
+        const animData = player2.skeleton.data;
+        renderCostumeAnimControls(hiddenExprs
+          ? { animations: animData.animations.filter(a => !hiddenExprs.includes(a.name)) }
+          : animData);
         applyCostumeAnimation(costumeCurrentAnim);
 
         const skeleton = player2.skeleton;
@@ -1071,6 +1084,7 @@
     setupL2dSideToggle('costume-spine-wrap', 'costume-side-toggle', 'costume-info-toggle');
     // 재생바는 지금 떠 있는 플레이어를 그때그때 물어본다(모델을 바꾸면 새로 만들어진다)
     // 스킬 컷신이 켜져 있으면 진행바는 컷신의 바깥 타임라인을 다룬다(skillcut.js)
-    setupL2dBar('costume-bar', () => (CostumeSkillcut.isActive() ? CostumeSkillcut.adapter : spinePlayer));
+    setupL2dBar('costume-bar', () => (CostumeSkillcut.isActive() ? CostumeSkillcut.adapter : spinePlayer),
+      { layers: () => (CostumeSkillcut.isActive() ? [] : activeSpinePlayers) });
     waitForSpine(loadCostumeData);
   });

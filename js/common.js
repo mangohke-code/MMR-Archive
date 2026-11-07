@@ -528,6 +528,17 @@ function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
   }
 }
 
+// ===== L2D 뷰어 불러오는 표시 =====
+// spine-player 의 기본 로딩 화면(Spine 로고)을 끄고 사이트 표시로 바꾼다. 플레이어 설정에 펼쳐 넣는다.
+function setL2dLoading(wrapId, on) {
+  const wrap = document.getElementById(wrapId);
+  if (wrap) wrap.classList.toggle('is-loading', on);
+}
+
+function spineLoadingConfig(wrapId) {
+  return { showLoading: false, error: () => setL2dLoading(wrapId, false) };
+}
+
 // ===== L2D 뷰어 재생바 =====
 //
 // 솔로 레이드 3D 뷰어의 재생바와 같은 감각으로, 스파인 애니메이션도 처음부터 다시
@@ -536,6 +547,7 @@ function setupL2dSideToggle(wrapId, toggleId, infoToggleId) {
 //
 // getPlayer 는 지금 화면에 떠 있는 SpinePlayer 를 돌려준다(코스튬은 모델을 바꿀
 // 때마다 새로 만든다). 없으면 바를 죽여 둔다.
+// opts.layers 는 같이 멈추고 틀 플레이어들이다(코스튬의 추가 파츠).
 function setupL2dBar(barId, getPlayer, opts) {
   const bar = document.getElementById(barId);
   if (!bar || bar.dataset.wired) return;
@@ -560,7 +572,9 @@ function setupL2dBar(barId, getPlayer, opts) {
   playBtn.addEventListener('click', () => {
     const p = getPlayer();
     if (!p) return;
-    if (p.paused) p.play(); else p.pause();
+    const resume = p.paused;
+    const players = new Set([p, ...(opts && opts.layers ? opts.layers() : [])]);
+    players.forEach(q => { if (resume) q.play(); else q.pause(); });
     syncPlayIcon();
   });
 

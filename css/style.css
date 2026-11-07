@@ -3168,6 +3168,23 @@
     background-color: transparent !important;
   }
 
+  /* 불러오는 동안의 표시(spine-player 의 로고 화면을 끄고 대신 쓴다, common.js setL2dLoading) */
+  .l2d-wrap.is-loading .l2d-stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    width: 38px;
+    height: 38px;
+    margin: auto;
+    border-radius: 50%;
+    border: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    border-top-color: var(--accent);
+    animation: l2d-spin 0.8s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes l2d-spin { to { transform: rotate(360deg); } }
+
   .spine-reset-btn {
     position: absolute;
     bottom: 14px;
@@ -7915,6 +7932,9 @@
     transition: opacity 0.22s ease;
   }
   body.tab-pickup.pk-nav-auto #pickup-toolbar::after { opacity: 1; }
+  /* 몰아보기는 표 머리가 바로 밑에 붙는다. 분류 버튼 아래 여백을 줄여 빈 공간이 안 남게 한다. */
+  body.tab-pickup #pickup-toolbar:has(#pickup-group-selector:not(.hidden)) { padding-bottom: 4px; margin-bottom: 0; }
+  body.tab-pickup:has(#pickup-group-selector:not(.hidden)) #pickup-filter-wrap { margin-top: 4px; margin-bottom: 8px; }
 
   body.tab-pickup .month-label { top: calc(var(--pk-stick, 0px) + 8px); transition: top 0.22s ease; }
   body.tab-pickup #pickup-group-header-wrap { top: var(--pk-stick, 0px); transition: top 0.22s ease; }

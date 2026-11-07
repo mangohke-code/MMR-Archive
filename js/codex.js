@@ -745,6 +745,7 @@
     }
     if (codexPanZoom) { codexPanZoom.destroy(); codexPanZoom = null; }
     document.getElementById('codex-spine-player').innerHTML = '';
+    setL2dLoading('codex-spine-wrap', false);
     // 앞 캐릭터의 동작 · 표정 · 파츠 버튼이 L2D 없는 캐릭터에 남지 않게 다 비운다
     ['codex-parts-toggle', 'codex-anim-toggle', 'codex-expression'].forEach(id => {
       const el = document.getElementById(id);
@@ -782,6 +783,7 @@
       codexSpinePlayer = null;
     }
     if (codexPanZoom) { codexPanZoom.destroy(); codexPanZoom = null; }
+    setL2dLoading('codex-spine-wrap', !!(skelUrl && atlasUrl));
     if (!skelUrl || !atlasUrl) return;
 
     const playerDiv = document.createElement('div');
@@ -797,6 +799,7 @@
       atlasUrl:  atlasUrl,
       backgroundColor: '#00000000',
       showControls: false,
+      ...spineLoadingConfig('codex-spine-wrap'),
       success: function(player) {
         const data = player.skeleton.data;
         const vp = spineViewportBox(player);
@@ -818,6 +821,7 @@
           animation: idleOf(data),
           backgroundColor: '#00000000',
           showControls: false,
+          ...spineLoadingConfig('codex-spine-wrap'),
           preserveDrawingBuffer: false,
           antialias: true,
           viewport: {
@@ -833,6 +837,7 @@
             padBottom: '5%',
           },
           success: function(player2) {
+            setL2dLoading('codex-spine-wrap', false);
             const skeleton = player2.skeleton;
             const partSkins = skeleton.data.skins.filter(skin => skin.name !== 'default');
             const enabledParts = new Set(partSkins.map(s => s.name)); // 기본값: 전부 켜짐 (기존 동작과 동일)
