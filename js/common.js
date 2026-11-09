@@ -288,6 +288,65 @@ function disposeSpinePlayer(player) {
   } catch (e) {}
 }
 
+// ===== 보고 있지 않으면 그리지 않기 (사용자 지적, 2026-11-09) =====
+// 사이트 창이 화면에 떠 있기만 해도 다른 창의 유튜브 · 치지직이 버퍼링에 걸렸다.
+// 실측(앱 안 브라우저, 144Hz, 다른 창을 보는 상태): 메인 페이지 '진행 중' 점 애니메이션만으로 GPU 0.3% → 4~8%,
+// 코스튬 L2D 는 5.4%, 다른 탭으로 옮겨도 4.8% 가 남았다(플레이어가 안 보이는 데서 계속 그림).
+// 3D 뷰어(soloraid3d.js)와 같은 기준으로, 이 창을 보고 있지 않으면(다른 창 · 다른 프로그램 · 숨은 탭)
+// CSS 애니메이션(html.page-idle, style.css)과 그리기 루프를 멈춘다.
+// hasFocus 는 페이지 안 iframe(솔로 레이드 BGM 유튜브)에 포커스가 있어도 true 라 BGM 을 눌러도 안 멈춘다.
+function isPageActive() {
+  return !document.hidden && document.hasFocus();
+}
+(function watchPageActive() {
+  const sync = () => document.documentElement.classList.toggle('page-idle', !isPageActive());
+  window.addEventListener('focus', sync);
+  // 포커스가 페이지 안 iframe 으로 옮겨 갈 때도 blur 가 온다. 옮겨 간 뒤에 다시 잰다.
+  window.addEventListener('blur', () => setTimeout(sync, 0));
+  document.addEventListener('visibilitychange', sync);
+  sync();
+})();
+
+// Spine 플레이어는 만들어진 뒤로 안 보이는 탭에 있어도, 멈춤 상태여도 매 프레임 다시 그린다.
+// 창을 보고 있지 않거나 캔버스가 화면에 없으면 다음 프레임을 예약하지 않고 재운다.
+// 1/4초마다 확인해서 다시 보이면 이어서 그린다. 재우는 동안 흐른 시간은 플레이어가 한 프레임 0.064초로 자른다.
+(function gateSpinePlayers() {
+  if (!window.spine || !spine.SpinePlayer) return;
+  const proto = spine.SpinePlayer.prototype;
+  const draw = proto.drawFrame;
+  if (typeof draw !== 'function' || proto.__gated) return;
+  proto.__gated = true;
+  const asleep = new Set();
+  let timer = 0;
+  // display:none 인 탭 안에 있거나 visibility:hidden(스킬 컷신이 모델을 덮을 때)이면 안 보이는 것으로 본다
+  const onScreen = p => {
+    const c = p.canvas;
+    if (!c) return false;
+    return c.checkVisibility ? c.checkVisibility({ visibilityProperty: true }) : c.getClientRects().length > 0;
+  };
+  const wake = () => {
+    if (isPageActive()) {
+      asleep.forEach(p => {
+        if (p.disposed || p.error) { asleep.delete(p); return; }
+        if (!onScreen(p)) return;
+        asleep.delete(p);
+        draw.call(p);   // 그리고 다음 프레임을 다시 예약한다
+      });
+    }
+    if (!asleep.size && timer) { clearInterval(timer); timer = 0; }
+  };
+  proto.drawFrame = function (requestNext = true) {
+    // 불러오는 중(skeleton 없음)에는 그대로 둔다. 뼈대 불러오기와 success 콜백이 이 안에서 돈다.
+    if (requestNext && this.skeleton && !(isPageActive() && onScreen(this))) {
+      asleep.add(this);
+      if (!timer) timer = setInterval(wake, 250);
+      return;
+    }
+    return draw.call(this, requestNext);
+  };
+  window.addEventListener('focus', wake);
+})();
+
 // 그 스켈레톤에 실제로 들어 있는 것 중에서 대기용 애니메이션을 고른다.
 //
 // 'idle' 을 못 박아 넘기면 그 이름이 없는 스켈레톤에서 "Animation does not exist in
@@ -595,8 +654,11 @@ function setupL2dBar(barId, getPlayer, opts) {
     const p = getPlayer();
     const paused = !p || p.paused;
     const i = playBtn.querySelector('i');
-    if (i) i.className = paused ? 'fas fa-play' : 'fas fa-pause';
-    playBtn.title = paused ? '재생' : '일시정지';
+    // 매 프레임 불리므로 바뀔 때만 쓴다(같은 값을 써도 브라우저가 스타일을 다시 계산한다)
+    const cls = paused ? 'fas fa-play' : 'fas fa-pause';
+    if (i && i.className !== cls) i.className = cls;
+    const title = paused ? '재생' : '일시정지';
+    if (playBtn.title !== title) playBtn.title = title;
   }
 
   // 진행바를 눌러 그 지점으로 옮긴다
@@ -620,18 +682,24 @@ function setupL2dBar(barId, getPlayer, opts) {
     immBtn.addEventListener('click', () => setL2dImmersive(!document.body.classList.contains('l2d-immersive')));
   }
 
-  // 매 프레임 진행바와 시간을 맞춘다. 탭이 안 보이면 굳이 돌지 않는다.
+  // 매 프레임 진행바와 시간을 맞춘다. 이 재생바가 화면에 없거나 창을 보고 있지 않으면
+  // 1/4초마다 확인만 한다(예전에는 메인 페이지에서도 재생바 둘이 매 프레임 돌았다, 2026-11-09).
+  let lastWidth = '', lastCode = '';
   function tick() {
+    if (!isPageActive() || !bar.getClientRects().length) {
+      setTimeout(() => requestAnimationFrame(tick), 250);
+      return;
+    }
     const e = entryOf();
+    let width = '0%', text = '0.00 / 0.00';
     if (e && e.animation) {
       const dur = e.animation.duration || 0;
       const t = dur ? (e.trackTime % dur) : 0;
-      if (fill) fill.style.width = (dur ? (t / dur) * 100 : 0) + '%';
-      if (code) code.textContent = t.toFixed(2) + ' / ' + dur.toFixed(2);
-    } else if (code) {
-      if (fill) fill.style.width = '0%';
-      code.textContent = '0.00 / 0.00';
+      width = (dur ? (t / dur) * 100 : 0) + '%';
+      text = t.toFixed(2) + ' / ' + dur.toFixed(2);
     }
+    if (fill && width !== lastWidth) { fill.style.width = width; lastWidth = width; }
+    if (code && text !== lastCode) { code.textContent = text; lastCode = text; }
     syncPlayIcon();
     requestAnimationFrame(tick);
   }

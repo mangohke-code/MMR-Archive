@@ -51,7 +51,7 @@ function createSkillcut(cfg = {}) {
   let code = null;          // 지금 코스튬 코드(컷신이 있을 때만)
   let data = null;          // 그 코드의 play.json
   let mode = null;          // 'full' | 'idle' | 'cut' | null(꺼짐)
-  let T = 0, paused = false, lastNow = 0, raf = 0, loadSeq = 0, lap = 0;
+  let T = 0, paused = false, lastNow = 0, raf = 0, loadSeq = 0, lap = 0, sleepTimer = 0;
   // 셰이더 흐름 시간(_TimeParameters.x): 게임은 앱을 켠 뒤 계속 흐르는 시간이라 되감기와 상관없이 이어진다.
   // 위상은 데이터로 알 수 없어 재생을 시작한 시각에서 출발해 재생하는 동안 계속 흐르게 한다(되감아도 돌아가지 않는다).
   let flowT = 0;
@@ -730,6 +730,17 @@ function createSkillcut(cfg = {}) {
   function loop() {
     raf = 0;
     if (!mode || !gl) return;
+    // 창을 보고 있지 않거나 컷신 칸이 화면에 없으면 그리지 않고 1/4초마다 확인만 한다(common.js isPageActive).
+    // 멈춰 있던 시간은 흘려보내지 않는다(돌아오면 멈춘 자리부터).
+    if (!isPageActive() || !gl.canvas.getClientRects().length) {
+      lastNow = 0;
+      // 확인 타이머는 하나만 둔다(둘이 되면 깨어날 때 그리기 루프가 두 겹이 된다)
+      if (!sleepTimer) sleepTimer = setTimeout(() => {
+        sleepTimer = 0;
+        if (mode && gl && !raf) raf = requestAnimationFrame(loop);
+      }, 250);
+      return;
+    }
     const now = performance.now();
     const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0;
     lastNow = now;
