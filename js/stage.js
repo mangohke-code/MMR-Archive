@@ -23,7 +23,7 @@
 
   // ===== 전투력 패널티 계산 (사용자 요청, 2026-11-11) =====
   // 결손(%) = 100 - 100 x 내 전투력 / 기준 전투력. 니케 전원의 스탯(공격 · 체력 · 방어)이 아래 표의 % 만큼 준다.
-  // 표는 게임 로컬 데이터에 없어서 커뮤니티 실측값(Prydwen "Stage penalty", 2024-02-14 갱신, 원출처 nikke.gg)을 쓴다.
+  // 표는 로컬 데이터에 없어서 Prydwen "Stage penalty" 표(2024-02-14 갱신)를 옮겼다.
   // 결손 0.01% 부터 0.1% 간격(0.01, 0.11, ... 49.91) 500칸. 결손 이하인 가장 큰 칸을 고른다.
   // 기준 전투력은 CampaignStageTable.standard_battle_power, 45% 미만 입장 제한은
   // ConfigGameTable.MinCombatPowerStageNotEnterDefaultStageRatio = 45 (키 이름 기준 해석) - 추출 프로그램 세션 확인.
