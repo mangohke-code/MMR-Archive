@@ -18,6 +18,139 @@
     if (!data || data.length === 0) return;
     allStageData = data;
     renderChapterGrid(data);
+    fillPenaltyChapters();
+  }
+
+  // ===== 전투력 패널티 계산 (사용자 요청, 2026-11-11) =====
+  // 결손(%) = 100 - 100 x 내 전투력 / 기준 전투력. 니케 전원의 스탯(공격 · 체력 · 방어)이 아래 표의 % 만큼 준다.
+  // 표는 게임 로컬 데이터에 없어서 커뮤니티 실측값(Prydwen "Stage penalty", 2024-02-14 갱신, 원출처 nikke.gg)을 쓴다.
+  // 결손 0.01% 부터 0.1% 간격(0.01, 0.11, ... 49.91) 500칸. 결손 이하인 가장 큰 칸을 고른다.
+  // 기준 전투력은 CampaignStageTable.standard_battle_power, 45% 미만 입장 제한은
+  // ConfigGameTable.MinCombatPowerStageNotEnterDefaultStageRatio = 45 (키 이름 기준 해석) - 추출 프로그램 세션 확인.
+  const STAGE_PENALTY = [
+    5,5.51,6.01,6.51,7.01,7.5,7.99,8.48,8.95,9.43,9.9,10.37,10.83,11.29,11.74,12.19,12.64,13.08,13.52,13.95,14.38,14.81,15.23,15.65,16.06,
+    16.47,16.87,17.27,17.66,18.06,18.44,18.83,19.21,19.58,19.95,20.32,20.68,21.04,21.39,21.74,22.08,22.42,22.76,23.09,23.42,23.75,24.07,24.38,24.69,25,
+    25.3,25.6,25.9,26.19,26.47,26.76,27.03,27.31,27.58,27.84,28.1,28.36,28.61,28.86,29.1,29.34,29.58,29.81,30.04,30.26,30.48,30.7,30.91,31.11,31.31,
+    31.51,31.71,31.9,32.08,32.26,32.44,32.61,32.78,32.94,33.1,33.26,33.41,33.56,33.7,33.84,33.98,34.11,34.23,34.36,34.47,34.59,34.7,34.8,34.9,35,
+    35.14,35.28,35.41,35.55,35.69,35.83,35.96,36.1,36.24,36.38,36.51,36.65,36.79,36.93,37.06,37.2,37.34,37.48,37.61,37.75,37.89,38.03,38.16,38.3,38.44,
+    38.58,38.71,38.85,38.99,39.13,39.26,39.4,39.54,39.68,39.81,39.95,40.09,40.23,40.36,40.5,40.64,40.78,40.91,41.05,41.19,41.33,41.46,41.6,41.74,41.88,
+    42.01,42.15,42.29,42.43,42.56,42.7,42.84,43,43.1,43.2,43.3,43.4,43.5,43.6,43.7,43.8,43.9,44,44.1,44.2,44.3,44.4,44.5,44.6,44.7,
+    44.8,44.9,45,45.1,45.2,45.3,45.4,45.5,45.6,45.7,45.8,45.9,46,46.1,46.2,46.3,46.4,46.5,46.6,46.7,46.8,46.9,47,47.1,47.2,
+    47.3,47.4,47.5,47.6,47.7,47.8,47.9,48,48.1,48.2,48.3,48.4,48.5,48.6,48.7,48.8,48.9,49,49.1,49.2,49.3,49.4,49.5,49.6,49.7,
+    49.8,49.9,50,50.1,50.2,50.3,50.4,50.5,50.6,50.7,50.8,50.9,51,51.1,51.2,51.3,51.4,51.5,51.6,51.7,51.8,51.9,52,52.1,52.2,
+    52.3,52.4,52.5,52.6,52.7,52.8,52.9,53,53.1,53.2,53.3,53.4,53.5,53.6,53.7,53.8,53.9,54,54.1,54.2,54.3,54.4,54.5,54.6,54.7,
+    54.8,54.9,55,55.1,55.2,55.3,55.4,55.5,55.6,55.7,55.8,55.9,56,56.1,56.2,56.3,56.4,56.5,56.6,56.7,56.8,56.9,57,57.1,57.2,
+    57.3,57.4,57.5,57.6,57.7,57.8,57.9,58,58.1,58.2,58.3,58.4,58.5,58.6,58.7,58.8,58.9,59,59.1,59.2,59.3,59.4,59.5,59.6,59.7,
+    59.8,59.9,60,60.1,60.2,60.3,60.4,60.5,60.6,60.7,60.8,60.9,61,61.1,61.2,61.3,61.4,61.5,61.6,61.7,61.8,61.9,62,62.1,62.2,
+    62.3,62.4,62.5,62.6,62.7,62.8,62.9,63,63.1,63.2,63.3,63.4,63.5,63.6,63.7,63.8,63.9,64,64.1,64.2,64.3,64.4,64.5,64.6,64.7,
+    64.8,64.9,65,65.1,65.2,65.3,65.4,65.5,65.6,65.7,65.8,65.9,66,66.1,66.2,66.3,66.4,66.5,66.6,66.7,66.8,66.9,67,67.1,67.2,
+    67.3,67.4,67.5,67.6,67.7,67.8,67.9,68,68.1,68.2,68.3,68.4,68.5,68.6,68.7,68.8,68.9,69,69.1,69.2,69.3,69.4,69.5,69.6,69.7,
+    69.8,69.9,70,70.1,70.2,70.3,70.4,70.5,70.6,70.7,70.8,70.9,71,71.1,71.2,71.3,71.4,71.5,71.6,71.7,71.8,71.9,72,72.1,72.2,
+    72.3,72.4,72.5,72.6,72.7,72.8,72.9,73,73.1,73.2,73.3,73.4,73.5,73.6,73.7,73.8,73.9,74,74.1,74.2,74.3,74.4,74.5,74.6,74.7,
+    74.8,74.9,75,75.1,75.2,75.3,75.4,75.5,75.6,75.7,75.8,75.9,76,76.1,76.2,76.3,76.4,76.5,76.6,76.7,76.8,76.9,77,77.1,90
+  ];
+  const STAGE_ENTRY_MIN_RATIO = 0.45;
+
+  // 결손(%) → 스탯 감소(%). 기준 이상이면 0.
+  function stagePenaltyOf(deficit) {
+    if (!(deficit >= 0.01)) return 0;
+    const k = Math.min(STAGE_PENALTY.length - 1, Math.floor((deficit - 0.01) / 0.1 + 1e-9));
+    return STAGE_PENALTY[k];
+  }
+
+  const PENALTY_KEY = 'mmr-stage-penalty';
+  let penaltyMode = 'normal';
+
+  const parseCp = v => {
+    const n = Number(String(v || '').replace(/[^\d]/g, ''));
+    return n > 0 ? n : 0;
+  };
+  const fmtCp = n => (n ? n.toLocaleString('ko-KR') : '');
+  const cpOfStage = (s, mode) => parseCp(/^\d+$/.test(String(s[mode === 'normal' ? '노말전투력' : '하드전투력'] ?? '').trim())
+    ? s[mode === 'normal' ? '노말전투력' : '하드전투력'] : '');
+
+  // 챕터 · 스테이지 고르기: 기준 전투력이 숫자로 적힌 스테이지만(레벨 고정 EX 등은 뺀다)
+  function fillPenaltyChapters() {
+    const chSel = document.getElementById('spn-chapter');
+    if (!chSel) return;
+    const chapters = [...new Set(allStageData.filter(s => cpOfStage(s, penaltyMode)).map(s => String(s['챕터'])))]
+      .sort(compareChapter);
+    const keep = chSel.value;
+    chSel.innerHTML = '<option value="">챕터</option>'
+      + chapters.map(ch => `<option value="${ch}">${String(ch).padStart(2, '0')}</option>`).join('');
+    if (chapters.includes(keep)) chSel.value = keep;
+    fillPenaltyStages();
+  }
+
+  function fillPenaltyStages() {
+    const ch = document.getElementById('spn-chapter').value;
+    const stSel = document.getElementById('spn-stage');
+    const keep = stSel.value;
+    const list = ch ? allStageData.filter(s => String(s['챕터']) === ch && cpOfStage(s, penaltyMode)) : [];
+    stSel.innerHTML = '<option value="">스테이지</option>'
+      + list.map(s => `<option value="${s['스테이지']}">${ch}-${s['스테이지']}</option>`).join('');
+    stSel.disabled = !list.length;
+    if (list.some(s => String(s['스테이지']) === keep)) stSel.value = keep;
+  }
+
+  // 고른 스테이지의 기준 전투력을 기준 칸에 넣는다(직접 고쳐 쓸 수도 있다)
+  function applyPenaltyStage() {
+    const ch = document.getElementById('spn-chapter').value;
+    const st = document.getElementById('spn-stage').value;
+    const s = allStageData.find(x => String(x['챕터']) === ch && String(x['스테이지']) === st);
+    if (s) document.getElementById('spn-req').value = fmtCp(cpOfStage(s, penaltyMode));
+    renderPenalty();
+  }
+
+  function renderPenalty() {
+    const my = parseCp(document.getElementById('spn-my').value);
+    const req = parseCp(document.getElementById('spn-req').value);
+    const out = document.getElementById('spn-result');
+    try { localStorage.setItem(PENALTY_KEY, JSON.stringify({ my, mode: penaltyMode })); } catch (e) {}
+    if (!my || !req) { out.innerHTML = ''; out.dataset.level = ''; return; }
+    const deficit = Math.max(0, 100 - 100 * my / req);
+    const penalty = stagePenaltyOf(deficit);
+    const blocked = my < req * STAGE_ENTRY_MIN_RATIO;
+    const level = blocked ? 'block' : penalty >= 50 ? 'high' : penalty > 0 ? 'mid' : 'none';
+    out.dataset.level = level;
+    out.innerHTML =
+      `<div class="spn-stat"><span>부족</span><b>${deficit > 0 ? deficit.toFixed(2) + '%' : '없음'}</b></div>`
+      + `<div class="spn-stat is-main"><span>스탯 감소</span><b>${penalty ? Number(penalty.toFixed(2)) + '%' : '없음'}</b></div>`
+      + `<div class="spn-stat"><span>입장 제한</span><b>${fmtCp(Math.ceil(req * STAGE_ENTRY_MIN_RATIO))} 미만</b></div>`
+      + (blocked ? `<div class="spn-flag">입장 불가</div>` : '');
+  }
+
+  function setupStagePenalty() {
+    const my = document.getElementById('spn-my');
+    const req = document.getElementById('spn-req');
+    if (!my || !req) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(PENALTY_KEY) || 'null');
+      if (saved) {
+        if (saved.my) my.value = fmtCp(saved.my);
+        if (saved.mode === 'hard') penaltyMode = 'hard';
+      }
+    } catch (e) {}
+    // 숫자만 받고 세 자리마다 쉼표. 커서는 오른쪽 끝에서 같은 자리를 지킨다.
+    [my, req].forEach(inp => inp.addEventListener('input', () => {
+      const fromEnd = inp.value.length - (inp.selectionEnd ?? inp.value.length);
+      inp.value = fmtCp(parseCp(inp.value));
+      const pos = Math.max(0, inp.value.length - fromEnd);
+      try { inp.setSelectionRange(pos, pos); } catch (e) {}
+      renderPenalty();
+    }));
+    document.querySelectorAll('#spn-mode .mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === penaltyMode);
+      btn.addEventListener('click', () => {
+        penaltyMode = btn.dataset.mode;
+        document.querySelectorAll('#spn-mode .mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+        fillPenaltyChapters();
+        applyPenaltyStage();
+      });
+    });
+    document.getElementById('spn-chapter').addEventListener('change', () => { fillPenaltyStages(); applyPenaltyStage(); });
+    document.getElementById('spn-stage').addEventListener('change', applyPenaltyStage);
+    renderPenalty();
   }
 
   // 챕터 이름표: 작은 CHAPTER · 큰 번호 · 금색 줄 · 이름 (2026-10-26, 사선 띠 대신 그림 아래쪽 번짐 위에)
@@ -85,6 +218,7 @@
     const detail = document.getElementById('stage-detail');
     grid.classList.add('hidden');
     gridZero.classList.add('hidden');
+    document.getElementById('stage-penalty').classList.add('hidden');
     detail.classList.remove('hidden');
     detail.classList.add('fade-in');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -385,15 +519,16 @@
       detail.classList.add('hidden');
       grid.classList.remove('hidden');
       gridZero.classList.remove('hidden');
+      document.getElementById('stage-penalty').classList.remove('hidden');
       grid.classList.add('fade-in');
       gridZero.classList.add('fade-in');
       currentChapter = null;
     });
 
-    // 노말/하드 전환
-    document.querySelectorAll('.mode-btn').forEach(btn => {
+    // 노말/하드 전환 (패널티 계산 구역에도 같은 모양 단추가 있어서 상세 머리 줄 것만)
+    document.querySelectorAll('#stage-mode-btns .mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#stage-mode-btns .mode-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = btn.dataset.mode;
         applyModeTheme();
@@ -401,5 +536,6 @@
       });
     });
 
+    setupStagePenalty();
     loadStageData();
   });
