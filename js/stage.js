@@ -107,17 +107,21 @@
     const req = parseCp(document.getElementById('spn-req').value);
     const out = document.getElementById('spn-result');
     try { localStorage.setItem(PENALTY_KEY, JSON.stringify({ my, mode: penaltyMode })); } catch (e) {}
-    if (!my || !req) { out.innerHTML = ''; out.dataset.level = ''; return; }
+    // 결과 판은 늘 자리를 지킨다(값이 없으면 —). 입장 불가면 큰 값 자리에 그대로 적는다.
+    const view = (level, main, deficit, limit) => {
+      out.dataset.level = level;
+      out.innerHTML = `<div class="spn-main"><span>스탯 감소</span><b>${main}</b></div>`
+        + `<dl><div><dt>부족</dt><dd>${deficit}</dd></div><div><dt>입장 제한</dt><dd>${limit}</dd></div></dl>`;
+    };
+    if (!my || !req) { view('', '—', '—', '—'); return; }
     const deficit = Math.max(0, 100 - 100 * my / req);
     const penalty = stagePenaltyOf(deficit);
     const blocked = my < req * STAGE_ENTRY_MIN_RATIO;
     const level = blocked ? 'block' : penalty >= 50 ? 'high' : penalty > 0 ? 'mid' : 'none';
-    out.dataset.level = level;
-    out.innerHTML =
-      `<div class="spn-stat"><span>부족</span><b>${deficit > 0 ? deficit.toFixed(2) + '%' : '없음'}</b></div>`
-      + `<div class="spn-stat is-main"><span>스탯 감소</span><b>${penalty ? Number(penalty.toFixed(2)) + '%' : '없음'}</b></div>`
-      + `<div class="spn-stat"><span>입장 제한</span><b>${fmtCp(Math.ceil(req * STAGE_ENTRY_MIN_RATIO))} 미만</b></div>`
-      + (blocked ? `<div class="spn-flag">입장 불가</div>` : '');
+    view(level,
+      blocked ? '입장 불가' : penalty ? Number(penalty.toFixed(2)) + '%' : '없음',
+      deficit > 0 ? deficit.toFixed(2) + '%' : '없음',
+      `${fmtCp(Math.ceil(req * STAGE_ENTRY_MIN_RATIO))} 미만`);
   }
 
   function setupStagePenalty() {
@@ -205,7 +209,7 @@
 
     document.getElementById('chapter-grid-zero').innerHTML =
       zeroChapters.map(ch => feature(ch, 'PROLOGUE', '이야기의 시작')).join('')
-      + (latest !== null ? feature(latest, 'LATEST', '가장 최근 챕터') : '');
+      + (latest !== null ? feature(latest, 'LATEST', '최근 업데이트') : '');
     document.getElementById('chapter-grid').innerHTML = restChapters.map(makeCard).join('') + comingSoon;
   }
 

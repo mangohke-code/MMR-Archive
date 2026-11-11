@@ -9559,44 +9559,55 @@
   }
   #stage-table td:nth-child(1)::before { font-weight: 400; }
 
-  /* ===== 전투력 패널티 계산 (사용자 요청, 2026-11-11) =====
-     챕터 고르기 위 표준 판(.card) 하나. 입력 줄 [내 전투력 | 노말·하드 + 챕터 + 스테이지 | 기준 전투력], 아래 결과 칩. */
+  /* ===== 전투력 패널티 계산기 (사용자 요청, 2026-11-11, 2026-11-12 재배치) =====
+     챕터 고르기 위 표준 판(.card) 하나. 왼쪽 입력 [스테이지: 노말·하드 + 챕터 + 스테이지] / [내 전투력 | 기준 전투력],
+     오른쪽 결과 판(스탯 감소 크게, 부족 · 입장 제한). 결과 판은 값이 없어도 자리를 지켜 배치가 흔들리지 않는다. */
   #stage-penalty { --card-cut: 16px; border-radius: var(--card-cut) 0 var(--card-cut) 0; corner-shape: bevel;
-    padding: 18px 22px 16px; margin-bottom: 40px; display: flex; flex-direction: column; gap: 14px; }
-  #stage-penalty .spn-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: end; }
+    padding: 18px 22px 20px; margin-bottom: 40px; display: flex; flex-direction: column; gap: 14px; }
+  #stage-penalty .spn-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: stretch; }
+  #stage-penalty .spn-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-content: start; }
+  #stage-penalty .spn-wide { grid-column: 1 / -1; }
   #stage-penalty .spn-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   #stage-penalty .spn-field > span:first-child { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
   #stage-penalty .search-box { width: auto; height: 42px; }
   #stage-penalty .search-box input { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  #stage-penalty .spn-pick { display: flex; gap: 8px; }
-  #stage-penalty select.search-box { width: 110px; padding: 0 8px; font: inherit; font-size: 15px; color: var(--text-heading); cursor: pointer; }
+  /* 스테이지 줄도 아래 두 칸과 같은 2칸 격자: 왼쪽 [노말·하드 + 챕터], 오른쪽 스테이지 */
+  #stage-penalty .spn-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #stage-penalty .spn-pick-l { display: flex; gap: 8px; min-width: 0; }
+  #stage-penalty select.search-box { flex: 1 1 0; min-width: 0; padding: 0 10px; font: inherit; font-size: 15px; color: var(--text-heading); cursor: pointer; }
   #stage-penalty select.search-box:disabled { opacity: .5; cursor: default; }
-  #spn-mode { display: flex; }
-  #spn-mode .mode-btn { height: 42px; padding: 0 16px; font-size: 15px; }
+  #spn-mode { display: flex; flex: none; }
+  #spn-mode .mode-btn { height: 42px; padding: 0 18px; font-size: 15px; }
   #spn-mode .mode-btn:first-child { border-radius: 10px 0 0 0; }
   #spn-mode .mode-btn:last-child { border-radius: 0 0 10px 0; margin-left: -1px; }
 
-  #spn-result { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
-  #spn-result:empty { display: none; }
-  #spn-result .spn-stat { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-radius: 8px 0 8px 0; corner-shape: bevel;
-    background: color-mix(in srgb, var(--accent) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
-  #spn-result .spn-stat span { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-  #spn-result .spn-stat b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-heading); }
-  #spn-result .spn-stat.is-main b { font-size: 22px; }
-  #spn-result[data-level="none"] .spn-stat.is-main { background: var(--status-new-bg); box-shadow: inset 0 0 0 1px var(--status-new-border); }
-  #spn-result[data-level="none"] .spn-stat.is-main b { color: var(--status-new-text); }
-  #spn-result[data-level="mid"] .spn-stat.is-main { background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border); }
-  #spn-result[data-level="mid"] .spn-stat.is-main b { color: var(--status-warn-text); }
-  #spn-result:is([data-level="high"], [data-level="block"]) .spn-stat.is-main { background: var(--status-limited-bg); box-shadow: inset 0 0 0 1px var(--status-limited-border); }
-  #spn-result:is([data-level="high"], [data-level="block"]) .spn-stat.is-main b { color: var(--status-limited-text); }
-  #spn-result .spn-flag { display: flex; align-items: center; padding: 0 14px; border-radius: 8px 0 8px 0; corner-shape: bevel; font-size: 15px; font-weight: 800;
-    color: #fff; background: var(--status-limited-text); }
+  #spn-result { --spn-bg: color-mix(in srgb, var(--accent) 8%, transparent); --spn-line: color-mix(in srgb, var(--accent) 26%, transparent);
+    --spn-main: var(--text-heading);
+    display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 14px 18px;
+    border-radius: 12px 0 12px 0; corner-shape: bevel; background: var(--spn-bg); box-shadow: inset 0 0 0 1px var(--spn-line); }
+  #spn-result[data-level="none"] { --spn-bg: var(--status-new-bg); --spn-line: var(--status-new-border); --spn-main: var(--status-new-text); }
+  #spn-result[data-level="mid"] { --spn-bg: var(--status-warn-bg); --spn-line: var(--status-warn-border); --spn-main: var(--status-warn-text); }
+  #spn-result:is([data-level="high"], [data-level="block"]) { --spn-bg: var(--status-limited-bg); --spn-line: var(--status-limited-border); --spn-main: var(--status-limited-text); }
+  #spn-result .spn-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  #spn-result .spn-main span { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
+  #spn-result .spn-main b { font-size: 34px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--spn-main); }
+  #spn-result dl { margin: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--spn-line); }
+  #spn-result dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  #spn-result dt { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  #spn-result dd { margin: 0; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-heading); }
 
+  @media (max-width: 900px) {
+    #stage-penalty .spn-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  }
   @media (max-width: 640px) {
-    #stage-penalty { padding: 14px 14px 12px; margin-bottom: 24px; }
-    #stage-penalty .spn-inputs { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-    #stage-penalty .spn-pick { flex-wrap: wrap; }
-    #stage-penalty select.search-box { flex: 1 1 90px; width: auto; }
+    #stage-penalty { padding: 14px; margin-bottom: 24px; }
+    #stage-penalty .spn-inputs, #stage-penalty .spn-pick { gap: 10px; }
+    /* 좁은 화면: 노말·하드를 한 줄 전체로, 아래 줄에 챕터 | 스테이지 */
+    #stage-penalty .spn-pick-l { display: contents; }
+    #spn-mode { grid-column: 1 / -1; }
+    #spn-mode .mode-btn { flex: 1; }
+    #stage-penalty .search-box input { font-size: 16px; }
+    #spn-result .spn-main b { font-size: 28px; }
   }
 
   /* ===== 기념품 목록 (사용자 요청, 2026-10-26) =====
