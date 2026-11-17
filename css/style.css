@@ -2977,8 +2977,6 @@
 
   .l2d-wrap.is-info-open .l2d-side-toggle.is-right { right: 340px; }
 
-  .l2d-wrap.is-info-open .l2d-side-toggle.is-right i { transform: rotate(180deg); }
-
   /* 판 안에서는 모델 고르기와 표정이 떠 있을 이유가 없다. 흐름대로 쌓는다. */
   .l2d-side .spine-variation,
   .l2d-side .spine-expression {
