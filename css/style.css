@@ -9637,10 +9637,10 @@
   }
   .tab-btn-gacha.active .tab-beta { color: var(--gacha-strong); background: #fff; }
 
-  /* 페이지(2026-11-19 다듬기): 폭은 스테이지 정보와 같은 1400px. 기록을 읽으면 가져오기 판은 한 줄로 접고,
+  /* 페이지(2026-11-19 다듬기): 폭은 유니크 코스튬과 같은 1900px. 기록을 읽으면 가져오기 판은 한 줄로 접고,
      숫자 판 아래 보기 단추(요약 · 픽업 배너 · SSR · 니케별 · 전체 기록)로 한 번에 한 보기만 보인다. */
   #tab-gacha { --accent: var(--gacha); --accent-strong: var(--gacha-strong); }
-  #gacha-page { display: flex; flex-direction: column; gap: 22px; max-width: 1400px; margin: 0 auto; }
+  #gacha-page { display: flex; flex-direction: column; gap: 22px; max-width: 1900px; margin: 0 auto; }
   #gacha-result { display: flex; flex-direction: column; gap: 22px; }
   #gacha-result[hidden], .gacha-view[hidden] { display: none; }
   .gacha-card { --card-cut: 16px; border-radius: var(--card-cut) 0 var(--card-cut) 0; corner-shape: bevel;
@@ -9713,16 +9713,18 @@
   .gacha-type { display: inline-block; padding: 1px 8px; border-radius: 4px 0 4px 0; corner-shape: bevel; font-size: 12px; font-weight: 700; white-space: nowrap; color: #fff; }
   .gacha-type.is-normal { background: var(--gacha); }
   .gacha-type.is-special { background: var(--gacha-pick); }
+  .gacha-type.is-mileage { background: var(--gold); color: #2b2108; }
   .gacha-type.is-other { background: var(--gacha-other); }
   .gacha-type.is-unknown { color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border-strong); }
 
   /* 요약: 월별(넓게) | 종류별(좁게) */
-  .gacha-summary { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 22px; align-items: start; }
+  .gacha-summary { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 22px; align-items: start; }
   #gacha-types[hidden] { display: none; }
   #gacha-types-body { display: flex; flex-direction: column; gap: 10px; }
   .gacha-typerow { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 10px 0 10px 0; corner-shape: bevel;
     background: var(--bg-panel-alt); box-shadow: inset 3px 0 0 var(--gacha); }
   .gacha-typerow.is-special { box-shadow: inset 3px 0 0 var(--gacha-pick); }
+  .gacha-typerow.is-mileage { box-shadow: inset 3px 0 0 var(--gold); }
   .gacha-typerow.is-other { box-shadow: inset 3px 0 0 var(--gacha-other); }
   .gt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .gt-head b { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-heading); }
@@ -9748,6 +9750,7 @@
   .gacha-legend-dot { width: 10px; height: 10px; }
   .gacha-legend-dot.is-normal { background: var(--gacha); }
   .gacha-legend-dot.is-special { background: var(--gacha-pick); }
+  .gacha-legend-dot.is-mileage { background: var(--gold); }
   .gacha-legend-dot.is-other { background: var(--gacha-other); }
   .gacha-legend-dot.is-unknown { background: var(--gacha); }
   .gacha-legend-dot.is-ssr { background: var(--gold); border-radius: 50%; }
@@ -9757,56 +9760,68 @@
   #gacha-chart .gc-axis { font-size: 11px; fill: var(--text-secondary); }
   #gacha-chart .gc-bar { fill: var(--gacha); opacity: .85; }
   #gacha-chart .gc-bar.is-special { fill: var(--gacha-pick); }
+  #gacha-chart .gc-bar.is-mileage { fill: var(--gold); }
   #gacha-chart .gc-bar.is-other { fill: var(--gacha-other); }
   #gacha-chart .gc-ssr { fill: var(--gold); stroke: var(--bg-panel); stroke-width: 1.5; }
   .gacha-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
   .gacha-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
   .gacha-legend .is-normal::before, .gacha-legend .is-unknown::before { background: var(--gacha); }
   .gacha-legend .is-special::before { background: var(--gacha-pick); }
+  .gacha-legend .is-mileage::before { background: var(--gold); }
   .gacha-legend .is-other::before { background: var(--gacha-other); }
   .gacha-legend .is-ssr::before { background: var(--gold); border-radius: 50%; }
 
-  /* 픽업 기간별: 기간 카드 하나에 그때 열려 있던 배너를 모두 놓는다(어느 배너에서 뽑았는지는 기록에 없음).
-     배너 칸은 니케 그림(카드 그림 위쪽) + 이름 + 픽업 니케 획득. 얻은 배너는 금색 테두리 */
-  #gacha-banners { display: flex; flex-direction: column; gap: 14px; }
-  .gacha-window { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; border-radius: 12px 0 12px 0; corner-shape: bevel;
-    background: var(--bg-panel-alt); box-shadow: inset 0 0 0 1px var(--border-subtle); }
-  .gw-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
-  .gw-period { font-size: 17px; font-weight: 800; color: var(--text-heading); font-variant-numeric: tabular-nums; }
-  .gw-stats { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
-  .gw-stats > div { display: flex; align-items: baseline; gap: 6px; }
-  .gw-stats dt { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-  .gw-stats dd { margin: 0; font-size: 16px; font-weight: 800; color: var(--text-heading); font-variant-numeric: tabular-nums; }
-  .gw-banners { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-  .gw-banner { display: grid; grid-template-columns: 64px minmax(0, 1fr); min-height: 92px; overflow: hidden; border-radius: 8px 0 8px 0; corner-shape: bevel;
-    background: var(--bg-panel); box-shadow: inset 0 0 0 1px var(--border-subtle); }
-  .gw-banner.has-pick { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--gold) 75%, transparent); }
-  .gw-img { position: relative; background: color-mix(in srgb, var(--gacha-pick) 14%, transparent); }
-  .gw-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 8%; }
-  .gw-banner:not(.has-pick) .gw-img img { filter: saturate(.55); opacity: .8; }
-  .gw-info { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 10px 8px 12px; min-width: 0; }
-  .gw-event { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--text-secondary);
-    overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .gw-event em { flex: none; padding: 0 4px; border-radius: 3px; font-style: normal; font-size: 10px; color: var(--gacha-pick); box-shadow: inset 0 0 0 1px var(--gacha-pick); }
-  .gw-name { font-size: 15px; font-weight: 800; line-height: 1.25; color: var(--text-heading); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .gw-pick { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-  .gw-pick strong { color: var(--gold); font-weight: 800; }
-  .gw-ssr { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
-  .gw-ssr > span { margin-right: 8px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  /* 픽업 획득: 한 장씩 정사각 초상화(카드 그림 위쪽). 오른쪽 아래 동그라미 = 이전 픽업 획득 이후 일반 외 모집 장수,
+     골드 마일리지 교환은 금색 동그라미에 '교환' */
+  #gacha-pickups { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .gacha-pk { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 10px 0 10px 0; corner-shape: bevel;
+    background: color-mix(in srgb, var(--gacha-pick) 14%, transparent); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .gacha-pk img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; }
+  .gacha-pk .gp-name { position: absolute; inset: 0; display: grid; place-items: center; padding: 6px; text-align: center; font-size: 12px; font-weight: 700; color: var(--text-heading); }
+  .gp-gap { position: absolute; right: 5px; bottom: 5px; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 15px;
+    display: grid; place-items: center; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: #fff;
+    background: rgba(20, 22, 34, 0.78); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
+  .gacha-pk.is-mileage { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--gold) 80%, transparent); }
+  .gacha-pk.is-mileage .gp-gap { font-size: 11px; background: var(--gold); color: #2b2108; }
+
+  /* 최초 획득순: 순번 · 작은 초상화 · 이름 · 날짜 + 얻은 경로 */
+  #gacha-first-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+  .gacha-first { display: grid; grid-template-columns: 34px 48px minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 12px 6px 8px;
+    border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-panel-alt); box-shadow: inset 3px 0 0 var(--gacha-other); }
+  .gacha-first.is-SSR { box-shadow: inset 3px 0 0 var(--gold); }
+  .gacha-first.is-SR { box-shadow: inset 3px 0 0 #9a6ee0; }
+  .gacha-first.is-R { box-shadow: inset 3px 0 0 #4b93d1; }
+  .gf-no { text-align: right; font-size: 13px; font-weight: 800; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .gf-img { position: relative; width: 48px; height: 48px; overflow: hidden; border-radius: 6px 0 6px 0; corner-shape: bevel; background: color-mix(in srgb, var(--gacha-pick) 12%, transparent); }
+  .gf-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; }
+  .gf-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .gf-body b { font-size: 14px; font-weight: 800; color: var(--text-heading); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .gf-body > span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .gf-body .gacha-type { font-size: 11px; padding: 0 6px; }
+
+  /* 요약 오른쪽: 종류별 + 사용 재화 */
+  .gacha-side { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+  #gacha-cost[hidden] { display: none; }
+  #gacha-cost-body { display: flex; flex-direction: column; }
+  .gc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 2px; border-bottom: 1px solid var(--border-subtle);
+    font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+  .gc-row b { font-size: 18px; font-weight: 800; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+  .gc-row b small { margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .gc-row.gc-total { border-bottom: 0; padding-top: 10px; }
+  .gc-row.gc-total b { color: var(--gacha-strong); }
   .gacha-more { align-self: center; }
   .gacha-more[hidden] { display: none; }
 
   /* 니케별: 칸 격자 */
   #gacha-nikke-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
-  .gacha-nk { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; align-items: baseline;
+  .gacha-nk { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center;
     padding: 10px 12px; border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-panel-alt); box-shadow: inset 3px 0 0 var(--gacha-other); }
   .gacha-nk.is-SSR { box-shadow: inset 3px 0 0 var(--gold); }
   .gacha-nk.is-SR { box-shadow: inset 3px 0 0 #9a6ee0; }
   .gacha-nk.is-R { box-shadow: inset 3px 0 0 #4b93d1; }
   .gn-name { font-size: 14px; font-weight: 700; color: var(--text-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gacha-nk b { grid-row: span 2; align-self: center; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-heading); }
+  .gacha-nk b { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-heading); }
   .gacha-nk b small { margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-  .gn-first { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
   /* 표(SSR · 전체 기록) */
   .gacha-scroll { max-height: 640px; overflow: auto; }
@@ -9820,9 +9835,6 @@
   .gacha-table tr.has-ssr td { background: color-mix(in srgb, var(--gold) 8%, transparent); }
   .gacha-gap { font-weight: 800; color: var(--text-heading); }
   /* 넓은 화면에서 칸이 고르게 벌어지지 않게 고정 폭 칸을 정한다(나머지는 니케 · 배너 칸이 나눠 가진다) */
-  .gacha-view[data-view="ssr"] .gacha-table th:nth-child(1) { width: 170px; }
-  .gacha-view[data-view="ssr"] .gacha-table th:nth-child(3) { width: 110px; }
-  .gacha-view[data-view="ssr"] .gacha-table th:nth-child(4) { width: 90px; }
   .gacha-view[data-view="history"] .gacha-table th:nth-child(1) { width: 170px; }
   .gacha-view[data-view="history"] .gacha-table th:nth-child(2) { width: 100px; }
   .gacha-view[data-view="history"] .gacha-table th:nth-child(3) { width: 64px; }
@@ -9858,7 +9870,9 @@
     #gacha-views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     #gacha-views .mode-btn { min-width: 0; padding: 0 4px; }
     .gacha-cmd { flex-direction: column; }
-    .gw-banners { grid-template-columns: minmax(0, 1fr); }
+    #gacha-pickups { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .gp-gap { min-width: 26px; height: 26px; font-size: 12px; right: 3px; bottom: 3px; }
+    #gacha-first-grid { grid-template-columns: minmax(0, 1fr); }
     #gacha-nikke-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .gacha-table { font-size: 13px; }
     .gacha-table td, .gacha-table th { padding-left: 7px; padding-right: 7px; }

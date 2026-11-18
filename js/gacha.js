@@ -22,11 +22,12 @@
   const PAGE = 40;
   const TYPES = {
     normal: { label: '일반', cls: 'is-normal' },
-    special: { label: '픽업 등', cls: 'is-special' },
-    other: { label: '모집 외', cls: 'is-other' },
+    special: { label: '일반 외', cls: 'is-special', title: '픽업 · 선택 특수 · 소셜 포인트 모집' },
+    mileage: { label: '골드 마일리지', cls: 'is-mileage', title: '픽업 기간에 모집 외로 얻은 픽업 니케 = 골드 마일리지 200장 교환' },
+    other: { label: '모집 외', cls: 'is-other', title: '선택 상자 · 출석 보상 등' },
     unknown: { label: '구분 없음', cls: 'is-unknown' },
   };
-  const isGacha = t => t !== 'other';
+  const isGacha = t => t === 'normal' || t === 'special' || t === 'unknown';
 
   const $ = id => document.getElementById(id);
   const fmt = new Intl.NumberFormat('ko-KR');
@@ -64,7 +65,7 @@
     const i = info(p.code);
     return `<span class="gacha-tag is-${i.rare}">${esc(i.name)}${extra}${p.isNew ? '<em>NEW</em>' : ''}</span>`;
   };
-  const typeChip = t => `<span class="gacha-type ${TYPES[t].cls}">${TYPES[t].label}</span>`;
+  const typeChip = t => `<span class="gacha-type ${TYPES[t].cls}"${TYPES[t].title ? ` title="${TYPES[t].title}"` : ''}>${TYPES[t].label}</span>`;
 
   // NKT2 / NKT1 글자 -> { pulls, gacha, normal, classified }
   function parse(raw) {
@@ -201,11 +202,11 @@
     return { pulls, batches, classified };
   }
 
-  // ===== 픽업 기간 묶기 (사용자 요청, 2026-11-19) =====
-  // 기록에는 어느 픽업 배너에서 뽑았는지가 없다. 그래서 배너 하나에 장수를 나눠 주지 않고(추정이 틀릴 수 있고,
-  // 픽업 니케가 안 나온 배너는 빠져 버린다), 사이트 픽업 기록(APP_DATA.pickup)의 기간으로 시간을 자른다:
-  // 열려 있는 배너 묶음이 같은 동안을 한 '픽업 기간'으로 보고, 그 동안의 '픽업 등' 묶음을 모아 보인다.
-  // 기간 카드에는 그때 열려 있던 배너를 모두 그림으로 놓고, 배너마다 픽업 니케를 얻었는지만 표시한다.
+  // ===== 픽업 기록 잇기 (사용자 요청, 2026-11-19) =====
+  // 기록에는 어느 배너에서 뽑았는지가 없어서, 배너 하나에 장수를 나눠 주지 않는다.
+  // 사이트 픽업 기록(APP_DATA.pickup: 니케 · 시작일 · 종료일)으로 할 수 있는 것만 한다:
+  // - 그 니케의 픽업 기간에 얻은 픽업 니케 = '픽업 획득'(초상화 격자)
+  // - 그 니케의 픽업 기간에 '모집 외'로 얻은 픽업 니케 = 골드 마일리지 교환(200장)으로 본다(사용자 확인)
   // 날짜만 적힌 기간은 한국시간 시작일 0시 ~ 종료일 끝까지로 본다.
   const kstDay = (v, end) => {
     if (!v) return NaN;
@@ -213,44 +214,41 @@
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(`${s}T${end ? '23:59:59.999' : '00:00:00'}+09:00`);
     return Date.parse(s);
   };
+  const MILEAGE_COST = 200;
   function nikkeImgOf(name) {
     const row = (APP_DATA.nikkeImg || []).find(n => n['이름'] === name);
     return (row && row['이미지']) || '';
   }
-  function buildWindows() {
-    if (!state || !APP_DATA.ready) return;
-    const banners = (APP_DATA.pickup || []).map((p, i) => ({
-      id: i, name: p['니케'], event: p['이벤트'] || '', rerun: !!p['복각'],
-      start: kstDay(p['시작일'], false), end: kstDay(p['종료일'], true),
-    })).filter(b => b.name && !isNaN(b.start) && !isNaN(b.end) && b.end >= b.start);
-    // 경계(시작 · 끝 다음 순간)로 자르고, 열린 배너 묶음이 같은 이웃 구간은 하나로 붙인다
-    const cuts = [...new Set(banners.flatMap(b => [b.start, b.end + 1]))].sort((a, b) => a - b);
-    const windows = [];
-    for (let i = 0; i < cuts.length - 1; i++) {
-      const from = cuts[i], to = cuts[i + 1] - 1;
-      const open = banners.filter(b => b.start <= from && b.end >= from);
-      if (!open.length) continue;
-      const key = open.map(b => b.id).join(',');
-      const last = windows[windows.length - 1];
-      if (last && last.key === key && last.to + 1 === from) last.to = to;
-      else windows.push({ key, from, to, banners: open, batches: [] });
+  let pickupPeriods = null;   // 니케 이름 -> [{start, end}]
+  function loadPickupPeriods() {
+    if (pickupPeriods || !APP_DATA.ready) return pickupPeriods;
+    pickupPeriods = new Map();
+    for (const p of APP_DATA.pickup || []) {
+      const s = kstDay(p['시작일'], false), e = kstDay(p['종료일'], true);
+      if (!p['니케'] || isNaN(s) || isNaN(e)) continue;
+      if (!pickupPeriods.has(p['니케'])) pickupPeriods.set(p['니케'], []);
+      pickupPeriods.get(p['니케']).push({ start: s, end: e });
     }
-    let wi = 0, outside = 0;
-    for (const bt of state.batches) {
-      if (bt.type !== 'special') continue;
-      const t = bt.time.getTime();
-      while (wi < windows.length && windows[wi].to < t) wi++;
-      if (wi < windows.length && windows[wi].from <= t) windows[wi].batches.push(bt);
-      else outside += bt.size;
-    }
-    state.windows = windows.filter(w => w.batches.length).reverse();
-    state.windowOutside = outside;
+    return pickupPeriods;
   }
-  const rangeStr = (from, to) => {
-    const a = dayStr(new Date(from)), z = dayStr(new Date(to));
-    if (a === z) return a;
-    return a.slice(0, 4) === z.slice(0, 4) ? `${a} ~ ${z.slice(5)}` : `${a} ~ ${z}`;
+  const inPickup = p => {
+    const list = pickupPeriods && pickupPeriods.get(info(p.code).name);
+    const t = p.time.getTime();
+    return !!list && list.some(r => r.start <= t && t <= r.end);
   };
+  // 모집 외로 얻은 픽업 니케(그 니케의 픽업 기간 안) -> 골드 마일리지. 묶음 전체가 그렇다면 묶음 종류도 바꾼다.
+  function applyPickup() {
+    if (!state || !state.classified || !loadPickupPeriods()) return;
+    for (const b of state.batches) {
+      if (b.type !== 'other' && b.type !== 'mileage') continue;
+      let all = true;
+      for (const p of b.items) {
+        p.type = inPickup(p) ? 'mileage' : 'other';
+        if (p.type !== 'mileage') all = false;
+      }
+      b.type = all ? 'mileage' : 'other';
+    }
+  }
 
   function render() {
     const { pulls, batches, classified } = state;
@@ -261,19 +259,16 @@
     const tenSSR = tens.reduce((s, b) => s + b.items.filter(isSSR).length, 0);
 
     // SSR 사이 간격은 모집으로 얻은 장수로만 잰다(모집 외 획득은 건너뛴다)
-    const ssrRows = [];
-    let since = 0;
+    let since = 0, ssrGacha = 0, ssrAll = 0;
     for (const b of batches) {
       for (const p of b.items) {
         const gachaP = isGacha(p.type);
         for (let i = 0; i < Math.min(p.count, 300); i++) {
           if (gachaP) since++;
-          if (isSSR(p)) { ssrRows.push({ p, b, gap: gachaP ? since : null }); if (gachaP) since = 0; }
+          if (isSSR(p)) { ssrAll++; if (gachaP) { ssrGacha++; since = 0; } }
         }
       }
     }
-    state.ssrRows = ssrRows;
-    const ssrGacha = ssrRows.filter(r => r.gap !== null).length;
 
     const unknown = new Set(pulls.filter(p => !(names && names[p.code])).map(p => p.code));
     $('gacha-range').innerHTML = `<b>${dayStr(pulls[0].time)} ~ ${dayStr(pulls[pulls.length - 1].time)}</b>`
@@ -284,23 +279,19 @@
     const byType = t => sum(pulls.filter(p => p.type === t));
     const rate = tens.length ? (tenSSR / (tens.length * 10) * 100).toFixed(2) : '-';
     const stats = [
-      ['얻은 니케', fmt.format(total), '장', '', classified ? `모집 외 ${fmt.format(byType('other'))}장 포함` : ''],
-      ['모집', fmt.format(sum(gachaPulls)), '장', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 등 ${fmt.format(byType('special'))}` : ''],
+      ['얻은 니케', fmt.format(total), '장', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}장 포함` : ''],
+      ['모집', fmt.format(sum(gachaPulls)), '장', '', classified ? `일반 ${fmt.format(byType('normal'))} · 일반 외 ${fmt.format(byType('special'))}` : ''],
       ['10연차', fmt.format(tens.length), '회'],
-      ['SSR', fmt.format(ssrGacha), '장', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrRows.length - ssrGacha)}장 제외` : ''],
+      ['SSR', fmt.format(ssrGacha), '장', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrAll - ssrGacha)}장 제외` : ''],
       ['10연차 SSR 비율', rate, '%'],
       ['마지막 SSR 이후', fmt.format(since), '장'],
     ];
     $('gacha-stats').innerHTML = stats.map(([k, v, u, cls, sub]) =>
       `<div class="gacha-stat ${cls || ''}"><span>${k}</span><b>${v}<small>${u}</small></b>${sub ? `<i>${sub}</i>` : ''}</div>`).join('');
-
-    // 보기 단추: 구분 없는 예전 기록이면 픽업 배너 보기는 숨긴다
-    document.querySelector('#gacha-views [data-view="banner"]').hidden = !classified;
-    if (!classified && view === 'banner') view = 'summary';
     renderView();
   }
 
-  // 보기 하나만 그린다(안 보이는 표까지 만들지 않는다). 그린 보기는 기록이 바뀔 때까지 다시 안 그린다.
+  // 보기 하나만 그린다(안 보이는 것까지 만들지 않는다). 그린 보기는 기록이 바뀔 때까지 다시 안 그린다.
   let drawn = new Set();
   function renderView() {
     document.querySelectorAll('#gacha-views [data-view]').forEach(b => {
@@ -314,81 +305,101 @@
       return;
     }
     drawn.add(view);
-    if (view === 'summary') { drawChart(); renderTypes(); }
-    else if (view === 'banner') renderBanners();
-    else if (view === 'ssr') renderSsr();
+    if (view === 'summary') { drawChart(); renderTypes(); renderCost(); }
+    else if (view === 'pickup') renderPickups();
+    else if (view === 'first') renderFirst();
     else if (view === 'nikke') renderNikke();
     else if (view === 'history') renderBatches();
   }
 
-  // 모집 종류별: 표 대신 종류마다 한 줄 판(장수 크게, 10연차 · SSR · 비율)
+  // 모집 종류별: 종류마다 한 줄 판(장수 크게, 10연차 · SSR · 비율)
   function renderTypes() {
     const card = $('gacha-types');
     if (!state.classified) { card.hidden = true; return; }
     card.hidden = false;
-    $('gacha-types-body').innerHTML = ['normal', 'special', 'other'].map(t => {
-      const bs = state.batches.filter(b => b.type === t);
-      const n = bs.reduce((s, b) => s + b.size, 0);
-      const ssr = bs.reduce((s, b) => s + b.items.filter(isSSR).reduce((x, p) => x + p.count, 0), 0);
-      const tens = bs.filter(b => b.size === 10).length;
+    const order = ['normal', 'special', 'mileage', 'other'];
+    $('gacha-types-body').innerHTML = order.map(t => {
+      const items = state.pulls.filter(p => p.type === t);
+      const n = items.reduce((s, p) => s + p.count, 0);
+      if (!n && t === 'mileage') return '';
+      const ssr = items.filter(isSSR).reduce((s, p) => s + p.count, 0);
+      const tens = state.batches.filter(b => b.type === t && b.size === 10).length;
       const cells = isGacha(t)
         ? `<span><em>10연차</em>${fmt.format(tens)}</span><span><em>SSR</em>${fmt.format(ssr)}</span><span><em>비율</em>${n ? (ssr / n * 100).toFixed(2) + '%' : '-'}</span>`
-        : `<span><em>SSR</em>${fmt.format(ssr)}</span><span class="is-dim">통계 제외</span>`;
+        : t === 'mileage'
+          ? `<span><em>사용</em>${fmt.format(n * MILEAGE_COST)}장</span><span class="is-dim">통계 제외</span>`
+          : `<span><em>SSR</em>${fmt.format(ssr)}</span><span class="is-dim">통계 제외</span>`;
       return `<div class="gacha-typerow ${TYPES[t].cls}"><div class="gt-head">${typeChip(t)}<b>${fmt.format(n)}<small>장</small></b></div><div class="gt-cells">${cells}</div></div>`;
     }).join('');
   }
 
-  // 픽업 기간 카드: 기간 · 그 동안의 '픽업 등' 장수 · 10연차 / 열려 있던 배너(그림 · 이름 · 픽업 니케 획득) / 나온 다른 SSR
-  let bannerShown = 10;
-  function renderBanners() {
-    const list = state.windows || [];
-    const total = list.reduce((s, w) => s + w.batches.reduce((x, bt) => x + bt.size, 0), 0);
-    $('gacha-banner-sum').textContent = list.length ? `${fmt.format(list.length)}개 기간 · ${fmt.format(total)}장` : '';
-    $('gacha-banners').innerHTML = list.slice(0, bannerShown).map(w => {
-      const items = w.batches.flatMap(bt => bt.items);
-      const n = w.batches.reduce((s, bt) => s + bt.size, 0);
-      const tens = w.batches.filter(bt => bt.size === 10).length;
-      const pickNames = new Set(w.banners.map(b => b.name));
-      const ssr = items.filter(isSSR).reduce((s, p) => s + p.count, 0);
-      const others = items.filter(p => isSSR(p) && !pickNames.has(info(p.code).name));
-      const tiles = w.banners.map(b => {
-        const got = items.filter(p => info(p.code).name === b.name).reduce((s, p) => s + p.count, 0);
-        const img = nikkeImgOf(b.name);
-        return `<div class="gw-banner${got ? ' has-pick' : ''}">
-          <div class="gw-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}</div>
-          <div class="gw-info"><span class="gw-event">${esc(b.event)}${b.rerun ? '<em>복각</em>' : ''}</span>
-            <b class="gw-name">${esc(b.name)}</b>
-            <span class="gw-pick">${got ? `<strong>획득 ×${got}</strong>` : '미획득'}</span></div>
-        </div>`;
-      }).join('');
-      return `<article class="gacha-window">
-        <div class="gw-head">
-          <div class="gw-period">${rangeStr(w.from, w.to)}</div>
-          <dl class="gw-stats"><div><dt>픽업 등</dt><dd>${fmt.format(n)}장</dd></div><div><dt>10연차</dt><dd>${fmt.format(tens)}회</dd></div><div><dt>SSR</dt><dd>${fmt.format(ssr)}</dd></div></dl>
-        </div>
-        <div class="gw-banners">${tiles}</div>
-        ${others.length ? `<div class="gw-ssr"><span>다른 SSR</span>${others.map(p => tag(p)).join('')}</div>` : ''}
-      </article>`;
-    }).join('') || '<div class="gacha-empty">픽업 기간에 맞는 기록 없음</div>';
-    $('gacha-banner-more').hidden = list.length <= bannerShown;
+  // 사용 재화: 모집 1회 = 모집권 1장(쥬얼로는 300). 일반 외에는 소셜 포인트 · 무료 모집도 섞여 있어 쥬얼은 '환산'으로만 적는다.
+  function renderCost() {
+    const card = $('gacha-cost');
+    const sum = t => state.pulls.filter(p => p.type === t).reduce((s, p) => s + p.count, 0);
+    const rows = state.classified
+      ? [['일반 모집', sum('normal'), '회'], ['일반 외 모집', sum('special'), '회'], ['골드 마일리지', sum('mileage') * MILEAGE_COST, '장']]
+      : [['모집', sum('unknown'), '회']];
+    const pulls = state.classified ? sum('normal') + sum('special') : sum('unknown');
+    card.hidden = false;
+    $('gacha-cost-body').innerHTML = rows.map(([k, v, u]) =>
+      `<div class="gc-row"><span>${k}</span><b>${fmt.format(v)}<small>${u}</small></b></div>`).join('')
+      + `<div class="gc-row gc-total"><span>쥬얼 환산</span><b>${fmt.format(pulls * 300)}</b></div>`;
   }
 
-  let ssrShown = 60;
-  function renderSsr() {
-    const all = $('gacha-ssr-scope').value === 'all';
-    const rows = state.ssrRows.filter(r => all || r.gap !== null).slice().reverse();
-    $('gacha-ssr-body').innerHTML = rows.slice(0, ssrShown).map(({ p, gap }) =>
-      `<tr><td>${dtf.format(p.time)}</td><td>${tag(p)}</td><td>${typeChip(p.type)}</td>`
-      + `<td class="num gacha-gap">${gap === null ? '-' : fmt.format(gap)}</td></tr>`).join('')
-      || '<tr><td colspan="4" class="gacha-empty">SSR 기록 없음</td></tr>';
-    $('gacha-ssr-more').hidden = rows.length <= ssrShown;
+  // 픽업 획득: 픽업 니케를 그 니케의 픽업 기간에 얻은 것만, 한 장씩 초상화 칸으로. 최근 것부터.
+  // 동그라미 숫자 = 이전 픽업 획득 이후 '일반 외 모집' 장수(골드 마일리지 교환은 '교환'으로 표시하고 세지 않는다).
+  let pickupShown = 120;
+  function pickupRows() {
+    const rows = [];
+    let since = 0;
+    for (const b of state.batches) {
+      for (const p of b.items) {
+        const counts = p.type === 'special' || p.type === 'unknown';
+        for (let i = 0; i < Math.min(p.count, 300); i++) {
+          if (counts) since++;
+          if ((isGacha(p.type) || p.type === 'mileage') && inPickup(p)) {
+            if (p.type === 'mileage') rows.push({ p, gap: null });
+            else { rows.push({ p, gap: since }); since = 0; }
+          }
+        }
+      }
+    }
+    return rows.reverse();
+  }
+  function renderPickups() {
+    if (!loadPickupPeriods()) { $('gacha-pickups').innerHTML = '<div class="gacha-empty">픽업 기록을 불러오는 중</div>'; return; }
+    const rows = pickupRows();
+    const ex = rows.filter(r => r.gap === null).length;
+    $('gacha-pickup-sum').textContent = `${fmt.format(rows.length)}장` + (ex ? ` · 골드 마일리지 교환 ${fmt.format(ex)}` : '');
+    $('gacha-pickups').innerHTML = rows.slice(0, pickupShown).map(({ p, gap }) => {
+      const i = info(p.code), img = nikkeImgOf(i.name);
+      const title = `${i.name} · ${dtf.format(p.time)}` + (gap === null ? ' · 골드 마일리지 교환' : ` · ${gap}장째`);
+      return `<div class="gacha-pk${gap === null ? ' is-mileage' : ''}" title="${esc(title)}">`
+        + (img ? `<img src="${esc(img)}" alt="${esc(i.name)}" loading="lazy" decoding="async">` : `<span class="gp-name">${esc(i.name)}</span>`)
+        + `<b class="gp-gap">${gap === null ? '교환' : fmt.format(gap)}</b></div>`;
+    }).join('') || '<div class="gacha-empty">픽업 기간에 얻은 픽업 니케 없음</div>';
+    $('gacha-pickup-more').hidden = rows.length <= pickupShown;
   }
 
-  // 니케별: 표 대신 칸 격자(이름 · 장수 크게 · 처음 얻은 날)
+  // 최초 획득순: 니케마다 처음 얻은 순간 하나씩
+  function renderFirst() {
+    const rare = $('gacha-first-rare').value;
+    const firsts = state.pulls.filter(p => p.isNew).filter(p => !rare || info(p.code).rare === rare);
+    $('gacha-first-grid').innerHTML = firsts.map((p, k) => {
+      const i = info(p.code), img = nikkeImgOf(i.name);
+      return `<div class="gacha-first is-${i.rare}">`
+        + `<span class="gf-no">${k + 1}</span>`
+        + `<span class="gf-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}</span>`
+        + `<span class="gf-body"><b>${esc(i.name)}</b><span>${dayStr(p.time)} ${typeChip(p.type)}</span></span></div>`;
+    }).join('') || '<div class="gacha-empty">없음</div>';
+  }
+
+  // 니케별: 칸 격자(이름 · 장수 크게)
   function renderNikke() {
     const per = new Map();
     for (const p of state.pulls) {
-      const row = per.get(p.code) || { code: p.code, n: 0, first: p.time };
+      const row = per.get(p.code) || { code: p.code, n: 0 };
       row.n += p.count;
       per.set(p.code, row);
     }
@@ -396,7 +407,7 @@
     $('gacha-nikke-grid').innerHTML = [...per.values()]
       .filter(r => !rare || info(r.code).rare === rare)
       .sort((a, b) => b.n - a.n)
-      .map(r => { const i = info(r.code); return `<div class="gacha-nk is-${i.rare}"><span class="gn-name">${esc(i.name)}</span><b>${fmt.format(r.n)}<small>장</small></b><span class="gn-first">${dayStr(r.first)}</span></div>`; })
+      .map(r => { const i = info(r.code); return `<div class="gacha-nk is-${i.rare}"><span class="gn-name">${esc(i.name)}</span><b>${fmt.format(r.n)}<small>장</small></b></div>`; })
       .join('') || '<div class="gacha-empty">없음</div>';
   }
 
@@ -411,14 +422,14 @@
     $('gacha-more').hidden = list.length <= shown;
   }
 
-  // 월별 막대: 일반 · 픽업 등 · 모집 외를 쌓는다. 금색 점 = 그 달 모집 SSR 장수.
+  // 월별 막대: 일반 · 일반 외 · 골드 마일리지 · 모집 외를 쌓는다. 금색 점 = 그 달 모집 SSR 장수.
   // 막대에 마우스를 올리면(폰은 누르면) 그 달 세부 내역을 툴팁으로 보인다.
   let chartData = [];
   function drawChart() {
-    const order = state.classified ? ['normal', 'special', 'other'] : ['unknown'];
+    const order = state.classified ? ['normal', 'special', 'mileage', 'other'] : ['unknown'];
     const months = new Map();
     const month = k => {
-      if (!months.has(k)) months.set(k, { n: 0, ssr: 0, tens: 0, normal: 0, special: 0, other: 0, unknown: 0, ssrNames: [] });
+      if (!months.has(k)) months.set(k, { n: 0, ssr: 0, tens: 0, normal: 0, special: 0, mileage: 0, other: 0, unknown: 0, ssrNames: [] });
       return months.get(k);
     };
     for (const b of state.batches) {
@@ -533,16 +544,16 @@
 
   function show(data) {
     state = build(data);
-    shown = PAGE; bannerShown = 10; ssrShown = 60;
+    shown = PAGE; pickupShown = 120;
     drawn = new Set();
     $('gacha-result').hidden = false;
     $('gacha-loaded').hidden = false;
     setImportOpen(false);
-    buildWindows();
+    applyPickup();
     render();
     setStatus('');
-    // 픽업 기록(사이트 데이터)이 늦게 오면 그때 배너를 다시 잇는다
-    if (!APP_DATA.ready) onAppDataReady(() => { if (!state) return; buildWindows(); drawn = new Set(); renderView(); });
+    // 픽업 기록(사이트 데이터)이 늦게 오면 그때 골드 마일리지 · 픽업 획득을 다시 계산한다
+    if (!APP_DATA.ready) onAppDataReady(() => { if (!state) return; applyPickup(); drawn = new Set(); render(); });
   }
 
   async function loadFile(file) {
@@ -588,7 +599,7 @@
   const hasFiles = e => !!(e.dataTransfer && [...e.dataTransfer.types].includes('Files'));
   const VIEW_KEY = 'mmr-gacha-view';
   let view = 'summary';
-  try { const v = localStorage.getItem(VIEW_KEY); if (['summary', 'banner', 'ssr', 'nikke', 'history'].includes(v)) view = v; } catch (e) { /* 무시 */ }
+  try { const v = localStorage.getItem(VIEW_KEY); if (['summary', 'pickup', 'first', 'nikke', 'history'].includes(v)) view = v; } catch (e) { /* 무시 */ }
 
   document.addEventListener('DOMContentLoaded', () => {
     const tab = $('tab-gacha');
@@ -636,9 +647,8 @@
       if (state) renderView();
     }));
     $('gacha-rare').addEventListener('change', () => { if (state) renderNikke(); });
-    $('gacha-ssr-scope').addEventListener('change', () => { if (state) { ssrShown = 60; renderSsr(); } });
-    $('gacha-ssr-more').addEventListener('click', () => { ssrShown += 80; renderSsr(); });
-    $('gacha-banner-more').addEventListener('click', () => { bannerShown += 10; renderBanners(); });
+    $('gacha-first-rare').addEventListener('change', () => { if (state) renderFirst(); });
+    $('gacha-pickup-more').addEventListener('click', () => { pickupShown += 120; renderPickups(); });
     setupChartTip();
     const reBatch = () => { if (state) { shown = PAGE; renderBatches(); } };
     $('gacha-only-ssr').addEventListener('change', reBatch);
