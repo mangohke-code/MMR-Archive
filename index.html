@@ -845,7 +845,7 @@
       </div>
     </div>
 
-    <!-- 가챠 트래커(베타). PC판 계정 기록 파일(NKSD_TRIGGER_*)을 끌어다 놓거나 골라서 넣는다.
+    <!-- 가챠 트래커(베타). PC버전 계정 기록 파일(NKSD_TRIGGER_*)을 끌어다 놓거나 골라서 넣는다.
          기록은 브라우저 안에서만 풀고 localStorage 에만 둔다(서버로 보내지 않음) - js/gacha.js -->
     <div id="tab-gacha" class="tab-content">
       <div id="gacha-page">
@@ -861,14 +861,14 @@
           </div>
           <div id="gacha-steps-wrap">
             <ol class="gacha-steps">
-              <li><span class="gacha-step-k">PC판 니케 로비까지 한 번 접속 <small>그 뒤엔 게임을 꺼도 됨</small></span></li>
+              <li><span class="gacha-step-k">PC버전 니케 로비까지 한 번 접속 <small>그 뒤엔 게임을 꺼도 됨</small></span></li>
               <li><span class="gacha-step-k">폴더 주소 복사 → 탐색기 주소칸에 붙여넣기</span>
                 <div class="gacha-cmd"><code id="gacha-dir"></code><button type="button" id="gacha-copy-dir" class="mode-btn">주소 복사</button></div></li>
               <li><span class="gacha-step-k">NKSD_TRIGGER_… 파일 넣기 <small>여러 개면 가장 최근 것</small></span>
                 <label id="gacha-drop"><input type="file" id="gacha-file" hidden>
                   <i class="fas fa-file-import" aria-hidden="true"></i><b>여기에 끌어다 놓기</b><span>또는 눌러서 고르기</span></label></li>
             </ol>
-            <div class="gacha-note">PC판 전용 · 파일은 이 브라우저 안에서만 읽음(서버 전송 없음) · 실버 마일리지 교환분(스페어 바디 선택 상자 포함)은 게임 기록에 없음</div>
+            <div class="gacha-note">PC버전 전용 · 파일은 이 브라우저 안에서만 읽음(서버 전송 없음)</div>
           </div>
           <div id="gacha-status" role="status"></div>
         </section>
@@ -879,7 +879,8 @@
             <div><b>픽업·소셜 모집에는 소셜 포인트 모집이 섞여 있습니다</b>
               <span>게임 기록으로는 픽업 · 선택 특수 · 소셜 포인트 모집을 구분할 수 없습니다. 픽업·소셜 횟수 · 확률은 소셜 포인트 모집까지 합친 값이라 픽업만의 수치로는 정확하지 않습니다.</span>
               <span>필그림 · 오버스펙 · 한정 · 어브노말 니케, 또는 신규 픽업 기간의 그 픽업 니케가 나온 모집은 '픽업'으로 확정해 따로 셉니다(같은 10연차의 다른 니케 포함).</span>
-              <span>복각 픽업은 일반 · 소셜 · 픽업을 가릴 수 없어, 같은 기간에 소셜 포인트 모집 · 선택 상자 등으로 얻은 그 니케도 픽업 · 교환으로 잡힐 수 있습니다.</span>
+              <span>복각 픽업 니케는 소셜 포인트 모집과 구분할 수 없어 '픽업'으로 확정하지 않고 픽업·소셜로 셉니다.</span>
+              <span>복각 픽업 기간에 선택 상자 · 이벤트 보상 등 모집 외로 얻은 그 니케는 골드 마일리지 교환으로 잡힐 수 있습니다.</span>
               <span>실버 마일리지 티켓 교환은 게임 기록에 남지 않아 포함되지 않습니다.</span></div>
           </div>
 
