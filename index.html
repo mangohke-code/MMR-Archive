@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=316">
+  <link rel="stylesheet" href="css/style.css?v=317">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -852,6 +852,7 @@
         <section id="gacha-import" class="card gacha-card">
           <div class="chapter-feature-cap"><b>GACHA TRACKER</b><span>모집 기록 가져오기</span><i class="gacha-beta">BETA</i></div>
           <ol class="gacha-steps">
+            <li><span class="gacha-step-k">PC판 니케 접속(로비까지)</span></li>
             <li><span class="gacha-step-k">PowerShell 실행</span>
               <div class="gacha-cmd"><code id="gacha-cmd"></code><button type="button" id="gacha-copy-cmd" class="mode-btn">명령 복사</button></div></li>
             <li><span class="gacha-step-k">복사된 기록 붙여넣기</span>
@@ -862,12 +863,17 @@
                 <span id="gacha-status" role="status"></span>
               </div></li>
           </ol>
-          <div class="gacha-note">PC판 전용 · 기록은 이 브라우저에만 저장</div>
+          <div class="gacha-note">PC판 전용 · 실버 마일리지 교환분은 기록에 없을 수 있음 · 기록은 이 브라우저에만 저장</div>
         </section>
 
         <div id="gacha-result" hidden>
           <div id="gacha-range"></div>
           <div id="gacha-stats"></div>
+
+          <section id="gacha-types" class="card gacha-card">
+            <div class="chapter-feature-cap"><b>TYPE</b><span>모집 종류별</span></div>
+            <table class="gacha-table gacha-types-table"><thead><tr><th>종류</th><th class="num">장수</th><th class="num">10연차</th><th class="num">SSR</th><th class="num">SSR 비율</th></tr></thead><tbody id="gacha-types-body"></tbody></table>
+          </section>
 
           <section class="card gacha-card">
             <div class="chapter-feature-cap"><b>MONTHLY</b><span>월별 획득</span></div>
@@ -877,7 +883,7 @@
           <div class="gacha-grid2">
             <section class="card gacha-card">
               <div class="chapter-feature-cap"><b>SSR</b><span>SSR 획득 순서</span></div>
-              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>니케</th><th class="num">이전 SSR 이후</th></tr></thead><tbody id="gacha-ssr-body"></tbody></table></div>
+              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>니케</th><th>종류</th><th class="num" title="이전 모집 SSR 이후 장수">간격</th></tr></thead><tbody id="gacha-ssr-body"></tbody></table></div>
             </section>
             <section class="card gacha-card">
               <div class="chapter-feature-cap"><b>NIKKE</b><span>니케별 획득</span>
@@ -888,8 +894,9 @@
 
           <section class="card gacha-card">
             <div class="chapter-feature-cap"><b>HISTORY</b><span>모집 묶음</span>
-              <label class="gacha-check"><input type="checkbox" id="gacha-only-ssr">SSR 포함만</label></div>
-            <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th class="num">장수</th><th>니케</th></tr></thead><tbody id="gacha-batch-body"></tbody></table></div>
+              <span class="gacha-filters"><select id="gacha-type" class="search-box" aria-label="모집 종류"><option value="">전체</option><option value="normal">일반</option><option value="special">픽업 등</option><option value="other">모집 외</option></select>
+              <label class="gacha-check"><input type="checkbox" id="gacha-only-ssr">SSR 포함만</label></span></div>
+            <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>종류</th><th class="num">장수</th><th>니케</th></tr></thead><tbody id="gacha-batch-body"></tbody></table></div>
             <button type="button" id="gacha-more" class="mode-btn">더 보기</button>
           </section>
         </div>
@@ -982,7 +989,7 @@
   <script type="module" src="js/soloraid3d.js?v=511"></script>
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=23"></script>
-  <script src="js/gacha.js?v=1"></script>
+  <script src="js/gacha.js?v=3"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>

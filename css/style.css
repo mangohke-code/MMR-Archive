@@ -9611,8 +9611,8 @@
   /* ===== 가챠 트래커 (베타, 사용자 요청 2026-11-18) =====
      탭: 스테이지 정보 뒤에 간격을 두고, 이 탭만 청록색 + BETA 표. 폰 격자에서는 맨 아래 한 줄 전체.
      페이지: 표준 판(.card) 안에서 강조색만 청록으로 바꾼다. 기록 처리는 js/gacha.js */
-  :root { --gacha: #12a08f; --gacha-strong: #0b8576; --gacha-glow: rgba(18, 160, 143, 0.26); --gacha-soft: rgba(18, 160, 143, 0.12); }
-  :root[data-theme="dark"] { --gacha: #46d3be; --gacha-strong: #6fe3d1; --gacha-glow: rgba(70, 211, 190, 0.3); --gacha-soft: rgba(70, 211, 190, 0.14); }
+  :root { --gacha: #12a08f; --gacha-strong: #0b8576; --gacha-glow: rgba(18, 160, 143, 0.26); --gacha-soft: rgba(18, 160, 143, 0.12); --gacha-pick: #8a75ee; --gacha-other: #a3a9ba; }
+  :root[data-theme="dark"] { --gacha: #46d3be; --gacha-strong: #6fe3d1; --gacha-glow: rgba(70, 211, 190, 0.3); --gacha-soft: rgba(70, 211, 190, 0.14); --gacha-pick: #a796f5; --gacha-other: #6b7184; }
 
   #tab-nav .tab-btn.tab-btn-gacha { margin-left: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
   #tab-nav .tab-btn.tab-btn-gacha:not(.active):not([aria-expanded="true"]) {
@@ -9646,7 +9646,8 @@
   .gacha-card .chapter-feature-cap { align-items: center; flex-wrap: wrap; }
   .gacha-beta { font: 800 11px/1 ui-monospace, 'Cascadia Mono', Consolas, monospace; font-style: normal; letter-spacing: .1em;
     padding: 4px 6px 3px; border-radius: 4px; color: #fff; background: var(--gacha); }
-  .gacha-card .chapter-feature-cap > select, .gacha-card .chapter-feature-cap > .gacha-check { margin-left: auto; }
+  .gacha-card .chapter-feature-cap > select, .gacha-card .chapter-feature-cap > .gacha-filters { margin-left: auto; }
+  .gacha-filters { display: inline-flex; align-items: center; gap: 12px; }
 
   .gacha-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: gstep; }
   .gacha-steps > li { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; row-gap: 8px; counter-increment: gstep; }
@@ -9672,23 +9673,36 @@
 
   #gacha-range { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .gacha-warn { color: var(--status-warn-text); }
-  #gacha-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  #gacha-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
   .gacha-stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 10px 0 10px 0; corner-shape: bevel;
     background: var(--bg-panel); box-shadow: var(--shadow-card), inset 0 0 0 1px var(--gacha-soft); }
   .gacha-stat span { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
   .gacha-stat b { font-size: 26px; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--text-heading); }
   .gacha-stat b small { margin-left: 3px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+  .gacha-stat i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .gacha-stat.is-ssr b { color: var(--gold); }
+
+  /* 모집 종류: 일반(청록) · 픽업 등(라벤더) · 모집 외(회색). 같은 색을 막대·칩·범례에 쓴다 */
+  .gacha-type { display: inline-block; padding: 0 7px; border-radius: 4px 0 4px 0; corner-shape: bevel; font-size: 12px; font-weight: 700; white-space: nowrap; color: #fff; }
+  .gacha-type.is-normal { background: var(--gacha); }
+  .gacha-type.is-special { background: var(--gacha-pick); }
+  .gacha-type.is-other { background: var(--gacha-other); }
+  .gacha-type.is-unknown { color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .gacha-types-table { max-width: 720px; }
 
   #gacha-chart { overflow-x: auto; }
   #gacha-chart svg { display: block; }
   #gacha-chart .gc-grid { stroke: var(--border-subtle); }
   #gacha-chart .gc-axis { font-size: 11px; fill: var(--text-secondary); }
-  #gacha-chart .gc-bar { fill: var(--gacha); opacity: .8; }
+  #gacha-chart .gc-bar { fill: var(--gacha); opacity: .85; }
+  #gacha-chart .gc-bar.is-special { fill: var(--gacha-pick); }
+  #gacha-chart .gc-bar.is-other { fill: var(--gacha-other); }
   #gacha-chart .gc-ssr { fill: var(--gold); stroke: var(--bg-panel); stroke-width: 1.5; }
   .gacha-legend { display: flex; gap: 14px; margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
   .gacha-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
-  .gacha-legend .is-bar::before { background: var(--gacha); }
+  .gacha-legend .is-normal::before, .gacha-legend .is-unknown::before { background: var(--gacha); }
+  .gacha-legend .is-special::before { background: var(--gacha-pick); }
+  .gacha-legend .is-other::before { background: var(--gacha-other); }
   .gacha-legend .is-ssr::before { background: var(--gold); border-radius: 50%; }
 
   .gacha-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -9708,16 +9722,17 @@
   .gacha-tag.is-SR { color: #7b45c4; background: rgba(150, 100, 220, 0.14); }
   .gacha-tag.is-R { color: #2a72b3; background: rgba(60, 140, 210, 0.13); }
   .gacha-tag.is-U { color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .gacha-tag em { margin-left: 4px; font: 800 9px/1 ui-monospace, Consolas, monospace; font-style: normal; letter-spacing: .04em; color: #e0457b; vertical-align: 1px; }
   [data-theme="dark"] .gacha-tag.is-SSR { color: #f0c560; }
   [data-theme="dark"] .gacha-tag.is-SR { color: #c49cf5; }
   [data-theme="dark"] .gacha-tag.is-R { color: #7cbcf0; }
-  #gacha-rare.search-box { width: 96px; height: 32px; padding: 0 8px; font: inherit; font-size: 13px; color: var(--text-heading); cursor: pointer; }
+  :is(#gacha-rare, #gacha-type).search-box { width: 96px; height: 32px; padding: 0 8px; font: inherit; font-size: 13px; color: var(--text-heading); cursor: pointer; }
   .gacha-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
   .gacha-check input { accent-color: var(--gacha); }
   #gacha-more { align-self: center; }
   #gacha-more[hidden] { display: none; }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1200px) {
     #gacha-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .gacha-grid2 { grid-template-columns: minmax(0, 1fr); }
   }
