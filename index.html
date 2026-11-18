@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=317">
+  <link rel="stylesheet" href="css/style.css?v=318">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -845,7 +845,7 @@
       </div>
     </div>
 
-    <!-- 가챠 트래커(베타). PC판 계정 기록(NKSD_TRIGGER_*)의 니케 획득 줄을 PowerShell 로 뽑아 붙여넣는다.
+    <!-- 가챠 트래커(베타). PC판 계정 기록 파일(NKSD_TRIGGER_*)을 끌어다 놓거나 골라서 넣는다.
          기록은 브라우저 안에서만 풀고 localStorage 에만 둔다(서버로 보내지 않음) - js/gacha.js -->
     <div id="tab-gacha" class="tab-content">
       <div id="gacha-page">
@@ -853,17 +853,17 @@
           <div class="chapter-feature-cap"><b>GACHA TRACKER</b><span>모집 기록 가져오기</span><i class="gacha-beta">BETA</i></div>
           <ol class="gacha-steps">
             <li><span class="gacha-step-k">PC판 니케 접속(로비까지)</span></li>
-            <li><span class="gacha-step-k">PowerShell 실행</span>
-              <div class="gacha-cmd"><code id="gacha-cmd"></code><button type="button" id="gacha-copy-cmd" class="mode-btn">명령 복사</button></div></li>
-            <li><span class="gacha-step-k">복사된 기록 붙여넣기</span>
-              <textarea id="gacha-paste" spellcheck="false" autocomplete="off" placeholder="Ctrl+V"></textarea>
+            <li><span class="gacha-step-k">폴더 주소 복사 → 탐색기 주소칸에 붙여넣기</span>
+              <div class="gacha-cmd"><code id="gacha-dir"></code><button type="button" id="gacha-copy-dir" class="mode-btn">주소 복사</button></div></li>
+            <li><span class="gacha-step-k">NKSD_TRIGGER_… 파일 넣기 <small>여러 개면 가장 최근 것</small></span>
+              <label id="gacha-drop"><input type="file" id="gacha-file" hidden>
+                <i class="fas fa-file-import" aria-hidden="true"></i><b>여기에 끌어다 놓기</b><span>또는 눌러서 고르기</span></label>
               <div class="gacha-row">
-                <button type="button" id="gacha-load" class="mode-btn active">기록 보기</button>
                 <button type="button" id="gacha-clear" class="mode-btn">기록 지우기</button>
                 <span id="gacha-status" role="status"></span>
               </div></li>
           </ol>
-          <div class="gacha-note">PC판 전용 · 실버 마일리지 교환분(스페어 바디 선택 상자 포함)은 게임 기록에 없어 니케별 장수에서 빠짐 · 기록은 이 브라우저에만 저장</div>
+          <div class="gacha-note">PC판 전용 · 파일은 이 브라우저 안에서만 읽음(서버 전송 없음) · 실버 마일리지 교환분(스페어 바디 선택 상자 포함)은 게임 기록에 없어 니케별 장수에서 빠짐</div>
         </section>
 
         <div id="gacha-result" hidden>
@@ -989,7 +989,7 @@
   <script type="module" src="js/soloraid3d.js?v=511"></script>
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=23"></script>
-  <script src="js/gacha.js?v=3"></script>
+  <script src="js/gacha.js?v=4"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>

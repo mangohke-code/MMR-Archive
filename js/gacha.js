@@ -1,18 +1,19 @@
 // ===== 가챠 트래커 (베타, 사용자 요청 2026-11-18) =====
-// 방식은 추출 프로그램 세션이 정리한 것(Desktop\Claude\니케_가챠트래커\정보모음_연동메모.md)을 옮겼다.
+// 방식은 추출 프로그램 세션이 정리한 것(Desktop\Claude\니케_가챠트래커\정보모음_연동메모.md, nksd_file_reader.js)을 옮겼다.
 // - 출처: PC판 계정 사건 기록 %USERPROFILE%\AppData\LocalLow\com_proximabeta\NIKKE\NKSD_TRIGGER_<계정>(zip/trigger.txt).
 //   한 줄 = s,seq,종류,값,횟수,틱,e. 니케에는 모집 기록 웹 주소·토큰이 없어서 이 파일이 유일한 출처다.
 //   종류 18 = 니케 획득(값 = 니케 번호, 횟수 = 장수), 13 = 모집 1번(횟수 = 뽑은 장수), 69 = 일반 모집일 때만 13 과 같이 찍힘.
-// - 사용자는 PowerShell 한 줄(GACHA_COMMAND)을 실행 -> 클립보드의 base64(gzip(...))를 붙여넣는다.
-//   NKT2(지금): "NKT2\n" + "종류,seq,값,횟수,틱\n"×N (종류 13·18·69)
-//   NKT1(처음 판): "NKT1\n" + "seq,니케번호,횟수,틱\n"×N (종류 18 만) - 예전에 붙여 둔 기록도 읽되 모집 구분은 못 한다.
-// - 브라우저 안에서만 푼다. 서버로 보내지 않고, 붙여넣은 글자는 이 브라우저 localStorage 에만 둔다.
+// - 사용자는 그 파일을 끌어다 놓거나 골라서 넣는다. 브라우저 안에서 zip 을 직접 풀고(외부 라이브러리 없음) 13·18·69 줄만 쓴다.
+//   예전에는 PowerShell 명령을 실행해 붙여넣게 했는데, '사이트의 명령을 그대로 실행'하는 구조가 위험해서 뺐다(사용자 결정, 2026-11-18).
+// - 서버로 보내지 않는다. 고른 줄만 "NKT2\n" + "종류,seq,값,횟수,틱\n"×N 으로 적어 gzip+base64 로 이 브라우저 localStorage 에 둔다.
+//   예전 명령으로 붙여 둔 NKT2·NKT1(종류 18 만, 모집 구분 없음) 저장분도 그대로 읽는다.
 // - 1초 안에 들어온 18 줄 = 한 묶음, 10장 묶음 = 10연차. 묶음 첫 줄 앞 3초 ~ 끝 줄 뒤 3초 안의 13·69 로 나눈다:
 //   69 있음 = 일반 모집 / 13 만 = 일반 외 모집(픽업 등, 어느 배너인지는 기록에 없음) / 13 없음 = 모집 외 획득(선택 상자·출석·교환 등).
-//   모집 외 획득은 SSR 통계(장수·간격·마지막 SSR 이후)에서 뺀다.
+//   모집 외 획득은 SSR 통계(장수·간격·마지막 SSR 이후)에서 뺀다. 실버 마일리지 교환분은 기록 자체에 없다.
 // - 니케 번호 -> 이름·등급은 게임 파일에 없어서 data/gacha-names.json(blablalink 기반)에서 읽는다. 없는 번호는 '#번호'.
 (function () {
-  const GACHA_COMMAND = "$d=Join-Path $env:USERPROFILE 'AppData\\LocalLow\\com_proximabeta\\NIKKE';$f=Get-ChildItem (Join-Path $d 'NKSD_TRIGGER_*') -EA 0|Sort-Object LastWriteTime -Desc|Select-Object -First 1;if(!$f){Write-Host 'NIKKE 기록 파일을 찾지 못했습니다. PC판에 로그인한 적이 있는지 확인하세요.' -F Yellow}else{$c=Join-Path $env:TEMP ('nkt_'+[guid]::NewGuid().ToString('N')+'.zip');Copy-Item $f.FullName $c -Force;Add-Type -A System.IO.Compression.FileSystem;$z=[IO.Compression.ZipFile]::OpenRead($c);$r=New-Object IO.StreamReader($z.GetEntry('trigger.txt').Open());$o=New-Object Text.StringBuilder;[void]$o.Append(\"NKT2`n\");$n=0;while($null -ne ($l=$r.ReadLine())){$p=$l.Split(',');if($p.Count -ge 6 -and ($p[2] -eq '13' -or $p[2] -eq '18' -or $p[2] -eq '69')){[void]$o.Append($p[2]+','+$p[1]+','+$p[3]+','+$p[4]+','+$p[5]+\"`n\");if($p[2] -eq '18'){$n++}}};$r.Close();$z.Dispose();Remove-Item $c -Force;$b=[Text.Encoding]::UTF8.GetBytes($o.ToString());$m=New-Object IO.MemoryStream;$g=New-Object IO.Compression.GZipStream($m,[IO.Compression.CompressionMode]::Compress);$g.Write($b,0,$b.Length);$g.Close();Set-Clipboard ([Convert]::ToBase64String($m.ToArray()));Write-Host \"모집 기록 $n 건을 클립보드에 복사했습니다. 사이트 입력칸에 붙여넣으세요.\" -F Green}";
+  const NIKKE_DIR = '%USERPROFILE%\\AppData\\LocalLow\\com_proximabeta\\NIKKE';
+  const MAX_FILE = 200 * 1024 * 1024;
   const NAMES_URL = 'data/gacha-names.json?v=1';
   const STORE_KEY = 'mmr-gacha-data';
   const TICKS_EPOCH = 621355968000000000n;   // 0001-01-01 -> 1970-01-01 (.NET 틱)
@@ -65,21 +66,11 @@
   };
   const typeChip = t => `<span class="gacha-type ${TYPES[t].cls}">${TYPES[t].label}</span>`;
 
-  // 붙여넣은 글자 풀기: base64 -> gzip 풀기 -> NKT2 / NKT1
-  async function decode(text) {
-    const clean = String(text || '').replace(/\s+/g, '');
-    if (!clean) throw new Error('붙여넣은 내용이 없습니다.');
-    let bytes;
-    try { bytes = Uint8Array.from(atob(clean), c => c.charCodeAt(0)); }
-    catch (e) { throw new Error('기록 글자가 아닙니다. 명령을 실행한 뒤 바로 붙여넣어 주세요.'); }
-    let raw;
-    try {
-      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-      raw = await new Response(stream).text();
-    } catch (e) { throw new Error('기록 글자가 잘렸거나 다른 내용입니다. 명령을 다시 실행해 주세요.'); }
+  // NKT2 / NKT1 글자 -> { pulls, gacha, normal, classified }
+  function parse(raw) {
     const lines = raw.split('\n');
     const head = lines[0].trim();
-    if (head !== 'NKT2' && head !== 'NKT1') throw new Error('알 수 없는 형식입니다. 위의 최신 명령을 써 주세요.');
+    if (head !== 'NKT2' && head !== 'NKT1') throw new Error('알 수 없는 형식입니다.');
     const v2 = head === 'NKT2';
     const seen = new Set();
     const pulls = [], gacha = [], normal = [];
@@ -94,8 +85,85 @@
       else if (kind === '13') gacha.push({ ticks, count });
       else if (kind === '69') normal.push({ ticks, count });
     }
-    if (!pulls.length) throw new Error('모집 기록이 0건입니다.');
+    if (!pulls.length) throw new Error('니케 획득 기록이 0건입니다.');
     return { pulls, gacha, normal, classified: v2 };
+  }
+
+  // 저장해 둔 글자(base64(gzip(NKT))) 풀기 · 만들기
+  async function unpackSaved(text) {
+    const bytes = Uint8Array.from(atob(String(text).replace(/\s+/g, '')), c => c.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
+  }
+  async function packForSave(raw) {
+    const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream('gzip'));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
+  // zip 바이트에서 이름이 name 인 항목을 푼다(추출 프로그램 세션 nksd_file_reader.js 의 unzipEntry).
+  // NIKKE 기록 파일은 크기가 작아도 ZIP64 로 저장돼 있어서, 크기·위치가 0xFFFFFFFF 면 추가 필드(id 0x0001)의 8바이트 값을 쓴다.
+  async function unzipEntry(buf, name) {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let eocd = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 65535); i--) {
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('NIKKE 기록 파일(NKSD_TRIGGER_…)이 아닙니다.');
+    const count = dv.getUint16(eocd + 10, true);
+    let p = dv.getUint32(eocd + 16, true);
+    const dec = new TextDecoder();
+    for (let k = 0; k < count; k++) {
+      if (p + 46 > buf.length || dv.getUint32(p, true) !== 0x02014b50) throw new Error('기록 파일이 깨졌습니다.');
+      const method = dv.getUint16(p + 10, true);
+      let csize = dv.getUint32(p + 20, true);
+      let usize = dv.getUint32(p + 24, true);
+      const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+      let local = dv.getUint32(p + 42, true);
+      const entryName = dec.decode(buf.subarray(p + 46, p + 46 + nlen));
+      if (usize === 0xFFFFFFFF || csize === 0xFFFFFFFF || local === 0xFFFFFFFF) {
+        let x = p + 46 + nlen;
+        const xend = x + xlen;
+        while (x + 4 <= xend) {
+          const id = dv.getUint16(x, true), sz = dv.getUint16(x + 2, true);
+          if (id === 0x0001) {
+            let q = x + 4;
+            const u64 = () => { const v = Number(dv.getBigUint64(q, true)); q += 8; return v; };
+            if (usize === 0xFFFFFFFF) usize = u64();
+            if (csize === 0xFFFFFFFF) csize = u64();
+            if (local === 0xFFFFFFFF) local = u64();
+            break;
+          }
+          x += 4 + sz;
+        }
+      }
+      if (entryName === name) {
+        const lnlen = dv.getUint16(local + 26, true), lxlen = dv.getUint16(local + 28, true);
+        const start = local + 30 + lnlen + lxlen;
+        const data = buf.subarray(start, start + csize);
+        if (method === 0) return data;
+        if (method !== 8) throw new Error('지원하지 않는 기록 파일입니다.');
+        const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+      p += 46 + nlen + xlen + clen;
+    }
+    throw new Error('NIKKE 기록 파일(NKSD_TRIGGER_…)이 맞는지 확인해 주세요.');
+  }
+
+  // 기록 파일 -> NKT2 글자(종류 13·18·69 줄만)
+  async function fileToNkt(file) {
+    if (file.size > MAX_FILE) throw new Error('파일이 너무 큽니다. NKSD_TRIGGER_… 파일을 넣어 주세요.');
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const text = new TextDecoder().decode(await unzipEntry(buf, 'trigger.txt'));
+    const out = ['NKT2'];
+    for (const line of text.split('\n')) {
+      const p = line.split(',');                         // s,seq,종류,값,횟수,틱,e
+      if (p.length >= 6 && (p[2] === '13' || p[2] === '18' || p[2] === '69')) out.push(`${p[2]},${p[1]},${p[3]},${p[4]},${p[5].trim()}`);
+    }
+    return out.join('\n') + '\n';
   }
 
   // 묶음(1초 안) 나누기 + 모집 종류 붙이기 + 처음 얻은 니케(NEW) 표시
@@ -276,18 +344,41 @@
     el.dataset.kind = kind || '';
   }
 
-  async function load(text, remember) {
+  function show(data) {
+    state = build(data);
+    shown = PAGE;
+    $('gacha-result').hidden = false;
+    render();
+    setStatus(`${fmt.format(state.pulls.length)}건`, 'ok');
+  }
+
+  async function loadFile(file) {
+    if (!file) return;
     setStatus('읽는 중…');
     try {
-      const [data] = await Promise.all([decode(text), loadNames()]);
-      state = build(data);
-      shown = PAGE;
-      $('gacha-result').hidden = false;
-      render();
-      setStatus(`${fmt.format(state.pulls.length)}건`, 'ok');
-      if (remember) { try { localStorage.setItem(STORE_KEY, String(text).replace(/\s+/g, '')); } catch (e) { /* 저장 못 해도 보기는 된다 */ } }
+      const raw = await fileToNkt(file);
+      const data = parse(raw);
+      await loadNames();
+      show(data);
+      try { localStorage.setItem(STORE_KEY, await packForSave(raw)); } catch (e) { /* 저장 못 해도 보기는 된다 */ }
     } catch (e) {
-      setStatus(e.message, 'error');
+      setStatus(e && e.message ? e.message : '기록 파일을 읽지 못했습니다.', 'error');
+    }
+  }
+
+  // 파일이 여러 개 오면 이름이 NKSD_TRIGGER 로 시작하는 것 중 가장 최근 것
+  function pickFile(list) {
+    const files = [...(list || [])];
+    const nk = files.filter(f => /^NKSD_TRIGGER/i.test(f.name));
+    return (nk.length ? nk : files).sort((a, b) => b.lastModified - a.lastModified)[0];
+  }
+
+  async function loadSaved(text) {
+    try {
+      const [data] = await Promise.all([unpackSaved(text).then(parse), loadNames()]);
+      show(data);
+    } catch (e) {
+      setStatus('저장해 둔 기록을 읽지 못했습니다. 파일을 다시 넣어 주세요.', 'error');
     }
   }
 
@@ -297,28 +388,43 @@
     loadNames();
     let saved = null;
     try { saved = localStorage.getItem(STORE_KEY); } catch (e) { /* 무시 */ }
-    if (saved) load(saved, false);
+    if (saved) loadSaved(saved);
   }
 
+  const hasFiles = e => !!(e.dataTransfer && [...e.dataTransfer.types].includes('Files'));
+
   document.addEventListener('DOMContentLoaded', () => {
-    if (!$('tab-gacha')) return;
-    $('gacha-cmd').textContent = GACHA_COMMAND;
-    $('gacha-copy-cmd').addEventListener('click', async () => {
-      const btn = $('gacha-copy-cmd');
-      try { await navigator.clipboard.writeText(GACHA_COMMAND); btn.textContent = '복사됨'; }
+    const tab = $('tab-gacha');
+    if (!tab) return;
+    $('gacha-dir').textContent = NIKKE_DIR;
+    $('gacha-copy-dir').addEventListener('click', async () => {
+      const btn = $('gacha-copy-dir');
+      try { await navigator.clipboard.writeText(NIKKE_DIR); btn.textContent = '복사됨'; }
       catch (e) {
         const r = document.createRange();
-        r.selectNodeContents($('gacha-cmd'));
+        r.selectNodeContents($('gacha-dir'));
         const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
         btn.textContent = 'Ctrl+C';
       }
-      setTimeout(() => { btn.textContent = '명령 복사'; }, 2000);
+      setTimeout(() => { btn.textContent = '주소 복사'; }, 2000);
     });
-    $('gacha-load').addEventListener('click', () => load($('gacha-paste').value, true));
-    $('gacha-paste').addEventListener('paste', () => setTimeout(() => load($('gacha-paste').value, true), 0));
+    const input = $('gacha-file');
+    input.addEventListener('change', () => { loadFile(pickFile(input.files)); input.value = ''; });
+    // 끌어다 놓기: 탭 어디에 놓아도 받는다(엉뚱한 곳에 놓아 브라우저가 파일을 열어 버리지 않게)
+    const drop = $('gacha-drop');
+    let depth = 0;
+    tab.addEventListener('dragenter', e => { if (hasFiles(e)) { depth++; drop.classList.add('is-over'); } });
+    tab.addEventListener('dragleave', e => { if (hasFiles(e)) { depth = Math.max(0, depth - 1); if (!depth) drop.classList.remove('is-over'); } });
+    tab.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+    tab.addEventListener('drop', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      drop.classList.remove('is-over');
+      loadFile(pickFile(e.dataTransfer.files));
+    });
     $('gacha-clear').addEventListener('click', () => {
       try { localStorage.removeItem(STORE_KEY); } catch (e) { /* 무시 */ }
-      $('gacha-paste').value = '';
       state = null;
       $('gacha-result').hidden = true;
       setStatus('지웠습니다.');
@@ -328,7 +434,7 @@
     $('gacha-only-ssr').addEventListener('change', reBatch);
     $('gacha-type').addEventListener('change', reBatch);
     $('gacha-more').addEventListener('click', () => { shown += 60; renderBatches(); });
-    if ($('tab-gacha').classList.contains('active')) start();
+    if (tab.classList.contains('active')) start();
   });
 
   document.addEventListener('mmr:tab-change', e => { if (e.detail && e.detail.tab === 'gacha') start(); });

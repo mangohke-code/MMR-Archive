@@ -9661,10 +9661,17 @@
     background: var(--gacha-soft); border-radius: 8px 0 8px 0; corner-shape: bevel; box-shadow: inset 0 0 0 1px var(--border-subtle); }
   #gacha-page .mode-btn { height: 38px; padding: 0 16px; font-size: 14px; flex: none; }
   #gacha-page .mode-btn.active { background: linear-gradient(135deg, var(--gacha), var(--gacha-strong)); color: #fff; border-color: transparent; }
-  #gacha-paste { width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical; padding: 10px 12px;
-    font: 12px ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--text-body); background: var(--bg-panel-alt);
-    border: 1px dashed var(--border-strong); border-radius: 10px 0 10px 0; corner-shape: bevel; }
-  #gacha-paste:focus { outline: 2px solid var(--gacha); outline-offset: 1px; }
+  .gacha-step-k small { margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  /* 파일 넣는 칸: 누르면 파일 고르기, 탭 어디에 끌어다 놓아도 받는다(js/gacha.js). 끌고 들어오면 청록으로 */
+  #gacha-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 120px; padding: 16px;
+    cursor: pointer; text-align: center; color: var(--text-secondary); background: var(--gacha-soft);
+    border: 2px dashed color-mix(in srgb, var(--gacha) 55%, transparent); border-radius: 12px 0 12px 0; corner-shape: bevel;
+    transition: background-color .15s, border-color .15s; }
+  #gacha-drop i { font-size: 26px; color: var(--gacha); }
+  #gacha-drop b { font-size: 16px; font-weight: 800; color: var(--text-heading); }
+  #gacha-drop span { font-size: 13px; font-weight: 600; }
+  #gacha-drop:hover, #gacha-drop.is-over { background: color-mix(in srgb, var(--gacha) 22%, transparent); border-color: var(--gacha); }
+  #gacha-drop:focus-within { outline: 2px solid var(--gacha); outline-offset: 2px; }
   .gacha-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   #gacha-status { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
   #gacha-status[data-kind="ok"] { color: var(--gacha-strong); }
