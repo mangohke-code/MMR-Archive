@@ -29,7 +29,7 @@
     unknown: { label: '구분 없음', cls: 'is-unknown' },
   };
   const isGacha = t => t === 'normal' || t === 'pickup' || t === 'special' || t === 'unknown';
-  const unitOf = t => (isGacha(t) ? '회' : '명');   // 모집 = 횟수(회), 모집 외 · 교환 = 얻은 니케(명)
+  const unitOf = t => (isGacha(t) ? '회' : '명');   // 모집 = 횟수(회), 모집 외 · 교환 = 획득 니케(명)
 
   const $ = id => document.getElementById(id);
   const fmt = new Intl.NumberFormat('ko-KR');
@@ -314,9 +314,9 @@
     $('gacha-social-warn').hidden = !classified;
 
     const byType = t => sum(pulls.filter(p => p.type === t));
-    // 한눈에(요약 오른쪽 세로 판). 단위: 얻은 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
+    // 한눈에(요약 오른쪽 세로 판). 단위: 획득 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
     state.overview = [
-      ['얻은 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
+      ['획득 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
       ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
       // 사용 재화 판은 종류별과 같은 숫자라 없애고(사용자 지적, 2026-11-19) 쥬얼 환산만 여기로 옮겼다
       ['쥬얼 환산', fmt.format(gachaN * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼 · 소셜 포함'],
@@ -537,6 +537,34 @@
     return `${w.y}년 ${w.m}월 ${w.n}주 <small>${md(t0)} ~ ${md(t0 + 6 * DAY)}</small>`;
   };
 
+  // 막대 하나 쌓기(기간별 · 시간대별 공통). 픽업 · 픽업·소셜이 붙어 있으면 한 막대로 그리고
+  // 경계를 그라데이션으로 섞는다(사용자 요청, 2026-11-19: 둘은 기록상 한 종류를 나눈 것이라 경계가 흐릿한 게 맞다).
+  // 그라데이션은 막대마다 경계 위치가 달라서 막대마다 하나(gid)씩 만든다.
+  const BLEND_PX = 16;
+  function stackBar(d, order, x, barW, y, gid) {
+    let out = '', acc = 0;
+    for (let k = 0; k < order.length; k++) {
+      const t = order[k];
+      if (!d[t]) continue;
+      if (t === 'pickup' && order[k + 1] === 'special' && d.special) {
+        const top = y(acc + d.pickup + d.special), mid = y(acc + d.pickup), bot = y(acc);
+        const hgt = Math.max(bot - top, 0.01);
+        const f = (mid - top) / hgt;                       // 위에서부터 픽업·소셜(위) 비율
+        const half = Math.min(BLEND_PX / 2 / hgt, 0.35);
+        const o = v => Math.min(1, Math.max(0, v)).toFixed(4);
+        out += `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="${o(f - half)}" style="stop-color:var(--gacha-pick)"/><stop offset="${o(f + half)}" style="stop-color:var(--gacha-sure)"/></linearGradient>`
+          + `<rect x="${x}" y="${top}" width="${barW}" height="${hgt}" class="gc-bar is-blend" style="fill:url(#${gid})"/>`;
+        acc += d.pickup + d.special;
+        k++;
+        continue;
+      }
+      const top = y(acc + d[t]);
+      out += `<rect x="${x}" y="${top}" width="${barW}" height="${y(acc) - top}" class="gc-bar ${TYPES[t].cls}"/>`;
+      acc += d[t];
+    }
+    return out;
+  }
+
   let chartData = [];
   // 넓은 화면(요약 두 칸)에서는 왼쪽 칸(시간대별 + 기간별) 높이를 오른쪽 판들(한눈에 · 종류별) 높이에 맞춘다(사용자 요청, 2026-11-19).
   // 시간대별 판은 높이가 고정이라 기간별 차트 높이로 맞춘다. 한 번 그려 보고 모자라거나 넘친 만큼 고쳐 한 번 더 그린다.
@@ -581,7 +609,9 @@
     const barW = Math.max(6, Math.round(slot * 0.66));
     const every = slot >= 34 ? 1 : slot >= 18 ? 2 : 3;
     const max = Math.max(...data.map(d => d.n), 1);
+    const maxS = Math.max(...data.map(d => d.ssr), 1);
     const y = v => h - padB - (v / max) * (h - padB - padT);
+    const ys = v => h - padB - (v / maxS) * (h - padB - padT);   // 금색 점 = 그 시간 모집 SSR(기간별 차트와 같은 방식)
     let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="시간대별 모집">`;
     for (const t of [0, Math.round(max / 2), max]) {
       svg += `<line x1="${padL}" x2="${w - padR}" y1="${y(t)}" y2="${y(t)}" class="gc-grid"/><text x="${padL - 6}" y="${y(t) + 4}" text-anchor="end" class="gc-axis">${fmt.format(t)}</text>`;
@@ -589,17 +619,12 @@
     data.forEach((d, i) => {
       const x0 = padL + i * slot, x = x0 + (slot - barW) / 2;
       svg += `<rect x="${x0}" y="${padT - 6}" width="${slot}" height="${h - padB - padT + 6}" class="gc-hit" data-i="${i}"/>`;
-      let acc = 0;
-      for (const t of order) {
-        if (!d[t]) continue;
-        const top = y(acc + d[t]);
-        svg += `<rect x="${x}" y="${top}" width="${barW}" height="${y(acc) - top}" class="gc-bar ${TYPES[t].cls}"/>`;
-        acc += d[t];
-      }
+      svg += stackBar(d, order, x, barW, y, `gh${i}`);
+      if (d.ssr) svg += `<circle cx="${x + barW / 2}" cy="${ys(d.ssr)}" r="4.5" class="gc-ssr"/>`;
       if (i % every === 0) svg += `<text x="${x + barW / 2}" y="${h - 9}" text-anchor="middle" class="gc-axis">${i}시</text>`;
     });
     box.innerHTML = `<div class="gacha-chart-scroll">${svg}</svg></div><div class="gacha-tip" hidden></div><div class="gacha-legend">`
-      + order.map(t => `<span class="${TYPES[t].cls}">${TYPES[t].label}</span>`).join('') + '</div>';
+      + order.map(t => `<span class="${TYPES[t].cls}">${TYPES[t].label}</span>`).join('') + '<span class="is-ssr">모집 SSR</span></div>';
   }
   function hourTipHtml(d) {
     const total = hourData.reduce((s, x) => s + x.n, 0);
@@ -671,14 +696,8 @@
     data.forEach((d, i) => {
       const x = padL + i * (barW + gap) + 4;
       svg += `<rect x="${x - gap / 2}" y="${padT - 6}" width="${barW + gap}" height="${h - padB - padT + 6}" class="gc-hit" data-i="${i}"/>`;
-      let acc = 0;
-      for (const t of order) {
-        if (!d[t]) continue;
-        const top = y(acc + d[t]);
-        svg += `<rect x="${x}" y="${top}" width="${barW}" height="${y(acc) - top}" class="gc-bar ${TYPES[t].cls}"/>`;
-        acc += d[t];
-      }
-      if (d.ssr) svg += `<circle cx="${x + barW / 2}" cy="${ys(d.ssr)}" r="${period === 'week' ? 2.5 : 3.5}" class="gc-ssr"/>`;
+      svg += stackBar(d, order, x, barW, y, `gt${i}`);
+      if (d.ssr) svg += `<circle cx="${x + barW / 2}" cy="${ys(d.ssr)}" r="${period === 'week' ? 3.5 : 4.5}" class="gc-ssr"/>`;
       // 마지막 칸 날짜는 늘 적고, 바로 앞 눈금 날짜와 겹치면 앞의 것을 뺀다
       const last = i === data.length - 1;
       if (period === 'week') {
@@ -698,7 +717,7 @@
     const rows = d.order.filter(t => d[t]).map(t =>
       `<div class="gt-row"><span class="gacha-legend-dot ${TYPES[t].cls}"></span><span>${TYPES[t].label}</span><b>${fmt.format(d[t])}${unitOf(t)}</b></div>`).join('');
     return `<div class="gt-title">${keyTitle(d.k)}</div>${rows || '<div class="gt-row"><span></span><span>기록 없음</span><b></b></div>'}`
-      + (d.n ? `<div class="gt-row gt-sum"><span></span><span>얻은 니케</span><b>${fmt.format(d.n)}명</b></div>`
+      + (d.n ? `<div class="gt-row gt-sum"><span></span><span>획득 니케</span><b>${fmt.format(d.n)}명</b></div>`
         + `<div class="gt-row"><span></span><span>10연차</span><b>${fmt.format(d.tens)}회</b></div>`
         + `<div class="gt-row"><span class="gacha-legend-dot is-ssr"></span><span>모집 SSR</span><b>${fmt.format(d.ssr)}명</b></div>` : '');
   }
