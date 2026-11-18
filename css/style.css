@@ -9694,15 +9694,28 @@
   /* 접힌 상태에서 파일을 끌고 들어오면 가져오기 판 테두리로 알린다 */
   #tab-gacha.is-dragging #gacha-import.is-collapsed { box-shadow: var(--shadow-card), inset 0 0 0 2px var(--gacha); }
 
-  /* 숫자 판 */
-  #gacha-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
-  .gacha-stat { display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-radius: 10px 0 10px 0; corner-shape: bevel;
-    background: var(--bg-panel); box-shadow: var(--shadow-card), inset 0 0 0 1px var(--gacha-soft); min-width: 0; }
-  .gacha-stat span { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-  .gacha-stat b { font-size: 28px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--text-heading); }
-  .gacha-stat b small { margin-left: 3px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
-  .gacha-stat i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-  .gacha-stat.is-ssr b { color: var(--gold); }
+  /* 일반 외 오염 경고: 기록을 읽으면 늘 보이는 노란 띠 */
+  #gacha-social-warn { display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px; border-radius: 12px 0 12px 0; corner-shape: bevel;
+    background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border), inset 4px 0 0 var(--status-warn-text); color: var(--text-body); }
+  #gacha-social-warn[hidden] { display: none; }
+  #gacha-social-warn > i { margin-top: 2px; font-size: 20px; color: var(--status-warn-text); }
+  #gacha-social-warn b { display: block; font-size: 15px; font-weight: 800; color: var(--status-warn-text); }
+  #gacha-social-warn span { display: block; margin-top: 2px; font-size: 13px; line-height: 1.55; }
+
+  /* 한눈에: 세로 판(항목 이름 · 설명 왼쪽, 숫자 크게 오른쪽) */
+  #gacha-overview-body { display: flex; flex-direction: column; }
+  .go-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--border-subtle); }
+  .go-row:last-child { border-bottom: 0; }
+  .go-k { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .go-k span { font-size: 14px; font-weight: 700; color: var(--text-heading); }
+  .go-k i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .go-row b { flex: none; font-size: 26px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text-heading); }
+  .go-row b small { margin-left: 3px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .go-row.is-ssr b { color: var(--gold); }
+
+  /* 기간 단추(주간 · 월별 · 연간) */
+  .gacha-seg { display: inline-flex; gap: 4px; margin-left: auto; }
+  #gacha-page .gacha-seg .mode-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 
   /* 보기 단추 */
   #gacha-views { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -9776,7 +9789,7 @@
   #gacha-pickups { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
   .gacha-pk { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 10px 0 10px 0; corner-shape: bevel;
     background: color-mix(in srgb, var(--gacha-pick) 14%, transparent); box-shadow: inset 0 0 0 1px var(--border-subtle); }
-  .gacha-pk img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; }
+  .gacha-pk img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }   /* 도감 초상화와 같은 위치 */
   .gacha-pk .gp-name { position: absolute; inset: 0; display: grid; place-items: center; padding: 6px; text-align: center; font-size: 12px; font-weight: 700; color: var(--text-heading); }
   .gp-gap { position: absolute; right: 5px; bottom: 5px; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 15px;
     display: grid; place-items: center; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: #fff;
@@ -9793,7 +9806,7 @@
   .gacha-first.is-R { box-shadow: inset 3px 0 0 #4b93d1; }
   .gf-no { text-align: right; font-size: 13px; font-weight: 800; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .gf-img { position: relative; width: 48px; height: 48px; overflow: hidden; border-radius: 6px 0 6px 0; corner-shape: bevel; background: color-mix(in srgb, var(--gacha-pick) 12%, transparent); }
-  .gf-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; }
+  .gf-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }
   .gf-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .gf-body b { font-size: 14px; font-weight: 800; color: var(--text-heading); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .gf-body > span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
@@ -9852,9 +9865,6 @@
   .gacha-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
   .gacha-check input { accent-color: var(--gacha); }
 
-  @media (max-width: 1200px) {
-    #gacha-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
   @media (max-width: 1100px) {
     .gacha-summary { grid-template-columns: minmax(0, 1fr); }
   }
@@ -9864,9 +9874,8 @@
     body #tab-nav .tab-btn.tab-btn-gacha .tab-beta { font-size: 9px; order: 1; }
     #gacha-page, #gacha-result { gap: 16px; }
     .gacha-card { padding: 14px; gap: 12px; }
-    #gacha-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .gacha-stat { padding: 12px 14px; }
-    .gacha-stat b { font-size: 22px; }
+    .go-row b { font-size: 22px; }
+    .gacha-seg { margin-left: 0; }
     #gacha-views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     #gacha-views .mode-btn { min-width: 0; padding: 0 4px; }
     .gacha-cmd { flex-direction: column; }
