@@ -9774,6 +9774,7 @@
   .gacha-type.is-special { background: var(--gacha-pick); }
   .gacha-type.is-mileage { background: var(--gold); color: #2b2108; }
   .gacha-type.is-other { background: var(--gacha-other); }
+  .gacha-type.is-social { background: transparent; color: var(--gacha-pick); box-shadow: inset 0 0 0 1.5px var(--gacha-pick); }
   .gacha-type.is-unknown { color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border-strong); }
 
   /* 요약: 월별(넓게) | 종류별(좁게) */
@@ -9789,6 +9790,8 @@
   .gacha-typerow.is-pickup { box-shadow: inset 3px 0 0 var(--gacha-sure); }
   .gacha-typerow.is-special { box-shadow: inset 3px 0 0 var(--gacha-pick); }
   .gacha-typerow.is-mileage { box-shadow: inset 3px 0 0 var(--gold); }
+  .gacha-typerow.is-social { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gacha-pick) 45%, transparent); }
+  .gacha-typerow b small.go-pre { margin: 0 4px 0 0; }
   .gacha-typerow.is-other { box-shadow: inset 3px 0 0 var(--gacha-other); }
   .gt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .gt-head b { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-heading); }

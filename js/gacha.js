@@ -307,10 +307,11 @@
   function socialCalc() {
     const { pulls, socialPts, socialFrom } = state;
     const gachaN = pulls.reduce((s, p) => s + (isGacha(p.type) ? p.count : 0), 0);
-    if (!state.classified || !socialPts) return { n: 0, max: gachaN };
+    const special = pulls.reduce((s, p) => s + (p.type === 'special' ? p.count : 0), 0);
+    if (!state.classified || !socialPts) return { n: 0, max: gachaN, special };
     const cap = pulls.reduce((s, p) => s + (p.type === 'special' && p.time >= socialFrom ? p.count : 0), 0);
     const n = Math.min(cap, Math.max(0, Math.floor((socialPts - socialHeld) / 10)));
-    return { n, max: gachaN - n };
+    return { n, max: gachaN - n, special };
   }
 
   function render() {
@@ -340,7 +341,7 @@
     // 한눈에(요약 오른쪽 세로 판). 단위: 획득 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
     state.overview = [
       ['획득 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
-      ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
+      ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 <span id="go-special-n">${soc.n ? '약 ' : ''}${fmt.format(byType('special') - soc.n)}</span>` : ''],
       // 사용 재화 판은 종류별과 같은 숫자라 없애고(사용자 지적, 2026-11-19) 쥬얼 환산만 여기로 옮겼다
       // 소셜 포인트 모집(무료)은 묶음마다 가를 수 없어 범위로 보인다: 최소 = 픽업·소셜 제외, 최대 = 소셜 추정분만 제외(없으면 포함)(사용자 요청, 2026-11-19)
       ...(hasSocial ? [['소셜 포인트 모집', `<small class="go-pre">약</small><span id="go-social-n">${fmt.format(soc.n)}</span>`, '회', 'is-social',
@@ -369,6 +370,8 @@
       const soc = socialCalc();
       $('go-social-n').textContent = fmt.format(soc.n);
       $('go-jewel-max').textContent = fmt.format(soc.max * 300);
+      $('go-special-n').textContent = (soc.n ? '약 ' : '') + fmt.format(soc.special - soc.n);
+      renderTypes();
     });
   }
 
@@ -401,6 +404,7 @@
     if (!state.classified) { card.hidden = true; return; }
     card.hidden = false;
     const order = ['normal', 'pickup', 'special', 'mileage', 'other'];
+    const soc = socialCalc();
     const rows = order.map(t => {
       const items = state.pulls.filter(p => p.type === t);
       const n = items.reduce((s, p) => s + p.count, 0);
@@ -412,11 +416,16 @@
         : t === 'mileage'
           ? `<span><em>사용</em>${fmt.format(n * MILEAGE_COST)}장</span><span class="is-dim">통계 제외</span>`
           : `<span><em>SSR</em>${fmt.format(ssr)}명</span><span class="is-dim">통계 제외</span>`;
-      return `<div class="gacha-typerow ${TYPES[t].cls}"><div class="gt-head">${typeChip(t)}<b>${fmt.format(n)}<small>${unitOf(t)}</small></b></div><div class="gt-cells">${cells}</div></div>`;
+      // 픽업·소셜 칸 숫자는 소셜 포인트 모집 추정분을 뺀 값(10연차 · SSR · 확률은 묶음을 가를 수 없어 소셜 포함 그대로)
+      const shownN = t === 'special' && soc.n ? `<small class="go-pre">약</small>${fmt.format(n - soc.n)}` : fmt.format(n);
+      return `<div class="gacha-typerow ${TYPES[t].cls}"><div class="gt-head">${typeChip(t)}<b>${shownN}<small>${unitOf(t)}</small></b></div><div class="gt-cells">${cells}</div></div>`;
     });
+    // 소셜 포인트 모집(추정) 줄: 픽업·소셜에서 떼어 낸 값이라 같은 묶음 판 안에 둔다
+    const socialRow = soc.n ? `<div class="gacha-typerow is-social"><div class="gt-head"><span class="gacha-type is-social">소셜 포인트</span><b><small class="go-pre">약</small>${fmt.format(soc.n)}<small>회</small></b></div>`
+      + `<div class="gt-cells"><span class="is-dim">추정치 · 10연차 · SSR · 확률은 픽업·소셜에 포함</span></div></div>` : '';
     // 픽업 · 픽업·소셜은 원래 한 종류(일반 외 모집, 기록상 13만 있음)를 나눈 것이라 뒤 판 하나로 묶는다(사용자 요청, 2026-11-19)
     const [normal, pickup, special, ...rest] = rows;
-    $('gacha-types-body').innerHTML = normal + (pickup ? `<div class="gt-group">${pickup}${special}</div>` : special) + rest.join('');
+    $('gacha-types-body').innerHTML = normal + (pickup || socialRow ? `<div class="gt-group">${pickup}${special}${socialRow}</div>` : special) + rest.join('');
   }
 
 
