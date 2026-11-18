@@ -314,16 +314,23 @@
     $('gacha-social-warn').hidden = !classified;
 
     const byType = t => sum(pulls.filter(p => p.type === t));
+    const normalN = byType('normal'), paidMin = normalN + byType('pickup');
+    const ssrNormal = sum(pulls.filter(p => p.type === 'normal' && isSSR(p)));
     // 한눈에(요약 오른쪽 세로 판). 단위: 획득 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
     state.overview = [
       ['획득 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
       ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
       // 사용 재화 판은 종류별과 같은 숫자라 없애고(사용자 지적, 2026-11-19) 쥬얼 환산만 여기로 옮겼다
-      ['쥬얼 환산', fmt.format(gachaN * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼 · 소셜 포함'],
+      // 소셜 포인트 모집(무료)이 픽업·소셜에 섞여 따로 뺄 수 없어 범위로 보인다: 최소 = 픽업·소셜 제외, 최대 = 포함(사용자 요청, 2026-11-19)
+      classified
+        ? ['쥬얼 환산', `${fmt.format(paidMin * 300)}<small> ~ </small>${fmt.format(gachaN * 300)}`, '쥬얼', 'is-jewel is-range', '모집 1회 = 300 쥬얼 · 픽업·소셜 제외 ~ 포함']
+        : ['쥬얼 환산', fmt.format(gachaN * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼'],
       ['10연차', fmt.format(tens), '회', '', ''],
       ['모집 SSR', fmt.format(ssrGacha), '명', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrAll - ssrGacha)}명 제외` : ''],
-      ['SSR 확률', gachaN ? (ssrGacha / gachaN * 100).toFixed(2) : '-', '%', 'is-ssr', '모집 전체 기준'],
+      ['SSR 확률', gachaN ? (ssrGacha / gachaN * 100).toFixed(2) : '-', '%', 'is-ssr', classified ? '모집 전체 · 소셜 포인트 모집 포함' : '모집 전체 기준'],
     ];
+    // 소셜 포인트 모집(SSR 2%)이 섞이지 않은 일반 모집만의 확률
+    if (classified && normalN) state.overview.push(['일반 모집 SSR 확률', (ssrNormal / normalN * 100).toFixed(2), '%', 'is-ssr', `일반 ${fmt.format(normalN)}회 기준`]);
     renderView();
   }
 
