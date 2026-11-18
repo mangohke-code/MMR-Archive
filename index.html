@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=326">
+  <link rel="stylesheet" href="css/style.css?v=327">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -878,7 +878,7 @@
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
             <div><b>픽업·소셜 모집에는 소셜 포인트 모집이 섞여 있습니다</b>
               <span>게임 기록으로는 픽업 · 선택 특수 · 소셜 포인트 모집을 구분할 수 없습니다. 픽업·소셜 횟수 · 확률은 소셜 포인트 모집까지 합친 값이라 픽업만의 수치로는 정확하지 않습니다.</span>
-              <span>어브노말 · 필그림 · 오버스펙 · 한정 니케, 또는 신규 픽업 기간의 그 픽업 니케가 나온 모집은 '픽업'으로 확정해 따로 셉니다(같은 10연차의 다른 니케 포함).</span>
+              <span>필그림 · 오버스펙 · 한정 · 어브노말 니케, 또는 신규 픽업 기간의 그 픽업 니케가 나온 모집은 '픽업'으로 확정해 따로 셉니다(같은 10연차의 다른 니케 포함).</span>
               <span>복각 픽업은 일반 · 소셜 · 픽업을 가릴 수 없어, 같은 기간에 소셜 포인트 모집 · 선택 상자 등으로 얻은 그 니케도 픽업 · 교환으로 잡힐 수 있습니다.</span>
               <span>실버 마일리지 티켓 교환은 게임 기록에 남지 않아 포함되지 않습니다.</span></div>
           </div>
@@ -893,11 +893,17 @@
 
           <div class="gacha-view" data-view="summary">
             <div class="gacha-summary">
-              <section class="card gacha-card">
-                <div class="chapter-feature-cap"><b>TREND</b><span>기간별 획득</span>
-                  <span id="gacha-period" class="gacha-seg"><button type="button" class="mode-btn" data-period="week">주간</button><button type="button" class="mode-btn" data-period="month">월별</button><button type="button" class="mode-btn" data-period="year">연간</button></span></div>
-                <div id="gacha-chart"></div>
-              </section>
+              <div class="gacha-main">
+                <section id="gacha-hours" class="card gacha-card">
+                  <div class="chapter-feature-cap"><b>HOUR</b><span>시간대별 모집</span><span id="gacha-hours-sum" class="gacha-cap-sum"></span></div>
+                  <div id="gacha-hours-chart" class="gacha-chartbox"></div>
+                </section>
+                <section id="gacha-trend" class="card gacha-card">
+                  <div class="chapter-feature-cap"><b>TREND</b><span>기간별 획득</span>
+                    <span id="gacha-period" class="gacha-seg"><button type="button" class="mode-btn" data-period="week">주간</button><button type="button" class="mode-btn" data-period="month">월별</button><button type="button" class="mode-btn" data-period="year">연간</button></span></div>
+                  <div id="gacha-chart" class="gacha-chartbox"></div>
+                </section>
+              </div>
               <div class="gacha-side">
                 <section id="gacha-overview" class="card gacha-card">
                   <div class="chapter-feature-cap"><b>OVERVIEW</b><span>한눈에</span></div>
@@ -906,10 +912,6 @@
                 <section id="gacha-types" class="card gacha-card">
                   <div class="chapter-feature-cap"><b>TYPE</b><span>모집 종류별</span></div>
                   <div id="gacha-types-body"></div>
-                </section>
-                <section id="gacha-cost" class="card gacha-card" hidden>
-                  <div class="chapter-feature-cap"><b>COST</b><span>사용 재화</span></div>
-                  <div id="gacha-cost-body"></div>
                 </section>
               </div>
             </div>
@@ -1039,7 +1041,7 @@
   <script type="module" src="js/soloraid3d.js?v=511"></script>
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=23"></script>
-  <script src="js/gacha.js?v=12"></script>
+  <script src="js/gacha.js?v=13"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>

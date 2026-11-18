@@ -9713,6 +9713,7 @@
   .go-row b { flex: none; font-size: 32px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text-heading); }
   .go-row b small { margin-left: 3px; font-size: 16px; font-weight: 600; color: var(--text-secondary); }
   .go-row.is-ssr b { color: var(--gold); }
+  .go-row.is-jewel b { color: var(--gacha-strong); }
 
   /* 기간 단추(주간 · 월별 · 연간) */
   .gacha-seg { display: inline-flex; gap: 4px; margin-left: auto; }
@@ -9750,10 +9751,10 @@
   .gt-cells .is-dim { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
 
   /* 월별 툴팁: 막대 칸에 올리면 그 달 내역. 올린 칸은 옅게 칠한다 */
-  #gacha-chart { position: relative; }
-  #gacha-chart .gc-hit { fill: transparent; cursor: pointer; }
-  #gacha-chart :is(.gc-bar, .gc-ssr, .gc-grid, .gc-axis) { pointer-events: none; }   /* 마우스는 뒤의 칸(.gc-hit)이 받는다 */
-  #gacha-chart .gc-hit.is-on { fill: color-mix(in srgb, var(--gacha) 12%, transparent); }
+  .gacha-chartbox { position: relative; }
+  .gacha-chartbox .gc-hit { fill: transparent; cursor: pointer; }
+  .gacha-chartbox :is(.gc-bar, .gc-ssr, .gc-grid, .gc-axis) { pointer-events: none; }   /* 마우스는 뒤의 칸(.gc-hit)이 받는다 */
+  .gacha-chartbox .gc-hit.is-on { fill: color-mix(in srgb, var(--gacha) 12%, transparent); }
   .gacha-tip { position: absolute; z-index: 5; min-width: 210px; max-width: 320px; padding: 10px 12px; pointer-events: none;
     border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-panel); box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18), inset 0 0 0 1px var(--border-strong);
     font-size: 15px; color: var(--text-body); }
@@ -9773,15 +9774,15 @@
   .gacha-legend-dot.is-unknown { background: var(--gacha); }
   .gacha-legend-dot.is-ssr { background: var(--gold); border-radius: 50%; }
   .gacha-chart-scroll { overflow-x: auto; }
-  #gacha-chart svg { display: block; }
-  #gacha-chart .gc-grid { stroke: var(--border-subtle); }
-  #gacha-chart .gc-axis { font-size: 13px; fill: var(--text-secondary); }
-  #gacha-chart .gc-bar { fill: var(--gacha); opacity: .85; }
-  #gacha-chart .gc-bar.is-pickup { fill: var(--gacha-sure); }
-  #gacha-chart .gc-bar.is-special { fill: var(--gacha-pick); }
-  #gacha-chart .gc-bar.is-mileage { fill: var(--gold); }
-  #gacha-chart .gc-bar.is-other { fill: var(--gacha-other); }
-  #gacha-chart .gc-ssr { fill: var(--gold); stroke: var(--bg-panel); stroke-width: 1.5; }
+  .gacha-chartbox svg { display: block; }
+  .gacha-chartbox .gc-grid { stroke: var(--border-subtle); }
+  .gacha-chartbox .gc-axis { font-size: 13px; fill: var(--text-secondary); }
+  .gacha-chartbox .gc-bar { fill: var(--gacha); opacity: .85; }
+  .gacha-chartbox .gc-bar.is-pickup { fill: var(--gacha-sure); }
+  .gacha-chartbox .gc-bar.is-special { fill: var(--gacha-pick); }
+  .gacha-chartbox .gc-bar.is-mileage { fill: var(--gold); }
+  .gacha-chartbox .gc-bar.is-other { fill: var(--gacha-other); }
+  .gacha-chartbox .gc-ssr { fill: var(--gold); stroke: var(--bg-panel); stroke-width: 1.5; }
   .gacha-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 14px; color: var(--text-secondary); }
   .gacha-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
   .gacha-legend .is-normal::before, .gacha-legend .is-unknown::before { background: var(--gacha); }
@@ -9838,10 +9839,8 @@
   .gf-body > span { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .gf-body .gacha-type { font-size: 13px; padding: 0 7px; }
 
-  /* 요약 오른쪽: 종류별 + 사용 재화 */
-  .gacha-side { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
-  #gacha-cost[hidden] { display: none; }
-  #gacha-cost-body { display: flex; flex-direction: column; }
+  /* 요약: 왼쪽 칸(시간대별 + 기간별) · 오른쪽 칸(한눈에 + 종류별) */
+  .gacha-side, .gacha-main { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
   .gc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border-subtle);
     font-size: 17px; font-weight: 600; color: var(--text-secondary); }
   .gc-row b { font-size: 22px; font-weight: 800; color: var(--text-heading); font-variant-numeric: tabular-nums; }

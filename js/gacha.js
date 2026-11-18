@@ -22,7 +22,7 @@
   const PAGE = 40;
   const TYPES = {
     normal: { label: '일반', cls: 'is-normal' },
-    pickup: { label: '픽업', cls: 'is-pickup', title: '어브노말 · 필그림 · 오버스펙 · 한정 니케가 나온 모집(소셜 포인트 모집에 없는 니케라 픽업으로 확정)' },
+    pickup: { label: '픽업', cls: 'is-pickup', title: '필그림 · 오버스펙 · 한정 · 어브노말 니케가 나온 모집(소셜 포인트 모집에 없는 니케라 픽업으로 확정)' },
     special: { label: '픽업·소셜', cls: 'is-special', title: '일반 모집이 아닌 모집: 픽업 · 선택 특수 · 소셜 포인트(기록으로는 구분 불가)' },
     mileage: { label: '골드 마일리지', cls: 'is-mileage', title: '픽업 기간에 모집 외로 얻은 픽업 니케 = 골드 마일리지 200장 교환' },
     other: { label: '모집 외', cls: 'is-other', title: '선택 상자 · 출석 보상 등' },
@@ -256,7 +256,7 @@
     const t = p.time.getTime();
     return !!list && list.some(r => r.start <= t && t <= r.end);
   };
-  // 소셜 포인트 모집에 없는 니케(사용자 확인, 2026-11-19): 어브노말 · 필그림 · 오버스펙(기업 끝 '(오)') · 한정 시즌(LIMITED_SEASONS).
+  // 소셜 포인트 모집에 없는 니케(사용자 확인, 2026-11-19): 필그림 · 오버스펙(기업 끝 '(오)') · 한정 시즌(LIMITED_SEASONS) · 어브노말.
   // 픽업·소셜 묶음에 이 니케(또는 신규 픽업 기간의 그 픽업 니케)가 하나라도 있으면 그 묶음은 소셜이 아니라 픽업으로 확정한다.
   // 묶음 단위라서, 확정 니케와 같은 10연차에 나온 다른 니케(픽뚫 SSR 등)도 '픽업' 묶음으로 보인다.
   // 픽업 기록에 없는 초기 필그림은 캐릭터 도감 소속(필그림)으로 찾는다.
@@ -318,6 +318,8 @@
     state.overview = [
       ['얻은 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
       ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
+      // 사용 재화 판은 종류별과 같은 숫자라 없애고(사용자 지적, 2026-11-19) 쥬얼 환산만 여기로 옮겼다
+      ['쥬얼 환산', fmt.format(gachaN * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼 · 소셜 포함'],
       ['10연차', fmt.format(tens), '회', '', ''],
       ['모집 SSR', fmt.format(ssrGacha), '명', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrAll - ssrGacha)}명 제외` : ''],
       ['SSR 확률', gachaN ? (ssrGacha / gachaN * 100).toFixed(2) : '-', '%', 'is-ssr', '모집 전체 기준'],
@@ -346,7 +348,7 @@
     }
     drawn.add(view);
     // 오른쪽 판을 먼저 채워야 차트 높이를 그 높이에 맞출 수 있다(차트를 먼저 그리면 낮게 그려졌다가 나중에 길어졌다)
-    if (view === 'summary') { renderOverview(); renderTypes(); renderCost(); drawChart(); }
+    if (view === 'summary') { renderOverview(); renderTypes(); drawHours(); drawChart(); }
     else if (view === 'pickup') renderPickups();
     else if (view === 'first') renderFirst();
     else if (view === 'nikke') renderNikke();
@@ -374,19 +376,6 @@
     }).join('');
   }
 
-  // 사용 재화: 모집 1회 = 모집권 1장(쥬얼로는 300). 일반 외에는 소셜 포인트 · 무료 모집도 섞여 있어 쥬얼은 '환산'으로만 적는다.
-  function renderCost() {
-    const card = $('gacha-cost');
-    const sum = t => state.pulls.filter(p => p.type === t).reduce((s, p) => s + p.count, 0);
-    const rows = state.classified
-      ? [['일반 모집', sum('normal'), '회'], ['픽업 모집', sum('pickup'), '회'], ['픽업·소셜 모집', sum('special'), '회'], ['골드 마일리지', sum('mileage') * MILEAGE_COST, '장']]
-      : [['모집', sum('unknown'), '회']];
-    const pulls = state.classified ? sum('normal') + sum('pickup') + sum('special') : sum('unknown');
-    card.hidden = false;
-    $('gacha-cost-body').innerHTML = rows.map(([k, v, u]) =>
-      `<div class="gc-row"><span>${k}</span><b>${fmt.format(v)}<small>${u}</small></b></div>`).join('')
-      + `<div class="gc-row gc-total"><span>쥬얼 환산</span><b>${fmt.format(pulls * 300)}<small>쥬얼</small></b></div>`;
-  }
 
   // 픽업 획득(사용자 요청, 2026-11-19): 픽업 기간(사이트 픽업 기록의 시작일 ~ 종료일)마다 나눠,
   // 그 기간에 얻은 픽업 니케별로 '픽업으로 몇 장 · 티켓(골드 마일리지) 교환으로 몇 장'만 보인다. 최근 기간부터.
@@ -546,18 +535,78 @@
   };
 
   let chartData = [];
-  // 넓은 화면(요약 두 칸)에서는 차트 판 높이를 오른쪽 판들(한눈에 · 종류별 · 재화) 높이에 맞춘다(사용자 요청, 2026-11-19).
-  // 한 번 그려 보고 모자라거나 넘친 만큼 막대 높이를 고쳐 한 번 더 그린다. 한 칸 화면에서는 420px.
+  // 넓은 화면(요약 두 칸)에서는 왼쪽 칸(시간대별 + 기간별) 높이를 오른쪽 판들(한눈에 · 종류별) 높이에 맞춘다(사용자 요청, 2026-11-19).
+  // 시간대별 판은 높이가 고정이라 기간별 차트 높이로 맞춘다. 한 번 그려 보고 모자라거나 넘친 만큼 고쳐 한 번 더 그린다.
+  // 한 칸 화면에서는 420px.
   const CHART_MIN_H = 420;
   let chartH = CHART_MIN_H;
   function drawChart() {
     paintChart(chartH);
     const side = document.querySelector('.gacha-side');
-    const card = $('gacha-chart').closest('.gacha-card');
+    const main = document.querySelector('.gacha-main');
     const twoCol = side && side.offsetHeight > 0
-      && Math.abs(side.getBoundingClientRect().top - card.getBoundingClientRect().top) < 2;
-    const want = twoCol ? Math.max(CHART_MIN_H, Math.round(chartH + side.offsetHeight - card.offsetHeight)) : CHART_MIN_H;
+      && Math.abs(side.getBoundingClientRect().top - main.getBoundingClientRect().top) < 2;
+    const want = twoCol ? Math.max(CHART_MIN_H, Math.round(chartH + side.offsetHeight - main.offsetHeight)) : CHART_MIN_H;
     if (Math.abs(want - chartH) > 2) { chartH = want; paintChart(chartH); }
+  }
+
+  // ===== 시간대별 모집(사용자 요청, 2026-11-19) =====
+  // 한국시간 0~23시마다 모집 횟수를 일반 · 픽업 · 픽업·소셜로 쌓는다(모집 외 · 골드 마일리지는 모집이 아니라 뺀다).
+  // 24칸을 판 폭에 맞춰 채우고, 막대에 올리면(폰은 누르면) 그 시간 내역 툴팁.
+  let hourData = [];
+  const HOUR_H = 260;
+  function drawHours() {
+    const order = state.classified ? ['normal', 'pickup', 'special'] : ['unknown'];
+    const data = Array.from({ length: 24 }, (_, hr) => ({ hr, order, n: 0, ssr: 0, normal: 0, pickup: 0, special: 0, unknown: 0 }));
+    for (const b of state.batches) {
+      if (!isGacha(b.type)) continue;
+      const d = data[Number(parts(b.time).hour) % 24];
+      for (const p of b.items) {
+        d.n += p.count;
+        d[p.type] += p.count;
+        if (isSSR(p)) d.ssr += p.count;
+      }
+    }
+    hourData = data;
+    const total = data.reduce((s, d) => s + d.n, 0);
+    const peak = data.reduce((a, d) => (d.n > a.n ? d : a), data[0]);
+    $('gacha-hours-sum').textContent = total ? `가장 많이 ${peak.hr}시 · ${fmt.format(peak.n)}회` : '';
+    const box = $('gacha-hours-chart');
+    const padL = 52, padR = 16, padB = 30, padT = 14, h = HOUR_H;
+    const w = Math.max(320, box.clientWidth || 0);
+    const slot = (w - padL - padR) / 24;
+    const barW = Math.max(6, Math.round(slot * 0.66));
+    const every = slot >= 34 ? 1 : slot >= 18 ? 2 : 3;
+    const max = Math.max(...data.map(d => d.n), 1);
+    const y = v => h - padB - (v / max) * (h - padB - padT);
+    let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="시간대별 모집">`;
+    for (const t of [0, Math.round(max / 2), max]) {
+      svg += `<line x1="${padL}" x2="${w - padR}" y1="${y(t)}" y2="${y(t)}" class="gc-grid"/><text x="${padL - 6}" y="${y(t) + 4}" text-anchor="end" class="gc-axis">${fmt.format(t)}</text>`;
+    }
+    data.forEach((d, i) => {
+      const x0 = padL + i * slot, x = x0 + (slot - barW) / 2;
+      svg += `<rect x="${x0}" y="${padT - 6}" width="${slot}" height="${h - padB - padT + 6}" class="gc-hit" data-i="${i}"/>`;
+      let acc = 0;
+      for (const t of order) {
+        if (!d[t]) continue;
+        const top = y(acc + d[t]);
+        svg += `<rect x="${x}" y="${top}" width="${barW}" height="${y(acc) - top}" class="gc-bar ${TYPES[t].cls}"/>`;
+        acc += d[t];
+      }
+      if (i % every === 0) svg += `<text x="${x + barW / 2}" y="${h - 9}" text-anchor="middle" class="gc-axis">${i}시</text>`;
+    });
+    box.innerHTML = `<div class="gacha-chart-scroll">${svg}</svg></div><div class="gacha-tip" hidden></div><div class="gacha-legend">`
+      + order.map(t => `<span class="${TYPES[t].cls}">${TYPES[t].label}</span>`).join('') + '</div>';
+  }
+  function hourTipHtml(d) {
+    const total = hourData.reduce((s, x) => s + x.n, 0);
+    const hh = String(d.hr).padStart(2, '0');
+    const rows = d.order.filter(t => d[t]).map(t =>
+      `<div class="gt-row"><span class="gacha-legend-dot ${TYPES[t].cls}"></span><span>${TYPES[t].label}</span><b>${fmt.format(d[t])}회</b></div>`).join('');
+    return `<div class="gt-title">${d.hr}시 <small>${hh}:00 ~ ${hh}:59</small></div>${rows || '<div class="gt-row"><span></span><span>기록 없음</span><b></b></div>'}`
+      + (d.n ? `<div class="gt-row gt-sum"><span></span><span>모집</span><b>${fmt.format(d.n)}회</b></div>`
+        + `<div class="gt-row"><span></span><span>전체 중</span><b>${(d.n / total * 100).toFixed(1)}%</b></div>`
+        + `<div class="gt-row"><span class="gacha-legend-dot is-ssr"></span><span>모집 SSR</span><b>${fmt.format(d.ssr)}명</b></div>` : '');
   }
   function paintChart(h) {
     document.querySelectorAll('#gacha-period [data-period]').forEach(b => b.classList.toggle('active', b.dataset.period === period));
@@ -633,8 +682,8 @@
         + `<div class="gt-row"><span></span><span>10연차</span><b>${fmt.format(d.tens)}회</b></div>`
         + `<div class="gt-row"><span class="gacha-legend-dot is-ssr"></span><span>모집 SSR</span><b>${fmt.format(d.ssr)}명</b></div>` : '');
   }
-  function setupChartTip() {
-    const box = $('gacha-chart');
+  // 막대 툴팁(기간별 · 시간대별 공통): box 안의 .gc-hit 칸에 올리면 getD(번호)의 내역을 html 로 보인다
+  function setupTip(box, getD, html) {
     let cur = null;
     const hide = () => {
       const tip = box.querySelector('.gacha-tip');
@@ -643,14 +692,14 @@
       cur = null;
     };
     const showAt = (hit, ev) => {
-      const d = chartData[Number(hit.dataset.i)];
+      const d = getD(Number(hit.dataset.i));
       const tip = box.querySelector('.gacha-tip');
       if (!d || !tip) return;
       if (cur !== hit) {
         if (cur) cur.classList.remove('is-on');
         cur = hit;
         hit.classList.add('is-on');
-        tip.innerHTML = chartTipHtml(d);
+        tip.innerHTML = html(d);
       }
       tip.hidden = false;
       const r = box.getBoundingClientRect();
@@ -805,7 +854,7 @@
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         if (!state || !tab.classList.contains('active')) return;
-        if (view === 'summary') drawChart(); else fitMarquees(document.querySelector(`.gacha-view[data-view="${view}"]`));
+        if (view === 'summary') { drawHours(); drawChart(); } else fitMarquees(document.querySelector(`.gacha-view[data-view="${view}"]`));
       }, 200);
     });
     document.querySelectorAll('#gacha-period [data-period]').forEach(b => b.addEventListener('click', () => {
@@ -818,7 +867,8 @@
       try { localStorage.setItem(FIRST_ORDER_KEY, firstOldest ? '1' : '0'); } catch (e) { /* 무시 */ }
       if (state) renderFirst();
     });
-    setupChartTip();
+    setupTip($('gacha-chart'), i => chartData[i], chartTipHtml);
+    setupTip($('gacha-hours-chart'), i => hourData[i], hourTipHtml);
     // 오른쪽 판 높이가 바뀌면(글꼴이 늦게 오거나 폭이 바뀌어 줄이 넘어갈 때) 차트 높이를 다시 맞춘다
     if (window.ResizeObserver) {
       let sideH = 0, raf = 0;
@@ -841,7 +891,7 @@
     if (!(e.detail && e.detail.tab === 'gacha')) return;
     start();
     // 다른 탭에 있는 동안 그려졌으면 높이를 못 쟀으니 다시 그린다
-    if (state && view === 'summary' && drawn.has('summary')) requestAnimationFrame(drawChart);
+    if (state && view === 'summary' && drawn.has('summary')) requestAnimationFrame(() => { drawHours(); drawChart(); });
     else if (state && drawn.has(view)) setTimeout(() => fitMarquees(document.querySelector(`.gacha-view[data-view="${view}"]`)), 0);
   });
 })();
