@@ -22,12 +22,13 @@
   const PAGE = 40;
   const TYPES = {
     normal: { label: '일반', cls: 'is-normal' },
+    pickup: { label: '픽업', cls: 'is-pickup', title: '어브노말 · 필그림 · 오버스펙 · 한정 니케가 나온 모집(소셜 포인트 모집에 없는 니케라 픽업으로 확정)' },
     special: { label: '픽업·소셜', cls: 'is-special', title: '일반 모집이 아닌 모집: 픽업 · 선택 특수 · 소셜 포인트(기록으로는 구분 불가)' },
     mileage: { label: '골드 마일리지', cls: 'is-mileage', title: '픽업 기간에 모집 외로 얻은 픽업 니케 = 골드 마일리지 200장 교환' },
     other: { label: '모집 외', cls: 'is-other', title: '선택 상자 · 출석 보상 등' },
     unknown: { label: '구분 없음', cls: 'is-unknown' },
   };
-  const isGacha = t => t === 'normal' || t === 'special' || t === 'unknown';
+  const isGacha = t => t === 'normal' || t === 'pickup' || t === 'special' || t === 'unknown';
   const unitOf = t => (isGacha(t) ? '회' : '명');   // 모집 = 횟수(회), 모집 외 · 교환 = 얻은 니케(명)
 
   const $ = id => document.getElementById(id);
@@ -248,10 +249,33 @@
     const t = p.time.getTime();
     return !!list && list.some(r => r.start <= t && t <= r.end);
   };
+  // 소셜 포인트 모집에 없는 니케(사용자 확인, 2026-11-19): 어브노말 · 필그림 · 오버스펙(기업 끝 '(오)') · 한정 시즌(LIMITED_SEASONS).
+  // 픽업·소셜 묶음에 이 니케가 하나라도 있으면 그 묶음은 소셜이 아니라 픽업으로 확정한다.
+  // 픽업 기록에 없는 초기 필그림은 캐릭터 도감 소속(필그림)으로 찾는다.
+  let sureNames = null;
+  function loadSureNames() {
+    if (sureNames || !APP_DATA.ready) return sureNames;
+    sureNames = new Set();
+    const limited = typeof LIMITED_SEASONS !== 'undefined' ? LIMITED_SEASONS : [];
+    for (const p of APP_DATA.pickup || []) {
+      const co = String(p['기업'] || '');
+      if (co === '어브노말' || co === '필그림' || co.endsWith('(오)') || limited.includes(p['시즌'])) sureNames.add(p['니케']);
+    }
+    for (const r of APP_DATA.codex || []) {
+      for (let i = 1; r['이름' + i] !== undefined; i++) if (r['이름' + i] && r['소속' + i] === '필그림') sureNames.add(r['이름' + i]);
+    }
+    return sureNames;
+  }
   // 모집 외로 얻은 픽업 니케(그 니케의 픽업 기간 안) -> 골드 마일리지. 묶음 전체가 그렇다면 묶음 종류도 바꾼다.
   function applyPickup() {
     if (!state || !state.classified || !loadPickupPeriods()) return;
+    const sure = loadSureNames();
     for (const b of state.batches) {
+      if (b.type === 'special' && b.items.some(p => sure.has(info(p.code).name))) {
+        b.type = 'pickup';
+        for (const p of b.items) p.type = 'pickup';
+        continue;
+      }
       if (b.type !== 'other' && b.type !== 'mileage') continue;
       let all = true;
       for (const p of b.items) {
@@ -285,7 +309,7 @@
     // 한눈에(요약 오른쪽 세로 판). 단위: 얻은 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
     state.overview = [
       ['얻은 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
-      ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
+      ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
       ['10연차', fmt.format(tens), '회', '', ''],
       ['모집 SSR', fmt.format(ssrGacha), '명', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrAll - ssrGacha)}명 제외` : ''],
       ['SSR 확률', gachaN ? (ssrGacha / gachaN * 100).toFixed(2) : '-', '%', 'is-ssr', '모집 전체 기준'],
@@ -312,7 +336,8 @@
       return;
     }
     drawn.add(view);
-    if (view === 'summary') { drawChart(); renderOverview(); renderTypes(); renderCost(); }
+    // 오른쪽 판을 먼저 채워야 차트 높이를 그 높이에 맞출 수 있다(차트를 먼저 그리면 낮게 그려졌다가 나중에 길어졌다)
+    if (view === 'summary') { renderOverview(); renderTypes(); renderCost(); drawChart(); }
     else if (view === 'pickup') renderPickups();
     else if (view === 'first') renderFirst();
     else if (view === 'nikke') renderNikke();
@@ -324,11 +349,11 @@
     const card = $('gacha-types');
     if (!state.classified) { card.hidden = true; return; }
     card.hidden = false;
-    const order = ['normal', 'special', 'mileage', 'other'];
+    const order = ['normal', 'pickup', 'special', 'mileage', 'other'];
     $('gacha-types-body').innerHTML = order.map(t => {
       const items = state.pulls.filter(p => p.type === t);
       const n = items.reduce((s, p) => s + p.count, 0);
-      if (!n && t === 'mileage') return '';
+      if (!n && (t === 'mileage' || t === 'pickup')) return '';
       const ssr = items.filter(isSSR).reduce((s, p) => s + p.count, 0);
       const tens = state.batches.filter(b => b.type === t && b.size === 10).length;
       const cells = isGacha(t)
@@ -345,9 +370,9 @@
     const card = $('gacha-cost');
     const sum = t => state.pulls.filter(p => p.type === t).reduce((s, p) => s + p.count, 0);
     const rows = state.classified
-      ? [['일반 모집', sum('normal'), '회'], ['픽업·소셜 모집', sum('special'), '회'], ['골드 마일리지', sum('mileage') * MILEAGE_COST, '장']]
+      ? [['일반 모집', sum('normal'), '회'], ['픽업 모집', sum('pickup'), '회'], ['픽업·소셜 모집', sum('special'), '회'], ['골드 마일리지', sum('mileage') * MILEAGE_COST, '장']]
       : [['모집', sum('unknown'), '회']];
-    const pulls = state.classified ? sum('normal') + sum('special') : sum('unknown');
+    const pulls = state.classified ? sum('normal') + sum('pickup') + sum('special') : sum('unknown');
     card.hidden = false;
     $('gacha-cost-body').innerHTML = rows.map(([k, v, u]) =>
       `<div class="gc-row"><span>${k}</span><b>${fmt.format(v)}<small>${u}</small></b></div>`).join('')
@@ -356,12 +381,11 @@
 
   // 픽업 획득(사용자 요청, 2026-11-19): 픽업 기간(사이트 픽업 기록의 시작일 ~ 종료일)마다 나눠,
   // 그 기간에 얻은 픽업 니케별로 '픽업으로 몇 장 · 티켓(골드 마일리지) 교환으로 몇 장'만 보인다. 최근 기간부터.
-  let pickupShown = 20;
   function pickupGroups() {
     const groups = new Map();
     for (const p of state.pulls) {
       // 일반 모집(69)은 픽업이 아님이 확실하니 뺀다(복각 기간에 일반 모집에서 나온 같은 니케)
-      if (!(p.type === 'special' || p.type === 'unknown' || p.type === 'mileage')) continue;
+      if (!(p.type === 'pickup' || p.type === 'special' || p.type === 'unknown' || p.type === 'mileage')) continue;
       const nm = info(p.code).name;
       const t = p.time.getTime();
       const row = (pickupPeriods.get(nm) || []).find(r => r.start <= t && t <= r.end);
@@ -382,7 +406,7 @@
     let pick = 0, ex = 0;
     for (const g of groups) for (const n of g.nikkes.values()) { pick += n.pick; ex += n.ex; }
     $('gacha-pickup-sum').textContent = `픽업 ${fmt.format(pick)}명 · 교환 ${fmt.format(ex)}명`;
-    $('gacha-pickups').innerHTML = groups.slice(0, pickupShown).map(g => {
+    $('gacha-pickups').innerHTML = groups.map(g => {
       const tiles = [...g.nikkes.values()].map(n => {
         const img = nikkeImgOf(n.name);
         return `<div class="gp-nikke${n.ex ? ' has-ex' : ''}">
@@ -391,9 +415,10 @@
             <span class="gp-counts">${n.pick ? `<span class="is-pick">픽업 <strong>${fmt.format(n.pick)}</strong>명</span>` : ''}${n.ex ? `<span class="is-ex">교환 <strong>${fmt.format(n.ex)}</strong>명</span>` : ''}</span></span>
         </div>`;
       }).join('');
-      return `<article class="gacha-period"><div class="gp-head"><b>${rangeStr(g.start, g.end)}</b>${g.events.size ? `<span>${esc([...g.events].join(' · '))}</span>` : ''}</div><div class="gp-list">${tiles}</div></article>`;
+      // 이벤트 이름은 한 줄로 자르고 전체는 마우스를 올리면 보인다(길면 줄이 넘어가 판이 세로로 길어졌다)
+      const ev = esc([...g.events].join(' · '));
+      return `<article class="gacha-period"><div class="gp-head"><b>${rangeStr(g.start, g.end)}</b>${ev ? `<span title="${ev}">${ev}</span>` : ''}</div><div class="gp-list">${tiles}</div></article>`;
     }).join('') || '<div class="gacha-empty">픽업 기간에 얻은 픽업 니케 없음</div>';
-    $('gacha-pickup-more').hidden = groups.length <= pickupShown;
   }
   const rangeStr = (from, to) => {
     const a = dayStr(new Date(from)), z = dayStr(new Date(to));
@@ -474,8 +499,22 @@
     if (period === 'month') { const [y, m] = k.split('-').map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`; }
     return new Date(Date.parse(k + 'T00:00:00Z') + 7 * DAY).toISOString().slice(0, 10);
   };
-  const keyLabel = k => (period === 'year' ? k : period === 'month' ? k.slice(2).replace('-', '.') : k.slice(2).replace(/-/g, '.'));
-  const keyTitle = k => (period === 'year' ? `${k}년` : period === 'month' ? k.replace('-', '.') : `${k.replace(/-/g, '.')} 주`);
+  // 주간은 '11월 3주'(그 주 월요일이 그 달 몇째 월요일인지). 해가 바뀐 첫 눈금에는 '27년'을 붙인다.
+  const weekOf = k => { const d = +k.slice(8, 10); return { y: k.slice(0, 4), m: +k.slice(5, 7), n: Math.ceil(d / 7) }; };
+  const keyLabel = (k, withYear) => {
+    if (period === 'year') return k;
+    if (period === 'month') return k.slice(2).replace('-', '.');
+    const w = weekOf(k);
+    return `${withYear ? w.y.slice(2) + '년 ' : ''}${w.m}월 ${w.n}주`;
+  };
+  const keyTitle = k => {
+    if (period === 'year') return `${k}년`;
+    if (period === 'month') return k.replace('-', '.');
+    const w = weekOf(k);
+    const md = t => new Date(t).toISOString().slice(5, 10).replace('-', '.');
+    const t0 = Date.parse(k + 'T00:00:00Z');
+    return `${w.y}년 ${w.m}월 ${w.n}주 <small>${md(t0)} ~ ${md(t0 + 6 * DAY)}</small>`;
+  };
 
   let chartData = [];
   // 넓은 화면(요약 두 칸)에서는 차트 판 높이를 오른쪽 판들(한눈에 · 종류별 · 재화) 높이에 맞춘다(사용자 요청, 2026-11-19).
@@ -493,10 +532,10 @@
   }
   function paintChart(h) {
     document.querySelectorAll('#gacha-period [data-period]').forEach(b => b.classList.toggle('active', b.dataset.period === period));
-    const order = state.classified ? ['normal', 'special', 'mileage', 'other'] : ['unknown'];
+    const order = state.classified ? ['normal', 'pickup', 'special', 'mileage', 'other'] : ['unknown'];
     const buckets = new Map();
     const bucket = k => {
-      if (!buckets.has(k)) buckets.set(k, { n: 0, ssr: 0, tens: 0, normal: 0, special: 0, mileage: 0, other: 0, unknown: 0 });
+      if (!buckets.has(k)) buckets.set(k, { n: 0, ssr: 0, tens: 0, normal: 0, pickup: 0, special: 0, mileage: 0, other: 0, unknown: 0 });
       return buckets.get(k);
     };
     for (const b of state.batches) {
@@ -516,7 +555,7 @@
     chartData = data;
     // 기본 칸 폭으로 그리되, 판에 자리가 남으면 칸을 넓혀 판 폭을 채운다(연간 · 짧은 기록)
     // 오른쪽 여백(padR)은 마지막 칸 날짜 글자가 잘리지 않을 만큼(주간 '26.11.16' 이 칸보다 넓다)
-    const [baseW, baseGap] = { week: [10, 4], month: [26, 10], year: [72, 30] }[period];
+    const [baseW, baseGap] = { week: [16, 6], month: [26, 10], year: [72, 30] }[period];
     const padL = 52, padR = 40, padB = 30, padT = 16;
     const avail = ($('gacha-chart').clientWidth || 0) - padL - padR;
     const slot = Math.min(200, Math.max(baseW + baseGap, Math.floor(avail / Math.max(1, data.length))));
@@ -527,7 +566,8 @@
     const maxS = Math.max(...data.map(d => d.ssr), 1);
     const y = v => h - padB - (v / max) * (h - padB - padT);
     const ys = v => h - padB - (v / maxS) * (h - padB - padT);
-    const every = Math.max(1, Math.ceil(72 / (barW + gap)));
+    const every = Math.max(1, Math.ceil((period === 'week' ? 84 : 72) / (barW + gap)));
+    let labelYear = '';
     let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="기간별 획득">`;
     for (const t of [0, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max]) {
       svg += `<line x1="${padL}" x2="${w - padR + 8}" y1="${y(t)}" y2="${y(t)}" class="gc-grid"/><text x="${padL - 6}" y="${y(t) + 4}" text-anchor="end" class="gc-axis">${fmt.format(t)}</text>`;
@@ -545,7 +585,11 @@
       if (d.ssr) svg += `<circle cx="${x + barW / 2}" cy="${ys(d.ssr)}" r="${period === 'week' ? 2.5 : 3.5}" class="gc-ssr"/>`;
       // 마지막 칸 날짜는 늘 적고, 바로 앞 눈금 날짜와 겹치면 앞의 것을 뺀다
       const last = i === data.length - 1;
-      if ((i % every === 0 && data.length - 1 - i >= every) || last) svg += `<text x="${x + barW / 2}" y="${h - 9}" text-anchor="middle" class="gc-axis">${keyLabel(d.k)}</text>`;
+      if ((i % every === 0 && data.length - 1 - i >= every) || last) {
+        const yr = d.k.slice(0, 4);
+        svg += `<text x="${x + barW / 2}" y="${h - 9}" text-anchor="middle" class="gc-axis">${keyLabel(d.k, yr !== labelYear)}</text>`;
+        labelYear = yr;
+      }
     });
     $('gacha-chart').innerHTML = `<div class="gacha-chart-scroll">${svg}</svg></div><div class="gacha-tip" hidden></div><div class="gacha-legend">`
       + order.map(t => `<span class="${TYPES[t].cls}">${TYPES[t].label}</span>`).join('')
@@ -622,7 +666,7 @@
 
   function show(data) {
     state = build(data);
-    shown = PAGE; pickupShown = 20;
+    shown = PAGE;
     drawn = new Set();
     $('gacha-result').hidden = false;
     $('gacha-loaded').hidden = false;
@@ -737,13 +781,23 @@
       try { localStorage.setItem(PERIOD_KEY, period); } catch (e) { /* 무시 */ }
       if (state) drawChart();
     }));
-    $('gacha-pickup-more').addEventListener('click', () => { pickupShown += 20; renderPickups(); });
     $('gacha-first-order').addEventListener('click', () => {
       firstOldest = !firstOldest;
       try { localStorage.setItem(FIRST_ORDER_KEY, firstOldest ? '1' : '0'); } catch (e) { /* 무시 */ }
       if (state) renderFirst();
     });
     setupChartTip();
+    // 오른쪽 판 높이가 바뀌면(글꼴이 늦게 오거나 폭이 바뀌어 줄이 넘어갈 때) 차트 높이를 다시 맞춘다
+    if (window.ResizeObserver) {
+      let sideH = 0, raf = 0;
+      new ResizeObserver(([e]) => {
+        const hgt = Math.round(e.contentRect.height);
+        if (!hgt || hgt === sideH) return;
+        sideH = hgt;
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => { if (state && view === 'summary' && drawn.has('summary')) drawChart(); });
+      }).observe(document.querySelector('.gacha-side'));
+    }
     const reBatch = () => { if (state) { shown = PAGE; renderBatches(); } };
     $('gacha-only-ssr').addEventListener('change', reBatch);
     $('gacha-type').addEventListener('change', reBatch);
