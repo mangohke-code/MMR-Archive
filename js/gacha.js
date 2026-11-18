@@ -76,7 +76,7 @@
     if (head !== 'NKT2' && head !== 'NKT1') throw new Error('알 수 없는 형식입니다.');
     const v2 = head === 'NKT2';
     const seen = new Set();
-    const pulls = [], gacha = [], normal = [];
+    const pulls = [], gacha = [], normal = [], social = [];
     for (const line of lines.slice(1)) {
       const p = line.trim().split(',');
       const [kind, seq, val, cnt, tk] = v2 ? p : ['18', ...p];
@@ -87,9 +87,10 @@
       if (kind === '18') pulls.push({ seq, code: val, count, ticks, time: tickTime(ticks) });
       else if (kind === '13') gacha.push({ ticks, count });
       else if (kind === '69') normal.push({ ticks, count });
+      else if (kind === '66') social.push({ ticks, count });   // 받은 소셜 포인트(친구 1명 = 2개)
     }
     if (!pulls.length) throw new Error('니케 획득 기록이 0건입니다.');
-    return { pulls, gacha, normal, classified: v2 };
+    return { pulls, gacha, normal, social, classified: v2 };
   }
 
   // 저장해 둔 글자(base64(gzip(NKT))) 풀기 · 만들기
@@ -156,7 +157,7 @@
     throw new Error('NIKKE 기록 파일(NKSD_TRIGGER_…)이 맞는지 확인해 주세요.');
   }
 
-  // 기록 파일 -> NKT2 글자(종류 13·18·69 줄만)
+  // 기록 파일 -> NKT2 글자(종류 13·18·66·69 줄만)
   async function fileToNkt(file) {
     if (file.size > MAX_FILE) throw new Error('파일이 너무 큽니다. NKSD_TRIGGER_… 파일을 넣어 주세요.');
     const buf = new Uint8Array(await file.arrayBuffer());
@@ -164,13 +165,13 @@
     const out = ['NKT2'];
     for (const line of text.split('\n')) {
       const p = line.split(',');                         // s,seq,종류,값,횟수,틱,e
-      if (p.length >= 6 && (p[2] === '13' || p[2] === '18' || p[2] === '69')) out.push(`${p[2]},${p[1]},${p[3]},${p[4]},${p[5].trim()}`);
+      if (p.length >= 6 && (p[2] === '13' || p[2] === '18' || p[2] === '66' || p[2] === '69')) out.push(`${p[2]},${p[1]},${p[3]},${p[4]},${p[5].trim()}`);
     }
     return out.join('\n') + '\n';
   }
 
   // 묶음(1초 안) 나누기 + 모집 종류 붙이기 + 처음 얻은 니케(NEW) 표시
-  function build({ pulls, gacha, normal, classified }) {
+  function build({ pulls, gacha, normal, social, classified }) {
     pulls.sort(byTicks);
     gacha.sort(byTicks);
     normal.sort(byTicks);
@@ -201,7 +202,11 @@
         seenCode.add(p.code);
       }
     }
-    return { pulls, batches, classified };
+    // 받은 소셜 포인트 합계와 첫 기록 시각(이 날 이전 소셜 모집은 셀 수 없다)
+    social = (social || []).sort(byTicks);
+    const socialPts = social.reduce((s, x) => s + x.count, 0);
+    const socialFrom = social.length ? tickTime(social[0].ticks) : null;
+    return { pulls, batches, classified, socialPts, socialFrom };
   }
 
   // ===== 픽업 기록 잇기 (사용자 요청, 2026-11-19) =====
@@ -294,6 +299,20 @@
     }
   }
 
+  // 소셜 포인트 모집 추정 = (받은 소셜 포인트 합계 - 지금 보유량) / 10(1회 = 10포인트). 보유량은 기록에 없어 사용자가 적는다.
+  // 첫 66 기록 이후의 픽업·소셜(확정 픽업 제외) 횟수를 넘지 않게 자른다. max = 쥬얼 환산 최대(소셜 추정분 뺀 모집 횟수)
+  const HELD_KEY = 'mmr-gacha-social-held';
+  let socialHeld = 0;
+  try { socialHeld = Math.max(0, parseInt(localStorage.getItem(HELD_KEY), 10) || 0); } catch (e) { /* 무시 */ }
+  function socialCalc() {
+    const { pulls, socialPts, socialFrom } = state;
+    const gachaN = pulls.reduce((s, p) => s + (isGacha(p.type) ? p.count : 0), 0);
+    if (!state.classified || !socialPts) return { n: 0, max: gachaN };
+    const cap = pulls.reduce((s, p) => s + (p.type === 'special' && p.time >= socialFrom ? p.count : 0), 0);
+    const n = Math.min(cap, Math.max(0, Math.floor((socialPts - socialHeld) / 10)));
+    return { n, max: gachaN - n };
+  }
+
   function render() {
     const { pulls, batches, classified } = state;
     const sum = list => list.reduce((s, p) => s + p.count, 0);
@@ -316,14 +335,18 @@
     const byType = t => sum(pulls.filter(p => p.type === t));
     const normalN = byType('normal'), paidMin = normalN + byType('pickup');
     const ssrNormal = sum(pulls.filter(p => p.type === 'normal' && isSSR(p)));
+    const hasSocial = classified && state.socialPts > 0;
+    const soc = socialCalc();
     // 한눈에(요약 오른쪽 세로 판). 단위: 획득 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
     state.overview = [
       ['획득 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
       ['모집', fmt.format(gachaN), '회', '', classified ? `일반 ${fmt.format(byType('normal'))} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}` : ''],
       // 사용 재화 판은 종류별과 같은 숫자라 없애고(사용자 지적, 2026-11-19) 쥬얼 환산만 여기로 옮겼다
-      // 소셜 포인트 모집(무료)이 픽업·소셜에 섞여 따로 뺄 수 없어 범위로 보인다: 최소 = 픽업·소셜 제외, 최대 = 포함(사용자 요청, 2026-11-19)
+      // 소셜 포인트 모집(무료)은 묶음마다 가를 수 없어 범위로 보인다: 최소 = 픽업·소셜 제외, 최대 = 소셜 추정분만 제외(없으면 포함)(사용자 요청, 2026-11-19)
+      ...(hasSocial ? [['소셜 포인트 모집', `<small class="go-pre">약</small><span id="go-social-n">${fmt.format(soc.n)}</span>`, '회', 'is-social',
+        `${dayStr(state.socialFrom)}부터 · 보유 <label class="search-box gacha-held"><input id="gacha-social-held" type="text" inputmode="numeric" maxlength="6" placeholder="0" value="${socialHeld || ''}" aria-label="지금 보유한 소셜 포인트"></label> 포인트`]] : []),
       classified
-        ? ['쥬얼 환산', `${fmt.format(paidMin * 300)}<small> ~ </small>${fmt.format(gachaN * 300)}`, '쥬얼', 'is-jewel is-range', '모집 1회 = 300 쥬얼 · 픽업·소셜 제외 ~ 포함']
+        ? ['쥬얼 환산', `${fmt.format(paidMin * 300)}<small> ~ </small><span id="go-jewel-max">${fmt.format(soc.max * 300)}</span>`, '쥬얼', 'is-jewel is-range', hasSocial ? '모집 1회 = 300 쥬얼 · 픽업·소셜 제외 ~ 소셜 포인트 모집만 제외' : '모집 1회 = 300 쥬얼 · 픽업·소셜 제외 ~ 포함']
         : ['쥬얼 환산', fmt.format(gachaN * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼'],
       ['10연차', fmt.format(tens), '회', '', ''],
       ['모집 SSR', fmt.format(ssrGacha), '명', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrAll - ssrGacha)}명 제외` : ''],
@@ -337,6 +360,16 @@
   function renderOverview() {
     $('gacha-overview-body').innerHTML = state.overview.map(([k, v, u, cls, sub]) =>
       `<div class="go-row ${cls}"><div class="go-k"><span>${k}</span>${sub ? `<i>${sub}</i>` : ''}</div><b>${v}<small>${u}</small></b></div>`).join('');
+    // 보유 소셜 포인트를 적으면 그 자리에서 숫자만 바꾼다(판을 다시 그리면 입력칸 커서가 사라진다)
+    const held = $('gacha-social-held');
+    if (held) held.addEventListener('input', () => {
+      held.value = held.value.replace(/\D/g, '');
+      socialHeld = parseInt(held.value, 10) || 0;
+      try { localStorage.setItem(HELD_KEY, String(socialHeld)); } catch (e) { /* 무시 */ }
+      const soc = socialCalc();
+      $('go-social-n').textContent = fmt.format(soc.n);
+      $('go-jewel-max').textContent = fmt.format(soc.max * 300);
+    });
   }
 
   // 보기 하나만 그린다(안 보이는 것까지 만들지 않는다). 그린 보기는 기록이 바뀔 때까지 다시 안 그린다.

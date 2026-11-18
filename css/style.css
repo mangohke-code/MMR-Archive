@@ -9752,6 +9752,11 @@
   .go-row.is-range { flex-wrap: wrap; row-gap: 4px; }
   .go-row.is-range .go-k { flex: 1 1 100%; }
   .go-row.is-range b { margin-left: auto; }
+  /* 소셜 포인트 모집(추정): 값 앞 '약', 설명 줄 안의 보유 소셜 포인트 입력칸(검색칸 모양) */
+  .go-row b small.go-pre { margin: 0 4px 0 0; }
+  .go-row.is-social b { color: var(--gacha-pick); }
+  .go-k i .gacha-held { display: inline-flex; width: 76px; height: 30px; margin: 4px 2px 0; padding: 0 8px; vertical-align: middle; }
+  .go-k i .gacha-held input { font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 
   /* 기간 단추(주간 · 월별 · 연간) */
   .gacha-seg { display: inline-flex; gap: 4px; margin-left: auto; }
