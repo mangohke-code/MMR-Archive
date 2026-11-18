@@ -463,7 +463,7 @@
       .map(r => {
         const i = info(r.code), img = nikkeImgOf(i.name);
         return `<div class="gacha-nk is-${i.rare}"><span class="gf-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}</span>`
-          + mq(i.name, 'span', 'gn-name') + `<b>${fmt.format(r.n)}<small>명</small></b></div>`;
+          + mq(i.name, 'span', 'gn-name') + `<b>${fmt.format(r.n)}<small>회</small></b></div>`;
       })
       .join('') || '<div class="gacha-empty">없음</div>';
     fitMarquees($('gacha-nikke-grid'));
@@ -570,7 +570,7 @@
     hourData = data;
     const total = data.reduce((s, d) => s + d.n, 0);
     const peak = data.reduce((a, d) => (d.n > a.n ? d : a), data[0]);
-    $('gacha-hours-sum').textContent = total ? `가장 많이 ${peak.hr}시 · ${fmt.format(peak.n)}회` : '';
+    $('gacha-hours-sum').textContent = total ? `최다 시간대 ${peak.hr}시 · ${fmt.format(peak.n)}회` : '';
     const box = $('gacha-hours-chart');
     const padL = 52, padR = 16, padB = 30, padT = 14, h = HOUR_H;
     const w = Math.max(320, box.clientWidth || 0);
@@ -646,6 +646,21 @@
     const ys = v => h - padB - (v / maxS) * (h - padB - padT);
     const every = Math.max(1, Math.ceil((period === 'week' ? 84 : 72) / (barW + gap)));
     let labelYear = '';
+    // 주간 날짜(사용자 요청, 2026-11-19): 달마다 1주를 먼저 적고(n월 1주), 1월은 1주 대신 '26년 1월'.
+    // 앞 날짜와 64px 안쪽이면 건너뛰고, 맨 끝 주는 자리가 있으면 '11월 3주'처럼 적는다.
+    const weekLabels = new Map();
+    if (period === 'week') {
+      const slotW = barW + gap, minGap = 64;
+      let lastX = -Infinity;
+      data.forEach((d, i) => {
+        const wk = weekOf(d.k);
+        if (wk.n !== 1 || i * slotW - lastX < minGap) return;
+        weekLabels.set(i, wk.m === 1 ? `${wk.y.slice(2)}년 1월` : `${wk.m}월 1주`);
+        lastX = i * slotW;
+      });
+      const li = data.length - 1;
+      if (li >= 0 && !weekLabels.has(li) && li * slotW - lastX >= minGap) weekLabels.set(li, keyLabel(data[li].k, false));
+    }
     let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="기간별 획득">`;
     for (const t of [0, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max]) {
       svg += `<line x1="${padL}" x2="${w - padR + 8}" y1="${y(t)}" y2="${y(t)}" class="gc-grid"/><text x="${padL - 6}" y="${y(t) + 4}" text-anchor="end" class="gc-axis">${fmt.format(t)}</text>`;
@@ -663,7 +678,9 @@
       if (d.ssr) svg += `<circle cx="${x + barW / 2}" cy="${ys(d.ssr)}" r="${period === 'week' ? 2.5 : 3.5}" class="gc-ssr"/>`;
       // 마지막 칸 날짜는 늘 적고, 바로 앞 눈금 날짜와 겹치면 앞의 것을 뺀다
       const last = i === data.length - 1;
-      if ((i % every === 0 && data.length - 1 - i >= every) || last) {
+      if (period === 'week') {
+        if (weekLabels.has(i)) svg += `<text x="${x + barW / 2}" y="${h - 9}" text-anchor="middle" class="gc-axis">${weekLabels.get(i)}</text>`;
+      } else if ((i % every === 0 && data.length - 1 - i >= every) || last) {
         const yr = d.k.slice(0, 4);
         svg += `<text x="${x + barW / 2}" y="${h - 9}" text-anchor="middle" class="gc-axis">${keyLabel(d.k, yr !== labelYear)}</text>`;
         labelYear = yr;
@@ -726,8 +743,99 @@
   function scrollChartEnd() {
     const box = document.querySelector('#gacha-chart .gacha-chart-scroll');
     if (!box) return;
+    box.classList.toggle('can-drag', box.scrollWidth > box.clientWidth + 1);
     box.scrollLeft = box.scrollWidth;
     requestAnimationFrame(() => { box.scrollLeft = box.scrollWidth; });
+  }
+  // 마우스로 차트를 잡아 끌면 좌우로 움직인다(사용자 요청, 2026-11-19). 4px 넘게 움직여야 끌기로 본다(그냥 누름은 툴팁).
+  // 폰 · 터치는 원래 손가락으로 밀리므로 마우스만 다룬다.
+  function setupDrag(box) {
+    let sc = null, sx = 0, sl = 0, id = null, moved = false;
+    box.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      const s = e.target.closest && e.target.closest('.gacha-chart-scroll');
+      if (!s || s.scrollWidth <= s.clientWidth + 1) return;
+      sc = s; sx = e.clientX; sl = s.scrollLeft; id = e.pointerId; moved = false;
+    });
+    box.addEventListener('pointermove', e => {
+      if (!sc || e.pointerId !== id) return;
+      const dx = e.clientX - sx;
+      if (!moved) {
+        if (Math.abs(dx) < 4) return;
+        moved = true;
+        sc.setPointerCapture(id);
+        sc.classList.add('is-dragging');
+      }
+      sc.scrollLeft = sl - dx;
+      e.preventDefault();
+    });
+    const end = () => {
+      if (!sc) return;
+      sc.classList.remove('is-dragging');
+      try { sc.releasePointerCapture(id); } catch (err) { /* 무시 */ }
+      sc = null;
+    };
+    box.addEventListener('pointerup', end);
+    box.addEventListener('pointercancel', end);
+  }
+
+  // 드롭다운: 브라우저 기본 select 목록 대신 사이트 판 모양 목록(사용자 요청, 2026-11-19).
+  // 원래 select 는 값 · change 용으로 숨겨 두고, 고르면 select 값을 바꾸고 change 를 보낸다(기존 코드는 그대로).
+  function niceSelect(select) {
+    const wrap = document.createElement('span');
+    wrap.className = 'gacha-dd';
+    select.before(wrap);
+    wrap.append(select);
+    select.tabIndex = -1;
+    select.setAttribute('aria-hidden', 'true');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gacha-dd-btn';
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', select.getAttribute('aria-label') || '');
+    const list = document.createElement('div');
+    list.className = 'gacha-dd-list';
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
+    wrap.append(btn, list);
+    const sync = () => {
+      const o = select.options[select.selectedIndex];
+      btn.innerHTML = `<span>${esc(o ? o.textContent : '')}</span><i class="fas fa-chevron-down" aria-hidden="true"></i>`;
+    };
+    const close = () => { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); wrap.classList.remove('is-open'); };
+    const open = () => {
+      document.querySelectorAll('.gacha-dd.is-open').forEach(w => { if (w !== wrap) w.__close(); });
+      list.innerHTML = [...select.options].map((o, k) =>
+        `<button type="button" role="option" class="gacha-dd-item${k === select.selectedIndex ? ' is-on' : ''}" data-k="${k}" aria-selected="${k === select.selectedIndex}">${esc(o.textContent)}</button>`).join('');
+      list.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      wrap.classList.add('is-open');
+    };
+    btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+    list.addEventListener('click', e => {
+      const it = e.target.closest('.gacha-dd-item');
+      if (!it) return;
+      select.selectedIndex = Number(it.dataset.k);
+      sync();
+      close();
+      btn.focus();
+      select.dispatchEvent(new Event('change'));
+    });
+    // 키보드: 열린 목록에서 위 · 아래로 옮기고 Esc 로 닫는다
+    wrap.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !list.hidden) { close(); btn.focus(); return; }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      if (list.hidden) open();
+      const items = [...list.children];
+      const at = items.indexOf(document.activeElement);
+      const next = at < 0 ? Math.max(0, select.selectedIndex) : Math.min(items.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)));
+      items[next].focus();
+    });
+    document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+    wrap.__close = close;
+    sync();
   }
 
   function setStatus(msg, kind) {
@@ -869,6 +977,8 @@
     });
     setupTip($('gacha-chart'), i => chartData[i], chartTipHtml);
     setupTip($('gacha-hours-chart'), i => hourData[i], hourTipHtml);
+    setupDrag($('gacha-chart'));
+    ['gacha-first-rare', 'gacha-rare', 'gacha-type'].forEach(id => niceSelect($(id)));
     // 오른쪽 판 높이가 바뀌면(글꼴이 늦게 오거나 폭이 바뀌어 줄이 넘어갈 때) 차트 높이를 다시 맞춘다
     if (window.ResizeObserver) {
       let sideH = 0, raf = 0;
