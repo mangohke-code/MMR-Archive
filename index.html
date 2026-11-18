@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=322">
+  <link rel="stylesheet" href="css/style.css?v=323">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -876,14 +876,14 @@
         <div id="gacha-result" hidden>
           <div id="gacha-social-warn" role="note" hidden>
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-            <div><b>일반 외 모집에는 소셜 포인트 모집이 섞여 있습니다</b>
-              <span>게임 기록으로는 픽업 · 선택 특수 · 소셜 포인트 모집을 구분할 수 없습니다. 일반 외 장수 · 확률과 픽업 획득 숫자는 소셜 포인트 모집까지 합친 값이라 정확하지 않습니다.</span></div>
+            <div><b>픽업·소셜 모집에는 소셜 포인트 모집이 섞여 있습니다</b>
+              <span>게임 기록으로는 픽업 · 선택 특수 · 소셜 포인트 모집을 구분할 수 없습니다. 픽업·소셜 장수 · 확률은 소셜 포인트 모집까지 합친 값이라 픽업만의 수치로는 정확하지 않습니다.</span></div>
           </div>
 
           <div id="gacha-views" role="tablist" aria-label="보기">
             <button type="button" class="mode-btn" role="tab" data-view="summary">요약</button>
             <button type="button" class="mode-btn" role="tab" data-view="pickup">픽업 획득</button>
-            <button type="button" class="mode-btn" role="tab" data-view="first">최초 획득순</button>
+            <button type="button" class="mode-btn" role="tab" data-view="first">신규 획득</button>
             <button type="button" class="mode-btn" role="tab" data-view="nikke">니케별</button>
             <button type="button" class="mode-btn" role="tab" data-view="history">전체 기록</button>
           </div>
@@ -915,7 +915,7 @@
           <div class="gacha-view" data-view="pickup">
             <section class="card gacha-card">
               <div class="chapter-feature-cap"><b>PICKUP</b><span>픽업 획득</span><span id="gacha-pickup-sum" class="gacha-cap-sum"></span></div>
-              <div class="gacha-note">그 니케의 픽업 기간에 얻은 것 · 숫자 = 이전 픽업 획득 이후 일반 외 모집 장수(소셜 포인트 모집 포함) · 교환 = 골드 마일리지</div>
+              <div class="gacha-note">그 니케의 픽업 기간에 얻은 것 · 교환 = 골드 마일리지 티켓 200장</div>
               <div id="gacha-pickups"></div>
               <button type="button" id="gacha-pickup-more" class="mode-btn gacha-more">더 보기</button>
             </section>
@@ -923,8 +923,9 @@
 
           <div class="gacha-view" data-view="first">
             <section class="card gacha-card">
-              <div class="chapter-feature-cap"><b>FIRST</b><span>최초 획득순</span>
-                <select id="gacha-first-rare" class="search-box" aria-label="등급"><option value="">전체</option><option>SSR</option><option>SR</option><option>R</option></select></div>
+              <div class="chapter-feature-cap"><b>NEW</b><span>신규 획득</span>
+                <span class="gacha-filters"><select id="gacha-first-rare" class="search-box" aria-label="등급"><option value="">전체</option><option>SSR</option><option>SR</option><option>R</option></select>
+                <button type="button" id="gacha-first-order" class="mode-btn" aria-pressed="false" title="정렬 순서 바꾸기"><i class="fas fa-arrow-down-wide-short" aria-hidden="true"></i><span>최신순</span></button></span></div>
               <div id="gacha-first-grid"></div>
             </section>
           </div>
@@ -940,7 +941,7 @@
           <div class="gacha-view" data-view="history">
             <section class="card gacha-card">
               <div class="chapter-feature-cap"><b>HISTORY</b><span>모집 묶음</span>
-                <span class="gacha-filters"><select id="gacha-type" class="search-box" aria-label="모집 종류"><option value="">전체</option><option value="normal">일반</option><option value="special">일반 외</option><option value="mileage">골드 마일리지</option><option value="other">모집 외</option></select>
+                <span class="gacha-filters"><select id="gacha-type" class="search-box" aria-label="모집 종류"><option value="">전체</option><option value="normal">일반</option><option value="special">픽업·소셜</option><option value="mileage">골드 마일리지</option><option value="other">모집 외</option></select>
                 <label class="gacha-check"><input type="checkbox" id="gacha-only-ssr">SSR 포함만</label></span></div>
               <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>종류</th><th class="num">장수</th><th>니케</th></tr></thead><tbody id="gacha-batch-body"></tbody></table></div>
               <button type="button" id="gacha-more" class="mode-btn gacha-more">더 보기</button>
@@ -1036,7 +1037,7 @@
   <script type="module" src="js/soloraid3d.js?v=511"></script>
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=23"></script>
-  <script src="js/gacha.js?v=8"></script>
+  <script src="js/gacha.js?v=9"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>
