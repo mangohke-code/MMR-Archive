@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=315">
+  <link rel="stylesheet" href="css/style.css?v=316">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -39,6 +39,8 @@
     <button class="tab-btn" data-tab="souvenir" data-short="기념품">기념품 목록</button>
     <button class="tab-btn" data-tab="soloraid" data-short="솔로 레이드">솔로 레이드</button>
     <button class="tab-btn" data-tab="stage" data-short="스테이지">스테이지 정보</button>
+    <!-- 가챠 트래커(베타): 스테이지 정보와 간격을 두고, 이 탭만 청록색 - js/gacha.js -->
+    <button class="tab-btn tab-btn-gacha" data-tab="gacha" data-short="가챠 트래커">가챠 트래커<span class="tab-beta" aria-label="베타">BETA</span></button>
     <button class="tab-btn tab-btn-contact" data-tab="contact" data-short="문의">문의</button>
   </nav>
 
@@ -843,6 +845,57 @@
       </div>
     </div>
 
+    <!-- 가챠 트래커(베타). PC판 계정 기록(NKSD_TRIGGER_*)의 니케 획득 줄을 PowerShell 로 뽑아 붙여넣는다.
+         기록은 브라우저 안에서만 풀고 localStorage 에만 둔다(서버로 보내지 않음) - js/gacha.js -->
+    <div id="tab-gacha" class="tab-content">
+      <div id="gacha-page">
+        <section id="gacha-import" class="card gacha-card">
+          <div class="chapter-feature-cap"><b>GACHA TRACKER</b><span>모집 기록 가져오기</span><i class="gacha-beta">BETA</i></div>
+          <ol class="gacha-steps">
+            <li><span class="gacha-step-k">PowerShell 실행</span>
+              <div class="gacha-cmd"><code id="gacha-cmd"></code><button type="button" id="gacha-copy-cmd" class="mode-btn">명령 복사</button></div></li>
+            <li><span class="gacha-step-k">복사된 기록 붙여넣기</span>
+              <textarea id="gacha-paste" spellcheck="false" autocomplete="off" placeholder="Ctrl+V"></textarea>
+              <div class="gacha-row">
+                <button type="button" id="gacha-load" class="mode-btn active">기록 보기</button>
+                <button type="button" id="gacha-clear" class="mode-btn">기록 지우기</button>
+                <span id="gacha-status" role="status"></span>
+              </div></li>
+          </ol>
+          <div class="gacha-note">PC판 전용 · 기록은 이 브라우저에만 저장</div>
+        </section>
+
+        <div id="gacha-result" hidden>
+          <div id="gacha-range"></div>
+          <div id="gacha-stats"></div>
+
+          <section class="card gacha-card">
+            <div class="chapter-feature-cap"><b>MONTHLY</b><span>월별 획득</span></div>
+            <div id="gacha-chart"></div>
+          </section>
+
+          <div class="gacha-grid2">
+            <section class="card gacha-card">
+              <div class="chapter-feature-cap"><b>SSR</b><span>SSR 획득 순서</span></div>
+              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>니케</th><th class="num">이전 SSR 이후</th></tr></thead><tbody id="gacha-ssr-body"></tbody></table></div>
+            </section>
+            <section class="card gacha-card">
+              <div class="chapter-feature-cap"><b>NIKKE</b><span>니케별 획득</span>
+                <select id="gacha-rare" class="search-box" aria-label="등급"><option value="">전체</option><option>SSR</option><option>SR</option><option>R</option></select></div>
+              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>니케</th><th class="num">장수</th><th class="num">처음</th></tr></thead><tbody id="gacha-nikke-body"></tbody></table></div>
+            </section>
+          </div>
+
+          <section class="card gacha-card">
+            <div class="chapter-feature-cap"><b>HISTORY</b><span>모집 묶음</span>
+              <label class="gacha-check"><input type="checkbox" id="gacha-only-ssr">SSR 포함만</label></div>
+            <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th class="num">장수</th><th>니케</th></tr></thead><tbody id="gacha-batch-body"></tbody></table></div>
+            <button type="button" id="gacha-more" class="mode-btn">더 보기</button>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <!-- 문의. 보내는 법·스팸 막는 법은 js/contact.js -->
     <div id="tab-contact" class="tab-content">
       <div id="contact-page">
@@ -929,6 +982,7 @@
   <script type="module" src="js/soloraid3d.js?v=511"></script>
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=23"></script>
+  <script src="js/gacha.js?v=1"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>
