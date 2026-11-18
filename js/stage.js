@@ -143,6 +143,8 @@
       try { inp.setSelectionRange(pos, pos); } catch (e) {}
       renderPenalty();
     }));
+    // 챕터 · 스테이지 고르기는 사이트 드롭다운으로(common.js mmrDropdown, 사용자 요청 2026-11-19)
+    if (typeof mmrDropdown === 'function') ['spn-chapter', 'spn-stage'].forEach(id => mmrDropdown(document.getElementById(id)));
     document.querySelectorAll('#spn-mode .mode-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.mode === penaltyMode);
       btn.addEventListener('click', () => {

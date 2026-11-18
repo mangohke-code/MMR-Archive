@@ -1532,3 +1532,76 @@ document.addEventListener('DOMContentLoaded', function () {
     })
     .catch(onError);
 });
+
+
+// ===== 사이트 드롭다운 (사용자 요청, 2026-11-19) =====
+// 브라우저 기본 select 목록(OS 모양) 대신 사이트 판 모양 단추 + 목록. 가챠 트래커 · 전투력 패널티 계산기에서 쓴다.
+// 원래 select 는 값 · change 용으로 숨겨 두고, 고르면 select 값을 바꾸고 change 를 보낸다(기존 코드는 그대로).
+// 다른 코드가 select 의 옵션 · disabled 를 바꾸면(innerHTML 다시 채우기 등) 알아서 단추 글자를 맞춘다.
+// 강조색은 그 탭의 --accent 를 따른다(가챠 트래커는 청록). 모양은 css/style.css '.mmr-dd'.
+function mmrDropdown(select) {
+  if (!select || select.__mmrDropdown) return;
+  const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const wrap = document.createElement('span');
+  wrap.className = 'mmr-dd';
+  select.before(wrap);
+  wrap.append(select);
+  select.tabIndex = -1;
+  select.setAttribute('aria-hidden', 'true');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mmr-dd-btn';
+  btn.setAttribute('aria-haspopup', 'listbox');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-label', select.getAttribute('aria-label') || '');
+  const list = document.createElement('div');
+  list.className = 'mmr-dd-list';
+  list.setAttribute('role', 'listbox');
+  list.hidden = true;
+  wrap.append(btn, list);
+  const sync = () => {
+    const o = select.options[select.selectedIndex];
+    btn.innerHTML = `<span>${escHtml(o ? o.textContent : '')}</span><i class="fas fa-chevron-down" aria-hidden="true"></i>`;
+    btn.disabled = select.disabled;
+    if (select.disabled) close();
+  };
+  const close = () => { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); wrap.classList.remove('is-open'); };
+  const open = () => {
+    document.querySelectorAll('.mmr-dd.is-open').forEach(w => { if (w !== wrap && w.__close) w.__close(); });
+    list.innerHTML = [...select.options].map((o, k) =>
+      `<button type="button" role="option" class="mmr-dd-item${k === select.selectedIndex ? ' is-on' : ''}" data-k="${k}" aria-selected="${k === select.selectedIndex}"${o.disabled ? ' disabled' : ''}>${escHtml(o.textContent)}</button>`).join('');
+    list.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    wrap.classList.add('is-open');
+    const on = list.querySelector('.is-on');
+    if (on) on.scrollIntoView({ block: 'nearest' });
+  };
+  btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  list.addEventListener('click', e => {
+    const it = e.target.closest('.mmr-dd-item');
+    if (!it || it.disabled) return;
+    select.selectedIndex = Number(it.dataset.k);
+    sync();
+    close();
+    btn.focus();
+    select.dispatchEvent(new Event('change'));
+  });
+  // 키보드: 위 · 아래로 옮기고 Esc 로 닫는다
+  wrap.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !list.hidden) { close(); btn.focus(); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    if (btn.disabled) return;
+    e.preventDefault();
+    if (list.hidden) open();
+    const items = [...list.children];
+    const at = items.indexOf(document.activeElement);
+    const next = at < 0 ? Math.max(0, select.selectedIndex) : Math.min(items.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)));
+    if (items[next]) items[next].focus();
+  });
+  document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+  select.addEventListener('change', sync);
+  new MutationObserver(sync).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+  wrap.__close = close;
+  select.__mmrDropdown = sync;   // 바깥에서 select.value 를 직접 바꾼 뒤 select.__mmrDropdown() 으로 맞출 수 있다
+  sync();
+}

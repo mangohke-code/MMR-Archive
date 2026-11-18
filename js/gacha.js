@@ -361,7 +361,7 @@
     if (!state.classified) { card.hidden = true; return; }
     card.hidden = false;
     const order = ['normal', 'pickup', 'special', 'mileage', 'other'];
-    $('gacha-types-body').innerHTML = order.map(t => {
+    const rows = order.map(t => {
       const items = state.pulls.filter(p => p.type === t);
       const n = items.reduce((s, p) => s + p.count, 0);
       if (!n && (t === 'mileage' || t === 'pickup')) return '';
@@ -373,7 +373,10 @@
           ? `<span><em>사용</em>${fmt.format(n * MILEAGE_COST)}장</span><span class="is-dim">통계 제외</span>`
           : `<span><em>SSR</em>${fmt.format(ssr)}명</span><span class="is-dim">통계 제외</span>`;
       return `<div class="gacha-typerow ${TYPES[t].cls}"><div class="gt-head">${typeChip(t)}<b>${fmt.format(n)}<small>${unitOf(t)}</small></b></div><div class="gt-cells">${cells}</div></div>`;
-    }).join('');
+    });
+    // 픽업 · 픽업·소셜은 원래 한 종류(일반 외 모집, 기록상 13만 있음)를 나눈 것이라 뒤 판 하나로 묶는다(사용자 요청, 2026-11-19)
+    const [normal, pickup, special, ...rest] = rows;
+    $('gacha-types-body').innerHTML = normal + (pickup ? `<div class="gt-group">${pickup}${special}</div>` : special) + rest.join('');
   }
 
 
@@ -779,65 +782,6 @@
     box.addEventListener('pointercancel', end);
   }
 
-  // 드롭다운: 브라우저 기본 select 목록 대신 사이트 판 모양 목록(사용자 요청, 2026-11-19).
-  // 원래 select 는 값 · change 용으로 숨겨 두고, 고르면 select 값을 바꾸고 change 를 보낸다(기존 코드는 그대로).
-  function niceSelect(select) {
-    const wrap = document.createElement('span');
-    wrap.className = 'gacha-dd';
-    select.before(wrap);
-    wrap.append(select);
-    select.tabIndex = -1;
-    select.setAttribute('aria-hidden', 'true');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'gacha-dd-btn';
-    btn.setAttribute('aria-haspopup', 'listbox');
-    btn.setAttribute('aria-expanded', 'false');
-    btn.setAttribute('aria-label', select.getAttribute('aria-label') || '');
-    const list = document.createElement('div');
-    list.className = 'gacha-dd-list';
-    list.setAttribute('role', 'listbox');
-    list.hidden = true;
-    wrap.append(btn, list);
-    const sync = () => {
-      const o = select.options[select.selectedIndex];
-      btn.innerHTML = `<span>${esc(o ? o.textContent : '')}</span><i class="fas fa-chevron-down" aria-hidden="true"></i>`;
-    };
-    const close = () => { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); wrap.classList.remove('is-open'); };
-    const open = () => {
-      document.querySelectorAll('.gacha-dd.is-open').forEach(w => { if (w !== wrap) w.__close(); });
-      list.innerHTML = [...select.options].map((o, k) =>
-        `<button type="button" role="option" class="gacha-dd-item${k === select.selectedIndex ? ' is-on' : ''}" data-k="${k}" aria-selected="${k === select.selectedIndex}">${esc(o.textContent)}</button>`).join('');
-      list.hidden = false;
-      btn.setAttribute('aria-expanded', 'true');
-      wrap.classList.add('is-open');
-    };
-    btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
-    list.addEventListener('click', e => {
-      const it = e.target.closest('.gacha-dd-item');
-      if (!it) return;
-      select.selectedIndex = Number(it.dataset.k);
-      sync();
-      close();
-      btn.focus();
-      select.dispatchEvent(new Event('change'));
-    });
-    // 키보드: 열린 목록에서 위 · 아래로 옮기고 Esc 로 닫는다
-    wrap.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && !list.hidden) { close(); btn.focus(); return; }
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      e.preventDefault();
-      if (list.hidden) open();
-      const items = [...list.children];
-      const at = items.indexOf(document.activeElement);
-      const next = at < 0 ? Math.max(0, select.selectedIndex) : Math.min(items.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)));
-      items[next].focus();
-    });
-    document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
-    wrap.__close = close;
-    sync();
-  }
-
   function setStatus(msg, kind) {
     const el = $('gacha-status');
     el.textContent = msg || '';
@@ -978,7 +922,7 @@
     setupTip($('gacha-chart'), i => chartData[i], chartTipHtml);
     setupTip($('gacha-hours-chart'), i => hourData[i], hourTipHtml);
     setupDrag($('gacha-chart'));
-    ['gacha-first-rare', 'gacha-rare', 'gacha-type'].forEach(id => niceSelect($(id)));
+    ['gacha-first-rare', 'gacha-rare', 'gacha-type'].forEach(id => mmrDropdown($(id)));   // common.js
     // 오른쪽 판 높이가 바뀌면(글꼴이 늦게 오거나 폭이 바뀌어 줄이 넘어갈 때) 차트 높이를 다시 맞춘다
     if (window.ResizeObserver) {
       let sideH = 0, raf = 0;

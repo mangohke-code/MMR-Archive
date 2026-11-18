@@ -7118,6 +7118,36 @@
     }
   }
 
+  /* ===== 사이트 드롭다운 (common.js mmrDropdown, 사용자 요청 2026-11-19) =====
+     브라우저 기본 select 목록 대신: 단추는 검색칸(.search-box)과 같은 각진 판 + 화살표, 목록은 각진 판 + 금색 밑단.
+     강조색은 그 탭의 --accent(가챠 트래커는 청록). */
+  .mmr-dd { position: relative; display: inline-flex; }
+  /* 숨긴 원래 select: 탭마다 select 에 준 모양(#stage-penalty select.search-box 등)이 이기지 않게 !important */
+  .mmr-dd > select { position: absolute !important; left: 0; top: 0; width: 1px !important; height: 1px !important; min-width: 0 !important;
+    padding: 0 !important; border: 0 !important; opacity: 0 !important; pointer-events: none; }
+  .mmr-dd-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 124px; height: 38px; padding: 0 12px 0 14px;
+    font: inherit; font-size: 15px; font-weight: 700; color: var(--text-heading); cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border-card); border-radius: 7px 0 7px 0; corner-shape: bevel; background: var(--btn-bg); box-shadow: var(--btn-shadow);
+    transition: border-color .15s, box-shadow .15s; }
+  .mmr-dd-btn > span { overflow: hidden; text-overflow: ellipsis; }
+  .mmr-dd-btn i { flex: none; font-size: 12px; color: var(--text-secondary); transition: transform .15s; }
+  @media (hover: hover) { .mmr-dd-btn:not(:disabled):hover { border-color: var(--accent); } }
+  .mmr-dd-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mmr-dd-btn:disabled { opacity: .5; cursor: default; }
+  .mmr-dd.is-open .mmr-dd-btn { border-color: var(--accent); box-shadow: var(--btn-shadow), 0 0 0 3px var(--accent-glow); }
+  .mmr-dd.is-open .mmr-dd-btn i { transform: rotate(180deg); color: var(--accent-strong); }
+  .mmr-dd-list { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 100%; max-height: 320px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 2px; padding: 6px;
+    background: var(--bg-panel) linear-gradient(90deg, var(--gold), transparent) left bottom / 40% 2px no-repeat;
+    border-radius: 10px 0 10px 0; corner-shape: bevel; box-shadow: var(--shadow-card-hover), inset 0 0 0 1px var(--border-strong); }
+  .mmr-dd-list[hidden] { display: none; }
+  .mmr-dd-item { display: block; flex: none; width: 100%; padding: 9px 16px 9px 14px; text-align: left; white-space: nowrap;
+    font: inherit; font-size: 15px; font-weight: 600; color: var(--text-body); cursor: pointer;
+    background: transparent; border: 0; border-radius: 6px 0 6px 0; corner-shape: bevel; }
+  .mmr-dd-item:hover, .mmr-dd-item:focus-visible { outline: none; background: var(--bg-panel-alt); color: var(--text-heading); }
+  .mmr-dd-item.is-on { font-weight: 800; color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+  .mmr-dd-item:disabled { opacity: .4; cursor: default; }
+
   /* 폰: 첫 줄은 보기 버튼 셋이 나눠 쓰고, 둘째 줄에 복각·검색·필터를 나란히 둔다.
      버튼 글자가 두 줄로 꺾이지 않게 줄바꿈을 막는다. */
   @media (max-width: 540px) {
@@ -9566,7 +9596,7 @@
   #stage-penalty .spn-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-content: start; }
   #stage-penalty .spn-wide { grid-column: 1 / -1; }
   #stage-penalty .spn-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  #stage-penalty .spn-field > span:first-child { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
+  #stage-penalty .spn-field > span:first-child { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
   #stage-penalty .search-box { width: auto; height: 42px; }
   #stage-penalty .search-box input { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   /* 스테이지 줄도 아래 두 칸과 같은 2칸 격자: 왼쪽 [노말·하드 + 챕터], 오른쪽 스테이지 */
@@ -9574,6 +9604,8 @@
   #stage-penalty .spn-pick-l { display: flex; gap: 8px; min-width: 0; }
   #stage-penalty select.search-box { flex: 1 1 0; min-width: 0; padding: 0 10px; font: inherit; font-size: 15px; color: var(--text-heading); cursor: pointer; }
   #stage-penalty select.search-box:disabled { opacity: .5; cursor: default; }
+  #stage-penalty .mmr-dd { flex: 1 1 0; min-width: 0; }
+  #stage-penalty .mmr-dd-btn { width: 100%; min-width: 0; height: 42px; }
   #spn-mode { display: flex; flex: none; }
   #spn-mode .mode-btn { height: 42px; padding: 0 18px; font-size: 15px; }
   #spn-mode .mode-btn:first-child { border-radius: 10px 0 0 0; }
@@ -9587,12 +9619,12 @@
   #spn-result[data-level="mid"] { --spn-bg: var(--status-warn-bg); --spn-line: var(--status-warn-border); --spn-main: var(--status-warn-text); }
   #spn-result:is([data-level="high"], [data-level="block"]) { --spn-bg: var(--status-limited-bg); --spn-line: var(--status-limited-border); --spn-main: var(--status-limited-text); }
   #spn-result .spn-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-  #spn-result .spn-main span { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
+  #spn-result .spn-main span { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
   #spn-result .spn-main b { font-size: 34px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--spn-main); }
   #spn-result dl { margin: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--spn-line); }
   #spn-result dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  #spn-result dt { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-  #spn-result dd { margin: 0; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-heading); }
+  #spn-result dt { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
+  #spn-result dd { margin: 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-heading); }
 
   @media (max-width: 900px) {
     #stage-penalty .spn-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -9639,7 +9671,8 @@
 
   /* 페이지(2026-11-19 다듬기): 폭은 유니크 코스튬과 같은 1900px. 기록을 읽으면 가져오기 판은 한 줄로 접고,
      숫자 판 아래 보기 단추(요약 · 픽업 배너 · SSR · 니케별 · 전체 기록)로 한 번에 한 보기만 보인다. */
-  #tab-gacha { --accent: var(--gacha); --accent-strong: var(--gacha-strong); }
+  #tab-gacha { --accent: var(--gacha); --accent-strong: var(--gacha-strong); --accent-glow: var(--gacha-glow); }
+  .gacha-card .mmr-dd-list { left: auto; right: 0; }   /* 드롭다운이 판 오른쪽 끝에 있어서 목록도 오른쪽에 맞춘다 */
   #gacha-page { display: flex; flex-direction: column; gap: 22px; max-width: 1900px; margin: 0 auto; }
   #gacha-result { display: flex; flex-direction: column; gap: 22px; }
   #gacha-result[hidden], .gacha-view[hidden] { display: none; }
@@ -9648,10 +9681,11 @@
   .gacha-card .chapter-feature-cap { align-items: center; flex-wrap: wrap; row-gap: 8px; }
   .gacha-beta { font: 800 11px/1 ui-monospace, 'Cascadia Mono', Consolas, monospace; font-style: normal; letter-spacing: .1em;
     padding: 4px 6px 3px; border-radius: 4px; color: #fff; background: var(--gacha); }
-  .gacha-card .chapter-feature-cap > select, .gacha-card .chapter-feature-cap > .gacha-dd, .gacha-card .chapter-feature-cap > .gacha-filters { margin-left: auto; }
+  .gacha-card .chapter-feature-cap > select, .gacha-card .chapter-feature-cap > .mmr-dd, .gacha-card .chapter-feature-cap > .gacha-filters { margin-left: auto; }
   .gacha-cap-sum { margin-left: auto; font-size: 16px !important; font-weight: 700; color: var(--text-secondary); }
   .gacha-filters { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  #gacha-page .mode-btn { height: 38px; padding: 0 16px; font-size: 14px; flex: none; }
+  /* 가챠 트래커의 단추 · 드롭다운 · 켜기 단추는 모두 높이 38px · 글자 15px 로 맞춘다 */
+  #gacha-page .mode-btn { height: 38px; padding: 0 16px; font-size: 15px; flex: none; }
   #gacha-page .mode-btn.active { background: linear-gradient(135deg, var(--gacha), var(--gacha-strong)); color: #fff; border-color: transparent; }
   .gacha-note { font-size: 15px; color: var(--text-secondary); }
   .gacha-empty { padding: 18px 0; font-size: 15px; color: var(--text-secondary); text-align: center; }
@@ -9717,7 +9751,7 @@
 
   /* 기간 단추(주간 · 월별 · 연간) */
   .gacha-seg { display: inline-flex; gap: 4px; margin-left: auto; }
-  #gacha-page .gacha-seg .mode-btn { height: 32px; padding: 0 12px; font-size: 13px; }
+  #gacha-page .gacha-seg .mode-btn { padding: 0 14px; }
 
   /* 보기 단추 */
   #gacha-views { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -9725,7 +9759,7 @@
   #gacha-views .mode-btn[hidden] { display: none; }
 
   /* 모집 종류: 일반(청록) · 픽업 등(라벤더) · 모집 외(회색). 같은 색을 막대·칩·범례에 쓴다 */
-  .gacha-type { display: inline-block; padding: 1px 8px; border-radius: 4px 0 4px 0; corner-shape: bevel; font-size: 14px; font-weight: 700; white-space: nowrap; color: #fff; }
+  .gacha-type { display: inline-block; padding: 1px 8px; border-radius: 5px 0 5px 0; corner-shape: bevel; font-size: 14px; font-weight: 700; white-space: nowrap; color: #fff; }
   .gacha-type.is-normal { background: var(--gacha); }
   .gacha-type.is-pickup { background: var(--gacha-sure); }
   .gacha-type.is-special { background: var(--gacha-pick); }
@@ -9737,6 +9771,10 @@
   .gacha-summary { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 22px; align-items: start; }
   #gacha-types[hidden] { display: none; }
   #gacha-types-body { display: flex; flex-direction: column; gap: 10px; }
+  /* 픽업 + 픽업·소셜 묶음 판(둘 다 기록상 일반 외 모집) */
+  .gt-group { display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 12px 0 12px 0; corner-shape: bevel;
+    background: color-mix(in srgb, var(--gacha-pick) 11%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gacha-pick) 38%, transparent); }
+  .gt-group .gacha-typerow { background: var(--bg-panel); }
   .gacha-typerow { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 10px 0 10px 0; corner-shape: bevel;
     background: var(--bg-panel-alt); box-shadow: inset 3px 0 0 var(--gacha); }
   .gacha-typerow.is-pickup { box-shadow: inset 3px 0 0 var(--gacha-sure); }
@@ -9755,8 +9793,10 @@
   .gacha-chartbox .gc-hit { fill: transparent; cursor: pointer; }
   .gacha-chartbox :is(.gc-bar, .gc-ssr, .gc-grid, .gc-axis) { pointer-events: none; }   /* 마우스는 뒤의 칸(.gc-hit)이 받는다 */
   .gacha-chartbox .gc-hit.is-on { fill: color-mix(in srgb, var(--gacha) 12%, transparent); }
-  .gacha-tip { position: absolute; z-index: 5; min-width: 210px; max-width: 320px; padding: 10px 12px; pointer-events: none;
-    border-radius: 8px 0 8px 0; corner-shape: bevel; background: var(--bg-panel); box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18), inset 0 0 0 1px var(--border-strong);
+  /* 툴팁은 사이트 말풍선(#hover-tooltip)과 같은 판: 각진 10px · 금색 밑단 · 안쪽 선 */
+  .gacha-tip { position: absolute; z-index: 5; min-width: 210px; max-width: 320px; padding: 12px 16px; pointer-events: none;
+    border-radius: 10px 0 10px 0; corner-shape: bevel; background: var(--bg-panel) linear-gradient(90deg, var(--gold), transparent) left bottom / 40% 2px no-repeat;
+    box-shadow: inset 0 1px 0 var(--vinyl-edge), inset 0 0 0 1px var(--border-strong), var(--shadow-card-hover);
     font-size: 15px; color: var(--text-body); }
   .gacha-tip[hidden] { display: none; }
   .gt-title { margin-bottom: 6px; font-size: 16px; font-weight: 800; color: var(--text-heading); font-variant-numeric: tabular-nums; }
@@ -9812,7 +9852,7 @@
   .gp-body > b { font-size: 17px; font-weight: 800; color: var(--text-heading); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .gp-counts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 15px; font-weight: 600; color: var(--text-secondary); }
   /* 신규(분홍) · 복각(회색) 표. 글자 밑선을 옆 글자(픽업 n명)에 맞춘다(가운데 맞춤은 위로 떠 보였다) */
-  .gp-kind { padding: 2px 8px; border-radius: 4px 0 4px 0; corner-shape: bevel; font-size: 13px; font-weight: 800; line-height: 1.3; color: #fff; background: var(--gacha-sure); }
+  .gp-kind { padding: 2px 8px; border-radius: 5px 0 5px 0; corner-shape: bevel; font-size: 13px; font-weight: 800; line-height: 1.3; color: #fff; background: var(--gacha-sure); }
   .gp-kind.is-rerun { background: var(--gacha-other); }
 
   /* 잘리는 글자는 좌우로 천천히 흐른다(js/gacha.js mq · fitMarquees). 칸보다 길 때만 is-over */
@@ -9903,27 +9943,6 @@
     box-shadow: inset 0 0 0 1px var(--gacha); }
   .gacha-check:has(input:focus-visible) { outline: 2px solid var(--gacha); outline-offset: 2px; }
 
-  /* 드롭다운(js/gacha.js niceSelect): 옆 단추와 같은 각진 판. 목록도 브라우저 기본 대신 각진 판, 고른 칸은 청록 */
-  .gacha-dd { position: relative; display: inline-flex; }
-  .gacha-dd > select { position: absolute; inset: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-  .gacha-dd-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 124px; height: 38px; padding: 0 12px 0 14px;
-    font: inherit; font-size: 15px; font-weight: 700; color: var(--text-heading); cursor: pointer;
-    border: 1px solid var(--border-card); border-radius: 7px 0 7px 0; corner-shape: bevel; background: var(--btn-bg); box-shadow: var(--btn-shadow);
-    transition: border-color .15s, box-shadow .15s; }
-  .gacha-dd-btn i { font-size: 12px; color: var(--text-secondary); transition: transform .15s; }
-  @media (hover: hover) { .gacha-dd-btn:hover { border-color: var(--gacha); } }
-  .gacha-dd-btn:focus-visible { outline: 2px solid var(--gacha); outline-offset: 2px; }
-  .gacha-dd.is-open .gacha-dd-btn { border-color: var(--gacha); box-shadow: var(--btn-shadow), 0 0 0 3px var(--gacha-glow); }
-  .gacha-dd.is-open .gacha-dd-btn i { transform: rotate(180deg); color: var(--gacha-strong); }
-  .gacha-dd-list { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 100%; display: flex; flex-direction: column; gap: 2px; padding: 6px;
-    background: var(--bg-panel) linear-gradient(90deg, var(--gold), transparent) left bottom / 40% 2px no-repeat;
-    border-radius: 10px 0 10px 0; corner-shape: bevel; box-shadow: var(--shadow-card-hover), inset 0 0 0 1px var(--border-strong); }
-  .gacha-dd-list[hidden] { display: none; }
-  .gacha-dd-item { display: block; width: 100%; padding: 9px 16px 9px 14px; text-align: left; white-space: nowrap;
-    font: inherit; font-size: 15px; font-weight: 600; color: var(--text-body); cursor: pointer;
-    background: transparent; border: 0; border-radius: 6px 0 6px 0; corner-shape: bevel; }
-  .gacha-dd-item:hover, .gacha-dd-item:focus-visible { outline: none; background: var(--bg-panel-alt); color: var(--text-heading); }
-  .gacha-dd-item.is-on { font-weight: 800; color: var(--gacha-strong); background: var(--gacha-soft); }
 
   @media (max-width: 1100px) {
     .gacha-summary { grid-template-columns: minmax(0, 1fr); }
