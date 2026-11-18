@@ -240,17 +240,25 @@
       const s = kstDay(p['시작일'], false), e = kstDay(p['종료일'], true);
       if (!p['니케'] || isNaN(s) || isNaN(e)) continue;
       if (!pickupPeriods.has(p['니케'])) pickupPeriods.set(p['니케'], []);
-      pickupPeriods.get(p['니케']).push({ start: s, end: e, event: p['이벤트'] || '' });
+      pickupPeriods.get(p['니케']).push({ start: s, end: e, event: p['이벤트'] || '', rerun: String(p['복각']) === 'true' });
     }
     return pickupPeriods;
   }
+  // 신규 픽업 기간에 나온 그 픽업 니케 = 무조건 픽업(사용자 확인, 2026-11-19: 일반 · 소셜 모집에는 기간이 끝나고 한두 달 뒤에 들어간다).
+  // 복각 기간은 일반 · 소셜 · 픽업을 가릴 수 없어서 쓰지 않는다.
+  const inNewPickup = p => {
+    const list = pickupPeriods && pickupPeriods.get(info(p.code).name);
+    const t = p.time.getTime();
+    return !!list && list.some(r => !r.rerun && r.start <= t && t <= r.end);
+  };
   const inPickup = p => {
     const list = pickupPeriods && pickupPeriods.get(info(p.code).name);
     const t = p.time.getTime();
     return !!list && list.some(r => r.start <= t && t <= r.end);
   };
   // 소셜 포인트 모집에 없는 니케(사용자 확인, 2026-11-19): 어브노말 · 필그림 · 오버스펙(기업 끝 '(오)') · 한정 시즌(LIMITED_SEASONS).
-  // 픽업·소셜 묶음에 이 니케가 하나라도 있으면 그 묶음은 소셜이 아니라 픽업으로 확정한다.
+  // 픽업·소셜 묶음에 이 니케(또는 신규 픽업 기간의 그 픽업 니케)가 하나라도 있으면 그 묶음은 소셜이 아니라 픽업으로 확정한다.
+  // 묶음 단위라서, 확정 니케와 같은 10연차에 나온 다른 니케(픽뚫 SSR 등)도 '픽업' 묶음으로 보인다.
   // 픽업 기록에 없는 초기 필그림은 캐릭터 도감 소속(필그림)으로 찾는다.
   let sureNames = null;
   function loadSureNames() {
@@ -271,7 +279,7 @@
     if (!state || !state.classified || !loadPickupPeriods()) return;
     const sure = loadSureNames();
     for (const b of state.batches) {
-      if (b.type === 'special' && b.items.some(p => sure.has(info(p.code).name))) {
+      if (b.type === 'special' && b.items.some(p => sure.has(info(p.code).name) || inNewPickup(p))) {
         b.type = 'pickup';
         for (const p of b.items) p.type = 'pickup';
         continue;
@@ -333,6 +341,7 @@
     document.querySelectorAll('.gacha-view').forEach(v => { v.hidden = v.dataset.view !== view; });
     if (drawn.has(view)) {
       if (view === 'summary') scrollChartEnd();
+      else fitMarquees(document.querySelector(`.gacha-view[data-view="${view}"]`));
       return;
     }
     drawn.add(view);
@@ -394,7 +403,7 @@
       if (!groups.has(key)) groups.set(key, { start: row.start, end: row.end, events: new Set(), nikkes: new Map() });
       const g = groups.get(key);
       if (row.event) g.events.add(row.event);
-      const n = g.nikkes.get(nm) || { name: nm, pick: 0, ex: 0 };
+      const n = g.nikkes.get(nm) || { name: nm, pick: 0, ex: 0, rerun: row.rerun };
       if (p.type === 'mileage') n.ex += p.count; else n.pick += p.count;
       g.nikkes.set(nm, n);
     }
@@ -411,14 +420,15 @@
         const img = nikkeImgOf(n.name);
         return `<div class="gp-nikke${n.ex ? ' has-ex' : ''}">
           <span class="gp-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}</span>
-          <span class="gp-body"><b>${esc(n.name)}</b>
-            <span class="gp-counts">${n.pick ? `<span class="is-pick">픽업 <strong>${fmt.format(n.pick)}</strong>명</span>` : ''}${n.ex ? `<span class="is-ex">교환 <strong>${fmt.format(n.ex)}</strong>명</span>` : ''}</span></span>
+          <span class="gp-body">${mq(n.name, 'b')}
+            <span class="gp-counts"><span class="gp-kind${n.rerun ? ' is-rerun' : ''}">${n.rerun ? '복각' : '신규'}</span>${n.pick ? `<span class="is-pick">픽업 <strong>${fmt.format(n.pick)}</strong>명</span>` : ''}${n.ex ? `<span class="is-ex">교환 <strong>${fmt.format(n.ex)}</strong>명</span>` : ''}</span></span>
         </div>`;
       }).join('');
-      // 이벤트 이름은 한 줄로 자르고 전체는 마우스를 올리면 보인다(길면 줄이 넘어가 판이 세로로 길어졌다)
-      const ev = esc([...g.events].join(' · '));
-      return `<article class="gacha-period"><div class="gp-head"><b>${rangeStr(g.start, g.end)}</b>${ev ? `<span title="${ev}">${ev}</span>` : ''}</div><div class="gp-list">${tiles}</div></article>`;
+      // 이벤트 이름은 한 줄(길면 줄이 넘어가 판이 세로로 길어졌다). 넘치면 좌우로 천천히 흐른다(mq)
+      const ev = [...g.events].join(' · ');
+      return `<article class="gacha-period"><div class="gp-head"><b>${rangeStr(g.start, g.end)}</b>${ev ? mq(ev, 'span', 'gp-ev') : ''}</div><div class="gp-list">${tiles}</div></article>`;
     }).join('') || '<div class="gacha-empty">픽업 기간에 얻은 픽업 니케 없음</div>';
+    fitMarquees($('gacha-pickups'));
   }
   const rangeStr = (from, to) => {
     const a = dayStr(new Date(from)), z = dayStr(new Date(to));
@@ -443,8 +453,9 @@
       return `<div class="gacha-first is-${i.rare}">`
         + `<span class="gf-no">${no}</span>`
         + `<span class="gf-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}</span>`
-        + `<span class="gf-body"><b>${esc(i.name)}</b><span>${dayStr(p.time)} ${typeChip(p.type)}</span></span></div>`;
+        + `<span class="gf-body">${mq(i.name, 'b')}<span>${dayStr(p.time)} ${typeChip(p.type)}</span></span></div>`;
     }).join('') || '<div class="gacha-empty">없음</div>';
+    fitMarquees($('gacha-first-grid'));
   }
 
   // 니케별: 칸 격자(초상화 · 이름 · 횟수 크게). 횟수가 같으면 이름 가나다순
@@ -463,9 +474,27 @@
       .map(r => {
         const i = info(r.code), img = nikkeImgOf(i.name);
         return `<div class="gacha-nk is-${i.rare}"><span class="gf-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}</span>`
-          + `<span class="gn-name">${esc(i.name)}</span><b>${fmt.format(r.n)}<small>명</small></b></div>`;
+          + mq(i.name, 'span', 'gn-name') + `<b>${fmt.format(r.n)}<small>명</small></b></div>`;
       })
       .join('') || '<div class="gacha-empty">없음</div>';
+    fitMarquees($('gacha-nikke-grid'));
+  }
+
+  // 잘리는 글자(니케 이름 · 이벤트 이름)는 좌우로 천천히 흐르게 한다(사용자 요청, 2026-11-19).
+  // 칸보다 길 때만 is-over 를 붙이고, 밀어야 할 거리(--mq-shift)와 시간(--mq-dur)을 글자 길이에 맞춘다.
+  const mq = (text, tagName, cls = '') => `<${tagName} class="gx-mq ${cls}" title="${esc(text)}"><span>${esc(text)}</span></${tagName}>`;
+  function fitMarquees(root) {
+    if (!root || !root.offsetWidth) return;   // 안 보이는 보기는 폭을 못 잰다(보일 때 다시 부른다)
+    const els = [...root.querySelectorAll('.gx-mq')];
+    const overs = els.map(el => el.firstElementChild.offsetWidth - el.clientWidth);   // 한 번에 재고 한 번에 쓴다
+    els.forEach((el, k) => {
+      const over = overs[k];
+      el.classList.toggle('is-over', over > 1);
+      if (over > 1) {
+        el.style.setProperty('--mq-shift', `-${over + 2}px`);
+        el.style.setProperty('--mq-dur', `${(3 + over / 25).toFixed(1)}s`);
+      }
+    });
   }
 
   function renderBatches() {
@@ -774,7 +803,10 @@
     let resizeTimer = 0;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { if (state && view === 'summary' && tab.classList.contains('active')) drawChart(); }, 200);
+      resizeTimer = setTimeout(() => {
+        if (!state || !tab.classList.contains('active')) return;
+        if (view === 'summary') drawChart(); else fitMarquees(document.querySelector(`.gacha-view[data-view="${view}"]`));
+      }, 200);
     });
     document.querySelectorAll('#gacha-period [data-period]').forEach(b => b.addEventListener('click', () => {
       period = b.dataset.period;
@@ -810,5 +842,6 @@
     start();
     // 다른 탭에 있는 동안 그려졌으면 높이를 못 쟀으니 다시 그린다
     if (state && view === 'summary' && drawn.has('summary')) requestAnimationFrame(drawChart);
+    else if (state && drawn.has(view)) setTimeout(() => fitMarquees(document.querySelector(`.gacha-view[data-view="${view}"]`)), 0);
   });
 })();
