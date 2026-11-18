@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=318">
+  <link rel="stylesheet" href="css/style.css?v=319">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -849,56 +849,89 @@
          기록은 브라우저 안에서만 풀고 localStorage 에만 둔다(서버로 보내지 않음) - js/gacha.js -->
     <div id="tab-gacha" class="tab-content">
       <div id="gacha-page">
+        <!-- 가져오기 판. 기록을 읽은 뒤에는 한 줄(기간 · 건수 · 다시 넣기 · 지우기)로 접는다 -->
         <section id="gacha-import" class="card gacha-card">
-          <div class="chapter-feature-cap"><b>GACHA TRACKER</b><span>모집 기록 가져오기</span><i class="gacha-beta">BETA</i></div>
-          <ol class="gacha-steps">
-            <li><span class="gacha-step-k">PC판 니케 접속(로비까지)</span></li>
-            <li><span class="gacha-step-k">폴더 주소 복사 → 탐색기 주소칸에 붙여넣기</span>
-              <div class="gacha-cmd"><code id="gacha-dir"></code><button type="button" id="gacha-copy-dir" class="mode-btn">주소 복사</button></div></li>
-            <li><span class="gacha-step-k">NKSD_TRIGGER_… 파일 넣기 <small>여러 개면 가장 최근 것</small></span>
-              <label id="gacha-drop"><input type="file" id="gacha-file" hidden>
-                <i class="fas fa-file-import" aria-hidden="true"></i><b>여기에 끌어다 놓기</b><span>또는 눌러서 고르기</span></label>
-              <div class="gacha-row">
-                <button type="button" id="gacha-clear" class="mode-btn">기록 지우기</button>
-                <span id="gacha-status" role="status"></span>
-              </div></li>
-          </ol>
-          <div class="gacha-note">PC판 전용 · 파일은 이 브라우저 안에서만 읽음(서버 전송 없음) · 실버 마일리지 교환분(스페어 바디 선택 상자 포함)은 게임 기록에 없어 니케별 장수에서 빠짐</div>
+          <div class="gacha-head">
+            <div class="chapter-feature-cap"><b>GACHA TRACKER</b><span>가챠 트래커</span><i class="gacha-beta">BETA</i></div>
+            <div id="gacha-loaded" hidden>
+              <span id="gacha-range"></span>
+              <button type="button" id="gacha-reimport" class="mode-btn" aria-expanded="false">기록 다시 넣기</button>
+              <button type="button" id="gacha-clear" class="mode-btn">기록 지우기</button>
+            </div>
+          </div>
+          <div id="gacha-steps-wrap">
+            <ol class="gacha-steps">
+              <li><span class="gacha-step-k">PC판 니케 접속(로비까지)</span></li>
+              <li><span class="gacha-step-k">폴더 주소 복사 → 탐색기 주소칸에 붙여넣기</span>
+                <div class="gacha-cmd"><code id="gacha-dir"></code><button type="button" id="gacha-copy-dir" class="mode-btn">주소 복사</button></div></li>
+              <li><span class="gacha-step-k">NKSD_TRIGGER_… 파일 넣기 <small>여러 개면 가장 최근 것</small></span>
+                <label id="gacha-drop"><input type="file" id="gacha-file" hidden>
+                  <i class="fas fa-file-import" aria-hidden="true"></i><b>여기에 끌어다 놓기</b><span>또는 눌러서 고르기</span></label></li>
+            </ol>
+            <div class="gacha-note">PC판 전용 · 파일은 이 브라우저 안에서만 읽음(서버 전송 없음) · 실버 마일리지 교환분(스페어 바디 선택 상자 포함)은 게임 기록에 없음</div>
+          </div>
+          <div id="gacha-status" role="status"></div>
         </section>
 
         <div id="gacha-result" hidden>
-          <div id="gacha-range"></div>
           <div id="gacha-stats"></div>
 
-          <section id="gacha-types" class="card gacha-card">
-            <div class="chapter-feature-cap"><b>TYPE</b><span>모집 종류별</span></div>
-            <table class="gacha-table gacha-types-table"><thead><tr><th>종류</th><th class="num">장수</th><th class="num">10연차</th><th class="num">SSR</th><th class="num">SSR 비율</th></tr></thead><tbody id="gacha-types-body"></tbody></table>
-          </section>
+          <div id="gacha-views" role="tablist" aria-label="보기">
+            <button type="button" class="mode-btn" role="tab" data-view="summary">요약</button>
+            <button type="button" class="mode-btn" role="tab" data-view="banner">픽업 배너</button>
+            <button type="button" class="mode-btn" role="tab" data-view="ssr">SSR</button>
+            <button type="button" class="mode-btn" role="tab" data-view="nikke">니케별</button>
+            <button type="button" class="mode-btn" role="tab" data-view="history">전체 기록</button>
+          </div>
 
-          <section class="card gacha-card">
-            <div class="chapter-feature-cap"><b>MONTHLY</b><span>월별 획득</span></div>
-            <div id="gacha-chart"></div>
-          </section>
+          <div class="gacha-view" data-view="summary">
+            <div class="gacha-summary">
+              <section class="card gacha-card">
+                <div class="chapter-feature-cap"><b>MONTHLY</b><span>월별 획득</span></div>
+                <div id="gacha-chart"></div>
+              </section>
+              <section id="gacha-types" class="card gacha-card">
+                <div class="chapter-feature-cap"><b>TYPE</b><span>모집 종류별</span></div>
+                <div id="gacha-types-body"></div>
+              </section>
+            </div>
+          </div>
 
-          <div class="gacha-grid2">
+          <div class="gacha-view" data-view="banner">
             <section class="card gacha-card">
-              <div class="chapter-feature-cap"><b>SSR</b><span>SSR 획득 순서</span></div>
-              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>니케</th><th>종류</th><th class="num" title="이전 모집 SSR 이후 장수">간격</th></tr></thead><tbody id="gacha-ssr-body"></tbody></table></div>
-            </section>
-            <section class="card gacha-card">
-              <div class="chapter-feature-cap"><b>NIKKE</b><span>니케별 획득</span>
-                <select id="gacha-rare" class="search-box" aria-label="등급"><option value="">전체</option><option>SSR</option><option>SR</option><option>R</option></select></div>
-              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>니케</th><th class="num">장수</th><th class="num">처음</th></tr></thead><tbody id="gacha-nikke-body"></tbody></table></div>
+              <div class="chapter-feature-cap"><b>PICKUP</b><span>픽업 배너별</span><span id="gacha-banner-sum" class="gacha-cap-sum"></span></div>
+              <div class="gacha-note">픽업 기간으로 추정 · 기간이 겹치면 픽업 니케가 나온 배너, 아니면 가장 최근 배너</div>
+              <div id="gacha-banners"></div>
+              <button type="button" id="gacha-banner-more" class="mode-btn gacha-more">더 보기</button>
             </section>
           </div>
 
-          <section class="card gacha-card">
-            <div class="chapter-feature-cap"><b>HISTORY</b><span>모집 묶음</span>
-              <span class="gacha-filters"><select id="gacha-type" class="search-box" aria-label="모집 종류"><option value="">전체</option><option value="normal">일반</option><option value="special">픽업 등</option><option value="other">모집 외</option></select>
-              <label class="gacha-check"><input type="checkbox" id="gacha-only-ssr">SSR 포함만</label></span></div>
-            <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>종류</th><th class="num">장수</th><th>니케</th></tr></thead><tbody id="gacha-batch-body"></tbody></table></div>
-            <button type="button" id="gacha-more" class="mode-btn">더 보기</button>
-          </section>
+          <div class="gacha-view" data-view="ssr">
+            <section class="card gacha-card">
+              <div class="chapter-feature-cap"><b>SSR</b><span>SSR 획득 순서</span>
+                <select id="gacha-ssr-scope" class="search-box" aria-label="범위"><option value="gacha">모집 SSR</option><option value="all">전체 SSR</option></select></div>
+              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>니케</th><th>종류</th><th>픽업 배너</th><th class="num" title="이전 모집 SSR 이후 장수">간격</th></tr></thead><tbody id="gacha-ssr-body"></tbody></table></div>
+              <button type="button" id="gacha-ssr-more" class="mode-btn gacha-more">더 보기</button>
+            </section>
+          </div>
+
+          <div class="gacha-view" data-view="nikke">
+            <section class="card gacha-card">
+              <div class="chapter-feature-cap"><b>NIKKE</b><span>니케별 획득</span>
+                <select id="gacha-rare" class="search-box" aria-label="등급"><option value="">전체</option><option>SSR</option><option>SR</option><option>R</option></select></div>
+              <div id="gacha-nikke-grid"></div>
+            </section>
+          </div>
+
+          <div class="gacha-view" data-view="history">
+            <section class="card gacha-card">
+              <div class="chapter-feature-cap"><b>HISTORY</b><span>모집 묶음</span>
+                <span class="gacha-filters"><select id="gacha-type" class="search-box" aria-label="모집 종류"><option value="">전체</option><option value="normal">일반</option><option value="special">픽업 등</option><option value="other">모집 외</option></select>
+                <label class="gacha-check"><input type="checkbox" id="gacha-only-ssr">SSR 포함만</label></span></div>
+              <div class="gacha-scroll"><table class="gacha-table"><thead><tr><th>시각</th><th>종류</th><th>픽업 배너</th><th class="num">장수</th><th>니케</th></tr></thead><tbody id="gacha-batch-body"></tbody></table></div>
+              <button type="button" id="gacha-more" class="mode-btn gacha-more">더 보기</button>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -989,7 +1022,7 @@
   <script type="module" src="js/soloraid3d.js?v=511"></script>
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=23"></script>
-  <script src="js/gacha.js?v=4"></script>
+  <script src="js/gacha.js?v=5"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>
