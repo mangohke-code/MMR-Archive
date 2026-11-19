@@ -302,7 +302,6 @@
   // 소셜 포인트 모집 추정 = (받은 소셜 포인트 합계 - 지금 보유량) / 10(1회 = 10포인트). 보유량은 기록에 없어 사용자가 적는다.
   // 첫 66 기록 이후의 픽업·소셜(확정 픽업 제외) 횟수를 넘지 않게 자른다. max = 쥬얼 환산 최대(소셜 추정분 뺀 모집 횟수)
   const HELD_KEY = 'mmr-gacha-social-held';
-  const SOCIAL_SSR = 0.02;   // 소셜 포인트 모집 SSR 확률(게임 표기)
   let socialHeld = 0;
   try { socialHeld = Math.max(0, parseInt(localStorage.getItem(HELD_KEY), 10) || 0); } catch (e) { /* 무시 */ }
   function socialCalc() {
@@ -427,15 +426,14 @@
     let group;
     if (soc.n) {
       // 소셜 추정이 있으면 '픽업 = 확정 픽업 + (픽업·소셜 - 소셜)' · '소셜 포인트' 두 줄로 바꾼다(사용자 지적, 2026-11-19).
-      // 묶음마다는 못 가르므로 SSR 은 소셜 포인트 모집 SSR 확률 2%의 기대값을 빼서 어림한다. 10연차는 가를 수 없어 안 보인다.
+      // 10연차 · SSR · 확률은 묶음마다 소셜을 가를 수 없어 보이지 않는다. 확률표 기대값으로 어림하지 않는다(사용자 지적, 2026-11-19: 기록에 없는 값 금지).
       const sumOf = f => state.pulls.reduce((s, p) => s + (f(p) ? p.count : 0), 0);
       const sure = sumOf(p => p.type === 'pickup');
-      const pickN = sure + sumOf(p => p.type === 'special') - soc.n;
-      const pickSsr = Math.max(0, sumOf(p => (p.type === 'pickup' || p.type === 'special') && isSSR(p)) - Math.round(soc.n * SOCIAL_SSR));
-      group = `<div class="gacha-typerow is-pickup"><div class="gt-head">${typeChip('pickup')}<b><small class="go-pre">약</small>${fmt.format(pickN)}<small>회</small></b></div>`
-        + `<div class="gt-cells"><span><em>확정</em>${fmt.format(sure)}회</span><span><em>SSR</em>약 ${fmt.format(pickSsr)}명</span><span><em>확률</em>약 ${pickN ? (pickSsr / pickN * 100).toFixed(2) + '%' : '-'}</span></div></div>`
+      const rest = sumOf(p => p.type === 'special') - soc.n;
+      group = `<div class="gacha-typerow is-pickup"><div class="gt-head">${typeChip('pickup')}<b><small class="go-pre">약</small>${fmt.format(sure + rest)}<small>회</small></b></div>`
+        + `<div class="gt-cells"><span><em>확정</em>${fmt.format(sure)}회</span><span><em>미확정</em>약 ${fmt.format(rest)}회</span></div></div>`
         + `<div class="gacha-typerow is-social"><div class="gt-head"><span class="gacha-type is-social">소셜 포인트</span><b><small class="go-pre">약</small>${fmt.format(soc.n)}<small>회</small></b></div>`
-        + `<div class="gt-cells"><span class="is-dim">받은 소셜 포인트로 추정 · SSR 2% 기준으로 픽업과 나눔</span></div></div>`;
+        + `<div class="gt-cells"><span class="is-dim">받은 소셜 포인트 - 보유량으로 계산</span></div></div>`;
       group = `<div class="gt-group">${group}</div>`;
     } else {
       group = pickup ? `<div class="gt-group">${pickup}${special}</div>` : special;
