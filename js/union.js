@@ -13,7 +13,8 @@
   const DB_NAME = 'mmr-union';
   const NAMES_KEY = 'mmr-union-names';       // { 계정: { 글쓴이 번호: 이름 } }
   const ACC_KEY = 'mmr-union-account';
-  const ORDER_KEY = 'mmr-union-oldest';
+  // 채팅의 숫자 한 글자(0~7) = 이모티콘(사용자 확인, 2026-11-19). 그림은 img/emote
+  const EMOTES = ['hello', 'thanks', 'delight', 'kidkid', 'sad', 'anger', 'cheerup', 'suprise'];
   const PAGE = 300;
 
   const $ = id => document.getElementById(id);
@@ -31,10 +32,8 @@
   let rows = [];             // 지금 계정의 글 [{id, t, usn, msg}] (오래된 순)
   let names = {};
   let shown = PAGE;
-  let oldestFirst = false;
   let started = false;
   try { names = JSON.parse(localStorage.getItem(NAMES_KEY) || '{}') || {}; } catch (e) { names = {}; }
-  try { oldestFirst = localStorage.getItem(ORDER_KEY) === '1'; } catch (e) { /* 무시 */ }
 
   // ===== 보관(IndexedDB): 저장소 chat, 키 = 계정|글 번호 =====
   let dbReq = null;
@@ -148,7 +147,15 @@
     $('union-reimport').setAttribute('aria-expanded', open ? 'true' : 'false');
   }
   const nameOf = usn => ((names[account] || {})[usn] || '').trim();
-  const writerLabel = usn => nameOf(usn) || '#' + usn;
+  // 글쓴이 번호는 UID 8자리 고정(앞 0 이 숫자로 읽으며 빠진다: 2225 -> 00002225, 사용자 지적 2026-11-19)
+  const uidOf = usn => String(usn).padStart(8, '0');
+  const writerLabel = usn => nameOf(usn) || '#' + uidOf(usn);
+  const emoteOf = msg => (/^[0-7]$/.test(msg) ? EMOTES[Number(msg)] : null);
+  const msgHtml = msg => {
+    const e = emoteOf(msg);
+    return e ? `<img class="union-emote" src="img/emote/icn_emote_${e}.webp" alt="${e}" title="${e}" loading="lazy">` : esc(msg);
+  };
+  const msgText = msg => { const e = emoteOf(msg); return e ? `[이모티콘:${e}]` : msg; };
   // 글쓴이마다 같은 색(번호로 색상환 위치를 정한다)
   const hueOf = usn => { let h = 0; for (const c of String(usn)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 
@@ -180,35 +187,50 @@
     let list = rows;
     if (w) list = list.filter(r => r.usn === w);
     if (q) list = list.filter(r => r.msg.toLowerCase().includes(q) || writerLabel(r.usn).toLowerCase().includes(q));
-    return oldestFirst ? list : list.slice().reverse();
+    return list;
   }
 
-  function renderList() {
+  // 채팅처럼 오래된 글이 위, 가장 최근 글이 맨 아래(사용자 요청, 2026-11-19). 최근 shown 줄만 그리고 '이전 글 더 보기'로 위에 붙인다.
+  // keep: 'bottom' = 맨 아래로 내림, 'top' = 위에 더 붙인 뒤 보던 자리 유지
+  function renderList(keep = 'bottom') {
     const list = filtered();
     $('union-count').textContent = list.length === rows.length ? `전체 ${fmt.format(rows.length)}줄` : `${fmt.format(list.length)}줄 / 전체 ${fmt.format(rows.length)}줄`;
-    $('union-order').textContent = oldestFirst ? '오래된순' : '최신순';
-    const page = list.slice(0, shown);
+    const page = list.slice(Math.max(0, list.length - shown));
+    const box = $('union-list');
+    const fromBottom = box.scrollHeight - box.scrollTop;
     let lastDay = '';
     const html = [];
-    for (const r of page) {
-      const ms = msOf(r.t), p = parts(ms);
-      const day = `${p.year}.${p.month}.${p.day}`;
+    // 같은 날 · 같은 시:분 · 같은 글쓴이가 잇달아 보낸 글은 시각 · 이름 칸을 한 번만 쓰고 내용만 쌓는다(화면 표기만)
+    for (let i = 0; i < page.length;) {
+      const r = page[i], p = parts(msOf(r.t));
+      const day = `${p.year}.${p.month}.${p.day}`, hm = `${p.hour}:${p.minute}`;
       if (day !== lastDay) { html.push(`<div class="union-day"><span>${day} (${WEEK[p.weekday] || p.weekday})</span></div>`); lastDay = day; }
-      html.push(`<div class="union-row"><time>${p.hour}:${p.minute}</time>`
-        + `<span class="union-who${nameOf(r.usn) ? '' : ' is-nameless'}" style="--uh:${hueOf(r.usn)}" title="#${esc(r.usn)}">${esc(writerLabel(r.usn))}</span>`
-        + `<span class="union-msg">${esc(r.msg)}</span></div>`);
+      const msgs = [];
+      let j = i;
+      while (j < page.length && page[j].usn === r.usn) {
+        const q = parts(msOf(page[j].t));
+        if (`${q.year}.${q.month}.${q.day}` !== day || `${q.hour}:${q.minute}` !== hm) break;
+        msgs.push(`<span class="union-msg">${msgHtml(page[j].msg)}</span>`);
+        j++;
+      }
+      html.push(`<div class="union-row"><time>${hm}</time>`
+        + `<span class="union-who${nameOf(r.usn) ? '' : ' is-nameless'}" style="--uh:${hueOf(r.usn)}" title="#${uidOf(r.usn)}">${esc(writerLabel(r.usn))}</span>`
+        + `<div class="union-msgs">${msgs.join('')}</div></div>`);
+      i = j;
     }
-    $('union-list').innerHTML = html.join('') || '<div class="gacha-empty">맞는 글이 없습니다.</div>';
+    box.innerHTML = html.join('') || '<div class="gacha-empty">맞는 글이 없습니다.</div>';
     $('union-more').hidden = list.length <= shown;
+    box.scrollTop = keep === 'top' ? box.scrollHeight - fromBottom : box.scrollHeight;
   }
 
   function renderWriters() {
     const count = new Map();
     for (const r of rows) count.set(r.usn, (count.get(r.usn) || 0) + 1);
-    const list = [...count.entries()].sort((a, b) => b[1] - a[1]);
+    // 번호(UID) 순(사용자 요청, 2026-11-19). 8자리로 맞추면 글자 순 = 숫자 순
+    const list = [...count.entries()].sort((a, b) => (uidOf(a[0]) < uidOf(b[0]) ? -1 : 1));
     $('union-writer-list').innerHTML = list.map(([usn, n]) =>
-      `<label class="union-writer"><span class="union-who is-id" style="--uh:${hueOf(usn)}">#${esc(usn)}</span>`
-      + `<span class="search-box union-name"><input type="text" data-usn="${esc(usn)}" value="${esc(nameOf(usn))}" placeholder="이름" maxlength="20" aria-label="#${esc(usn)} 이름"></span>`
+      `<label class="union-writer"><span class="union-who is-id" style="--uh:${hueOf(usn)}">#${uidOf(usn)}</span>`
+      + `<span class="search-box union-name"><input type="text" data-usn="${esc(usn)}" value="${esc(nameOf(usn))}" placeholder="이름" maxlength="20" aria-label="#${uidOf(usn)} 이름"></span>`
       + `<em>${fmt.format(n)}줄</em></label>`).join('');
     // 글쓴이 고르기: 이름이 있으면 이름, 없으면 번호
     const sel = $('union-writer');
@@ -279,12 +301,12 @@
     }
   }
   function exportTxt() {
-    const text = rows.map(r => `${lineTime(r.t)} [${writerLabel(r.usn)}] ${r.msg}`).join('\r\n');
+    const text = rows.map(r => `${lineTime(r.t)} [${writerLabel(r.usn)}] ${msgText(r.msg)}`).join('\r\n');
     download(`유니온일지_${account}_${stamp()}.txt`, text, 'text/plain;charset=utf-8');
   }
   function exportCsv() {
     const q = v => `"${String(v).replace(/"/g, '""')}"`;
-    const text = '﻿' + ['시각(한국시간),글쓴이 번호,이름,내용'].concat(rows.map(r => [lineTime(r.t), r.usn, nameOf(r.usn), r.msg].map(q).join(','))).join('\r\n');
+    const text = '﻿' + ['시각(한국시간),글쓴이 번호,이름,내용'].concat(rows.map(r => [lineTime(r.t), uidOf(r.usn), nameOf(r.usn), msgText(r.msg)].map(q).join(','))).join('\r\n');
     download(`유니온일지_${account}_${stamp()}.csv`, text, 'text/csv;charset=utf-8');
   }
   function saveNames() {
@@ -343,13 +365,7 @@
     let qTimer = 0;
     $('union-q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { shown = PAGE; renderList(); }, 150); });
     $('union-writer').addEventListener('change', () => { shown = PAGE; renderList(); });
-    $('union-order').addEventListener('click', () => {
-      oldestFirst = !oldestFirst;
-      try { localStorage.setItem(ORDER_KEY, oldestFirst ? '1' : '0'); } catch (e) { /* 무시 */ }
-      shown = PAGE;
-      renderList();
-    });
-    $('union-more').addEventListener('click', () => { shown += PAGE; renderList(); });
+    $('union-more').addEventListener('click', () => { shown += PAGE; renderList('top'); });
     $('union-account').addEventListener('change', e => show(e.target.value));
     // 이름 붙이기: 입력하는 대로 저장하고, 목록 · 글쓴이 고르기는 입력이 멈추면 다시 그린다
     let nTimer = 0;

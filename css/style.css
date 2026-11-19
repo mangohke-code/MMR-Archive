@@ -10651,7 +10651,10 @@
     color: hsl(var(--uh) 55% 36%); background: hsl(var(--uh) 70% 50% / .13); }
   :root[data-theme="dark"] .union-who { color: hsl(var(--uh) 75% 74%); background: hsl(var(--uh) 60% 55% / .18); }
   .union-who.is-nameless, .union-who.is-id { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-weight: 600; }
+  .union-msgs { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
   .union-msg { color: var(--text-body); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* 이모티콘(채팅의 숫자 0~7): 글줄 높이보다 크게 */
+  .union-emote { display: block; width: 64px; height: 64px; object-fit: contain; }
   .union-writer-list { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; padding-right: 4px; }
   .union-writer { display: grid; grid-template-columns: 116px minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
   .union-writer em { font-style: normal; text-align: right; font-size: 15px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
