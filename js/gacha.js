@@ -302,16 +302,18 @@
   // 소셜 포인트 모집 추정 = (받은 소셜 포인트 합계 - 지금 보유량) / 10(1회 = 10포인트). 보유량은 기록에 없어 사용자가 적는다.
   // 첫 66 기록 이후의 픽업·소셜(확정 픽업 제외) 횟수를 넘지 않게 자른다. max = 쥬얼 환산 최대(소셜 추정분 뺀 모집 횟수)
   const HELD_KEY = 'mmr-gacha-social-held';
-  let socialHeld = 0;
-  try { socialHeld = Math.max(0, parseInt(localStorage.getItem(HELD_KEY), 10) || 0); } catch (e) { /* 무시 */ }
+  // 보유량을 안 적으면(null) 포인트를 하나도 안 쓴 것으로 본다 = 소셜 포인트 모집 0회(사용자 요청, 2026-11-19)
+  let socialHeld = null;
+  try { const v = localStorage.getItem(HELD_KEY); if (v !== null && /^\d+$/.test(v)) socialHeld = Number(v); } catch (e) { /* 무시 */ }
   function socialCalc() {
     const { pulls, socialPts, socialFrom } = state;
     const gachaN = pulls.reduce((s, p) => s + (isGacha(p.type) ? p.count : 0), 0);
     const special = pulls.reduce((s, p) => s + (p.type === 'special' ? p.count : 0), 0);
-    if (!state.classified || !socialPts) return { n: 0, max: gachaN, special };
+    if (!state.classified || !socialPts) return { on: false, n: 0, max: gachaN, special, pre: '' };
     const cap = pulls.reduce((s, p) => s + (p.type === 'special' && p.time >= socialFrom ? p.count : 0), 0);
-    const n = Math.min(cap, Math.max(0, Math.floor((socialPts - socialHeld) / 10)));
-    return { n, max: gachaN - n, special };
+    const n = socialHeld === null ? 0 : Math.min(cap, Math.max(0, Math.floor((socialPts - socialHeld) / 10)));
+    // on = 받은 소셜 포인트 기록이 있어 픽업 · 소셜로 나눠 보인다. pre = 소셜 횟수가 0보다 크면(추정이 들어가면) 숫자 앞 '약'
+    return { on: true, n, max: gachaN - n, special, pre: n ? '약 ' : '' };
   }
 
   function render() {
@@ -336,21 +338,20 @@
     const byType = t => sum(pulls.filter(p => p.type === t));
     const normalN = byType('normal'), paidMin = normalN + byType('pickup');
     const ssrNormal = sum(pulls.filter(p => p.type === 'normal' && isSSR(p)));
-    const hasSocial = classified && state.socialPts > 0;
     const soc = socialCalc();
     // 한눈에(요약 오른쪽 세로 판). 단위: 획득 니케 · SSR = 명, 모집 횟수 = 회, 티켓 = 장(사용자 요청, 2026-11-19)
     state.overview = [
       ['획득 니케', fmt.format(sum(pulls)), '명', '', classified ? `모집 외 ${fmt.format(byType('other') + byType('mileage'))}명 포함` : ''],
       // 소셜 추정이 있으면 픽업·소셜에서 소셜을 뺀 나머지는 픽업(선택 특수 포함)이라 확정 픽업과 합친다(사용자 지적, 2026-11-19)
-      ['모집', fmt.format(gachaN), '회', '', !classified ? '' : soc.n
-        ? `일반 ${fmt.format(normalN)} · 픽업 약 ${fmt.format(byType('pickup') + byType('special') - soc.n)} · 소셜 약 ${fmt.format(soc.n)}`
+      ['모집', fmt.format(gachaN), '회', '', !classified ? '' : soc.on
+        ? `일반 ${fmt.format(normalN)} · 픽업 ${soc.pre}${fmt.format(byType('pickup') + byType('special') - soc.n)} · 소셜 ${soc.pre}${fmt.format(soc.n)}`
         : `일반 ${fmt.format(normalN)} · 픽업 ${fmt.format(byType('pickup'))} · 픽업·소셜 ${fmt.format(byType('special'))}`],
       // 사용 재화 판은 종류별과 같은 숫자라 없애고(사용자 지적, 2026-11-19) 쥬얼 환산만 여기로 옮겼다
       // 소셜 포인트 모집(무료)은 받은 소셜 포인트로 횟수를 추정해 뺀 한 값, 추정이 없으면 범위(최소 = 픽업·소셜 제외 ~ 최대 = 포함)(사용자 요청, 2026-11-19)
-      ...(hasSocial ? [['소셜 포인트 모집', `<small class="go-pre">약</small>${fmt.format(soc.n)}`, '회', 'is-social',
-        `${dayStr(state.socialFrom)}부터 · 보유 <label class="search-box gacha-held"><input id="gacha-social-held" type="text" inputmode="numeric" maxlength="6" placeholder="0" value="${socialHeld || ''}" aria-label="지금 보유한 소셜 포인트"></label> 포인트`]] : []),
+      ...(soc.on ? [['소셜 포인트 모집', `${soc.n ? '<small class="go-pre">약</small>' : ''}${fmt.format(soc.n)}`, '회', 'is-social',
+        `${dayStr(state.socialFrom)}부터 · 보유 <label class="search-box gacha-held"><input id="gacha-social-held" type="text" inputmode="numeric" maxlength="6" placeholder="미입력" value="${socialHeld === null ? '' : socialHeld}" aria-label="지금 보유한 소셜 포인트"></label> 포인트`]] : []),
       !classified ? ['쥬얼 환산', fmt.format(gachaN * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼']
-        : soc.n ? ['쥬얼 환산', fmt.format(soc.max * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼 · 소셜 포인트 모집 제외']
+        : soc.on ? ['쥬얼 환산', fmt.format(soc.max * 300), '쥬얼', 'is-jewel', '모집 1회 = 300 쥬얼 · 소셜 포인트 모집 제외']
         : ['쥬얼 환산', `${fmt.format(paidMin * 300)}<small> ~ </small>${fmt.format(gachaN * 300)}`, '쥬얼', 'is-jewel is-range', '모집 1회 = 300 쥬얼 · 픽업·소셜 제외 ~ 포함'],
       ['10연차', fmt.format(tens), '회', '', ''],
       ['모집 SSR', fmt.format(ssrGacha), '명', 'is-ssr', classified ? `모집 외 ${fmt.format(ssrAll - ssrGacha)}명 제외` : ''],
@@ -368,8 +369,8 @@
     const held = $('gacha-social-held');
     if (held) held.addEventListener('input', () => {
       const v = held.value.replace(/\D/g, '');
-      socialHeld = parseInt(v, 10) || 0;
-      try { localStorage.setItem(HELD_KEY, String(socialHeld)); } catch (e) { /* 무시 */ }
+      socialHeld = v === '' ? null : Number(v);
+      try { if (socialHeld === null) localStorage.removeItem(HELD_KEY); else localStorage.setItem(HELD_KEY, String(socialHeld)); } catch (e) { /* 무시 */ }
       render();
       renderOverview();
       renderTypes();
@@ -424,16 +425,16 @@
     // 픽업 · 픽업·소셜은 원래 한 종류(일반 외 모집, 기록상 13만 있음)를 나눈 것이라 뒤 판 하나로 묶는다(사용자 요청, 2026-11-19)
     const [normal, pickup, special, ...rest] = rows;
     let group;
-    if (soc.n) {
+    if (soc.on) {
       // 소셜 추정이 있으면 '픽업 = 확정 픽업 + (픽업·소셜 - 소셜)' · '소셜 포인트' 두 줄로 바꾼다(사용자 지적, 2026-11-19).
       // 10연차 · SSR · 확률은 묶음마다 소셜을 가를 수 없어 보이지 않는다. 확률표 기대값으로 어림하지 않는다(사용자 지적, 2026-11-19: 기록에 없는 값 금지).
       const sumOf = f => state.pulls.reduce((s, p) => s + (f(p) ? p.count : 0), 0);
       const sure = sumOf(p => p.type === 'pickup');
       const rest = sumOf(p => p.type === 'special') - soc.n;
-      group = `<div class="gacha-typerow is-pickup"><div class="gt-head">${typeChip('pickup')}<b><small class="go-pre">약</small>${fmt.format(sure + rest)}<small>회</small></b></div>`
-        + `<div class="gt-cells"><span><em>확정</em>${fmt.format(sure)}회</span><span><em>미확정</em>약 ${fmt.format(rest)}회</span></div></div>`
-        + `<div class="gacha-typerow is-social"><div class="gt-head"><span class="gacha-type is-social">소셜 포인트</span><b><small class="go-pre">약</small>${fmt.format(soc.n)}<small>회</small></b></div>`
-        + `<div class="gt-cells"><span class="is-dim">받은 소셜 포인트 - 보유량으로 계산</span></div></div>`;
+      group = `<div class="gacha-typerow is-pickup"><div class="gt-head">${typeChip('pickup')}<b>${soc.n ? '<small class="go-pre">약</small>' : ''}${fmt.format(sure + rest)}<small>회</small></b></div>`
+        + `<div class="gt-cells"><span><em>확정</em>${fmt.format(sure)}회</span><span><em>미확정</em>${soc.pre}${fmt.format(rest)}회</span></div></div>`
+        + `<div class="gacha-typerow is-social"><div class="gt-head"><span class="gacha-type is-social">소셜 포인트</span><b>${soc.n ? '<small class="go-pre">약</small>' : ''}${fmt.format(soc.n)}<small>회</small></b></div>`
+        + `<div class="gt-cells"><span class="is-dim">${socialHeld === null ? '보유량 미입력 · 쓴 포인트 없음으로 계산' : '받은 소셜 포인트 - 보유량으로 계산'}</span></div></div>`;
       group = `<div class="gt-group">${group}</div>`;
     } else {
       group = pickup ? `<div class="gt-group">${pickup}${special}</div>` : special;
