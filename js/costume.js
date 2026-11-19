@@ -112,7 +112,23 @@
         btn.tabIndex = needsScroll ? 0 : -1;
         if (cardH) { btn.style.height = cardH + 'px'; btn.style.marginTop = top + 'px'; }
       });
+      syncCostumeEdgeBtns(row);
+      // 끝에 닿았는지는 스크롤할 때마다 다시 본다(줄은 다시 그릴 때 새로 생기므로 한 번만 단다)
+      if (!wrap.dataset.edgeWatch) {
+        wrap.dataset.edgeWatch = '1';
+        wrap.addEventListener('scroll', () => syncCostumeEdgeBtns(row), { passive: true });
+      }
     });
+  }
+
+  // 양쪽 끝으로 가는 화살표: 이미 그 끝이면 비활성화(사용자 요청, 2026-11-19)
+  function syncCostumeEdgeBtns(row) {
+    const wrap = row.querySelector('.costume-portrait-scroll-wrap');
+    const [prev, next] = row.querySelectorAll('.costume-scroll-btn');
+    if (!wrap || !prev || !next) return;
+    const max = wrap.scrollWidth - wrap.clientWidth;
+    prev.disabled = wrap.scrollLeft <= 1;
+    next.disabled = wrap.scrollLeft >= max - 1;
   }
 
   function renderCostumeSelector(data) {
