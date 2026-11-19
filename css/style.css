@@ -9731,13 +9731,13 @@
   #tab-gacha.is-dragging #gacha-import.is-collapsed { box-shadow: var(--shadow-card), inset 0 0 0 2px var(--gacha); }
 
   /* 픽업·소셜(일반 외) 오염 경고: 기록을 읽으면 늘 보이는 노란 띠 */
-  #gacha-social-warn { display: flex; align-items: flex-start; gap: 16px; padding: 18px 22px; border-radius: 12px 0 12px 0; corner-shape: bevel;
+  :is(#gacha-social-warn, #union-warn) { display: flex; align-items: flex-start; gap: 16px; padding: 18px 22px; border-radius: 12px 0 12px 0; corner-shape: bevel;
     background: var(--status-warn-bg); box-shadow: inset 0 0 0 1px var(--status-warn-border), inset 4px 0 0 var(--status-warn-text); color: var(--text-body); }
-  #gacha-social-warn[hidden] { display: none; }
-  #gacha-social-warn > i { margin-top: 3px; font-size: 24px; color: var(--status-warn-text); }
-  #gacha-social-warn b { display: block; font-size: 19px; font-weight: 800; color: var(--status-warn-text); }
-  #gacha-social-warn span { display: block; margin-top: 4px; font-size: 16px; line-height: 1.6; }
-  #gacha-social-warn span + span { margin-top: 4px; }
+  :is(#gacha-social-warn, #union-warn)[hidden] { display: none; }
+  :is(#gacha-social-warn, #union-warn) > i { margin-top: 3px; font-size: 24px; color: var(--status-warn-text); }
+  :is(#gacha-social-warn, #union-warn) b { display: block; font-size: 19px; font-weight: 800; color: var(--status-warn-text); }
+  :is(#gacha-social-warn, #union-warn) span { display: block; margin-top: 4px; font-size: 16px; line-height: 1.6; }
+  :is(#gacha-social-warn, #union-warn) span + span { margin-top: 4px; }
 
   /* 한눈에: 세로 판(항목 이름 · 설명 왼쪽, 숫자 크게 오른쪽) */
   #gacha-overview-body { display: flex; flex-direction: column; }
@@ -10652,6 +10652,7 @@
     color: hsl(var(--uh) 55% 36%); background: hsl(var(--uh) 70% 50% / .13); }
   :root[data-theme="dark"] .union-who { color: hsl(var(--uh) 75% 74%); background: hsl(var(--uh) 60% 55% / .18); }
   .union-who.is-nameless, .union-who.is-id { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-weight: 600; }
+  #union-warn span:first-child { margin-top: 0; }   /* 제목 없이 줄만 있어서 첫 줄 위 여백을 뺀다 */
   .union-msgs { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
   .union-msg { color: var(--text-body); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   /* 이모티콘(채팅의 숫자 0~7): 글줄 높이보다 크게 */

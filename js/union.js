@@ -234,7 +234,7 @@
     // 글쓴이 고르기: 이름이 있으면 이름, 없으면 번호
     const sel = $('union-writer');
     const cur = sel.value;
-    sel.innerHTML = '<option value="">글쓴이 전체</option>' + list.map(([usn, n]) =>
+    sel.innerHTML = '<option value="">멤버 전체</option>' + list.map(([usn, n]) =>
       `<option value="${esc(usn)}"${usn === cur ? ' selected' : ''}>${esc(writerLabel(usn))} (${fmt.format(n)})</option>`).join('');
     if (cur && !count.has(cur)) sel.value = '';
     if (sel.__mmrDropdown) sel.__mmrDropdown();
@@ -305,7 +305,7 @@
   }
   function exportCsv() {
     const q = v => `"${String(v).replace(/"/g, '""')}"`;
-    const text = '﻿' + ['시각(한국시간),글쓴이 번호,이름,내용'].concat(rows.map(r => [lineTime(r.t), uidOf(r.usn), nameOf(r.usn), msgText(r.msg)].map(q).join(','))).join('\r\n');
+    const text = '﻿' + ['시각(한국시간),멤버 번호,이름,내용'].concat(rows.map(r => [lineTime(r.t), uidOf(r.usn), nameOf(r.usn), msgText(r.msg)].map(q).join(','))).join('\r\n');
     download(`유니온일지_${account}_${stamp()}.csv`, text, 'text/csv;charset=utf-8');
   }
   function saveNames() {
