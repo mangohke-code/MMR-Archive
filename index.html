@@ -12,7 +12,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=334">
+  <link rel="stylesheet" href="css/style.css?v=335">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://www.blablalink.com/assets/nikke/version/default/assets/spine-player-4.1.20-L_6oI1W0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -41,6 +41,8 @@
     <button class="tab-btn" data-tab="stage" data-short="스테이지">스테이지 정보</button>
     <!-- 가챠 트래커(베타): 스테이지 정보와 간격을 두고, 이 탭만 청록색 - js/gacha.js -->
     <button class="tab-btn tab-btn-gacha" data-tab="gacha" data-short="가챠 트래커">가챠 트래커<span class="tab-beta" aria-label="베타">BETA</span></button>
+    <!-- 유니온 일지(베타): 가챠 트래커 바로 오른쪽, 같은 청록 - js/union.js -->
+    <button class="tab-btn tab-btn-gacha tab-btn-union" data-tab="union" data-short="유니온 일지">유니온 일지<span class="tab-beta" aria-label="베타">BETA</span></button>
     <button class="tab-btn tab-btn-contact" data-tab="contact" data-short="문의">문의</button>
   </nav>
 
@@ -957,6 +959,72 @@
       </div>
     </div>
 
+    <!-- 유니온 일지(베타, 사용자 요청 2026-11-19). 계정 캐시(<서버>_<계정>.nkcache, SQLite)의 유니온 채팅을
+         브라우저 안에서 읽어 IndexedDB 에 글 번호(Id)로 합쳐 쌓는다. 게임은 최근 1,000줄만 남기므로 주기적으로 넣어야 한다.
+         서버로 보내지 않는다 - js/union.js -->
+    <div id="tab-union" class="tab-content">
+      <div id="union-page">
+        <section id="union-import" class="card gacha-card">
+          <div class="gacha-head">
+            <div class="chapter-feature-cap"><b>UNION LOG</b><span>유니온 일지</span><i class="gacha-beta">BETA</i></div>
+            <div id="union-loaded" hidden>
+              <span id="union-range"></span>
+              <button type="button" id="union-reimport" class="mode-btn" aria-expanded="false">파일 다시 넣기</button>
+            </div>
+          </div>
+          <div id="union-steps-wrap">
+            <ol class="gacha-steps">
+              <li><span class="gacha-step-k">PC버전 니케 로비까지 한 번 접속 <small>이후엔 게임을 꺼도 됨</small></span></li>
+              <li><span class="gacha-step-k">폴더 주소 복사 → 탐색기 주소칸에 붙여넣기</span>
+                <div class="gacha-cmd"><code id="union-dir"></code><button type="button" id="union-copy-dir" class="mode-btn">주소 복사</button></div></li>
+              <li><span class="gacha-step-k">숫자_숫자.nkcache 파일 넣기 <small>예: 83_1234567.nkcache</small></span>
+                <label id="union-drop" class="union-drop"><input type="file" id="union-file" accept=".nkcache" multiple hidden>
+                  <i class="fas fa-file-import" aria-hidden="true"></i><b>여기에 끌어다 놓기</b><span>또는 눌러서 고르기</span></label></li>
+            </ol>
+            <div class="gacha-note">게임은 유니온 채팅을 최근 1,000줄(약 한 달)만 남김 · 한 달에 한 번 이상 넣어야 빠짐없이 쌓임 · 파일은 이 브라우저 안에서만 읽음(서버 전송 없음) · 다른 유니온원의 채팅이 들어 있으니 공유에 주의</div>
+          </div>
+          <div id="union-status" role="status"></div>
+        </section>
+
+        <div id="union-result" hidden>
+          <section id="union-log" class="card gacha-card">
+            <div class="chapter-feature-cap"><b>CHAT</b><span>채팅 기록</span>
+              <select id="union-account" aria-label="계정" hidden></select>
+              <span id="union-count" class="gacha-cap-sum"></span></div>
+            <div class="union-tools">
+              <label class="search-box union-search">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <input id="union-q" type="search" placeholder="내용 검색" autocomplete="off" spellcheck="false" aria-label="채팅 내용 검색">
+              </label>
+              <select id="union-writer" aria-label="글쓴이"><option value="">글쓴이 전체</option></select>
+              <button type="button" id="union-order" class="mode-btn">최신순</button>
+            </div>
+            <div id="union-list" class="union-list"></div>
+            <button type="button" id="union-more" class="mode-btn gacha-more" hidden>더 보기</button>
+          </section>
+
+          <aside class="union-side">
+            <section id="union-writers" class="card gacha-card">
+              <div class="chapter-feature-cap"><b>MEMBER</b><span>글쓴이 이름</span></div>
+              <div class="gacha-note">게임 파일에는 글쓴이 번호만 있어 이름을 직접 붙입니다(이 브라우저에만 저장)</div>
+              <div id="union-writer-list" class="union-writer-list"></div>
+            </section>
+            <section id="union-backup" class="card gacha-card">
+              <div class="chapter-feature-cap"><b>BACKUP</b><span>백업 · 내보내기</span></div>
+              <div class="gacha-note">브라우저 데이터를 지우면 기록도 사라집니다. 가끔 백업 파일을 내려받아 두세요.</div>
+              <div class="union-btns">
+                <button type="button" id="union-save" class="mode-btn">백업 내려받기</button>
+                <label class="mode-btn union-load">백업 불러오기<input type="file" id="union-load" accept=".json,application/json" hidden></label>
+                <button type="button" id="union-txt" class="mode-btn">TXT 내보내기</button>
+                <button type="button" id="union-csv" class="mode-btn">CSV 내보내기</button>
+                <button type="button" id="union-clear" class="mode-btn">기록 지우기</button>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </div>
+
     <!-- 문의. 보내는 법·스팸 막는 법은 js/contact.js -->
     <div id="tab-contact" class="tab-content">
       <div id="contact-page">
@@ -1044,6 +1112,7 @@
   <script src="js/soloraid.js?v=62"></script>
   <script src="js/stage.js?v=24"></script>
   <script src="js/gacha.js?v=22"></script>
+  <script src="js/union.js?v=1"></script>
   <script src="js/contact.js?v=11"></script>
 
   <script>

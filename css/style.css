@@ -10599,3 +10599,76 @@
     .predict-cand, .predict-cand-img { width: 88px; }
     .predict-cand-img { height: 88px; }
   }
+
+  /* ===== 유니온 일지 (베타, 사용자 요청 2026-11-19) =====
+     가챠 트래커 바로 오른쪽 탭, 같은 청록. 가져오기 판은 가챠 트래커와 같은 모양(아래 줄은 가챠 쪽 규칙을 id 만 바꿔 옮긴 것).
+     기록 판: 왼쪽 채팅 목록(날짜 줄 + 시각 · 글쓴이 · 내용), 오른쪽 글쓴이 이름 · 백업. 처리는 js/union.js */
+  #tab-union { --accent: var(--gacha); --accent-strong: var(--gacha-strong); --accent-glow: var(--gacha-glow); }
+  #tab-nav .tab-btn.tab-btn-union { margin-left: 0; }
+  #union-page { display: flex; flex-direction: column; gap: 22px; max-width: 1900px; margin: 0 auto; }
+  #union-page .mode-btn { height: 38px; padding: 0 16px; font-size: 15px; flex: none; }
+  #union-page .mode-btn.active { background: linear-gradient(135deg, var(--gacha), var(--gacha-strong)); color: #fff; border-color: transparent; }
+  #union-loaded { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  #union-loaded[hidden] { display: none; }
+  #union-range { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-right: 6px; font-size: 16px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  #union-range b { font-size: 17px; font-weight: 700; color: var(--text-heading); }
+  .gacha-warn { color: var(--status-warn-text); font-weight: 600; }
+  #union-import.is-collapsed { padding-top: 16px; padding-bottom: 16px; }
+  #union-import.is-collapsed #union-steps-wrap { display: none; }
+  #union-steps-wrap { display: flex; flex-direction: column; gap: 14px; }
+  #union-status:empty { display: none; }
+  #union-status { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
+  #union-status[data-kind="ok"] { color: var(--gacha-strong); }
+  #union-status[data-kind="error"] { color: var(--status-limited-text); }
+  #union-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 120px; padding: 16px;
+    cursor: pointer; text-align: center; color: var(--text-secondary); background: var(--gacha-soft);
+    border: 2px dashed color-mix(in srgb, var(--gacha) 55%, transparent); border-radius: 12px 0 12px 0; corner-shape: bevel;
+    transition: background-color .15s, border-color .15s; }
+  #union-drop i { font-size: 26px; color: var(--gacha); }
+  #union-drop b { font-size: 18px; font-weight: 800; color: var(--text-heading); }
+  #union-drop span { font-size: 15px; font-weight: 600; }
+  #union-drop:hover, #union-drop.is-over { background: color-mix(in srgb, var(--gacha) 22%, transparent); border-color: var(--gacha); }
+  #union-drop:focus-within { outline: 2px solid var(--gacha); outline-offset: 2px; }
+  /* 접힌 상태에서 파일을 끌고 들어오면 가져오기 판 테두리로 알린다 */
+  #tab-union.is-dragging #union-import.is-collapsed { box-shadow: var(--shadow-card), inset 0 0 0 2px var(--gacha); }
+  #union-page .mmr-dd-list { left: auto; right: 0; }
+  #union-result { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 22px; align-items: start; }
+  #union-result[hidden] { display: none; }
+  .union-side { display: flex; flex-direction: column; gap: 22px; position: sticky; top: 16px; }
+  #union-account[hidden] + .mmr-dd-btn, .mmr-dd[hidden] { display: none; }
+  #union-log .chapter-feature-cap .mmr-dd { margin-left: auto; }
+  .union-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .union-search { width: 300px; height: 38px; }
+  .union-tools .mmr-dd-btn { height: 38px; font-size: 15px; }
+  .union-list { display: flex; flex-direction: column; max-height: 72vh; overflow-y: auto; overscroll-behavior: contain; }
+  .union-day { position: sticky; top: 0; z-index: 1; padding: 12px 4px 8px; background: var(--bg-panel); border-bottom: 1px solid var(--border-strong);
+    font-size: 15px; font-weight: 800; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+  .union-row { display: grid; grid-template-columns: 52px 160px minmax(0, 1fr); column-gap: 14px; align-items: baseline;
+    padding: 9px 4px; border-bottom: 1px solid var(--border-subtle); font-size: 16px; }
+  .union-row time { font-size: 15px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .union-who { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 2px 9px; border-radius: 5px; font-size: 15px; font-weight: 700;
+    color: hsl(var(--uh) 55% 36%); background: hsl(var(--uh) 70% 50% / .13); }
+  :root[data-theme="dark"] .union-who { color: hsl(var(--uh) 75% 74%); background: hsl(var(--uh) 60% 55% / .18); }
+  .union-who.is-nameless, .union-who.is-id { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-weight: 600; }
+  .union-msg { color: var(--text-body); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .union-writer-list { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; padding-right: 4px; }
+  .union-writer { display: grid; grid-template-columns: 116px minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
+  .union-writer em { font-style: normal; text-align: right; font-size: 15px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .union-name { width: auto; height: 36px; }
+  .union-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .union-load { display: inline-flex; align-items: center; cursor: pointer; }
+  @media (max-width: 1100px) {
+    #union-result { grid-template-columns: minmax(0, 1fr); }
+    .union-side { position: static; }
+  }
+  @media (max-width: 640px) {
+    /* 폰 격자: 가챠 트래커 · 유니온 일지가 맨 아래 한 줄을 반씩 나눈다 */
+    #tab-nav .tab-btn.tab-btn-gacha { grid-column: 1 / 3; }
+    #tab-nav .tab-btn.tab-btn-union { order: 100; grid-column: 3 / 5; }
+    #union-page, #union-result, .union-side { gap: 16px; }
+    .union-search { width: 100%; }
+    .union-row { grid-template-columns: 44px minmax(0, 1fr); row-gap: 4px; }
+    .union-msg { grid-column: 1 / -1; }
+    .union-writer { grid-template-columns: 96px minmax(0, 1fr) 54px; }
+  }
