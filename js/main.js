@@ -228,7 +228,8 @@
     const activePickups = data.filter(p => {
       const start = new Date(p['시작일']);
       const end = new Date(p['종료일']);
-      end.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도(날짜만 있어도) 그날 전체를 포함하도록
+      // 날짜만 있으면 그날 끝까지, 시각이 있으면 그 시각에 내린다(끝난 픽업이 그날 밤까지 남던 문제, 사용자 지적 2026-11-19)
+      if (!hasTimePart(p['종료일'])) end.setHours(23, 59, 59, 999);
       return start <= now && now <= end;
     });
     const upcomingPickups = data
@@ -340,7 +341,7 @@
       if (!startDate || !endDate) return false;
       const start = new Date(startDate);
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      if (!hasTimePart(endDate)) end.setHours(23, 59, 59, 999);   // 시각이 있으면 그 시각에 내린다
       return start <= now && now <= end;
     });
     const upcomingCostumes = all

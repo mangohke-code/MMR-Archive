@@ -625,7 +625,7 @@
     const now = new Date();
     const s = new Date(start);
     const e = new Date(end);
-    e.setHours(23, 59, 59, 999); // 종료일에 시간 정보가 없어도 그날 전체를 포함하도록
+    if (!hasTimePart(end)) e.setHours(23, 59, 59, 999); // 날짜만 있으면 그날 끝까지, 시각이 있으면 그 시각까지
     return now >= s && now <= e;
   }
 
