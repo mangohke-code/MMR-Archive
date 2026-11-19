@@ -10643,11 +10643,12 @@
   .union-list { display: flex; flex-direction: column; max-height: 72vh; overflow-y: auto; overscroll-behavior: contain; }
   .union-day { position: sticky; top: 0; z-index: 1; padding: 12px 4px 8px; background: var(--bg-panel); border-bottom: 1px solid var(--border-strong);
     font-size: 15px; font-weight: 800; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
-  .union-row { display: grid; grid-template-columns: 52px 160px minmax(0, 1fr); column-gap: 14px; align-items: baseline;
+  .union-row { display: grid; grid-template-columns: 52px 160px minmax(0, 1fr); column-gap: 14px; align-items: start;
     padding: 9px 4px; border-bottom: 1px solid var(--border-subtle); font-size: 16px; }
-  .union-row time { font-size: 15px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  /* 시각 · 이름은 첫 줄 높이(25px)에 맞춰 위에 둔다(이모티콘 그림이 있어도 아래로 처지지 않게) */
+  .union-row time { font-size: 15px; line-height: 25px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .union-who { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 2px 9px; border-radius: 5px; font-size: 15px; font-weight: 700;
+    padding: 2px 9px; border-radius: 5px; font-size: 15px; line-height: 21px; font-weight: 700;
     color: hsl(var(--uh) 55% 36%); background: hsl(var(--uh) 70% 50% / .13); }
   :root[data-theme="dark"] .union-who { color: hsl(var(--uh) 75% 74%); background: hsl(var(--uh) 60% 55% / .18); }
   .union-who.is-nameless, .union-who.is-id { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-weight: 600; }

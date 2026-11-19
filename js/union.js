@@ -13,7 +13,7 @@
   const DB_NAME = 'mmr-union';
   const NAMES_KEY = 'mmr-union-names';       // { 계정: { 글쓴이 번호: 이름 } }
   const ACC_KEY = 'mmr-union-account';
-  // 채팅의 숫자 한 글자(0~7) = 이모티콘(사용자 확인, 2026-11-19). 그림은 img/emote
+  // 채팅의 ::sticker_0:: ~ ::sticker_7:: = 이모티콘(사용자 확인, 2026-11-19). 그림은 img/emote
   const EMOTES = ['hello', 'thanks', 'delight', 'kidkid', 'sad', 'anger', 'cheerup', 'suprise'];
   const PAGE = 300;
 
@@ -150,12 +150,11 @@
   // 글쓴이 번호는 UID 8자리 고정(앞 0 이 숫자로 읽으며 빠진다: 2225 -> 00002225, 사용자 지적 2026-11-19)
   const uidOf = usn => String(usn).padStart(8, '0');
   const writerLabel = usn => nameOf(usn) || '#' + uidOf(usn);
-  const emoteOf = msg => (/^[0-7]$/.test(msg) ? EMOTES[Number(msg)] : null);
-  const msgHtml = msg => {
-    const e = emoteOf(msg);
-    return e ? `<img class="union-emote" src="img/emote/icn_emote_${e}.webp" alt="${e}" title="${e}" loading="lazy">` : esc(msg);
-  };
-  const msgText = msg => { const e = emoteOf(msg); return e ? `[이모티콘:${e}]` : msg; };
+  const STICKER_RE = /::sticker_([0-7])::/g;
+  // 글 안의 이모티콘 표시를 그림으로(지금 기록은 이모티콘만 단독으로 온다)
+  const msgHtml = msg => esc(msg).replace(STICKER_RE, (m, n) =>
+    `<img class="union-emote" src="img/emote/icn_emote_${EMOTES[n]}.webp" alt="${EMOTES[n]}" title="${EMOTES[n]}" loading="lazy">`);
+  const msgText = msg => msg.replace(STICKER_RE, (m, n) => `[이모티콘:${EMOTES[n]}]`);
   // 글쓴이마다 같은 색(번호로 색상환 위치를 정한다)
   const hueOf = usn => { let h = 0; for (const c of String(usn)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 
