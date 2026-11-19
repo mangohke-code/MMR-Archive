@@ -10637,6 +10637,8 @@
   .union-side { display: flex; flex-direction: column; gap: 22px; position: sticky; top: 16px; }
   #union-account[hidden] + .mmr-dd-btn, .mmr-dd[hidden] { display: none; }
   #union-log .chapter-feature-cap .mmr-dd { margin-left: auto; }
+  /* 채팅 기록 판은 비치지 않게 불투명(가챠 트래커 전체 기록과 같게, 사용자 요청 2026-11-19) */
+  #union-log.gacha-card { background-color: var(--bg-panel); }
   .union-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .union-search { width: 300px; height: 38px; }
   .union-tools .mmr-dd-btn { height: 38px; font-size: 15px; }
