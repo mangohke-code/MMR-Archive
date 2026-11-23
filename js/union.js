@@ -10,6 +10,8 @@
   const SQL_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/';
   // CDN 파일이 바뀌면 실행하지 않는다(cdnjs 공개 SRI 값과 같음, 2026-11-23 확인)
   const SQL_SRI = 'sha512-n7swEtVCvXpQ7KxgpPyp0+DQQEf5vPpmzCRl14x2sp2v5LpCYCjrAx03mkBAbWwGF9eUoIk8YVcDFuJRIeYttg==';
+  // WASM 본체도 같은 방식으로 검사한 뒤 넘긴다(sql.js 가 직접 받게 두면 검사 없이 실행됨, 2026-11-23 cdnjs 파일로 계산)
+  const WASM_SRI = 'sha512-sGvDmvDGqGZJMpyv2eGMCD46jfxutp6xADGZRyxF2it6XPKKR3YhfjW7dRsSbs00uX5nDkedNxGuz9PbL/RWmQ==';
   const TICKS_EPOCH = 621355968000000000n;   // 0001-01-01 -> 1970-01-01 (.NET 틱)
   const MAX_FILE = 100 * 1024 * 1024;
   const DB_NAME = 'mmr-union';
@@ -109,7 +111,9 @@
         s.onload = res;
         s.onerror = () => rej(new Error('파일 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'));
         document.head.appendChild(s);
-      }).then(() => window.initSqlJs({ locateFile: f => SQL_BASE + f }));
+      }).then(() => fetch(SQL_BASE + 'sql-wasm.wasm', { integrity: WASM_SRI, mode: 'cors', credentials: 'omit' }))
+        .then(r => { if (!r.ok) throw new Error('파일 읽기 도구를 불러오지 못했습니다.'); return r.arrayBuffer(); })
+        .then(wasmBinary => window.initSqlJs({ wasmBinary }));
       sqlReq.catch(() => { sqlReq = null; });
     }
     return sqlReq;
@@ -296,7 +300,7 @@
       // 이름표는 비어 있는 번호에만 채운다(지금 붙인 이름을 덮지 않는다)
       if (data.names && typeof data.names === 'object') {
         const cur = names[acc] || (names[acc] = {});
-        for (const [usn, nm] of Object.entries(data.names)) if (!cur[usn] && typeof nm === 'string' && nm.trim()) cur[usn] = nm.trim().slice(0, 20);
+        for (const [usn, nm] of Object.entries(data.names)) if (/^\d{1,20}$/.test(usn) && !cur[usn] && typeof nm === 'string' && nm.trim()) cur[usn] = nm.trim().slice(0, 20);
         saveNames();
       }
       await show(acc);

@@ -14,6 +14,7 @@
 (function () {
   const NIKKE_DIR = '%USERPROFILE%\\AppData\\LocalLow\\com_proximabeta\\NIKKE';
   const MAX_FILE = 200 * 1024 * 1024;
+  const MAX_UNZIP = 512 * 1024 * 1024;   // 압축을 푼 trigger.txt 상한(작은 파일이 수 GB 로 부풀어 탭이 멈추는 것을 막음)
   const NAMES_URL = 'data/gacha-names.json?v=2';
   const STORE_KEY = 'mmr-gacha-data';
   const TICKS_EPOCH = 621355968000000000n;   // 0001-01-01 -> 1970-01-01 (.NET 틱)
@@ -59,7 +60,7 @@
     return namesReq;
   }
   function info(code) {
-    const hit = names && names[code];
+    const hit = names && Object.prototype.hasOwnProperty.call(names, code) && names[code];
     return hit ? { name: hit[0], rare: hit[1] } : { name: '#' + code, rare: 'U' };
   }
   const isSSR = p => info(p.code).rare === 'SSR';
@@ -149,8 +150,21 @@
         const data = buf.subarray(start, start + csize);
         if (method === 0) return data;
         if (method !== 8) throw new Error('지원하지 않는 기록 파일입니다.');
-        const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-        return new Uint8Array(await new Response(stream).arrayBuffer());
+        // 푼 크기를 세면서 읽다가 상한을 넘으면 멈춘다
+        const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+        const chunks = [];
+        let total = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          total += value.length;
+          if (total > MAX_UNZIP) { reader.cancel(); throw new Error('기록 파일이 너무 큽니다.'); }
+          chunks.push(value);
+        }
+        const out = new Uint8Array(total);
+        let off = 0;
+        for (const c of chunks) { out.set(c, off); off += c.length; }
+        return out;
       }
       p += 46 + nlen + xlen + clen;
     }
@@ -327,7 +341,7 @@
       ssrAll += p.count;
       if (isGacha(p.type)) ssrGacha += p.count;
     }
-    const unknown = new Set(pulls.filter(p => !(names && names[p.code])).map(p => p.code));
+    const unknown = new Set(pulls.filter(p => !(names && Object.prototype.hasOwnProperty.call(names, p.code))).map(p => p.code));
     $('gacha-range').innerHTML = `<b>${dayStr(pulls[0].time)} ~ ${dayStr(pulls[pulls.length - 1].time)}</b>`
       + `<span>${fmt.format(pulls.length)}건</span>`
       + (unknown.size ? `<span class="gacha-warn">이름 미등록 ${unknown.size}종</span>` : '')
