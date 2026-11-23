@@ -8,6 +8,8 @@
 (function () {
   const NIKKE_DIR = '%USERPROFILE%\\AppData\\LocalLow\\com_proximabeta\\NIKKE';
   const SQL_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/';
+  // CDN 파일이 바뀌면 실행하지 않는다(cdnjs 공개 SRI 값과 같음, 2026-11-23 확인)
+  const SQL_SRI = 'sha512-n7swEtVCvXpQ7KxgpPyp0+DQQEf5vPpmzCRl14x2sp2v5LpCYCjrAx03mkBAbWwGF9eUoIk8YVcDFuJRIeYttg==';
   const TICKS_EPOCH = 621355968000000000n;   // 0001-01-01 -> 1970-01-01 (.NET 틱)
   const MAX_FILE = 100 * 1024 * 1024;
   const DB_NAME = 'mmr-union';
@@ -26,6 +28,8 @@
   const WEEK = { Mon: '월', Tue: '화', Wed: '수', Thu: '목', Fri: '금', Sat: '토', Sun: '일' };
   const dayStr = ms => { const p = parts(ms); return `${p.year}.${p.month}.${p.day}`; };
   const msOf = t => Number((BigInt(t) - TICKS_EPOCH) / 10000n);
+  // 보안: 멤버 번호는 숫자만 받는다(남이 만든 백업 · 파일에 HTML 을 넣어 화면에서 실행시키는 것을 막음)
+  const okRow = r => r && r.id && /^\d+$/.test(String(r.t)) && /^\d{1,20}$/.test(String(r.usn));
   const cmpT = (a, b) => (a.t.length - b.t.length) || (a.t < b.t ? -1 : a.t > b.t ? 1 : 0);   // 틱은 글자로 둔다(2^53 넘음)
 
   let account = null;        // 지금 보는 계정(파일 이름의 숫자_숫자)
@@ -57,7 +61,7 @@
     const d = await db();
     return new Promise((res, rej) => {
       const r = d.transaction('chat').objectStore('chat').index('acc').getAll(acc);
-      r.onsuccess = () => res(r.result.map(x => ({ id: x.id, t: x.t, usn: x.usn, msg: x.msg })).sort(cmpT));
+      r.onsuccess = () => res(r.result.filter(okRow).map(x => ({ id: x.id, t: x.t, usn: x.usn, msg: x.msg })).sort(cmpT));
       r.onerror = () => rej(r.error);
     });
   }
@@ -73,7 +77,7 @@
   // 새 글만 넣고 몇 줄이 새로 들어갔는지 돌려준다
   async function addRows(acc, list) {
     const have = new Set((await loadAccount(acc)).map(r => r.id));
-    const fresh = list.filter(r => r.id && !have.has(r.id));
+    const fresh = list.filter(r => okRow(r) && !have.has(r.id));
     if (fresh.length) {
       const d = await db();
       const tx = d.transaction('chat', 'readwrite');
@@ -100,6 +104,8 @@
         if (window.initSqlJs) { res(); return; }
         const s = document.createElement('script');
         s.src = SQL_BASE + 'sql-wasm.js';
+        s.integrity = SQL_SRI;
+        s.crossOrigin = 'anonymous';
         s.onload = res;
         s.onerror = () => rej(new Error('파일 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'));
         document.head.appendChild(s);
@@ -148,7 +154,7 @@
   }
   const nameOf = usn => ((names[account] || {})[usn] || '').trim();
   // 글쓴이 번호는 UID 8자리 고정(앞 0 이 숫자로 읽으며 빠진다: 2225 -> 00002225, 사용자 지적 2026-11-19)
-  const uidOf = usn => String(usn).padStart(8, '0');
+  const uidOf = usn => esc(String(usn).padStart(8, '0'));
   const writerLabel = usn => nameOf(usn) || '#' + uidOf(usn);
   const STICKER_RE = /::sticker_([0-7])::/g;
   // 글 안의 이모티콘 표시를 그림으로(지금 기록은 이모티콘만 단독으로 온다)
@@ -304,7 +310,8 @@
     download(`유니온일지_${account}_${stamp()}.txt`, text, 'text/plain;charset=utf-8');
   }
   function exportCsv() {
-    const q = v => `"${String(v).replace(/"/g, '""')}"`;
+    // 보안: = + - @ 로 시작하는 칸은 엑셀이 수식으로 실행하므로 앞에 ' 를 붙여 글자로 둔다(채팅 · 이름은 남이 쓴 글)
+    const q = v => { let t = String(v); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
     const text = '﻿' + ['시각(한국시간),멤버 번호,이름,내용'].concat(rows.map(r => [lineTime(r.t), uidOf(r.usn), nameOf(r.usn), msgText(r.msg)].map(q).join(','))).join('\r\n');
     download(`유니온일지_${account}_${stamp()}.csv`, text, 'text/csv;charset=utf-8');
   }
