@@ -1380,20 +1380,14 @@ async function loadAllData() {
     console.warn('[메인 공지] 메인_공지 읽기 실패:', err.message || err);
     return [];
   });
+  // 스테이지 · 기념품 · 솔로 레이드는 그 탭을 열 때 받는다(TAB_DATA, 아래)
   const [
-    pickupRows, costumeRows, souvenirRows, stageRows,
+    pickupRows, costumeRows,
     codexRows, nikkeImgRows, iconRows, chapRows,
     configRows, eventRows,
   ] = await Promise.all([
     fetchAll('픽업_기록', '시작일'),
     fetchAll('유니크_코스튬'),
-    fetchAll('기념품'),
-    // 번호 순으로 받아야 한다. 스테이지 표는 화면에서 따로 정렬하지 않고 받은
-    // 순서대로 그리는데, 정렬을 안 주면 순서가 보장되지 않는다(EX스테이지가
-    // 26번 뒤가 아니라 맨 끝에 붙어 있었다). 게다가 이 표는 1,884행이라
-    // range() 로 두 쪽에 나눠 받는데, 정렬 없는 페이징은 행이 겹치거나 빠질 수도
-    // 있다 -- 순서를 정해줘야 쪽 나누기가 안전해진다.
-    fetchAll('스테이지_정보', '번호'),
     // 번호 순으로 받는다. 사이드 스토리 순서를 도감 번호에서 처음 나오는 순서로 정한다(codex.js).
     fetchAll('캐릭터_도감', '번호'),
     fetchAll('IMG_니케'),
@@ -1409,32 +1403,68 @@ async function loadAllData() {
   APP_DATA.main.notice = buildMainNotice(await noticeRowsP);
   APP_DATA.pickup = pickup;
   APP_DATA.costume = buildCostumeData(costumeRows);
-  APP_DATA.souvenir = buildSouvenirData(souvenirRows);
-  APP_DATA.stage = buildStageData(stageRows);
   APP_DATA.codex = buildCodexData(codexRows);
   APP_DATA.nikkeImg = buildNikkeImgData(nikkeImgRows);
   APP_DATA.iconImg = buildIconImgData(iconRows);
   APP_DATA.chapImg = buildChapImgData(chapRows);
 
-  // 솔로 레이드는 별도 테이블이라 다른 테이블들과 묶어서 Promise.all로 처리하지 않는다 —
-  // 이 테이블에 문제(권한/데이터 없음 등)가 생겨도 나머지 탭이 전부 먹통이 되면 안 되므로,
-  // 실패해도 여기서만 조용히 빈 배열로 처리하고 넘어간다.
-  // 표 이름을 역대_테두리 → 솔로_레이드 로 바꾸는 중이라 둘 다 시도한다. 이름 변경 SQL 을
-  // 언제 실행하든 화면이 깨지지 않게 하려는 것이고, 변경이 끝나면 옛 이름은 지워도 된다.
-  APP_DATA.soloraid = [];
-  for (const table of ['솔로_레이드', '역대_테두리']) {
-    try {
-      APP_DATA.soloraid = buildSoloRaidData(await fetchAll(table, '시즌'));
-      break;
-    } catch (err) {
-      console.warn(`[솔로 레이드] ${table} 읽기 실패:`, err.message || err);
-    }
-  }
-
   APP_DATA.ready = true;
 
   _onReadyCallbacks.forEach(fn => fn());
   _onReadyCallbacks.length = 0;
+}
+
+// ===== 탭을 열 때만 받는 표 (사용자 요청, 2026-11-23) =====
+// 처음 화면에서 모든 표를 받으면 방문 한 번에 Supabase 전송량이 약 750KB 나갔다(스테이지 정보만 534KB).
+// 그 탭에서만 쓰는 큰 표는 탭을 처음 열 때 한 번 받는다. 실패하면 다음에 탭을 열 때 다시 시도한다.
+const TAB_DATA = {
+  // 번호 순으로 받아야 한다. 스테이지 표는 화면에서 따로 정렬하지 않고 받은
+  // 순서대로 그리는데, 정렬을 안 주면 순서가 보장되지 않는다(EX스테이지가
+  // 26번 뒤가 아니라 맨 끝에 붙어 있었다). 게다가 이 표는 1,884행이라
+  // range() 로 두 쪽에 나눠 받는데, 정렬 없는 페이징은 행이 겹치거나 빠질 수도
+  // 있다 -- 순서를 정해줘야 쪽 나누기가 안전해진다.
+  stage: async () => { APP_DATA.stage = buildStageData(await fetchAll('스테이지_정보', '번호')); },
+  souvenir: async () => { APP_DATA.souvenir = buildSouvenirData(await fetchAll('기념품')); },
+  // 솔로 레이드 표에 문제(권한/데이터 없음 등)가 생겨도 조용히 빈 배열로 넘어간다.
+  // 표 이름을 역대_테두리 → 솔로_레이드 로 바꾸는 중이라 둘 다 시도한다. 이름 변경 SQL 을
+  // 언제 실행하든 화면이 깨지지 않게 하려는 것이고, 변경이 끝나면 옛 이름은 지워도 된다.
+  soloraid: async () => {
+    APP_DATA.soloraid = [];
+    for (const table of ['솔로_레이드', '역대_테두리']) {
+      try {
+        APP_DATA.soloraid = buildSoloRaidData(await fetchAll(table, '시즌'));
+        break;
+      } catch (err) {
+        console.warn(`[솔로 레이드] ${table} 읽기 실패:`, err.message || err);
+      }
+    }
+  },
+};
+const _tabDataReq = {};
+function loadTabData(tabName) {
+  if (!_tabDataReq[tabName]) {
+    _tabDataReq[tabName] = TAB_DATA[tabName]().catch(err => {
+      console.warn(`[${tabName}] 데이터 읽기 실패:`, err.message || err);
+      _tabDataReq[tabName] = null;   // 다음에 탭을 열 때 다시 받는다
+      throw err;
+    });
+  }
+  return _tabDataReq[tabName];
+}
+// 탭이 지금 열려 있으면 바로, 아니면 처음 열릴 때 그 탭의 표를 받고(공통 표도 준비된 뒤) fn 을 한 번 부른다.
+function onTabOpen(tabName, fn) {
+  let done = false, busy = false;
+  const run = () => {
+    if (done || busy) return;
+    busy = true;
+    loadTabData(tabName).then(
+      () => onAppDataReady(() => { done = true; busy = false; document.removeEventListener('mmr:tab-change', onChange); fn(); }),
+      () => { busy = false; });
+  };
+  const onChange = e => { if (e.detail && e.detail.tab === tabName) run(); };
+  document.addEventListener('mmr:tab-change', onChange);
+  const pane = document.getElementById('tab-' + tabName);
+  if (pane && pane.classList.contains('active')) run();
 }
 
 document.addEventListener('DOMContentLoaded', function () {

@@ -3,7 +3,7 @@
   let soloRaidPanZoom = null;
 
   function loadSoloRaidData() {
-    onAppDataReady(() => {
+    onTabOpen('soloraid', () => {   // 솔로 레이드 표는 탭을 열 때 받는다(common.js TAB_DATA)
       initSoloRaid(APP_DATA.soloraid || []);
     });
   }

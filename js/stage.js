@@ -7,7 +7,7 @@
   const revealedChapters = new Set();
 
   function loadStageData() {
-    onAppDataReady(() => {
+    onTabOpen('stage', () => {   // 스테이지 표는 탭을 열 때 받는다(common.js TAB_DATA)
       stageIconImgData = APP_DATA.iconImg || {};
       allChapImgData = APP_DATA.chapImg || [];
       initStage(APP_DATA.stage);

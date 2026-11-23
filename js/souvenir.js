@@ -3,7 +3,7 @@
   let souvenirActiveSeason = null;
 
   function loadSouvenirData() {
-    onAppDataReady(() => {
+    onTabOpen('souvenir', () => {   // 기념품 표는 탭을 열 때 받는다(common.js TAB_DATA)
       initSouvenir(APP_DATA.souvenir);
     });
   }
