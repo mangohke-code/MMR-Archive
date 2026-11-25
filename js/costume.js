@@ -203,12 +203,14 @@
                 'costume-portrait-item',
                 c._isRerun ? 'is-rerun' : '',
                 isActive && c._isRerun ? 'is-rerun-active' : '',
+                isActive ? 'is-live' : '',
               ].filter(Boolean).join(' ');
 
               return `
               <div class="${itemClass}" data-idx="${origIdx}" data-is-rerun="${c._isRerun}"
                    onclick="selectCostume(allCostumeData[${origIdx}], ${c._isRerun})">
                 <div class="costume-portrait-date">${dateLabel}</div>
+                ${isActive ? `<div class="costume-live-clip"><span class="costume-live-ribbon">${c._isRerun ? '복각 중' : '픽업 중'}</span></div>` : ''}
                 <div class="costume-portrait-img">
                   ${costumeImgUrl ? `<img src="${costumeImgUrl}" alt="${c['니케']}">` : c['니케']}
                 </div>
@@ -218,7 +220,7 @@
                 </div>
                 <div class="costume-portrait-badges">
                   ${c._isRerun && !isActive ? `<div class="costume-rerun-badge">복각</div>` : ''}
-                  ${isActive ? `<div class="costume-active-badge">${c._isRerun ? '복각 중' : '픽업 중'}</div>` : ''}
+                  ${'' /* 진행 중 표시는 좌상단 리본으로 옮겼다(사용자 요청, 2026-11-25). 띠에는 남은 기간만 */}
                   ${formatRemainingDays(startDate, endDate, 'is-on-portrait')}
                 </div>
               </div>
