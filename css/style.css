@@ -10682,16 +10682,9 @@
 
 /* ===== 유니크 코스튬: 진행 중 카드 리본 · 빛나는 테두리 (사용자 요청, 2026-11-25) =====
    '픽업 중 · 종료까지 …' 를 아래 띠에 다 적으면 카드 밖으로 넘쳐서, 진행 중 표시는 좌상단 대각선 리본으로 옮겼다.
-   리본은 날짜 띠를 가리지 않게 날짜 띠 아래선(30px)부터 잘린다. 테두리는 숨 쉬듯 빛난다(픽업 금색 · 복각 파랑). */
+   리본은 날짜 띠를 가리지 않게 날짜 띠 아래선(30px)부터 잘린다.
+   빛나는 테두리도 넣었다가 사용자 요청으로 뺐다(2026-11-25). */
 .costume-portrait-date { box-sizing: border-box; height: 30px; }
-.costume-portrait-item.is-live { --live: var(--gold); z-index: 1; animation: costume-live-glow 2.2s ease-in-out infinite; }
-.costume-portrait-item.is-live.is-rerun { --live: var(--status-rerun-text); }
-@keyframes costume-live-glow {
-  0%, 100% { box-shadow: inset 0 0 0 2px var(--live), 0 0 6px 1px color-mix(in srgb, var(--live) 50%, transparent); }
-  50% { box-shadow: inset 0 0 0 2px var(--live), 0 0 18px 6px color-mix(in srgb, var(--live) 70%, transparent); }
-}
-/* 고른 카드는 원래 강조(보라 테두리)를 그대로 쓴다 */
-.costume-portrait-item.is-live.active { animation: none; }
 .costume-live-clip { position: absolute; left: 0; right: 0; top: 30px; bottom: 0; overflow: hidden; pointer-events: none; z-index: 3; }
 .costume-live-ribbon {
   position: absolute; top: 15px; left: -30px; width: 116px; transform: rotate(-45deg);
@@ -10708,8 +10701,7 @@
   animation: costume-live-shine 2.8s ease-in-out infinite;
 }
 @keyframes costume-live-shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
-/* 기기에서 '움직임 줄이기'를 켰으면 빛 효과는 끄고 테두리만 남긴다 */
+/* 기기에서 '움직임 줄이기'를 켰으면 리본 반짝임을 끈다 */
 @media (prefers-reduced-motion: reduce) {
-  .costume-portrait-item.is-live { animation: none; box-shadow: inset 0 0 0 2px var(--live), 0 0 10px 2px color-mix(in srgb, var(--live) 55%, transparent); }
   .costume-live-ribbon::after { animation: none; display: none; }
 }
