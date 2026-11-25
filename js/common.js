@@ -1222,32 +1222,27 @@ function hoursUntil(target, now = new Date()) {
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60)));
 }
 
-// 시간까지 같이 적어 줄 구간. 하루보다 멀면 "733시간" 처럼 읽어도 와닿지 않는
-// 수가 되므로 D-n 만 적는다. 곧 바뀌는 것만 시간으로 말해 주면 된다.
-//
-// 경계는 "남은 시간이 24시간 안쪽인가" 하나로 본다. 내일 05시에 끝나는 것을
-// 오늘 04시에 보면 25시간이 남아 D-1, 오늘 06시에 보면 23시간이라 시간으로 적힌다.
-const HOUR_DETAIL_LIMIT = 24;
+// 시:분까지 들어 있는 값은 남은 시간이 24시간 미만이면 D-n 대신 시간으로 적는다.
+// D-n 은 달력 날짜 차이라서, 내일 04:59 에 끝나는 픽업은 19시간만 남아도 D-1 로 보였다(사용자 지적, 2026-11-25).
+// 24시간 이상 남았으면 D-n 만 적는다(하루보다 멀면 "733시간" 처럼 읽어도 와닿지 않는다).
+const HOUR_DETAIL_MS = 24 * 60 * 60 * 1000;
+const underADay = (target, now) => hasTimePart(target) && new Date(target) - now < HOUR_DETAIL_MS;
 
 // 배지에 넣을 문구. kind 는 'start' 또는 'end'.
-// 시간 정보가 있는 값(이벤트·코스튬·솔로 레이드)은 몇 시간 남았는지도 같이 적는다.
 function remainingText(target, kind, now = new Date()) {
   const label = kind === 'start' ? '시작' : '종료';
+  if (underADay(target, now)) return `${label}까지 ${hoursUntil(target, now)}시간`;
   const days = kstDaysUntil(target, now);
-  if (hasTimePart(target)) {
-    const h = hoursUntil(target, now);
-    if (days <= 0) return `${label}까지 ${h}시간`;
-    if (h <= HOUR_DETAIL_LIMIT) return `${label}까지 D-${days} · ${h}시간`;
-    return `${label}까지 D-${days}`;
-  }
+  if (hasTimePart(target)) return `${label}까지 D-${Math.max(1, days)}`;
   return days <= 0 ? `오늘 ${label}` : `${label}까지 D-${days}`;
 }
 
 // 픽업 기록 탭 카드처럼 자리가 좁아 D-n 만 적는 곳에서 쓴다.
 function remainingShort(target, now = new Date()) {
+  if (underADay(target, now)) return `${hoursUntil(target, now)}시간`;
   const days = kstDaysUntil(target, now);
   if (days > 0) return `D-${days}`;
-  return hasTimePart(target) ? `${hoursUntil(target, now)}시간` : 'D-DAY';
+  return 'D-DAY';
 }
 
 // 표에 줄만 미리 만들어 둔 보스(시즌이나 이름이 아직 빈 행)는 화면에 올리지 않는다.

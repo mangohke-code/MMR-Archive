@@ -1080,14 +1080,8 @@
     if (!start || !end) return '';
     const now = new Date();
     const cls = extra => ['costume-remaining-badge', variantClass, extra].filter(Boolean).join(' ');
-    // 하단 카드 띠는 폭이 좁아 'D-1 · 20시간'처럼 시간까지 붙으면 카드 밖으로 넘쳤다(마리안 : 퀸, 사용자 지적 2026-11-25).
-    // 카드에서는 하루 넘게 남았으면 D-n 만, 하루 안이면 시간만 적는다. 시간까지는 위 정보창에서 본다.
-    const text = (target, kind) => {
-      if (variantClass === 'is-on-portrait' && kstDaysUntil(target, now) > 0) {
-        return `${kind === 'start' ? '시작' : '종료'}까지 D-${kstDaysUntil(target, now)}`;
-      }
-      return remainingText(target, kind, now);
-    };
+    // 24시간 미만이면 시간만, 아니면 D-n 만(common.js remainingText). 예전 'D-1 · 20시간' 은 하단 카드 밖으로 넘쳤다.
+    const text = (target, kind) => remainingText(target, kind, now);
     if (now < new Date(start)) {
       return `<span class="${cls('is-upcoming')}">${text(start, 'start')}</span>`;
     }
