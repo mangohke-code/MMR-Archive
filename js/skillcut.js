@@ -7,7 +7,7 @@
 //   idle 반복  : 전체 재생의 반복 구간만
 // 재생 버튼은 누를 때마다 처음부터 다시 튼다(켜고 끄는 단추가 아니다).
 //
-// 데이터: l2d/<코드>/skillcut/play.json.gz (tools/build_skillcut.py 가 추출 세션의 _skillcut_playback.json 에서 만든다).
+// 데이터: l2d/<코드>/skillcut/play.json.gz (tools/build_skillcut.py 가 _skillcut_playback.json 에서 만든다).
 // 인게임 라이브 월페이퍼는 Spine 오브젝트 여러 개 · 배경 그림 · 검은 판을 원근 카메라 하나로 비춘다.
 // 오브젝트마다 카메라와의 거리가 달라서 skel 좌표로 본 화면 범위(중심 cx·cy, 세로 반높이 hh)가 저마다 다르고,
 // 15개는 그 범위가 시간에 따라 움직인다(30fps 표본). 그래서 Spine 플레이어(뼈대 하나 · 화면 하나)를 쓰지 않고
@@ -16,7 +16,7 @@
 //
 // 재생은 AnimationState 를 쓰지 않고 바깥 타임라인 시각 하나(T)로 모든 포즈 · 위치 · 색을 정한다.
 // 점프 마커로 idle 구간을 되감고, 진행바로 아무 시각이나 골라도 어긋나지 않는다.
-// 배경 그림 · 검은 판 · 파티클(요소)은 추출 세션이 엔진에서 GPU 로 읽은 정점 셰이더 입력을 30fps 로 그대로 쓰고,
+// 배경 그림 · 검은 판 · 파티클(요소)은 엔진에서 GPU 로 읽은 정점 셰이더 입력을 30fps 로 그대로 쓰고,
 // 게임 셰이더 7종을 디스어셈블한 계산 그대로 그린다(아래 FX_FS). 안개는 비율 1(사용자 결정), 후처리는 넣지 않는다.
 
 // 컷신 데이터 판(빌드할 때마다 올린다). play.json · 목록 · 요소 그림 주소에 붙여서, 새 JS 가 캐시된 옛 데이터를 읽지 않게 한다.
@@ -122,7 +122,7 @@ function createSkillcut(cfg = {}) {
   // 켜짐 구간. 시각은 소수 셋째 자리로 적혀 있어 경계에 0.5ms 여유를 둔다(반복 시작 jump.to 가 4.666667 이면 4.667 구간도 켜짐)
   const activeAt = (iv, t) => iv.some(([a, b]) => t >= a - 5e-4 && t < b);
 
-  // 반복 구간 데이터: idle 반복(점프로 되감은 뒤)이면 추출 세션이 되감기 3바퀴 뒤에 기록한 한 바퀴를 쓴다.
+  // 반복 구간 데이터: idle 반복(점프로 되감은 뒤)이면 되감기 3바퀴 뒤에 기록한 한 바퀴를 쓴다.
   // 자동 재생 파티클이 되감기와 상관없이 이어져서 반복할 때 이펙트가 끊기지 않는다. 처음 재생은 원래 데이터.
   const looped = () => mode === 'idle' && !!(data && ((data.orderLoop && data.orderLoop.length) || data.orderLoops));
   // 지금 바퀴(되감을 때마다 하나씩). 바퀴별 데이터(laps.json)를 받기 전에는 첫 바퀴
@@ -285,7 +285,7 @@ function createSkillcut(cfg = {}) {
     c.clear(c.COLOR_BUFFER_BIT | c.DEPTH_BUFFER_BIT);
 
     const a = cfg.embedded ? W / H : skillcutAspect();   // 붙인 컨테이너(3D 뷰어)는 그 화면비 그대로(게임 카메라는 세로 화각 고정)
-    // 엔진이 실제로 실행한 드로우 순서(추출 세션이 GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
+    // 엔진이 실제로 실행한 드로우 순서(GPU 원자 카운터로 기록). 불투명 패스(blend_3d)가 먼저, 그다음 투명 패스.
     const L = looped();
     const li = L ? lapIndex() : 0;
     const row = L ? holdIn(pick(data.orderLoops, data.orderLoop, li) || [], T, true) : hold(data.order, T);
@@ -413,7 +413,7 @@ function createSkillcut(cfg = {}) {
   }
 
   // ---- 요소(스프라이트 · 메시 · 파티클) ----
-  // 꼭짓점은 추출 세션이 GPU 에서 직접 읽은 정점 셰이더 입력(월드 좌표 · COLOR · TEXCOORD0~2 · 법선)과 삼각형 그대로다.
+  // 꼭짓점은 GPU 에서 직접 읽은 정점 셰이더 입력(월드 좌표 · COLOR · TEXCOORD0~2 · 법선)과 삼각형 그대로다.
   // 카메라가 원점 · 회전 없음 · +z 를 보므로 투영은 x / (z · tanHalfFov) 이고, w = z 로 넘겨 원근 보간 · 근평면 자르기를 GPU 와 같게 한다.
   // 프래그먼트는 게임 셰이더(_skillcut_shaders 디스어셈블)를 명령어 순서대로 옮겼다. 셰이더별 블렌드 · 깊이 · 컬은 FX_STATE.
   //   add      NK_fx_add_all                      blend      NK_fx_blend_all(_FOGOFF_ON)

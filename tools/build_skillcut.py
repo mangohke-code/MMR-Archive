@@ -1,6 +1,6 @@
 """유니크 코스튬 스킬 컷신을 사이트용으로 묶는다 (사용자 요청, 2026-10-12).
 
-입력 (추출 세션이 만든 것, 리소스/코스튬/완료/_스킬컷/):
+입력 (리소스/코스튬/완료/_스킬컷/):
     _skillcut_playback.json          코드별 재생 데이터(바깥 타임라인 30fps, Spine 런타임 · BoneFollower 적용)
     _skillcut_particles/<코드>.json   Spine 이 아닌 렌더러(스프라이트 · 메시 · 파티클)마다 GPU 가 실제로 받은 꼭짓점 입력
                                      (gpu: 월드 좌표 · COLOR · TEXCOORD0~2 · 삼각형), 머티리얼, propertyBlock
@@ -33,11 +33,11 @@
         텍스처 칸이 없거나 null 이면 셰이더 기본 텍스처(이 셰이더들은 모두 white). _ST 는 칸이 있으면 그 값, 없으면 (1,1,0,0).
     pb = [[t, {color, st: {칸: [sx,sy,ox,oy]}, bloom, tex: {칸: 파일}} 또는 null]] 타임라인이 움직이는 머티리얼 속성.
 
-반복 구간(점프로 되감은 뒤): 추출 세션이 처음 재생 → 되감기 → 3바퀴 더 돈 뒤의 한 바퀴를 따로 기록한 것.
+반복 구간(점프로 되감은 뒤): 처음 재생 → 되감기 → 3바퀴 더 돈 뒤의 한 바퀴를 따로 기록한 것.
     draws[].fl · pbl · activeLoop · orderLoop · Spine 의 zwl · activeLoop 이 처음 재생 쪽(f · pb · active · order · zw)과 같은 형식.
     자동 재생 파티클은 되감기와 상관없이 계속 흘러서, 반복할 때 이펙트가 끊기지 않는다.
     바퀴마다 다르면 복수형(fls · pbls · activeLoops · orderLoops · zwls) = [바퀴0, 바퀴1, ...], play.laps 바퀴를 차례로 돈다
-    (추출 세션이 해시로 정확한 주기를 찾았으면 그 바퀴 수, 없으면 이어 기록한 8바퀴 - 8바퀴마다 한 번만 끊긴다).
+    (해시로 정확한 주기를 찾았으면 그 바퀴 수, 없으면 이어 기록한 8바퀴 - 8바퀴마다 한 번만 끊긴다).
 
 드로우 순서 (play.json order): [[t, [[0, 요소, 드로우] 또는 [1, Spine], ...]]] 바뀐 때만. 엔진(URP 12.1.15)이 실제로 실행한 순서
 (불투명 패스 먼저, 투명 패스는 정렬 레이어 · 순서 · 큐 · 거리+fudge). 키가 완전히 같은 동률은 추출 재생에서 나온 순서다.
@@ -452,7 +452,7 @@ def build_code(it, report, texinfo):
         return rows
 
     # Spine 포즈 시각: 엔진이 그 프레임 포즈를 계산할 때 쓴 애니메이션 시각(TrackEntry.nextAnimationLast, 루프 반영)을
-    # 추출 세션이 매 프레임 기록(spineRenderers[].anim). 오브젝트가 켜질 때부터 시간이 흐르거나(c223_01) Spine 끼리
+    # 매 프레임 기록(spineRenderers[].anim). 오브젝트가 켜질 때부터 시간이 흐르거나(c223_01) Spine 끼리
     # 갱신 순서가 달라(c222_01 0.267초) 타임라인 시각과 한 프레임씩 어긋나는 것을 그대로 따른다.
     # 행: [트랙, 깊이, 이름, 적용 애니시각, 적용 트랙시각, AnimationTime, TrackTime, Alpha, MixTime, MixDuration, Loop, TimeScale]
     def anim_rows(src, path):

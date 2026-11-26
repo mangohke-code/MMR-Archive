@@ -609,7 +609,7 @@ const PART_LABELS = {
     'r_coverts_skin': '날개 견갑 R',
   },
   // 승리의 여신 - 로케일 parts_name_goddessofvictory01~04(지지용 모듈 L · R, 위협용 외장 L · R).
-  // 파츠 ↔ 이름 대응표는 클라이언트에 없다(추출 세션 확인, 2026-10-30). 번호 순서 = partsType 순서
+  // 파츠 ↔ 이름 대응표는 클라이언트에 없다(2026-10-30 확인). 번호 순서 = partsType 순서
   // (13 · 14 = 1페 break_l · r, 15 · 16 = 2페 left · right_wings)로 이었다 - 인게임 확인 전까지 추정이다.
   // 좌우는 break_l · left_wings 둘 다 x 음수 쪽이라 서로는 맞는다.
   xbg006: {
@@ -1117,7 +1117,7 @@ const CINE_ANCHOR = [
   { boss: /^bbg009/i, re: /^bbg009_(bh_)?death$/i, at: 0, bone: /^root2$/ },
   //   mesh - 추적 기준 메쉬 대신 이 메쉬의 몸 중심으로 잰다(기준점은 대기 때 몸 중심 그대로).
   // 승리의 여신 1페 연출 둘 - 클립이 root · root2 크기를 8.005 로 키우고 root2 를 3243(등장) · 1839(2페 전환 a컷) 떨어진
-  // 곳에 둔다(추출 세션 엔진 실측, 2026-10-30). 연출 카메라도 그 자리를 찍는다(카메라도 gltf.scene 안이라 같이 옮겨진다).
+  // 곳에 둔다(엔진 실측, 2026-10-30). 연출 카메라도 그 자리를 찍는다(카메라도 gltf.scene 안이라 같이 옮겨진다).
   // 기본 맞춤은 추적 기준 메쉬로 재는데, 전환 묶음은 2페이즈 목록이라 기준이 2페 몸(이 컷에서 안 움직임)이 되어
   // a컷이 안 옮겨졌다. 1페 몸으로 잰다. root2 로 맞추면 8배 몸의 가운데가 root2 보다 165 ~ 260 뒤라 격자 뒤로 쏠린다.
   { boss: /^xbg006/i, re: /^xbg006_(1phase_appearance|2phase_appearance_a)$/i, at: 0.5, mesh: /^xbg006_1phase_body_skin$/i },
@@ -1419,7 +1419,7 @@ const SEQ_RE = /^(.*?)_(start|loop|end|fire)(_.+)?$/i;
 // 거대 질량체(두 시즌) 스킬 05. 파일에 *_05 라는 이름의 AnimationClip 이 아예 없고, 게임 타임라인이
 // skill_loop_04 를 1.1667 초 지점부터 끝까지(1.667초), 이어서 skill_fire_04 를 통째로(3.333초) 얹어 쓴다.
 // 게임은 스킬 04(start_04 -> loop_04, 5.67초) 도중 암전 저지 패턴을 돌리고, 갈래에 따라
-// 스킬 05(순간이동 뒤 사격) 또는 스킬 09 -> 08 로 간다(행동 트리 bt_eba004*_singleRaid, 추출 세션 확인).
+// 스킬 05(순간이동 뒤 사격) 또는 스킬 09 -> 08 로 간다(행동 트리 bt_eba004*_singleRaid).
 // 사용자 관찰: 저지 성공이면 09 -> 08, 실패면 05 로 보인다(실패 영상은 못 찾음, 2026-10-07).
 // 한때 "이어 붙인 것"이라 뺐었는데, 게임 타임라인 그대로라 다시 넣고 스킬 04 를 start -> loop 로 줄였다.
 const SYNTHETIC_SEQUENCES = [
@@ -1964,7 +1964,7 @@ const HIDDEN_CLIPS = [
   { boss: /^eba004/i, re: /^eba004_skill_fire_04$/i },
   // 온리 원 1페 skill_02 - 행동 트리가 부르지 않는다(aniNumberLists []). fire_02 칸도 start_02 와 키가
   // 똑같은 복사본(1.667초)이라 loop 끝에서 자세가 튄다(날개 106도). 만들다 만 미사용 스킬로 본다
-  // (추출 세션 확인 · 사용자 결정, 2026-10-07). 2페 skill_02 는 그대로 쓴다.
+  // (게임 데이터 확인 · 사용자 결정, 2026-10-07). 2페 skill_02 는 그대로 쓴다.
   { boss: /^xbg003/i, re: /^xbg003_skill_1phase_(start|loop|fire)_02$/i },
   // 사치스러운 거미 idle_02 는 0.03초짜리라 볼 게 없다.
   { boss: /^bbg001/i, re: /^bbg001_idle_02$/i },
@@ -2517,7 +2517,7 @@ const isCameraClockClip = (bossKey, name) =>
   CAMERA_CLOCK_CLIPS.some(o => o.boss.test(bossKey || '') && o.re.test(name || ''));
 
 // 연출 효과 · 2D Spine 을 스킬 컷신 렌더러(js/skillcut.js createSkillcut, embed)로 3D 화면 위 캔버스에 그린다.
-//   모더니아 등장(게임 타임라인 mbg004_phase001_appearance, 추출 세션 플레이 모드 실측 2026-10-19 · 20):
+//   모더니아 등장(게임 타임라인 mbg004_phase001_appearance, 플레이 모드 실측 2026-10-19 · 20):
 //   0~6.1초 Camera_animation(모델은 화면 밖 - 경고 홀로그램 UI · 구름 · 검은 전환 효과만 보인다) -> 6.1초 Camera_spine 으로 컷,
 //   Spine mbg004_appearance. 바깥 타임라인 FixedLength 10.3667초에서 끝난다(안쪽 모델 타임라인 12.75초도 거기서 멈춤).
 //   효과 GPU 기록 · 드로우 순서(동률은 프레임 디버거 실측) · Spine 적용 시각은 tools/build_bossfx.py 가 카메라 공간으로 묶었다.
@@ -3300,7 +3300,7 @@ window.loadSoloRaidModel3D = function loadSoloRaidModel3D(container, modelUrl, o
 
     // 애니메이터 레이어(2026-10-03 19:53 추출기부터 리그 루트 extras.animatorController, 동작 extras.animatorStates).
     // 파괴 · 재생 · 샷 같은 동작은 레이어 1 이상(전부 Override)에 있어 대기(레이어 0) 위에 덧입혀 돈다.
-    // 유니티 합성 규칙(추출 세션이 엔진으로 확인): 레이어 마스크 가중치 > 0 인 뼈는 클립 곡선으로 덮고(고정값도),
+    // 유니티 합성 규칙(엔진으로 확인): 레이어 마스크 가중치 > 0 인 뼈는 클립 곡선으로 덮고(고정값도),
     // 마스크 밖 곡선은 무시하고, 마스크 안이라도 곡선이 없으면 대기를 유지한다.
     const animatorCtrls = [];
     ((gltf.parser && gltf.parser.json && gltf.parser.json.nodes) || []).forEach(n => {
