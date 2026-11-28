@@ -25,6 +25,12 @@
   const fam = s => (/주년$/.test(String(s || '')) ? '주년' : String(s || ''));
   const isFullAnniv = s => /^\d+주년$/.test(String(s || ''));
   const day = v => { const d = new Date(String(v).slice(0, 10) + 'T00:00:00+09:00'); return isNaN(d) ? null : d; };
+  // 종료 시각 - 시각이 있으면 그대로, 날짜만 있으면 그날 끝(한국시간)
+  const endOf = v => {
+    if (!v) return null;
+    if (String(v).includes('T')) { const d = new Date(v); return isNaN(d) ? null : d; }
+    const d = day(v); return d ? new Date(d.getTime() + DAY - 1) : null;
+  };
   const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const median = a => { const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const limitedSeasons = typeof LIMITED_SEASONS !== 'undefined' ? LIMITED_SEASONS : ['콜라보', '여름', '크리스마스'];
@@ -33,7 +39,7 @@
 
   function analyze(pickups) {
     const list = pickups.filter(p => p['시작일'] && p['니케'])
-      .map(p => ({ name: p['니케'], season: p['시즌'], event: p['이벤트'], company: p['기업'], date: day(p['시작일']), rerun: !!p['복각'] }))
+      .map(p => ({ name: p['니케'], season: p['시즌'], event: p['이벤트'], company: p['기업'], date: day(p['시작일']), end: endOf(p['종료일']), rerun: !!p['복각'] }))
       .filter(p => p.date)
       .sort((a, b) => a.date - b.date);
     const evSeason = {};
@@ -58,8 +64,8 @@
       if (SKIP_FAMILIES.has(f)) return;
       const arr = occ[f] = occ[f] || [];
       const last = arr[arr.length - 1];
-      if (last && p.date - last.date < 60 * DAY) { last.names.push(p.name); return; }
-      arr.push({ date: p.date, event: p.event, season: p.season, names: [p.name] });
+      if (last && p.date - last.date < 60 * DAY) { last.names.push(p.name); if (p.end > last.end) last.end = p.end; return; }
+      arr.push({ date: p.date, end: p.end, event: p.event, season: p.season, names: [p.name] });
     });
     return { first, valid, skipped, occ };
   }
@@ -99,24 +105,29 @@
 
   function seasonal(f, occs, A, today) {
     if (occs.length < 2) return { family: f, none: '첫 회차' };
+    const hitIn = (n, b) => (A.valid[n] || []).some(r => r.date >= new Date(b.date - 30 * DAY) && r.date <= new Date(b.date.getTime() + 60 * DAY));
+    // 이번 회차 신규가 먼저 올라와도(예: 2026 크리스마스 신규) 이번 회차 예측(앞 회차 신규의 복각)은 남긴다(사용자 요청, 2026-11-28).
+    // 이번 회차에 앞 회차 신규 복각이 하나라도 올라오거나, 이번 회차 신규 픽업 기간이 끝나면 다음 해 예측으로 넘어간다.
+    const L = occs[occs.length - 1], P = occs[occs.length - 2];
+    const pending = !!L.end && today <= L.end && !P.names.some(n => hitIn(n, L));
+    const done = pending ? occs.length - 1 : occs.length;   // 결과가 난 회차까지만 비교한다
     const pairs = [];
-    for (let i = 0; i + 1 < occs.length; i++) {
+    for (let i = 0; i + 1 < done; i++) {
       const a = occs[i], b = occs[i + 1];
-      const rows = a.names.map(n => {
-        const hit = (A.valid[n] || []).find(r => r.date >= new Date(b.date - 30 * DAY) && r.date <= new Date(b.date.getTime() + 60 * DAY));
-        return { name: n, hit: !!hit };
-      });
+      const rows = a.names.map(n => ({ name: n, hit: hitIn(n, b) }));
       pairs.push({ from: a, to: b, rows, hits: rows.filter(r => r.hit).length, total: rows.length });
     }
+    if (!pairs.length) return { family: f, none: '첫 회차' };
     const total = pairs.reduce((n, p) => n + p.total, 0);
     const hits = pairs.reduce((n, p) => n + p.hits, 0);
     if (!hits) return { family: f, none: '같은 시즌 복각 없음' };
-    const last = occs[occs.length - 1];
+    const last = pending ? P : L;
     const cands = last.names.filter(n => !(A.valid[n] || []).length);
     if (!cands.length) return null;
-    const date = nextDate(occs, today);
+    const date = pending ? L.date : nextDate(occs, today);
     return {
-      family: f, conf: grade(pairs), date, exact: regular(occs), span: regular(occs) ? '' : monthSpan(occs, date), cands: cands.map(n => ({ name: n, from: last })),
+      family: f, conf: grade(pairs), date, live: pending && today >= L.date,
+      exact: pending || regular(occs), span: pending || regular(occs) ? '' : monthSpan(occs, date), cands: cands.map(n => ({ name: n, from: last })),
       why: pairs.map(p => ({
         text: `${p.from.date.getFullYear()} ${p.from.event} 신규 → ${p.to.date.getFullYear()} ${p.to.event}`,
         rows: p.rows,
@@ -301,7 +312,7 @@
         <div class="predict-date">
           <span class="predict-date-y">${c.date.getFullYear()}</span>
           ${c.exact ? `<b class="predict-date-md">${md(c.date)}</b>
-          <em class="predict-date-d">${dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>
+          <em class="predict-date-d">${c.live ? '진행 중' : dday >= 0 ? `D-${dday}` : '지남'}</em>` : `<b class="predict-date-md">${c.date.getMonth() + 1}월</b>
           ${c.span ? `<em class="predict-date-d is-span">${esc(c.span)}</em>` : ''}`}
         </div>`;
   }
